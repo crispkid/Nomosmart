@@ -10,8 +10,6 @@ NomoSmart converts files and connected data sources into versioned knowledge. Co
 
 The platform serves knowledge owners, editors, reviewers, system administrators, integration developers, and business users. PostgreSQL is the authoritative application store. Redis and Celery coordinate background work. S3-compatible storage retains source and generated artifacts. OpenSearch provides keyword, vector, and hybrid retrieval. Neo4j stores graph relationships. Keycloak provides OIDC identity and directory integration.
 
-[SPECIFICATION.md](SPECIFICATION.md) defines product behavior and acceptance criteria.
-
 ## 2. Key Features
 
 - **Multi-source knowledge ingestion** — Imports PDF, DOCX, TXT, and Markdown files and connects to FTP, FTPS, SFTP, S3, and HTTP API sources.
@@ -26,24 +24,23 @@ The platform serves knowledge owners, editors, reviewers, system administrators,
 
 ## 3. Architecture
 
-```mermaid
-flowchart LR
-    Client[Browser or API Client] --> Edge[HTTPS Edge or Ingress]
-    Edge --> Frontend[Next.js Frontend]
-    Edge --> Identity[Keycloak OIDC]
-    Frontend --> Backend[FastAPI Backend]
-    Identity --> Backend
-    Backend --> PostgreSQL[(PostgreSQL)]
-    Backend --> Redis[(Redis)]
-    Redis --> Workers[Celery Worker and Beat]
-    Backend --> Storage[(S3 or RustFS)]
-    Workers --> Storage
-    Backend --> Search[(OpenSearch)]
-    Workers --> Search
-    Backend --> Graph[(Neo4j)]
-    Workers --> Graph
-    Backend --> Models[Chat, Embedding, OCR, and Judge Services]
-    Workers --> Models
+```text
+Browser / API Client
+        |
+        v
+HTTPS Edge / Kubernetes Ingress
+        |
+        +---------------------> Keycloak OIDC
+        |
+        v
+Next.js Frontend -----------> FastAPI Backend
+                                  |
+                                  +--> PostgreSQL
+                                  +--> Redis <--> Celery Worker / Beat
+                                  +--> S3-compatible Storage / RustFS
+                                  +--> OpenSearch
+                                  +--> Neo4j
+                                  +--> Chat / Embedding / OCR / Judge Services
 ```
 
 Migration and deployment-bootstrap jobs initialize the database schema and required runtime records before the application becomes ready. The readiness endpoint checks PostgreSQL, Redis, object storage, OpenSearch, Neo4j, migration state, and bootstrap evidence.
@@ -61,7 +58,7 @@ Migration and deployment-bootstrap jobs initialize the database schema and requi
 | Graph | Neo4j 5.26 Community | Knowledge relationships and traversal |
 | Identity | Keycloak 26.0.8, OIDC, LDAP/AD federation | Authentication, directory synchronization, and role mapping |
 | Deployment | Docker Compose v2, Helm chart 0.8.0 | Single-host and Kubernetes deployment |
-| Verification | Pytest, Vitest, Playwright, repository Harness | Application, integration, deployment, and governance checks |
+| Verification | Pytest, Vitest, Playwright, Docker Compose, Helm | Application, integration, end-to-end, and deployment checks |
 
 ## 5. Project Structure
 
@@ -75,11 +72,7 @@ Nomosmart/
 ├── deploy/installer/          Profile-aware Kubernetes installer
 ├── deploy/package/            Secret and TLS package lifecycle tool
 ├── deploy/release/            Signed release-package tooling
-├── HARNESS/                   Repository verification entry point
 ├── docs/                      Decisions, release baselines, and runbooks
-├── SPECIFICATION.md           Product and acceptance baseline
-├── TEST_PLAN.md               Test strategy and verification record
-├── TRACEABILITY.md            Requirement-to-test traceability
 └── docker-compose.yml         Single-host deployment model
 ```
 
@@ -227,11 +220,11 @@ Each command must return status `0`. Production package creation uses `--profile
 
 ```bash
 ./deploy/package/nomosmart-package preflight --runtime compose
-./HARNESS/harness.sh docker:config
-./HARNESS/harness.sh deploy:config-policy
+docker compose --env-file deploy/docker/nomosmart.env config --quiet
+docker compose --env-file deploy/docker/nomosmart.env config --services
 ```
 
-Preflight confirms the host mapping, ports 80 and 443, and the local runtime boundary. The Harness validates the Compose model and externalized configuration policy.
+Preflight confirms the host mapping, ports 80 and 443, and the local runtime boundary. Compose validation must complete without an error and list the application services.
 
 ### 7.6 Build and start the platform
 
@@ -677,13 +670,13 @@ Source development runs Frontend, Backend, Worker, and Beat directly from the Re
 ```bash
 git clone https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
-uv sync --all-groups
+uv sync --locked --all-extras
 cd ../frontend
 npm ci
 cd ..
 ```
 
-Python must report 3.12. `uv sync` uses `backend/uv.lock`, and `npm ci` uses `frontend/package-lock.json`.
+Python must report 3.12. `uv sync --locked` uses `backend/uv.lock` without changing the lockfile, and `npm ci` uses `frontend/package-lock.json`.
 
 ### 10.2 Prepare live dependencies
 
@@ -960,32 +953,25 @@ npm run build
 
 ```bash
 cd backend
-uv sync --all-groups
+uv sync --locked --all-extras
 uv run pytest
 cd ..
-./HARNESS/harness.sh spec:doctor
-./HARNESS/harness.sh spec:trace
-./HARNESS/harness.sh plan:approved
-./HARNESS/harness.sh backend:syntax
-./HARNESS/harness.sh test:backend
-./HARNESS/harness.sh test:installer
-./HARNESS/harness.sh test:release
-./HARNESS/harness.sh docker:config
-./HARNESS/harness.sh helm:lint
-./HARNESS/harness.sh deploy:config-policy
+python3 -m unittest discover -s deploy/installer/tests -p 'test_*.py'
+docker compose config --no-env-resolution --quiet
+helm lint deploy/helm/nomosmart
 ```
 
-Backend integration tests and browser E2E tests use configured live services. Frontend and Backend coverage are measured separately against the Repository's 80% release gate. `./HARNESS/harness.sh` runs the default specification, plan, repository, and Backend syntax checks.
+Backend integration tests and browser E2E tests use configured live services. Frontend and Backend coverage are measured separately against the Repository's 80% release gate.
 
 ## 14. Deployment and Operations
 
 - **Docker Compose** uses the root [docker-compose.yml](docker-compose.yml), generated non-secret environment file, mounted owner-only Secret files, health checks, named volumes, and one loopback HTTPS edge.
 - **Kubernetes** uses the [Helm chart](deploy/helm/nomosmart), an explicit profile overlay, ConfigMaps, Secrets, probes, Services, Ingress, NetworkPolicy, jobs, resource requests/limits, and persistent storage.
-- **Release packages** use [deploy/release/nomosmart-release](deploy/release/nomosmart-release) to create and verify a signed inventory containing checksums, attestations, image digests, the Helm chart, and installer assets.
+- **Signed release packages** are verified with [deploy/release/nomosmart-release](deploy/release/nomosmart-release) before the Kubernetes installer contacts the target cluster.
 - **Migrations** use the forward-only files in [sql/migrations](sql/migrations). Compose and Helm run migration before application readiness.
 - **Bootstrap** uses a non-HTTP command or job to initialize storage, search, graph, identity, and durable release evidence.
 
-Production capacity, release custody, backup, restore, and factory procedures are recorded in the deployment documents linked in Section 18.
+Production capacity, release custody, backup, restore, and factory procedures are recorded in the deployment documents linked in Section 19.
 
 ## 15. Observability
 
@@ -1092,14 +1078,10 @@ Complete the following checks for the selected method:
 
 ## 19. Documentation
 
-- [Product specification](SPECIFICATION.md)
-- [API compatibility](API_COMPATIBILITY.md)
-- [Development plan](DEVELOPMENT_PLAN.md)
-- [Test plan](TEST_PLAN.md)
-- [Requirement traceability](TRACEABILITY.md)
 - [Release readiness](deploy/RELEASE_READINESS.md)
 - [Guided installer live test](docs/CHG-248-OPENLDAP-INSTALLER-LIVE-TEST.md)
 - [Release and installer hardening](docs/CHG-249-SCRIPT-DRIVEN-RELEASE-AND-INSTALLER-HARDENING.md)
+- [OpenSearch image and migration evidence](docs/CHG-251-OPENSEARCH-IMAGE-AND-MIGRATION-EVIDENCE.md)
 - [Production HA factory runbook](docs/CHG-252-PRODUCTION-HA-FACTORY-RUNBOOK.md)
 - [Release baseline](docs/CHG-252-RELEASE-BASELINE.md)
 - [Supply-chain evidence](docs/CHG-252-SUPPLY-CHAIN-EVIDENCE.md)

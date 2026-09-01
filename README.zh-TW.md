@@ -10,8 +10,6 @@ NomoSmart 將檔案與連接的資料來源轉換為具版本管理的知識。�
 
 平台適用於知識 Owner、Editor、Reviewer、系統管理員、整合開發者與業務使用者。PostgreSQL 保存具權威性的應用程式資料；Redis 與 Celery 協調背景作業；S3 相容 Object Storage 保存原始檔與產出物；OpenSearch 提供 Keyword、Vector 與 Hybrid Retrieval；Neo4j 保存圖譜關係；Keycloak 提供 OIDC 身分認證與企業目錄整合。
 
-產品行為與驗收條件定義於 [SPECIFICATION.md](SPECIFICATION.md)。
-
 ## 2. 核心功能
 
 - **多來源知識匯入** — 匯入 PDF、DOCX、TXT 與 Markdown 檔案，並連接 FTP、FTPS、SFTP、S3 與 HTTP API 資料來源。
@@ -26,24 +24,23 @@ NomoSmart 將檔案與連接的資料來源轉換為具版本管理的知識。�
 
 ## 3. 系統架構
 
-```mermaid
-flowchart LR
-    Client[Browser or API Client] --> Edge[HTTPS Edge or Ingress]
-    Edge --> Frontend[Next.js Frontend]
-    Edge --> Identity[Keycloak OIDC]
-    Frontend --> Backend[FastAPI Backend]
-    Identity --> Backend
-    Backend --> PostgreSQL[(PostgreSQL)]
-    Backend --> Redis[(Redis)]
-    Redis --> Workers[Celery Worker and Beat]
-    Backend --> Storage[(S3 or RustFS)]
-    Workers --> Storage
-    Backend --> Search[(OpenSearch)]
-    Workers --> Search
-    Backend --> Graph[(Neo4j)]
-    Workers --> Graph
-    Backend --> Models[Chat, Embedding, OCR, and Judge Services]
-    Workers --> Models
+```text
+Browser / API Client
+        |
+        v
+HTTPS Edge / Kubernetes Ingress
+        |
+        +---------------------> Keycloak OIDC
+        |
+        v
+Next.js Frontend -----------> FastAPI Backend
+                                  |
+                                  +--> PostgreSQL
+                                  +--> Redis <--> Celery Worker / Beat
+                                  +--> S3-compatible Storage / RustFS
+                                  +--> OpenSearch
+                                  +--> Neo4j
+                                  +--> Chat / Embedding / OCR / Judge Service
 ```
 
 Migration 與 Deployment Bootstrap Job 會在應用程式進入 Ready 狀態前初始化 Database Schema 與必要 Runtime Record。Readiness Endpoint 會檢查 PostgreSQL、Redis、Object Storage、OpenSearch、Neo4j、Migration 狀態與 Bootstrap Evidence。
@@ -61,7 +58,7 @@ Migration 與 Deployment Bootstrap Job 會在應用程式進入 Ready 狀態前�
 | Graph | Neo4j 5.26 Community | 知識關係與 Traversal |
 | Identity | Keycloak 26.0.8、OIDC、LDAP/AD Federation | 認證、目錄同步與角色映射 |
 | Deployment | Docker Compose v2、Helm Chart 0.8.0 | 單機與 Kubernetes 部署 |
-| Verification | Pytest、Vitest、Playwright、Repository Harness | Application、Integration、Deployment 與 Governance Check |
+| Verification | Pytest、Vitest、Playwright、Docker Compose、Helm | Application、Integration、E2E 與 Deployment Check |
 
 ## 5. 專案結構
 
@@ -75,11 +72,7 @@ Nomosmart/
 ├── deploy/installer/          支援 Profile 的 Kubernetes Installer
 ├── deploy/package/            Secret 與 TLS Package 生命週期工具
 ├── deploy/release/            Signed Release Package 工具
-├── HARNESS/                   Repository 驗證入口
 ├── docs/                      Decision、Release Baseline 與 Runbook
-├── SPECIFICATION.md           產品與驗收基準
-├── TEST_PLAN.md               Test Strategy 與 Verification Record
-├── TRACEABILITY.md            Requirement-to-test Traceability
 └── docker-compose.yml         單機 Deployment Model
 ```
 
@@ -227,11 +220,11 @@ test -f deploy/docker/generated/current/tls/active/edge-ca.crt
 
 ```bash
 ./deploy/package/nomosmart-package preflight --runtime compose
-./HARNESS/harness.sh docker:config
-./HARNESS/harness.sh deploy:config-policy
+docker compose --env-file deploy/docker/nomosmart.env config --quiet
+docker compose --env-file deploy/docker/nomosmart.env config --services
 ```
 
-Preflight 會確認 Host Mapping、80 與 443 Port，以及本機 Runtime 邊界。Harness 會驗證 Compose Model 與外部化設定政策。
+Preflight 會確認 Host Mapping、80 與 443 Port，以及本機 Runtime 邊界。Compose 驗證應無錯誤完成，並列出 Application Service。
 
 ### 7.6 Build 並啟動平台
 
@@ -677,13 +670,13 @@ Source Development 會直接從 Repository 執行 Frontend、Backend、Worker �
 ```bash
 git clone https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
-uv sync --all-groups
+uv sync --locked --all-extras
 cd ../frontend
 npm ci
 cd ..
 ```
 
-Python 必須為 3.12。`uv sync` 使用 `backend/uv.lock`，`npm ci` 使用 `frontend/package-lock.json`。
+Python 必須為 3.12。`uv sync --locked` 會依 `backend/uv.lock` 安裝且不修改 Lockfile，`npm ci` 使用 `frontend/package-lock.json`。
 
 ### 10.2 準備 Live Dependency
 
@@ -960,32 +953,25 @@ npm run build
 
 ```bash
 cd backend
-uv sync --all-groups
+uv sync --locked --all-extras
 uv run pytest
 cd ..
-./HARNESS/harness.sh spec:doctor
-./HARNESS/harness.sh spec:trace
-./HARNESS/harness.sh plan:approved
-./HARNESS/harness.sh backend:syntax
-./HARNESS/harness.sh test:backend
-./HARNESS/harness.sh test:installer
-./HARNESS/harness.sh test:release
-./HARNESS/harness.sh docker:config
-./HARNESS/harness.sh helm:lint
-./HARNESS/harness.sh deploy:config-policy
+python3 -m unittest discover -s deploy/installer/tests -p 'test_*.py'
+docker compose config --no-env-resolution --quiet
+helm lint deploy/helm/nomosmart
 ```
 
-Backend Integration Test 與 Browser E2E Test 使用已設定的 Live Service。Frontend 與 Backend Coverage 分別依 Repository 的 80% Release Gate 計算。`./HARNESS/harness.sh` 會執行預設的 Specification、Plan、Repository 與 Backend Syntax Check。
+Backend Integration Test 與 Browser E2E Test 使用已設定的 Live Service。Frontend 與 Backend Coverage 分別依 Repository 的 80% Release Gate 計算。
 
 ## 14. 部署與維運
 
 - **Docker Compose** 使用 Root [docker-compose.yml](docker-compose.yml)、產生的非機密 Environment File、Mounted Owner-only Secret File、Health Check、Named Volume 與單一 Loopback HTTPS Edge。
 - **Kubernetes** 使用 [Helm Chart](deploy/helm/nomosmart)、明確的 Profile Overlay、ConfigMap、Secret、Probe、Service、Ingress、NetworkPolicy、Job、Resource Request/Limit 與 Persistent Storage。
-- **Release Package** 使用 [deploy/release/nomosmart-release](deploy/release/nomosmart-release) 建立及驗證包含 Checksum、Attestation、Image Digest、Helm Chart 與 Installer Asset 的 Signed Inventory。
+- **Signed Release Package** 會在 Kubernetes Installer 連線至 Target Cluster 前，透過 [deploy/release/nomosmart-release](deploy/release/nomosmart-release) 完成驗證。
 - **Migration** 使用 [sql/migrations](sql/migrations) 內的 Forward-only File。Compose 與 Helm 會在 Application Ready 前執行 Migration。
 - **Bootstrap** 使用 Non-HTTP Command 或 Job 初始化 Storage、Search、Graph、Identity 與 Durable Release Evidence。
 
-Production Capacity、Release Custody、Backup、Restore 與 Factory Procedure 記錄於第 18 節連結的 Deployment 文件。
+Production Capacity、Release Custody、Backup、Restore 與 Factory Procedure 記錄於第 19 節連結的 Deployment 文件。
 
 ## 15. 可觀測性
 
@@ -1092,14 +1078,10 @@ curl --silent --show-error http://127.0.0.1:8000/api/v1/ready
 
 ## 19. 相關文件
 
-- [產品規格](SPECIFICATION.md)
-- [API 相容性](API_COMPATIBILITY.md)
-- [Development Plan](DEVELOPMENT_PLAN.md)
-- [Test Plan](TEST_PLAN.md)
-- [Requirement Traceability](TRACEABILITY.md)
 - [Release Readiness](deploy/RELEASE_READINESS.md)
 - [Guided Installer Live Test](docs/CHG-248-OPENLDAP-INSTALLER-LIVE-TEST.md)
-- [Release and Installer Hardening](docs/CHG-249-SCRIPT-DRIVEN-RELEASE-AND-INSTALLER-HARDENING.md)
+- [Release 與 Installer Hardening](docs/CHG-249-SCRIPT-DRIVEN-RELEASE-AND-INSTALLER-HARDENING.md)
+- [OpenSearch Image 與 Migration Evidence](docs/CHG-251-OPENSEARCH-IMAGE-AND-MIGRATION-EVIDENCE.md)
 - [Production HA Factory Runbook](docs/CHG-252-PRODUCTION-HA-FACTORY-RUNBOOK.md)
 - [Release Baseline](docs/CHG-252-RELEASE-BASELINE.md)
 - [Supply-chain Evidence](docs/CHG-252-SUPPLY-CHAIN-EVIDENCE.md)
