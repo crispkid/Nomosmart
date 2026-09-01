@@ -1,0 +1,86 @@
+{{- if include "nomosmart.applicationJobsEnabled" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-bootstrap-{{ .Release.Revision }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: deployment-bootstrap
+    nomosmart.io/installer-job: "true"
+    nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+spec:
+  backoffLimit: {{ .Values.bootstrap.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.bootstrap.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: deployment-bootstrap
+        nomosmart.io/installer-job: "true"
+        nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bootstrap
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.deployment.bootstrap"]
+          args: ["--mode", "ensure", "--wait-seconds", {{ .Values.bootstrap.waitSeconds | quote }}]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+          env:
+            {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
+            - name: DEPLOYMENT_KEYCLOAK_MODE
+              value: {{ .Values.bootstrap.keycloakMode | quote }}
+            - name: DEPLOYMENT_PHASE
+              value: {{ .Values.bootstrap.deploymentPhase | quote }}
+            {{- if ne .Values.bootstrap.deploymentPhase "operational" }}
+            - name: BREAK_GLASS_INITIAL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.bootstrap.breakGlassPasswordKey }}
+            {{- end }}
+            - name: OPENSEARCH_ADMIN_USERNAME
+              value: {{ .Values.opensearch.auth.adminUsername | quote }}
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.opensearch.auth.adminPasswordSecretKey }}
+            - name: NEO4J_ADMIN_USERNAME
+              value: {{ .Values.neo4j.auth.adminUsername | quote }}
+            - name: NEO4J_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.neo4j.auth.adminPasswordSecretKey }}
+            {{- if eq .Values.bootstrap.keycloakMode "manage" }}
+            - name: KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "nomosmart.secretName" .) .Values.bootstrap.keycloakAdminSecret }}
+                  key: {{ .Values.bootstrap.keycloakAdminUsernameKey }}
+            - name: KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ default (include "nomosmart.secretName" .) .Values.bootstrap.keycloakAdminSecret }}
+                  key: {{ .Values.bootstrap.keycloakAdminPasswordKey }}
+            {{- end }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+{{- end }}

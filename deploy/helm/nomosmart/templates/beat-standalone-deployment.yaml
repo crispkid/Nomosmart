@@ -1,0 +1,50 @@
+{{- if and (include "nomosmart.applicationStageEnabled" .) (not .Values.beat.haEnabled) }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-beat
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: beat
+spec:
+  replicas: 1
+  strategy: {type: Recreate}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: beat
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: beat
+      annotations:
+        nomosmart.io/deployment-release: {{ printf "%s-%d" .Release.Name .Release.Revision | quote }}
+    spec:
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      initContainers:
+        {{- include "nomosmart.bootstrapEvidenceInitContainer" . | nindent 8 }}
+      containers:
+        - name: beat
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["celery", "-A", "app.worker.celery_app", "beat"]
+          args: ["--loglevel=INFO", "--schedule=/tmp/celerybeat-schedule"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          env:
+            {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+          readinessProbe: {exec: {command: ["/bin/sh", "-c", "test -s /tmp/celerybeat-schedule.db"]}, initialDelaySeconds: 10, periodSeconds: 20, timeoutSeconds: 5, failureThreshold: 3}
+          livenessProbe: {exec: {command: ["/bin/sh", "-c", "test -s /tmp/celerybeat-schedule.db"]}, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 5, failureThreshold: 4}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- toYaml .Values.worker.resources | nindent 12 }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+{{- end }}

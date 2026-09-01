@@ -1,0 +1,148 @@
+# NomoSmart Kubernetes 安裝器設定範本；請複製到版本庫外的受保護目錄後再修改，請勿直接編輯並提交此範本。
+# 設定檔只能放非機密參數與 Kubernetes Secret 名稱；禁止填入密碼、Token 或私鑰。
+# 建議使用 `nomosmart-one-click --profile bundled --config /secure/nomosmart/install.toml --init-config`
+# 從同一份已驗證的 source/release package 安全建立 owner-only 副本；指令不覆寫既有檔案。
+# 初始化也會把 chart/values 改為該已驗證 package 內的絕對路徑，避免 config 位於 package 外時相對路徑失效。
+# bundled 會在同一 Kubernetes release 安裝 NomoSmart 與受支援的 PostgreSQL、Redis、RustFS、
+# OpenSearch、Neo4j 與 Keycloak；Cluster、DNS、Ingress、StorageClass、registry 與 directory 仍由 operator 準備。
+# api_version 是設定檔格式版本；v1alpha1 保留既有 UAT 相容性，正式簽章發佈包必須改用 install.nomosmart.io/v1alpha2。
+api_version = "install.nomosmart.io/v1alpha1"
+deployment_profile = "bundled"
+# 正式 Production 使用時，將上一行改成 v1alpha2，並取消下列三行註解；UAT v1alpha1 不需要 [release]。
+# [release]
+# package_dir 是已解壓且唯讀保存的正式發佈包根目錄；範例：/opt/nomosmart/releases/nomosmart-1.0.0。
+# package_dir = "/opt/nomosmart/releases/nomosmart-1.0.0"
+# trusted_signer_fingerprint 必須由與發佈包不同的可信管道取得，不可只抄包內公鑰；範例為 40 碼測試值，正式環境必須替換。
+# trusted_signer_fingerprint = "0123456789ABCDEF0123456789ABCDEF01234567"
+
+# [target] 定義唯一且不可模糊比對的目標 Kubernetes Cluster、Namespace 與 Helm release。
+[target]
+# context 是 kubeconfig 內的 context 名稱；可用 `kubectl config get-contexts` 查詢；範例：rke2-uat。
+context = "rke2-uat"
+# api_server 是該 context 實際使用的 Kubernetes API HTTPS 位址；可用 `kubectl --context rke2-uat config view --minify -o jsonpath='{.clusters[0].cluster.server}'` 查詢；範例：https://10.168.1.160:6443。
+api_server = "https://10.168.1.160:6443"
+# cluster_uid 是 kube-system Namespace 的 UID，用來避免誤裝到同名但不同的 Cluster；可用 `kubectl --context rke2-uat get namespace kube-system -o jsonpath='{.metadata.uid}'` 查詢；以下 UUID 只是範例，必須替換。
+cluster_uid = "00000000-0000-0000-0000-000000000000"
+# namespace 是 NomoSmart 所有 namespaced resource 的安裝位置；必須是合法 Kubernetes DNS label；範例：nomosmart。
+namespace = "nomosmart"
+# release 是 Helm release 名稱，也是 installer ownership 與 Lease 的識別依據；同一環境不可與其他 release 重複；範例：nomosmart 或 nomosmart-uat。
+release = "nomosmart"
+
+# [application] 定義公開網址、平台資源名稱、Helm chart、受保護輸出目錄與既有 Secret 名稱。
+[application]
+# public_host 是使用者從筆電瀏覽 NomoSmart 的正式 DNS 主機名稱，不可包含 https://、路徑或連接埠；範例：nomosmart-uat.example.com。
+public_host = "nomosmart-uat.example.com"
+# ingress_class 是 Cluster 已安裝的 IngressClass 名稱；可用 `kubectl get ingressclass` 查詢；範例：nginx。
+ingress_class = "nginx"
+# ingress_controller_namespace 是實際執行 Ingress Controller Pod 的 Kubernetes Namespace，供 NetworkPolicy 精確放行；RKE2 內建 NGINX 通常是 kube-system。
+ingress_controller_namespace = "kube-system"
+# ingress_controller_name 是 Ingress Controller Pod 的 app.kubernetes.io/name label 值，不是 IngressClass 名稱；RKE2 內建 NGINX 通常是 rke2-ingress-nginx。
+ingress_controller_name = "rke2-ingress-nginx"
+# storage_class 是 Cluster 已存在、由 Longhorn CSI 提供且明確設定 numberOfReplicas=1、dataLocality=disabled 或 best-effort 的 CHG-252 專用 StorageClass；可用 `kubectl get storageclass <名稱> -o yaml` 查詢；範例：nomosmart-longhorn-r1。應用程式本身已做 PostgreSQL/Redis/RustFS/OpenSearch 複寫，不能再使用 Longhorn 3 副本造成容量三倍放大。
+storage_class = "nomosmart-longhorn-r1"
+# chart 是 NomoSmart Helm chart 目錄；--init-config 會自動寫入已驗證 package 的絕對路徑；手動複製時相對路徑以本設定檔所在目錄為基準。
+chart = "../helm/nomosmart"
+# values 是依序套用的非機密 Helm values 檔案陣列，後面的檔案可覆蓋前面的設定；--init-config 會改為 package 內絕對路徑；production 至少應包含 values-prod.yaml。
+values = ["../helm/nomosmart/values-prod.yaml"]
+# package_dir 是 installer 保存服務帳密原始值與 TLS 副本的 owner-only 目錄；正式使用建議絕對路徑、目錄權限 0700、檔案權限 0600；範例：/secure/nomosmart/package。
+package_dir = "/secure/nomosmart/package"
+# state_dir 是保存可續跑 checkpoint、產生的安全 Helm values、credential inventory 與 verification receipt 的 owner-only 目錄；範例：/secure/nomosmart/installer-state。
+state_dir = "/secure/nomosmart/installer-state"
+# trusted_tls_dir 是企業/環境私有 CA 已簽發 TLS 檔案的受保護目錄，必須包含 edge、PostgreSQL server/replication、Redis、RustFS、OpenSearch HTTP/transport 的完整 .crt/.key/-ca.crt；PostgreSQL server SAN 範例含 nomosmart-postgresql-rw 與 nomosmart-postgresql-1..3，replication 憑證 CN=streaming_replica 且 EKU=clientAuth；Redis SAN 範例含 nomosmart-redis-sentinel、headless 與 data Pod；目錄須為 0700，私鑰須為 0600；範例：/secure/nomosmart/tls。
+trusted_tls_dir = "/secure/nomosmart/tls"
+# registry_pull_secret 是目標 Namespace 中既有的 kubernetes.io/dockerconfigjson Secret 名稱；使用私有 registry 時填入，例如 nomosmart-registry；所有映像均公開時可留空字串。
+registry_pull_secret = "nomosmart-registry"
+# runtime_secret 是 installer 將建立或重用的 NomoSmart runtime Kubernetes Secret 名稱；此處只填名稱，絕對不可填 Secret 值；範例：nomosmart-runtime-secrets。
+runtime_secret = "nomosmart-runtime-secrets"
+# ingress_tls_secret 是公開 HTTPS Ingress 使用的 Kubernetes TLS Secret 名稱，內容來自 trusted_tls_dir 的 edge.crt 與 edge.key；範例：nomosmart-ingress-tls。
+ingress_tls_secret = "nomosmart-ingress-tls"
+# rustfs_tls_secret 是 bundled RustFS 使用的內部 TLS Secret 名稱；內容來自 trusted_tls_dir 的 rustfs 憑證組；範例：nomosmart-rustfs-tls。
+rustfs_tls_secret = "nomosmart-rustfs-tls"
+# opensearch_tls_secret 是 bundled OpenSearch 使用的內部 TLS Secret 名稱；內容來自 trusted_tls_dir 的 opensearch 憑證組；範例：nomosmart-opensearch-tls。
+opensearch_tls_secret = "nomosmart-opensearch-tls"
+# onboarding_admin_allow_cidr 是 onboarding 期間允許連線 Keycloak Admin/Ingrees 的管理端來源網段，可用逗號分隔多個 CIDR，但不可設定 0.0.0.0/0 或 ::/0；範例：10.168.1.0/24。
+onboarding_admin_allow_cidr = "10.168.1.0/24"
+# break_glass_runbook_uri 是企業內部 break-glass 操作手冊的 HTTPS 位址，供管理與稽核引用；不可含帳密；範例：https://runbooks.example.com/nomosmart/break-glass。
+break_glass_runbook_uri = "https://runbooks.example.com/nomosmart/break-glass"
+# break_glass_alerting_evidence 是已完成的安全告警路由、工單或監控證據代號，不是密碼；範例：UAT security alert route ENV-UAT-001。
+break_glass_alerting_evidence = "UAT security alert route ENV-UAT-001"
+
+# [images] 列出安裝會使用的全部 container image；每個值都必須包含明確 tag 與不可變的 sha256 digest。
+[images]
+# frontend 是 NomoSmart Next.js 前端映像；格式必須為 registry/repository:tag@sha256:<64位十六進位digest>；以下 registry 與 digest 只是範例。
+frontend = "registry.example.com/nomosmart/frontend:1.0.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+# backend 是 NomoSmart FastAPI/Celery 後端映像；必須替換為已發布且可由 Cluster 拉取的正式 digest；以下為範例。
+backend = "registry.example.com/nomosmart/backend:1.0.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+# migration 是只執行資料庫 migration 的映像；版本應與本次 NomoSmart release 相容；以下為範例。
+migration = "registry.example.com/nomosmart/migrations:1.0.0@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+# postgresql 是 CloudNativePG HA operand，不是 Compose entrypoint image；使用官方/核准 mirror 的 18.4 standard-trixie（完整 locale、pgvector、Barman plugin compatible）並固定 digest；以下是 2026-08-04 核對的官方 multi-arch identity。
+postgresql = "ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1"
+# redis 是 bundled Redis 映像；請使用正式 registry 的固定 tag 與 digest；以下為範例。
+redis = "registry.example.com/redis:7.4.2-alpine@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+# rustfs 是 bundled S3-compatible object storage 映像；請使用完成安全掃描的正式 digest；以下為範例。
+rustfs = "registry.example.com/nomosmart/rustfs:1.0.0-beta.10@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+# opensearch 是 bundled OpenSearch 2.19.6 repository-s3 映像；以下是 UAT 已發布的 digest-pinned 範例，其殘餘 CVE 接受只適用 UAT，不代表 Production security gate 通過。
+opensearch = "nms-uat-registry.ctbclab.com/nomosmart/opensearch:2.19.6-s3-chg251-20260804@sha256:4897a404a6791fcc1229a35c5d66f12260ce3b4231b09b513f0bf0dfacf4bb30"
+# neo4j 是 bundled Neo4j Community 映像；請保留已核准的 edition/version 並固定 digest；以下為範例。
+neo4j = "registry.example.com/neo4j:5.26.4-community@sha256:2222222222222222222222222222222222222222222222222222222222222222"
+# keycloak 是包含 NomoSmart theme/bootstrap 相容內容的 Keycloak 映像；請勿任意改用未驗證的上游映像；以下為範例。
+keycloak = "registry.example.com/nomosmart/keycloak:26.0.8@sha256:3333333333333333333333333333333333333333333333333333333333333333"
+
+# [identity] 定義 Keycloak 要管理或驗證的企業目錄連線與群組映射；此區只放 schema 與 Secret reference，不放 bind password。
+[identity]
+# mode 可填 freeipa、ldap、active-directory 或 preconfigured；前三者由 installer 建立/驗證唯一 provider 與 mapper，preconfigured 只驗證既有設定；本範例使用 freeipa。
+mode = "freeipa"
+# realm 是 NomoSmart 使用的 Keycloak realm 名稱；必須是合法 DNS label；範例：nomosmart。
+realm = "nomosmart"
+# provider_name 是 Keycloak LDAP UserStorageProvider 的唯一名稱；重跑時名稱與 installer ownership 必須完全一致；範例：freeipa-uat。
+provider_name = "freeipa-uat"
+# mapper_name 是 Keycloak LDAP group mapper 的唯一名稱；範例：freeipa-uat-groups。
+mapper_name = "freeipa-uat-groups"
+# admin_username 是完成 OIDC 密碼登入、外部群組與 NomoSmart system-admin 映射驗證的指定非 break-glass 管理者帳號；範例：peter。
+admin_username = "peter"
+# external_group_name 是企業目錄內授予 NomoSmart 管理權限的群組名稱；installer 不會建立或修改此群組；範例：nomosmart-uat-admins。
+external_group_name = "nomosmart-uat-admins"
+# local_role_name 是該外部群組要映射的 NomoSmart 本機角色；目前 production finalization 固定要求 system-admin。
+local_role_name = "system-admin"
+# server_url 是企業目錄的 LDAPS 位址，必須使用 ldaps:// 且憑證由 ca_secret_name 信任；禁止使用未加密 ldap://；範例：ldaps://ipa.example.com:636。
+server_url = "ldaps://ipa.example.com:636"
+# users_dn 是 Keycloak 搜尋使用者的 Base DN；FreeIPA 範例：cn=users,cn=accounts,dc=example,dc=com。
+users_dn = "cn=users,cn=accounts,dc=example,dc=com"
+# groups_dn 是 Keycloak 搜尋群組的 Base DN；FreeIPA 範例：cn=groups,cn=accounts,dc=example,dc=com。
+groups_dn = "cn=groups,cn=accounts,dc=example,dc=com"
+# bind_dn 是唯讀 directory bind identity 的完整 DN；此處只放帳號 DN，密碼必須存放於 bind_secret_name 指定的 Secret；範例：uid=nomosmart-bind,cn=sysaccounts,cn=etc,dc=example,dc=com。
+bind_dn = "uid=nomosmart-bind,cn=sysaccounts,cn=etc,dc=example,dc=com"
+# bind_secret_name 是目標 Namespace 中既有的 bind password Secret 名稱；installer 只讀取並驗證指紋，不會把密碼寫入本設定檔；範例：nomosmart-directory-bind。
+bind_secret_name = "nomosmart-directory-bind"
+# bind_secret_key 是上述 Secret 內保存 bind password 的 data key；範例：bind-password。
+bind_secret_key = "bind-password"
+# ca_secret_name 是目標 Namespace 中既有的企業 directory CA Secret 名稱，供 preflight 與 Keycloak truststore 使用；範例：nomosmart-directory-ca。
+ca_secret_name = "nomosmart-directory-ca"
+# ca_secret_key 是上述 CA Secret 內的 data key；一般使用 ca.crt。
+ca_secret_key = "ca.crt"
+# username_attribute 是 directory 中代表登入帳號的屬性；FreeIPA/一般 LDAP 常用 uid，Active Directory 常用 sAMAccountName。
+username_attribute = "uid"
+# rdn_attribute 是建立 LDAP DN 關聯時使用的 RDN 屬性；FreeIPA 常用 uid，Active Directory 常用 cn。
+rdn_attribute = "uid"
+# uuid_attribute 是 directory 中穩定且唯一的使用者識別屬性；FreeIPA 範例 ipaUniqueID，一般 LDAP 常用 entryUUID，Active Directory 常用 objectGUID。
+uuid_attribute = "ipaUniqueID"
+# user_object_classes 是允許同步的使用者 objectClass 陣列；必須依實際 directory schema 填寫，不可照抄未知環境；FreeIPA 範例如下。
+user_object_classes = ["inetOrgPerson", "organizationalPerson", "person", "top"]
+# group_object_classes 是允許同步的群組 objectClass 陣列；FreeIPA 範例為 groupOfNames 與 ipaUserGroup。
+group_object_classes = ["groupOfNames", "ipaUserGroup"]
+# group_name_attribute 是群組名稱屬性；FreeIPA、LDAP 與 Active Directory 通常使用 cn。
+group_name_attribute = "cn"
+# membership_attribute 是群組物件上保存成員的屬性；FreeIPA/AD 常用 member，部分 LDAP 使用 uniqueMember 或 memberUid。
+membership_attribute = "member"
+# membership_attribute_type 說明 membership_attribute 存的是完整 DN 或帳號 UID；只允許 DN 或 UID；此 FreeIPA 範例使用 DN。
+membership_attribute_type = "DN"
+# membership_user_attribute 是解析群組成員時對應到使用者的屬性；FreeIPA 範例使用 uid，AD 常用 sAMAccountName。
+membership_user_attribute = "uid"
+# user_search_scope 可填 one-level 或 subtree；one-level 只搜尋 users_dn 直屬項目，subtree 會搜尋所有子樹；FreeIPA 範例使用 one-level。
+user_search_scope = "one-level"
+# preserve_group_inheritance 控制 Keycloak mapper 是否保留 directory 群組階層；true 表示保留，false 表示扁平化；一般建議 true。
+preserve_group_inheritance = true
+# custom_user_filter 是額外限制可登入 NomoSmart 使用者的 LDAP filter；必須先由 directory 管理者驗證語法；FreeIPA 範例如下。
+custom_user_filter = "(memberOf=cn=nomosmart-uat-users,cn=groups,cn=accounts,dc=example,dc=com)"
+# group_path 是同步群組在 Keycloak realm 內的根路徑，必須以 / 開頭且不可有尾端 /；範例：/ldap。
+group_path = "/ldap"

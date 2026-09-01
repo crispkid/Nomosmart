@@ -1,0 +1,516 @@
+global:
+  publicHost: nomosmart.local
+  publicOrigin: https://nomosmart.local
+  keycloakPath: /identity
+
+# Deployment topology contract. `auto` preserves the existing per-component
+# Helm interface; new installs should select `bundled` or `external-services`
+# so the chart can reject a mixed or incomplete topology before mutation.
+deploymentProfile: auto
+
+localDevelopment:
+  enabled: false
+  platform: docker-desktop
+  knownCredentialRiskAccepted: false
+
+installer:
+  deploymentStage: foundation
+
+replicaCount:
+  frontend: 1
+  backend: 1
+  worker: 1
+
+highAvailability:
+  enabled: false
+  topologyKey: kubernetes.io/hostname
+  podDisruptionBudget:
+    minAvailable: 1
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+  terminationGracePeriodSeconds: 60
+
+# Production preflight consumes the rendered capacity plan and compares it
+# with live Kubernetes/Longhorn evidence before any stateful data is created.
+# Application-level replication is already provided by PostgreSQL, Redis,
+# RustFS and OpenSearch; the selected Longhorn class must therefore use
+# one physical replica instead of multiplying every application replica again.
+productionCapacity:
+  enabled: false
+  minimumNodeAllocatable:
+    cpu: 7000m
+    memory: 28Gi
+  reservePercent:
+    cpu: 20
+    memory: 20
+    storage: 25
+  longhorn:
+    namespace: longhorn-system
+    provisioner: driver.longhorn.io
+    requiredReplicaCount: 1
+    allowedDataLocality: [disabled, best-effort]
+
+compatibility:
+  applicationContract: nomosmart-1
+  schemaContract: forward-v042
+  publicApiContract: v1-scoped-graph-idempotent
+  securityContract: chg260-mounted-secrets-password-only
+
+image:
+  frontend:
+    repository: nomosmart/frontend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  backend:
+    repository: nomosmart/backend
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+  migration:
+    repository: nomosmart/migrations
+    tag: "0.1.0"
+    pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+acceptedRisks:
+  neo4jCommunityAdminEquivalent: true
+  changeId: CHG-243
+
+podAnnotations: {}
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  fsGroup: 10001
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  allowPrivilegeEscalation: false
+  capabilities:
+    drop: ["ALL"]
+
+sftpKnownHosts:
+  configMapName: ""
+  key: ssh_known_hosts
+
+frontend:
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    NEXT_PUBLIC_APP_ORIGIN: https://nomosmart.local
+    NEXT_PUBLIC_API_BASE_URL: /api/backend
+    NEXT_PUBLIC_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
+    NEXT_PUBLIC_OIDC_CLIENT_ID: nomosmart-frontend
+    NEXT_PUBLIC_OIDC_AUDIENCE: nomosmart-backend
+    FRONTEND_APP_ORIGIN: https://nomosmart.local
+    FRONTEND_PUBLIC_API_BASE_URL: /api/backend
+    FRONTEND_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
+    FRONTEND_OIDC_CLIENT_ID: nomosmart-frontend
+    FRONTEND_OIDC_AUDIENCE: nomosmart-backend
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+backend:
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    APP_ENV: development
+    APP_HOST: 0.0.0.0
+    APP_PORT: "8000"
+    LOG_LEVEL: INFO
+    LOG_FORMAT: json
+    CORS_ALLOWED_ORIGINS: https://nomosmart.local
+    FRONTEND_APP_ORIGIN: https://nomosmart.local
+    S3_REGION: us-east-1
+    S3_BUCKET: nomosmart
+    S3_USE_SSL: "false"
+    S3_VERIFY_TLS: "true"
+    S3_PATH_STYLE_ACCESS: "true"
+    OPENSEARCH_USERNAME: nomosmart
+    OPENSEARCH_VERIFY_TLS: "true"
+    OPENSEARCH_INDEX_PREFIX: nomosmart
+    OPENSEARCH_STAGING_LIVE_WRITE: "true"
+    NEO4J_DATABASE: neo4j
+    NEO4J_USERNAME: nomosmart
+    OIDC_CLIENT_ID: nomosmart-backend
+    OIDC_AUDIENCE: nomosmart-backend
+    OIDC_FRONTEND_CLIENT_ID: nomosmart-frontend
+    KEYCLOAK_SYNC_CLIENT_ID: nomosmart-sync
+    KEYCLOAK_LDAP_GROUP_PATH: /ldap
+    BREAK_GLASS_USERNAME: nomosmart
+    BREAK_GLASS_RUNBOOK_URI: https://runbooks.example.test/nomosmart/break-glass
+    BREAK_GLASS_ALERTING_EVIDENCE: CHANGE_ME_ALERT_ROUTE_EVIDENCE
+    IDENTITY_SYNC_SCHEDULE: 0 2 * * *
+    IDENTITY_SYNC_TIMEZONE: Asia/Taipei
+    IDENTITY_SYNC_ENABLED: "true"
+    IDENTITY_SYNC_SCOPE: people_and_groups
+    IDENTITY_SYNC_QUEUE_TIMEOUT_SECONDS: "300"
+    IDENTITY_SYNC_RUN_TIMEOUT_SECONDS: "1800"
+    IDENTITY_SYNC_HEARTBEAT_SECONDS: "30"
+    IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS: "600"
+    DEFAULT_TIMEZONE: Asia/Taipei
+    NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB: "100"
+    MAX_UPLOAD_SIZE_MB: "100"
+    STAGING_INDEX_TTL_DAYS: "7"
+    INGESTION_WORKER_LEASE_SECONDS: "300"
+    TARGET_CHUNK_TOKENS: "500"
+    MAX_CHUNK_TOKENS: "700"
+    MIN_CHUNK_TOKENS: "80"
+    CHUNK_OVERLAP_TOKENS: "60"
+    HEADING_CONTEXT_ENABLED: "true"
+    MAX_HEADING_DEPTH: "4"
+    MAX_CONTEXT_PREFIX_TOKENS: "96"
+    DOCUMENT_TITLE_CONTEXT_ENABLED: "true"
+    TABLE_CHUNK_MAX_ROWS: "10"
+    REMOVE_REPEATED_HEADER_FOOTER: "true"
+    PANDOC_COMMAND: pandoc
+    PANDOC_SANDBOX_COMMAND: bwrap
+    PANDOC_TIMEOUT_SECONDS: "120"
+    PANDOC_MAX_MEMORY_MB: "512"
+    PANDOC_CACHE_DIR: /tmp/nomosmart-pandoc-cache
+    TESSERACT_COMMAND: tesseract
+    TESSERACT_PDF_COMMAND: pdftoppm
+    TESSERACT_SANDBOX_COMMAND: bwrap
+    TESSERACT_TIMEOUT_SECONDS: "120"
+    TESSERACT_MAX_MEMORY_MB: "512"
+    TESSERACT_MAX_PAGES: "200"
+    HTTP_SOURCE_ALLOWED_HOSTS: ""
+    HTTP_SOURCE_ALLOWED_CIDRS: ""
+    SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
+    VALIDATION_MAX_ATTEMPTS: "3"
+    REPORT_EXPORT_BATCH_SIZE: "500"
+    REPORT_EXPORT_TIMEOUT_SECONDS: "300"
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+worker:
+  concurrency: 2
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+migration:
+  jdbcUrl: ""
+  userSecretKey: DATABASE_MIGRATION_USER
+  passwordSecretKey: DATABASE_MIGRATION_PASSWORD
+  backoffLimit: 1
+  activeDeadlineSeconds: 900
+
+bootstrap:
+  keycloakMode: manage
+  deploymentPhase: onboarding
+  evidenceRelease: ""
+  onboardingAdminAllowCidr: 127.0.0.1/32,192.168.49.0/24
+  breakGlassPasswordKey: BREAK_GLASS_INITIAL_PASSWORD
+  finalize:
+    enabled: false
+  waitSeconds: 600
+  backoffLimit: 3
+  activeDeadlineSeconds: 1200
+  keycloakAdminSecret: ""
+  keycloakAdminUsernameKey: KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME
+  keycloakAdminPasswordKey: KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD
+
+secrets:
+  existingSecret: ""
+  data:
+    APP_ENCRYPTION_KEY: CHANGE_ME_64_HEX_CHARACTERS
+    DATABASE_URL: postgresql+psycopg2://nomosmart:CHANGE_ME_POSTGRES_PASSWORD@postgresql:5432/nomosmart
+    DATABASE_MIGRATION_USER: nomosmart
+    DATABASE_MIGRATION_PASSWORD: CHANGE_ME_POSTGRES_MIGRATION_PASSWORD
+    POSTGRES_ADMIN_PASSWORD: CHANGE_ME_POSTGRES_ADMIN_PASSWORD
+    POSTGRES_PASSWORD: CHANGE_ME_POSTGRES_PASSWORD
+    POSTGRES_MIGRATION_PASSWORD: CHANGE_ME_POSTGRES_MIGRATION_PASSWORD
+    KEYCLOAK_DB_PASSWORD: CHANGE_ME_KEYCLOAK_DB_PASSWORD
+    KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME: nomosmart
+    KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD: CHANGE_ME_KEYCLOAK_ADMIN_PASSWORD
+    S3_ACCESS_KEY_ID: nomosmart
+    S3_SECRET_ACCESS_KEY: CHANGE_ME_S3_SECRET_KEY
+    REDIS_PASSWORD: CHANGE_ME_REDIS_PASSWORD
+    REDIS_REPLICATION_PASSWORD: CHANGE_ME_REDIS_REPLICATION_PASSWORD
+    REDIS_SENTINEL_PASSWORD: CHANGE_ME_REDIS_SENTINEL_PASSWORD
+    REDIS_URL: redis://nomosmart:CHANGE_ME_REDIS_PASSWORD@nomosmart-redis:6379/0
+    CELERY_BROKER_URL: redis://nomosmart:CHANGE_ME_REDIS_PASSWORD@nomosmart-redis:6379/0
+    CELERY_RESULT_BACKEND: redis://nomosmart:CHANGE_ME_REDIS_PASSWORD@nomosmart-redis:6379/1
+    OPENSEARCH_ADMIN_PASSWORD: CHANGE_ME_OPENSEARCH_ADMIN_PASSWORD
+    OPENSEARCH_PASSWORD: CHANGE_ME_OPENSEARCH_SERVICE_PASSWORD
+    NEO4J_ADMIN_PASSWORD: CHANGE_ME_NEO4J_ADMIN_PASSWORD
+    NEO4J_PASSWORD: CHANGE_ME_NEO4J_SERVICE_PASSWORD
+    NEO4J_AUTH: neo4j/CHANGE_ME_NEO4J_ADMIN_PASSWORD
+    OIDC_CLIENT_SECRET: CHANGE_ME_BACKEND_OIDC_CLIENT_SECRET
+    KEYCLOAK_SYNC_CLIENT_SECRET: CHANGE_ME_KEYCLOAK_SYNC_CLIENT_SECRET
+    BREAK_GLASS_INITIAL_PASSWORD: nomosmart
+
+postgresql:
+  mode: bundled
+  image: {repository: nomosmart/postgresql, tag: "18.4", pullPolicy: IfNotPresent}
+  operator:
+    enabled: false
+    version: "1.30.0"
+    namespace: cnpg-system
+    deploymentName: cnpg-controller-manager
+  cluster:
+    image: {repository: ghcr.io/cloudnative-pg/postgresql, tag: "18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1", pullPolicy: IfNotPresent}
+    instances: 1
+    synchronousReplicas: 0
+    minSyncReplicas: 0
+    maxSyncReplicas: 0
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget: {minAvailable: 1}
+  tls:
+    secretName: nomosmart-postgresql-tls
+    replicationSecretName: nomosmart-postgresql-replication-tls
+    caKey: ca.crt
+  backup:
+    enabled: false
+    prepareBucket: false
+    pluginName: barman-cloud.cloudnative-pg.io
+    pluginVersion: "0.13.0"
+    bucket: nomosmart-postgresql-backups
+    destinationPrefix: production
+    endpointURL: https://nomosmart-rustfs:9000
+    credentialSecretName: nomosmart-runtime-secrets
+    accessKeyKey: S3_ACCESS_KEY_ID
+    secretKeyKey: S3_SECRET_ACCESS_KEY
+    caSecretName: nomosmart-rustfs-tls
+    caKey: ca.crt
+    schedule: "0 0 2 * * *"
+    immediate: true
+    retentionPolicy: 30d
+    encryption: AES256
+    compression: gzip
+    target: prefer-standby
+  service: {port: 5432}
+  auth:
+    adminDatabase: postgres
+    adminUsername: postgres
+    adminPasswordSecretKey: POSTGRES_ADMIN_PASSWORD
+    database: nomosmart
+    username: nomosmart
+    passwordSecretKey: POSTGRES_PASSWORD
+    migrationUsername: nomosmart
+    migrationPasswordSecretKey: POSTGRES_MIGRATION_PASSWORD
+    keycloakDatabase: keycloak
+    keycloakUsername: nomosmart
+    keycloakPasswordSecretKey: KEYCLOAK_DB_PASSWORD
+    superuserSecretName: nomosmart-postgresql-superuser
+    ownerSecretName: nomosmart-postgresql-migration
+    appSecretName: nomosmart-postgresql-app
+    keycloakSecretName: nomosmart-postgresql-keycloak
+  external:
+    host: postgresql.example.com
+    port: 5432
+    caSecretName: ""
+    caKey: ca.crt
+  persistence: {enabled: true, size: 20Gi, storageClass: "", retain: true}
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 2Gi}
+
+redis:
+  mode: bundled
+  image: {repository: redis, tag: "7.4.2-alpine", pullPolicy: IfNotPresent}
+  service: {port: 6379, sentinelPort: 26379}
+  cluster:
+    enabled: false
+    replicas: 1
+    sentinelReplicas: 1
+    sentinelQuorum: 1
+    masterName: nomosmart
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget: {minAvailable: 1}
+    sentinelPodDisruptionBudget: {minAvailable: 1}
+  tls:
+    secretName: nomosmart-redis-tls
+    caKey: ca.crt
+  external:
+    url: redis://redis.example.com:6379
+    caSecretName: ""
+    caKey: ca.crt
+  persistence: {enabled: true, size: 5Gi, storageClass: "", retain: true}
+  auth:
+    username: nomosmart
+    passwordSecretKey: REDIS_PASSWORD
+    replicationUsername: nomosmart
+    replicationPasswordSecretKey: REDIS_REPLICATION_PASSWORD
+    sentinelUsername: nomosmart
+    sentinelPasswordSecretKey: REDIS_SENTINEL_PASSWORD
+  tolerations: []
+  resources:
+    requests: {cpu: 100m, memory: 128Mi}
+    limits: {cpu: 500m, memory: 512Mi}
+
+rustfs:
+  mode: bundled
+  image: {repository: nomosmart/rustfs, tag: "1.0.0-beta.10", pullPolicy: IfNotPresent}
+  service: {port: 9000}
+  external:
+    url: https://s3.example.com
+    caSecretName: ""
+    caKey: ca.crt
+  tls:
+    secretName: nomosmart-rustfs-tls
+    caKey: ca.crt
+  cluster:
+    enabled: false
+    replicas: 1
+    dataShards: 1
+    parityShards: 0
+    topologyKey: kubernetes.io/hostname
+    maxSkew: 1
+    podDisruptionBudget: {minAvailable: 1}
+  persistence: {enabled: true, size: 50Gi, storageClass: "", retain: true}
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 2Gi}
+
+opensearch:
+  mode: bundled
+  image: {repository: nomosmart/opensearch, tag: "2.19.6-repository-s3", digest: "", pullPolicy: IfNotPresent}
+  service: {port: 9200, transportPort: 9300}
+  external:
+    url: https://opensearch.example.com:9200
+    caSecretName: ""
+    caKey: ca.crt
+  javaOpts: -Xms512m -Xmx512m
+  cluster:
+    name: nomosmart-opensearch
+    replicas: 1
+    bootstrapMode: single-node
+    roles: [cluster_manager, data, ingest, remote_cluster_client]
+    shardReplicas: 1
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget: {minAvailable: 1}
+    terminationGracePeriodSeconds: 120
+  auth:
+    adminUsername: admin
+    adminPasswordSecretKey: OPENSEARCH_ADMIN_PASSWORD
+    serviceUsername: nomosmart
+    servicePasswordSecretKey: OPENSEARCH_PASSWORD
+  tls:
+    secretName: nomosmart-opensearch-tls
+    httpCertificateKey: tls.crt
+    httpPrivateKeyKey: tls.key
+    transportCertificateKey: transport.crt
+    transportPrivateKeyKey: transport.key
+    caKey: ca.crt
+    nodeDn: CN=nomosmart-opensearch-node
+    enforceHostnameVerification: true
+    resolveHostname: true
+  snapshot:
+    enabled: false
+    repository: nomosmart-rustfs
+    bucket: nomosmart-opensearch-snapshots
+    endpoint: https://nomosmart-rustfs:9000
+    region: us-east-1
+    pathStyleAccess: true
+    credentialSecretName: nomosmart-runtime-secrets
+    accessKeyKey: S3_ACCESS_KEY_ID
+    secretKeyKey: S3_SECRET_ACCESS_KEY
+    caSecretName: nomosmart-rustfs-tls
+    caKey: ca.crt
+  persistence: {enabled: true, size: 30Gi, storageClass: "", retain: true}
+  resources:
+    requests: {cpu: 500m, memory: 1Gi}
+    limits: {cpu: "2", memory: 2Gi}
+
+neo4j:
+  mode: bundled
+  image: {repository: neo4j, tag: "5.26.4-community", pullPolicy: IfNotPresent}
+  service: {httpPort: 7474, boltPort: 7687}
+  external:
+    uri: bolt://neo4j.example.com:7687
+    caSecretName: ""
+    caKey: ca.crt
+  licenseAgreement: ""
+  auth:
+    adminUsername: neo4j
+    adminPasswordSecretKey: NEO4J_ADMIN_PASSWORD
+    serviceUsername: nomosmart
+    servicePasswordSecretKey: NEO4J_PASSWORD
+  persistence: {enabled: true, size: 20Gi, storageClass: "", retain: true}
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 2Gi}
+
+keycloak:
+  mode: bundled
+  image: {repository: nomosmart/keycloak, tag: "26.0.8", pullPolicy: IfNotPresent}
+  service: {httpPort: 8080, managementPort: 9000}
+  cache:
+    mode: ispn
+    stack: jdbc-ping
+  cluster:
+    replicas: 1
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget: {minAvailable: 1}
+  trust:
+    existingSecret: ""
+    caKey: ca.crt
+  external:
+    issuerUrl: https://identity.example.com/realms/nomosmart
+    internalIssuerUrl: https://identity.example.com/realms/nomosmart
+    adminApiUrl: https://identity.example.com
+    discoveryUrl: https://identity.example.com/realms/nomosmart/.well-known/openid-configuration
+    jwksUrl: https://identity.example.com/realms/nomosmart/protocol/openid-connect/certs
+    caSecretName: ""
+    caKey: ca.crt
+  adminIngress:
+    enabled: true
+    annotations:
+      nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+beat:
+  haEnabled: false
+  replicas: 1
+  lease:
+    name: nomosmart-celery-beat
+    durationSeconds: 30
+    renewSeconds: 10
+    retrySeconds: 5
+  podDisruptionBudget: {minAvailable: 1}
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  adminAnnotations: {}
+  hosts:
+    - host: nomosmart.local
+      paths:
+        - {path: /identity, pathType: Prefix, service: keycloak}
+        - {path: /, pathType: Prefix, service: frontend}
+  tls:
+    - secretName: nomosmart-ingress-tls
+      hosts: [nomosmart.local]
+
+networkPolicy:
+  enabled: true
+  ingressController:
+    namespaceSelector:
+      matchLabels:
+        kubernetes.io/metadata.name: ingress-nginx
+    podSelector:
+      matchLabels:
+        app.kubernetes.io/name: ingress-nginx
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

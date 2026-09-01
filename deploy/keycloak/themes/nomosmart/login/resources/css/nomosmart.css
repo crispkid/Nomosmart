@@ -1,0 +1,808 @@
+:root {
+  --nomosmart-mint: #eaf7f1;
+  --nomosmart-sage: #bfdcce;
+  --nomosmart-green: #5fae88;
+  --nomosmart-deep-green: #2f7d57;
+  --nomosmart-coral: #e98b87;
+  --nomosmart-cloud: #fcfdfb;
+  --nomosmart-gray: #e6ebef;
+  --nomosmart-slate: #2e3a42;
+  --nomosmart-muted: #66757d;
+  --nomosmart-gold: #d8c77a;
+  --nomosmart-danger-text: #9b4744;
+  --nomosmart-focus: rgba(95, 174, 136, 0.24);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-width: 320px;
+  min-height: 100%;
+  margin: 0;
+}
+
+body#keycloak-bg {
+  min-height: 100vh;
+  color: var(--nomosmart-slate);
+  background: #f4f8f6;
+  font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+  letter-spacing: 0;
+}
+
+body#keycloak-bg,
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+.nomosmart-auth.pf-v5-c-login {
+  display: grid;
+  min-height: 100vh;
+  place-items: center;
+  padding: 24px;
+  background: transparent;
+}
+
+.nomosmart-auth-shell.pf-v5-c-login__container {
+  display: grid;
+  grid-template-areas: "context workspace";
+  grid-template-columns: minmax(320px, 0.88fr) minmax(480px, 1.12fr);
+  width: min(1040px, calc(100vw - 48px));
+  max-width: none;
+  min-height: 660px;
+  overflow: hidden;
+  border: 1px solid var(--nomosmart-gray);
+  border-radius: 8px;
+  background: var(--nomosmart-cloud);
+  box-shadow: 0 18px 54px rgba(46, 58, 66, 0.14);
+}
+
+.nomosmart-auth-context {
+  grid-area: context;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding: 40px;
+  border-right: 1px solid var(--nomosmart-gray);
+  background: var(--nomosmart-mint);
+}
+
+.nomosmart-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: var(--nomosmart-slate);
+  text-transform: none;
+}
+
+.nomosmart-brand-mark {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--nomosmart-deep-green);
+  color: white;
+  font-size: 19px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.nomosmart-brand-copy {
+  display: grid;
+  min-width: 0;
+  gap: 2px;
+}
+
+.nomosmart-brand-copy strong {
+  color: var(--nomosmart-slate);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.nomosmart-brand-copy small {
+  overflow-wrap: anywhere;
+  color: #587067;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.nomosmart-auth-context-copy {
+  max-width: 335px;
+  margin-top: 90px;
+}
+
+.nomosmart-context-icon {
+  display: inline-flex;
+  width: 48px;
+  height: 48px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(47, 125, 87, 0.16);
+  border-radius: 8px;
+  background: rgba(252, 253, 251, 0.82);
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-context-icon svg {
+  width: 25px;
+  height: 25px;
+}
+
+.nomosmart-eyebrow {
+  margin: 20px 0 8px;
+  color: var(--nomosmart-deep-green);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.5;
+}
+
+.nomosmart-auth-context h2 {
+  margin: 0;
+  color: var(--nomosmart-slate);
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.28;
+  overflow-wrap: anywhere;
+}
+
+.nomosmart-context-description {
+  margin: 16px 0 0;
+  color: var(--nomosmart-muted);
+  font-size: 14px;
+  line-height: 1.75;
+}
+
+.nomosmart-trust-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  margin-top: auto;
+  padding-top: 32px;
+  color: #536860;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.nomosmart-trust-note svg {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 17px;
+  margin-top: 1px;
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-auth-workspace.pf-v5-c-login__main {
+  grid-area: workspace;
+  display: flex;
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  flex-direction: column;
+  padding: 32px 46px 28px;
+  border: 0;
+  border-radius: 0;
+  background: var(--nomosmart-cloud);
+  box-shadow: none;
+}
+
+.nomosmart-auth-toolbar {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  justify-content: flex-end;
+  margin-bottom: 38px;
+}
+
+.nomosmart-auth-toolbar:empty {
+  min-height: 0;
+}
+
+.nomosmart-language {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--nomosmart-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nomosmart-language-control {
+  position: relative;
+  display: flex;
+  min-width: 132px;
+  min-height: 40px;
+  align-items: center;
+  border: 1px solid var(--nomosmart-gray);
+  border-radius: 7px;
+  background: white;
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-language-control:focus-within {
+  border-color: var(--nomosmart-green);
+  box-shadow: 0 0 0 3px var(--nomosmart-focus);
+}
+
+.nomosmart-language-control svg {
+  position: absolute;
+  left: 11px;
+  width: 16px;
+  height: 16px;
+  pointer-events: none;
+}
+
+.nomosmart-language-control select {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 30px 0 34px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--nomosmart-slate);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.nomosmart-auth-header.pf-v5-c-login__main-header {
+  display: block;
+  max-width: 460px;
+  padding: 0;
+}
+
+.nomosmart-auth-header #kc-page-title {
+  margin: 0;
+  color: var(--nomosmart-slate);
+  font-size: 28px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.nomosmart-auth-body.pf-v5-c-login__main-body {
+  width: 100%;
+  max-width: 460px;
+  padding: 0;
+}
+
+.nomosmart-page-intro {
+  margin: 10px 0 28px;
+}
+
+.nomosmart-page-intro > span {
+  display: block;
+  color: var(--nomosmart-deep-green);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.nomosmart-page-intro p {
+  margin: 7px 0 0;
+  color: var(--nomosmart-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.nomosmart-auth .pf-v5-c-form {
+  display: grid;
+  gap: 18px;
+}
+
+.nomosmart-auth .pf-v5-c-form__group {
+  display: grid;
+  min-width: 0;
+  gap: 7px;
+  margin: 0;
+}
+
+.nomosmart-auth .pf-v5-c-form__group:empty {
+  display: none;
+}
+
+.nomosmart-auth .pf-v5-c-form__group-label,
+.nomosmart-auth .pf-v5-c-form__label {
+  margin: 0;
+  color: var(--nomosmart-slate);
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.45;
+}
+
+.nomosmart-auth .pf-v5-c-form-control {
+  position: relative;
+  display: flex;
+  width: 100%;
+  min-height: 46px;
+  align-items: center;
+  border: 1px solid #d4dde1;
+  border-radius: 7px;
+  background: white;
+  color: var(--nomosmart-slate);
+  box-shadow: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.nomosmart-auth .pf-v5-c-form-control::before,
+.nomosmart-auth .pf-v5-c-form-control::after {
+  display: none;
+}
+
+.nomosmart-auth .pf-v5-c-form-control:focus-within,
+.nomosmart-auth .pf-v5-c-input-group:focus-within .pf-v5-c-form-control {
+  border-color: var(--nomosmart-green);
+  box-shadow: 0 0 0 3px var(--nomosmart-focus);
+}
+
+.nomosmart-auth .pf-v5-c-form-control.pf-m-error,
+.nomosmart-auth [aria-invalid="true"] {
+  border-color: var(--nomosmart-coral);
+}
+
+.nomosmart-auth .pf-v5-c-form-control > input,
+.nomosmart-auth .pf-v5-c-form-control > textarea {
+  width: 100%;
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 12px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--nomosmart-slate);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.nomosmart-auth .pf-v5-c-form-control > textarea {
+  min-height: 112px;
+  padding-top: 11px;
+  padding-bottom: 11px;
+  resize: vertical;
+}
+
+.nomosmart-auth .pf-v5-c-form-control > input::placeholder,
+.nomosmart-auth .pf-v5-c-form-control > textarea::placeholder {
+  color: #96a2a8;
+}
+
+.nomosmart-auth .pf-v5-c-input-group {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  align-items: stretch;
+}
+
+.nomosmart-auth .pf-v5-c-input-group__item.pf-m-fill {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.nomosmart-auth .pf-v5-c-input-group__item.pf-m-fill .pf-v5-c-form-control {
+  border-radius: 7px 0 0 7px;
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-control {
+  display: inline-flex;
+  width: 46px;
+  min-width: 46px;
+  min-height: 46px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #d4dde1;
+  border-left: 0;
+  border-radius: 0 7px 7px 0;
+  background: white;
+  color: #607068;
+  cursor: pointer;
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-control:hover {
+  background: var(--nomosmart-mint);
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-auth .pf-v5-c-input-group:focus-within .pf-v5-c-button.pf-m-control {
+  border-color: var(--nomosmart-green);
+}
+
+.nomosmart-auth .pf-v5-c-form__helper-text,
+.nomosmart-auth .pf-v5-c-helper-text {
+  margin: 0;
+  color: var(--nomosmart-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.nomosmart-auth .pf-v5-c-helper-text__item.pf-m-error,
+.nomosmart-auth .pf-m-error .kc-feedback-text {
+  color: var(--nomosmart-danger-text);
+  font-weight: 600;
+}
+
+.nomosmart-auth .pf-v5-c-form__label-required {
+  color: var(--nomosmart-coral);
+}
+
+.nomosmart-auth .pf-v5-c-check {
+  display: flex;
+  min-height: 40px;
+  align-items: center;
+  gap: 8px;
+  color: var(--nomosmart-muted);
+  font-size: 13px;
+}
+
+.nomosmart-auth .pf-v5-c-check__input {
+  width: 17px;
+  height: 17px;
+  margin: 0;
+  accent-color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-auth .pf-v5-c-form__actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.nomosmart-auth .pf-v5-c-button {
+  position: relative;
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 0 17px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0;
+  line-height: 1.35;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 150ms ease, background 150ms ease, color 150ms ease, box-shadow 150ms ease;
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-primary {
+  border: 1px solid var(--nomosmart-green);
+  background: var(--nomosmart-green);
+  color: white;
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-primary:hover {
+  border-color: var(--nomosmart-deep-green);
+  background: var(--nomosmart-deep-green);
+  color: white;
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-secondary,
+.nomosmart-auth .pf-v5-c-button.pf-m-link {
+  border: 1px solid var(--nomosmart-gray);
+  background: white;
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-secondary:hover,
+.nomosmart-auth .pf-v5-c-button.pf-m-link:hover {
+  border-color: var(--nomosmart-sage);
+  background: var(--nomosmart-mint);
+}
+
+.nomosmart-auth .pf-v5-c-button.pf-m-block {
+  width: 100%;
+}
+
+.nomosmart-auth .pf-v5-c-button:focus-visible,
+.nomosmart-auth a:focus-visible,
+.nomosmart-auth select:focus-visible,
+.nomosmart-auth input:focus-visible,
+.nomosmart-auth textarea:focus-visible,
+.nomosmart-auth button:focus-visible {
+  outline: 3px solid var(--nomosmart-focus);
+  outline-offset: 2px;
+}
+
+.nomosmart-auth .pf-v5-c-button:disabled,
+.nomosmart-auth input:disabled,
+.nomosmart-auth select:disabled,
+.nomosmart-auth textarea:disabled {
+  border-color: var(--nomosmart-gray);
+  background: #eef2f1;
+  color: #839098;
+  cursor: not-allowed;
+  opacity: 1;
+}
+
+.nomosmart-auth [data-nomosmart-submitting="true"]::before {
+  width: 14px;
+  height: 14px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  content: "";
+  animation: nomosmart-spin 700ms linear infinite;
+}
+
+.nomosmart-auth a {
+  color: var(--nomosmart-deep-green);
+  font-weight: 600;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.nomosmart-auth a:hover {
+  color: #245f44;
+}
+
+.nomosmart-auth-alert.pf-v5-c-alert {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 20px 0 22px;
+  padding: 12px 13px;
+  border: 1px solid var(--nomosmart-gray);
+  border-left-width: 3px;
+  border-radius: 7px;
+  background: #f7faf8;
+  box-shadow: none;
+}
+
+.nomosmart-auth-alert.pf-m-danger {
+  border-color: #efc2c0;
+  border-left-color: var(--nomosmart-coral);
+  background: #fff7f6;
+  color: var(--nomosmart-danger-text);
+}
+
+.nomosmart-auth-alert.pf-m-warning {
+  border-color: #eadfae;
+  border-left-color: var(--nomosmart-gold);
+  background: #fffdf4;
+  color: #6d6338;
+}
+
+.nomosmart-auth-alert.pf-m-success,
+.nomosmart-auth-alert.pf-m-info {
+  border-color: var(--nomosmart-sage);
+  border-left-color: var(--nomosmart-green);
+  background: #f5fbf7;
+  color: var(--nomosmart-deep-green);
+}
+
+.nomosmart-auth-alert .pf-v5-c-alert__title {
+  color: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.nomosmart-auth .pf-v5-c-panel,
+.nomosmart-auth .pf-v5-c-tile,
+.nomosmart-auth .pf-v5-c-data-list {
+  overflow: hidden;
+  border: 1px solid var(--nomosmart-gray);
+  border-radius: 7px;
+  background: white;
+  box-shadow: none;
+}
+
+.nomosmart-auth .pf-v5-c-tile {
+  min-height: 44px;
+  padding: 10px 12px;
+  color: var(--nomosmart-slate);
+}
+
+.nomosmart-auth .pf-v5-c-tile.pf-m-selected {
+  border-color: var(--nomosmart-green);
+  background: var(--nomosmart-mint);
+}
+
+.nomosmart-auth .pf-v5-c-list,
+.nomosmart-auth ol,
+.nomosmart-auth ul {
+  color: var(--nomosmart-muted);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.nomosmart-auth hr {
+  margin: 22px 0;
+  border: 0;
+  border-top: 1px solid var(--nomosmart-gray);
+}
+
+#kc-info,
+.nomosmart-social-providers {
+  margin-top: 22px;
+  color: var(--nomosmart-muted);
+  font-size: 12px;
+  line-height: 1.55;
+  text-align: center;
+}
+
+.nomosmart-social-providers:empty {
+  display: none;
+}
+
+.nomosmart-auth-footer {
+  display: flex;
+  margin-top: auto;
+  padding-top: 30px;
+  color: #819097;
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.kc-login-tooltip {
+  position: relative;
+}
+
+.kc-login-tooltip .kc-tooltip-text {
+  position: absolute;
+  z-index: 2;
+  right: 0;
+  bottom: calc(100% + 8px);
+  display: none;
+  width: max-content;
+  max-width: 220px;
+  padding: 7px 9px;
+  border-radius: 6px;
+  background: var(--nomosmart-slate);
+  color: white;
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+.kc-login-tooltip:hover .kc-tooltip-text,
+.kc-login-tooltip:focus-visible .kc-tooltip-text {
+  display: block;
+}
+
+#kc-recovery-codes-list {
+  columns: 2;
+  column-gap: 24px;
+}
+
+#certificate_subjectDN {
+  overflow-wrap: anywhere;
+}
+
+@keyframes nomosmart-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (max-width: 800px) {
+  .nomosmart-auth.pf-v5-c-login {
+    align-items: start;
+    padding: 16px;
+  }
+
+  .nomosmart-auth-shell.pf-v5-c-login__container {
+    grid-template-areas: "context" "workspace";
+    grid-template-columns: minmax(0, 1fr);
+    width: min(640px, calc(100vw - 32px));
+    min-height: 0;
+  }
+
+  .nomosmart-auth-context {
+    padding: 24px 28px;
+    border-right: 0;
+    border-bottom: 1px solid var(--nomosmart-gray);
+  }
+
+  .nomosmart-auth-context-copy {
+    margin-top: 22px;
+  }
+
+  .nomosmart-context-icon,
+  .nomosmart-context-description,
+  .nomosmart-trust-note {
+    display: none;
+  }
+
+  .nomosmart-eyebrow {
+    margin: 0 0 5px;
+  }
+
+  .nomosmart-auth-context h2 {
+    font-size: 23px;
+    line-height: 1.35;
+  }
+
+  .nomosmart-auth-workspace.pf-v5-c-login__main {
+    min-height: 560px;
+    padding: 26px 32px 28px;
+  }
+
+  .nomosmart-auth-toolbar {
+    margin-bottom: 28px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nomosmart-auth.pf-v5-c-login {
+    display: block;
+    padding: 0;
+  }
+
+  .nomosmart-auth-shell.pf-v5-c-login__container {
+    width: 100%;
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+  }
+
+  .nomosmart-auth-context {
+    padding: 18px 20px;
+  }
+
+  .nomosmart-auth-context-copy {
+    display: none;
+  }
+
+  .nomosmart-auth-workspace.pf-v5-c-login__main {
+    min-height: 0;
+    padding: 22px 20px 30px;
+  }
+
+  .nomosmart-auth-toolbar {
+    margin-bottom: 24px;
+  }
+
+  .nomosmart-language {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nomosmart-language-control {
+    min-width: 0;
+    width: 156px;
+  }
+
+  .nomosmart-auth-header #kc-page-title {
+    font-size: 24px;
+  }
+
+  .nomosmart-page-intro {
+    margin-bottom: 24px;
+  }
+
+  .nomosmart-auth .pf-v5-c-form__actions {
+    flex-direction: column;
+  }
+
+  #kc-recovery-codes-list {
+    columns: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nomosmart-auth *,
+  .nomosmart-auth *::before,
+  .nomosmart-auth *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

@@ -1,0 +1,2173 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "properties": {
+    "vault": false,
+    "clamav": false,
+    "deploymentProfile": {
+      "type": "string",
+      "enum": [
+        "auto",
+        "bundled",
+        "external-services"
+      ]
+    },
+    "localDevelopment": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "platform": {
+          "const": "docker-desktop"
+        },
+        "knownCredentialRiskAccepted": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled",
+        "platform",
+        "knownCredentialRiskAccepted"
+      ]
+    },
+    "installer": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "deploymentStage": {
+          "type": "string",
+          "enum": [
+            "foundation",
+            "application",
+            "operational"
+          ]
+        }
+      },
+      "required": [
+        "deploymentStage"
+      ]
+    },
+    "global": {
+      "type": "object",
+      "properties": {
+        "publicHost": {
+          "type": "string",
+          "minLength": 1
+        },
+        "publicOrigin": {
+          "type": "string",
+          "pattern": "^https://"
+        },
+        "keycloakPath": {
+          "type": "string",
+          "pattern": "^/[^/]+$"
+        }
+      },
+      "required": [
+        "publicHost",
+        "publicOrigin",
+        "keycloakPath"
+      ]
+    },
+    "acceptedRisks": {
+      "type": "object",
+      "properties": {
+        "neo4jCommunityAdminEquivalent": {
+          "const": true
+        },
+        "changeId": {
+          "const": "CHG-243"
+        }
+      },
+      "required": [
+        "neo4jCommunityAdminEquivalent",
+        "changeId"
+      ]
+    },
+    "replicaCount": {
+      "type": "object",
+      "properties": {
+        "frontend": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "backend": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "worker": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "required": [
+        "frontend",
+        "backend",
+        "worker"
+      ]
+    },
+    "highAvailability": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "topologyKey": {
+          "const": "kubernetes.io/hostname"
+        },
+        "podDisruptionBudget": {
+          "type": "object",
+          "properties": {
+            "minAvailable": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "minAvailable"
+          ]
+        },
+        "rollingUpdate": {
+          "type": "object",
+          "properties": {
+            "maxUnavailable": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "maxSurge": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "maxUnavailable",
+            "maxSurge"
+          ]
+        },
+        "terminationGracePeriodSeconds": {
+          "type": "integer",
+          "minimum": 30,
+          "maximum": 600
+        }
+      },
+      "required": [
+        "enabled",
+        "topologyKey",
+        "podDisruptionBudget",
+        "rollingUpdate",
+        "terminationGracePeriodSeconds"
+      ]
+    },
+    "productionCapacity": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "minimumNodeAllocatable": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*m$"
+            },
+            "memory": {
+              "type": "string",
+              "pattern": "^[1-9][0-9]*(Mi|Gi)$"
+            }
+          },
+          "required": [
+            "cpu",
+            "memory"
+          ]
+        },
+        "reservePercent": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "cpu": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 100
+            },
+            "memory": {
+              "type": "integer",
+              "minimum": 10,
+              "maximum": 100
+            },
+            "storage": {
+              "type": "integer",
+              "minimum": 20,
+              "maximum": 100
+            }
+          },
+          "required": [
+            "cpu",
+            "memory",
+            "storage"
+          ]
+        },
+        "longhorn": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "namespace": {
+              "const": "longhorn-system"
+            },
+            "provisioner": {
+              "const": "driver.longhorn.io"
+            },
+            "requiredReplicaCount": {
+              "const": 1
+            },
+            "allowedDataLocality": {
+              "type": "array",
+              "minItems": 2,
+              "uniqueItems": true,
+              "items": {
+                "enum": [
+                  "disabled",
+                  "best-effort"
+                ]
+              },
+              "allOf": [
+                {
+                  "contains": {
+                    "const": "disabled"
+                  }
+                },
+                {
+                  "contains": {
+                    "const": "best-effort"
+                  }
+                }
+              ]
+            }
+          },
+          "required": [
+            "namespace",
+            "provisioner",
+            "requiredReplicaCount",
+            "allowedDataLocality"
+          ]
+        }
+      },
+      "required": [
+        "enabled",
+        "minimumNodeAllocatable",
+        "reservePercent",
+        "longhorn"
+      ]
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "applicationContract": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "pattern": "CHANGE_ME|PLACEHOLDER"
+          }
+        },
+        "schemaContract": {
+          "type": "string",
+          "pattern": "^forward-v[0-9]+$"
+        },
+        "publicApiContract": {
+          "type": "string",
+          "minLength": 1
+        },
+        "securityContract": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "applicationContract",
+        "schemaContract",
+        "publicApiContract",
+        "securityContract"
+      ]
+    },
+    "image": {
+      "type": "object",
+      "properties": {
+        "frontend": {
+          "$ref": "#/definitions/image"
+        },
+        "backend": {
+          "$ref": "#/definitions/image"
+        },
+        "migration": {
+          "$ref": "#/definitions/image"
+        }
+      },
+      "required": [
+        "frontend",
+        "backend",
+        "migration"
+      ]
+    },
+    "backend": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "type": "object",
+          "properties": {
+            "APP_ENV": {
+              "type": "string",
+              "enum": [
+                "development",
+                "test",
+                "production"
+              ]
+            },
+            "CORS_ALLOWED_ORIGINS": {
+              "type": "string"
+            },
+            "FRONTEND_APP_ORIGIN": {
+              "type": "string"
+            },
+            "S3_USE_SSL": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "S3_VERIFY_TLS": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "OPENSEARCH_VERIFY_TLS": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "OPENSEARCH_STAGING_LIVE_WRITE": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "NEO4J_CA_CERT_PATH": {
+              "type": "string"
+            },
+            "KEYCLOAK_LDAP_GROUP_PATH": {
+              "type": "string",
+              "pattern": "^/[^/].*[^/]$|^/[^/]$"
+            },
+            "BREAK_GLASS_USERNAME": {
+              "type": "string",
+              "minLength": 1
+            },
+            "BREAK_GLASS_RUNBOOK_URI": {
+              "type": "string"
+            },
+            "BREAK_GLASS_ALERTING_EVIDENCE": {
+              "type": "string"
+            },
+            "IDENTITY_SYNC_ENABLED": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            },
+            "IDENTITY_SYNC_SCOPE": {
+              "type": "string",
+              "enum": [
+                "people",
+                "groups",
+                "people_and_groups"
+              ]
+            },
+            "IDENTITY_SYNC_QUEUE_TIMEOUT_SECONDS": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "IDENTITY_SYNC_RUN_TIMEOUT_SECONDS": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "IDENTITY_SYNC_HEARTBEAT_SECONDS": {
+              "type": "string",
+              "pattern": "^[0-9]+$"
+            },
+            "IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS": {
+              "type": "string",
+              "pattern": "^(?:[3-9][0-9]|[1-9][0-9]{2}|1[0-7][0-9]{2}|1800)$"
+            },
+            "PANDOC_COMMAND": {
+              "type": "string",
+              "minLength": 1
+            },
+            "PANDOC_SANDBOX_COMMAND": {
+              "type": "string",
+              "minLength": 1
+            }
+          },
+          "required": [
+            "APP_ENV"
+          ]
+        }
+      },
+      "required": [
+        "env"
+      ]
+    },
+    "frontend": {
+      "type": "object",
+      "properties": {
+        "env": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "env"
+      ]
+    },
+    "migration": {
+      "type": "object",
+      "properties": {
+        "jdbcUrl": {
+          "type": "string",
+          "pattern": "^$|^jdbc:postgresql://"
+        },
+        "userSecretKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "passwordSecretKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "backoffLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeDeadlineSeconds": {
+          "type": "integer",
+          "minimum": 60
+        }
+      },
+      "required": [
+        "jdbcUrl",
+        "userSecretKey",
+        "passwordSecretKey",
+        "backoffLimit",
+        "activeDeadlineSeconds"
+      ]
+    },
+    "bootstrap": {
+      "type": "object",
+      "properties": {
+        "keycloakMode": {
+          "type": "string",
+          "enum": [
+            "manage",
+            "verify"
+          ]
+        },
+        "deploymentPhase": {
+          "type": "string",
+          "enum": [
+            "onboarding",
+            "operational",
+            "factory_acceptance"
+          ]
+        },
+        "evidenceRelease": {
+          "type": "string",
+          "pattern": "^$|^[A-Za-z0-9._:-]{1,255}$"
+        },
+        "onboardingAdminAllowCidr": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "0.0.0.0/0",
+              "::/0"
+            ]
+          }
+        },
+        "breakGlassPasswordKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "finalize": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "enabled"
+          ]
+        },
+        "waitSeconds": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 3600
+        },
+        "backoffLimit": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "activeDeadlineSeconds": {
+          "type": "integer",
+          "minimum": 60
+        },
+        "keycloakAdminSecret": {
+          "type": "string"
+        },
+        "keycloakAdminUsernameKey": {
+          "type": "string",
+          "minLength": 1
+        },
+        "keycloakAdminPasswordKey": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "required": [
+        "keycloakMode",
+        "deploymentPhase",
+        "evidenceRelease",
+        "onboardingAdminAllowCidr",
+        "breakGlassPasswordKey",
+        "finalize",
+        "waitSeconds",
+        "backoffLimit",
+        "activeDeadlineSeconds",
+        "keycloakAdminSecret",
+        "keycloakAdminUsernameKey",
+        "keycloakAdminPasswordKey"
+      ]
+    },
+    "secrets": {
+      "type": "object",
+      "properties": {
+        "existingSecret": {
+          "type": "string"
+        },
+        "data": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "existingSecret",
+        "data"
+      ]
+    },
+    "postgresql": {
+      "$ref": "#/definitions/component"
+    },
+    "redis": {
+      "$ref": "#/definitions/component"
+    },
+    "rustfs": {
+      "$ref": "#/definitions/component"
+    },
+    "opensearch": {
+      "$ref": "#/definitions/opensearch"
+    },
+    "neo4j": {
+      "$ref": "#/definitions/component"
+    },
+    "keycloak": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "cache": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "mode": {
+                  "type": "string",
+                  "enum": [
+                    "local",
+                    "ispn"
+                  ]
+                },
+                "stack": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "mode",
+                "stack"
+              ]
+            }
+          },
+          "required": [
+            "cache"
+          ]
+        }
+      ]
+    },
+    "beat": {
+      "type": "object",
+      "properties": {
+        "haEnabled": {
+          "type": "boolean"
+        },
+        "replicas": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "lease": {
+          "type": "object",
+          "properties": {
+            "name": {
+              "type": "string",
+              "minLength": 1
+            },
+            "durationSeconds": {
+              "type": "integer",
+              "minimum": 15
+            },
+            "renewSeconds": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "retrySeconds": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "name",
+            "durationSeconds",
+            "renewSeconds",
+            "retrySeconds"
+          ]
+        },
+        "podDisruptionBudget": {
+          "type": "object",
+          "properties": {
+            "minAvailable": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          "required": [
+            "minAvailable"
+          ]
+        }
+      },
+      "required": [
+        "haEnabled",
+        "replicas",
+        "lease",
+        "podDisruptionBudget"
+      ]
+    },
+    "ingress": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "className": {
+          "type": "string"
+        },
+        "hosts": {
+          "type": "array",
+          "minItems": 1
+        },
+        "tls": {
+          "type": "array"
+        }
+      },
+      "required": [
+        "enabled",
+        "hosts",
+        "tls"
+      ]
+    },
+    "networkPolicy": {
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "enabled"
+      ]
+    }
+  },
+  "required": [
+    "deploymentProfile",
+    "localDevelopment",
+    "installer",
+    "global",
+    "acceptedRisks",
+    "replicaCount",
+    "highAvailability",
+    "productionCapacity",
+    "compatibility",
+    "image",
+    "backend",
+    "frontend",
+    "migration",
+    "bootstrap",
+    "secrets",
+    "postgresql",
+    "redis",
+    "rustfs",
+    "opensearch",
+    "neo4j",
+    "keycloak",
+    "beat",
+    "ingress",
+    "networkPolicy"
+  ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "localDevelopment": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            },
+            "required": [
+              "enabled"
+            ]
+          }
+        },
+        "required": [
+          "localDevelopment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "deploymentProfile": {
+            "const": "bundled"
+          },
+          "localDevelopment": {
+            "properties": {
+              "platform": {
+                "const": "docker-desktop"
+              },
+              "knownCredentialRiskAccepted": {
+                "const": true
+              }
+            }
+          },
+          "backend": {
+            "properties": {
+              "env": {
+                "properties": {
+                  "APP_ENV": {
+                    "const": "development"
+                  }
+                },
+                "required": [
+                  "APP_ENV"
+                ]
+              }
+            }
+          },
+          "bootstrap": {
+            "properties": {
+              "deploymentPhase": {
+                "const": "factory_acceptance"
+              }
+            }
+          },
+          "secrets": {
+            "properties": {
+              "existingSecret": {
+                "maxLength": 0
+              },
+              "data": {
+                "properties": {
+                  "APP_ENCRYPTION_KEY": {
+                    "type": "string",
+                    "minLength": 64,
+                    "not": {
+                      "pattern": "CHANGE_ME|P@ssw0rd"
+                    }
+                  },
+                  "OIDC_CLIENT_SECRET": {
+                    "type": "string",
+                    "minLength": 32,
+                    "not": {
+                      "pattern": "CHANGE_ME|P@ssw0rd"
+                    }
+                  },
+                  "KEYCLOAK_SYNC_CLIENT_SECRET": {
+                    "type": "string",
+                    "minLength": 32,
+                    "not": {
+                      "pattern": "CHANGE_ME|P@ssw0rd"
+                    }
+                  },
+                  "OPENSEARCH_ADMIN_PASSWORD": {
+                    "type": "string",
+                    "minLength": 16,
+                    "not": {
+                      "pattern": "CHANGE_ME|P@ssw0rd"
+                    }
+                  },
+                  "OPENSEARCH_PASSWORD": {
+                    "type": "string",
+                    "minLength": 16,
+                    "not": {
+                      "pattern": "CHANGE_ME|P@ssw0rd"
+                    }
+                  }
+                },
+                "required": [
+                  "APP_ENCRYPTION_KEY",
+                  "OIDC_CLIENT_SECRET",
+                  "KEYCLOAK_SYNC_CLIENT_SECRET",
+                  "OPENSEARCH_ADMIN_PASSWORD",
+                  "OPENSEARCH_PASSWORD"
+                ]
+              }
+            }
+          },
+          "redis": {
+            "properties": {
+              "tolerations": {
+                "type": "array",
+                "contains": {
+                  "type": "object",
+                  "properties": {
+                    "key": {
+                      "const": "node-role.kubernetes.io/control-plane"
+                    },
+                    "operator": {
+                      "const": "Exists"
+                    },
+                    "effect": {
+                      "const": "NoSchedule"
+                    }
+                  },
+                  "required": [
+                    "key",
+                    "operator",
+                    "effect"
+                  ]
+                }
+              },
+              "cluster": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  },
+                  "replicas": {
+                    "const": 3
+                  },
+                  "sentinelReplicas": {
+                    "const": 3
+                  },
+                  "sentinelQuorum": {
+                    "const": 2
+                  }
+                },
+                "required": [
+                  "enabled",
+                  "replicas",
+                  "sentinelReplicas",
+                  "sentinelQuorum"
+                ]
+              }
+            }
+          },
+          "keycloak": {
+            "properties": {
+              "cache": {
+                "properties": {
+                  "mode": {
+                    "const": "local"
+                  },
+                  "stack": {
+                    "maxLength": 0
+                  }
+                }
+              },
+              "cluster": {
+                "properties": {
+                  "replicas": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "backend": {
+            "properties": {
+              "env": {
+                "properties": {
+                  "APP_ENV": {
+                    "const": "production"
+                  }
+                },
+                "required": [
+                  "APP_ENV"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "global": {
+            "properties": {
+              "publicHost": {
+                "not": {
+                  "enum": [
+                    "localhost",
+                    "127.0.0.1",
+                    "::1"
+                  ]
+                }
+              },
+              "publicOrigin": {
+                "pattern": "^https://"
+              }
+            }
+          },
+          "backend": {
+            "properties": {
+              "env": {
+                "properties": {
+                  "CORS_ALLOWED_ORIGINS": {
+                    "pattern": "^https://"
+                  },
+                  "FRONTEND_APP_ORIGIN": {
+                    "pattern": "^https://"
+                  },
+                  "S3_USE_SSL": {
+                    "const": "true"
+                  },
+                  "S3_VERIFY_TLS": {
+                    "const": "true"
+                  },
+                  "OPENSEARCH_VERIFY_TLS": {
+                    "const": "true"
+                  },
+                  "OPENSEARCH_STAGING_LIVE_WRITE": {
+                    "const": "true"
+                  },
+                  "BREAK_GLASS_RUNBOOK_URI": {
+                    "pattern": "^https://",
+                    "minLength": 1
+                  },
+                  "BREAK_GLASS_ALERTING_EVIDENCE": {
+                    "minLength": 1
+                  }
+                },
+                "required": [
+                  "CORS_ALLOWED_ORIGINS",
+                  "FRONTEND_APP_ORIGIN",
+                  "S3_USE_SSL",
+                  "S3_VERIFY_TLS",
+                  "OPENSEARCH_VERIFY_TLS",
+                  "OPENSEARCH_STAGING_LIVE_WRITE",
+                  "KEYCLOAK_LDAP_GROUP_PATH",
+                  "BREAK_GLASS_USERNAME",
+                  "BREAK_GLASS_RUNBOOK_URI",
+                  "BREAK_GLASS_ALERTING_EVIDENCE",
+                  "PANDOC_COMMAND",
+                  "PANDOC_SANDBOX_COMMAND"
+                ]
+              }
+            }
+          },
+          "replicaCount": {
+            "properties": {
+              "frontend": {
+                "minimum": 2
+              },
+              "backend": {
+                "minimum": 2
+              },
+              "worker": {
+                "minimum": 2
+              }
+            }
+          },
+          "highAvailability": {
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "topologyKey": {
+                "const": "kubernetes.io/hostname"
+              },
+              "podDisruptionBudget": {
+                "properties": {
+                  "minAvailable": {
+                    "minimum": 1
+                  }
+                }
+              },
+              "rollingUpdate": {
+                "properties": {
+                  "maxUnavailable": {
+                    "const": 0
+                  },
+                  "maxSurge": {
+                    "minimum": 1
+                  }
+                }
+              }
+            }
+          },
+          "productionCapacity": {
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "minimumNodeAllocatable": {
+                "properties": {
+                  "cpu": {
+                    "const": "7000m"
+                  },
+                  "memory": {
+                    "const": "28Gi"
+                  }
+                }
+              },
+              "reservePercent": {
+                "properties": {
+                  "cpu": {
+                    "minimum": 20
+                  },
+                  "memory": {
+                    "minimum": 20
+                  },
+                  "storage": {
+                    "minimum": 25
+                  }
+                }
+              },
+              "longhorn": {
+                "properties": {
+                  "requiredReplicaCount": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          },
+          "ingress": {
+            "properties": {
+              "enabled": {
+                "const": true
+              },
+              "tls": {
+                "minItems": 1
+              }
+            }
+          },
+          "bootstrap": {
+            "properties": {
+              "deploymentPhase": {
+                "enum": [
+                  "onboarding",
+                  "operational"
+                ]
+              }
+            }
+          },
+          "secrets": {
+            "properties": {
+              "existingSecret": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          },
+          "postgresql": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/persistentComponent"
+              },
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "bundled"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "service": {
+                      "properties": {
+                        "port": {
+                          "const": 5432
+                        }
+                      },
+                      "required": [
+                        "port"
+                      ]
+                    },
+                    "operator": {
+                      "properties": {
+                        "enabled": {
+                          "const": true
+                        }
+                      },
+                      "required": [
+                        "enabled"
+                      ]
+                    },
+                    "cluster": {
+                      "properties": {
+                        "image": {
+                          "properties": {
+                            "repository": {
+                              "type": "string",
+                              "minLength": 1
+                            },
+                            "tag": {
+                              "type": "string",
+                              "pattern": "^18\\.4-standard-trixie@sha256:[a-f0-9]{64}$"
+                            },
+                            "pullPolicy": {
+                              "enum": [
+                                "IfNotPresent",
+                                "Always",
+                                "Never"
+                              ]
+                            }
+                          },
+                          "required": [
+                            "repository",
+                            "tag",
+                            "pullPolicy"
+                          ]
+                        },
+                        "instances": {
+                          "const": 3
+                        },
+                        "synchronousReplicas": {
+                          "const": 1
+                        },
+                        "minSyncReplicas": {
+                          "const": 1
+                        },
+                        "maxSyncReplicas": {
+                          "const": 1
+                        },
+                        "topologyKey": {
+                          "const": "kubernetes.io/hostname"
+                        },
+                        "podDisruptionBudget": {
+                          "properties": {
+                            "minAvailable": {
+                              "const": 2
+                            }
+                          },
+                          "required": [
+                            "minAvailable"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "image",
+                        "instances",
+                        "synchronousReplicas",
+                        "minSyncReplicas",
+                        "maxSyncReplicas",
+                        "topologyKey",
+                        "podDisruptionBudget"
+                      ]
+                    },
+                    "tls": {
+                      "properties": {
+                        "secretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "replicationSecretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "caKey": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "secretName",
+                        "replicationSecretName",
+                        "caKey"
+                      ]
+                    },
+                    "auth": {
+                      "properties": {
+                        "superuserSecretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "ownerSecretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "appSecretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "keycloakSecretName": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "superuserSecretName",
+                        "ownerSecretName",
+                        "appSecretName",
+                        "keycloakSecretName"
+                      ]
+                    },
+                    "backup": {
+                      "properties": {
+                        "enabled": {
+                          "type": "boolean"
+                        },
+                        "pluginName": {
+                          "const": "barman-cloud.cloudnative-pg.io"
+                        },
+                        "pluginVersion": {
+                          "const": "0.13.0"
+                        },
+                        "endpointURL": {
+                          "type": "string",
+                          "pattern": "^https://"
+                        },
+                        "schedule": {
+                          "type": "string",
+                          "pattern": "^\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+\\s+\\S+$"
+                        },
+                        "immediate": {
+                          "const": true
+                        },
+                        "retentionPolicy": {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]*[dwm]$"
+                        },
+                        "encryption": {
+                          "const": "AES256"
+                        },
+                        "target": {
+                          "const": "prefer-standby"
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "pluginName",
+                        "pluginVersion",
+                        "bucket",
+                        "destinationPrefix",
+                        "endpointURL",
+                        "credentialSecretName",
+                        "accessKeyKey",
+                        "secretKeyKey",
+                        "caSecretName",
+                        "caKey",
+                        "schedule",
+                        "immediate",
+                        "retentionPolicy",
+                        "encryption",
+                        "compression",
+                        "target"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "operator",
+                    "service",
+                    "cluster",
+                    "tls",
+                    "auth",
+                    "backup"
+                  ]
+                }
+              }
+            ]
+          },
+          "redis": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/persistentComponent"
+              },
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "bundled"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "service": {
+                      "properties": {
+                        "port": {
+                          "const": 6379
+                        },
+                        "sentinelPort": {
+                          "const": 26379
+                        }
+                      },
+                      "required": [
+                        "port",
+                        "sentinelPort"
+                      ]
+                    },
+                    "cluster": {
+                      "properties": {
+                        "enabled": {
+                          "const": true
+                        },
+                        "replicas": {
+                          "const": 3
+                        },
+                        "sentinelReplicas": {
+                          "const": 3
+                        },
+                        "sentinelQuorum": {
+                          "const": 2
+                        },
+                        "topologyKey": {
+                          "const": "kubernetes.io/hostname"
+                        },
+                        "podDisruptionBudget": {
+                          "properties": {
+                            "minAvailable": {
+                              "const": 2
+                            }
+                          },
+                          "required": [
+                            "minAvailable"
+                          ]
+                        },
+                        "sentinelPodDisruptionBudget": {
+                          "properties": {
+                            "minAvailable": {
+                              "const": 2
+                            }
+                          },
+                          "required": [
+                            "minAvailable"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "replicas",
+                        "sentinelReplicas",
+                        "sentinelQuorum",
+                        "masterName",
+                        "topologyKey",
+                        "podDisruptionBudget",
+                        "sentinelPodDisruptionBudget"
+                      ]
+                    },
+                    "tls": {
+                      "properties": {
+                        "secretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "caKey": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "secretName",
+                        "caKey"
+                      ]
+                    },
+                    "auth": {
+                      "properties": {
+                        "username": {
+                          "const": "nomosmart"
+                        },
+                        "replicationUsername": {
+                          "const": "nomosmart"
+                        },
+                        "sentinelUsername": {
+                          "const": "nomosmart"
+                        }
+                      },
+                      "required": [
+                        "username",
+                        "passwordSecretKey",
+                        "replicationUsername",
+                        "replicationPasswordSecretKey",
+                        "sentinelUsername",
+                        "sentinelPasswordSecretKey"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "service",
+                    "cluster",
+                    "tls",
+                    "auth"
+                  ]
+                }
+              }
+            ]
+          },
+          "rustfs": {
+            "allOf": [
+              {
+                "$ref": "#/definitions/persistentComponent"
+              },
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "bundled"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "cache": {
+                      "properties": {
+                        "mode": {
+                          "const": "ispn"
+                        },
+                        "stack": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "mode",
+                        "stack"
+                      ]
+                    },
+                    "cluster": {
+                      "properties": {
+                        "enabled": {
+                          "const": true
+                        },
+                        "replicas": {
+                          "const": 4
+                        },
+                        "dataShards": {
+                          "const": 2
+                        },
+                        "parityShards": {
+                          "const": 2
+                        },
+                        "topologyKey": {
+                          "const": "kubernetes.io/hostname"
+                        },
+                        "maxSkew": {
+                          "const": 1
+                        },
+                        "podDisruptionBudget": {
+                          "properties": {
+                            "minAvailable": {
+                              "const": 3
+                            }
+                          },
+                          "required": [
+                            "minAvailable"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "replicas",
+                        "dataShards",
+                        "parityShards",
+                        "topologyKey",
+                        "maxSkew",
+                        "podDisruptionBudget"
+                      ]
+                    },
+                    "tls": {
+                      "properties": {
+                        "secretName": {
+                          "type": "string",
+                          "minLength": 1
+                        },
+                        "caKey": {
+                          "type": "string",
+                          "minLength": 1
+                        }
+                      },
+                      "required": [
+                        "secretName",
+                        "caKey"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "cluster",
+                    "tls"
+                  ]
+                }
+              }
+            ]
+          },
+          "opensearch": {
+            "$ref": "#/definitions/productionOpenSearch"
+          },
+          "neo4j": {
+            "$ref": "#/definitions/persistentComponent"
+          },
+          "keycloak": {
+            "allOf": [
+              {
+                "if": {
+                  "properties": {
+                    "mode": {
+                      "const": "bundled"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                },
+                "then": {
+                  "properties": {
+                    "cluster": {
+                      "properties": {
+                        "replicas": {
+                          "const": 3
+                        },
+                        "topologyKey": {
+                          "const": "kubernetes.io/hostname"
+                        },
+                        "podDisruptionBudget": {
+                          "properties": {
+                            "minAvailable": {
+                              "const": 2
+                            }
+                          },
+                          "required": [
+                            "minAvailable"
+                          ]
+                        }
+                      },
+                      "required": [
+                        "replicas",
+                        "topologyKey",
+                        "podDisruptionBudget"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "cache",
+                    "cluster"
+                  ]
+                }
+              }
+            ]
+          },
+          "beat": {
+            "properties": {
+              "haEnabled": {
+                "const": true
+              },
+              "replicas": {
+                "const": 2
+              },
+              "lease": {
+                "properties": {
+                  "durationSeconds": {
+                    "const": 30
+                  },
+                  "renewSeconds": {
+                    "const": 10
+                  },
+                  "retrySeconds": {
+                    "const": 5
+                  }
+                }
+              },
+              "podDisruptionBudget": {
+                "properties": {
+                  "minAvailable": {
+                    "const": 1
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "bootstrap": {
+            "properties": {
+              "deploymentPhase": {
+                "const": "factory_acceptance"
+              }
+            },
+            "required": [
+              "deploymentPhase"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "backend": {
+            "properties": {
+              "env": {
+                "properties": {
+                  "APP_ENV": {
+                    "const": "development"
+                  }
+                },
+                "required": [
+                  "APP_ENV"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "backend": {
+            "properties": {
+              "env": {
+                "properties": {
+                  "APP_ENV": {
+                    "const": "production"
+                  }
+                },
+                "required": [
+                  "APP_ENV"
+                ]
+              }
+            }
+          },
+          "installer": {
+            "properties": {
+              "deploymentStage": {
+                "enum": [
+                  "application",
+                  "operational"
+                ]
+              }
+            },
+            "required": [
+              "deploymentStage"
+            ]
+          },
+          "postgresql": {
+            "properties": {
+              "mode": {
+                "const": "bundled"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          }
+        }
+      },
+      "then": {
+        "properties": {
+          "postgresql": {
+            "properties": {
+              "backup": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            }
+          }
+        }
+      }
+    }
+  ],
+  "definitions": {
+    "image": {
+      "type": "object",
+      "properties": {
+        "repository": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tag": {
+          "type": "string",
+          "minLength": 1,
+          "not": {
+            "enum": [
+              "latest",
+              "stable",
+              "main",
+              "master"
+            ]
+          }
+        },
+        "digest": {
+          "type": "string",
+          "oneOf": [
+            {
+              "const": ""
+            },
+            {
+              "pattern": "^sha256:[a-f0-9]{64}$"
+            }
+          ]
+        },
+        "pullPolicy": {
+          "type": "string",
+          "enum": [
+            "Always",
+            "IfNotPresent",
+            "Never"
+          ]
+        }
+      },
+      "required": [
+        "repository",
+        "tag",
+        "pullPolicy"
+      ]
+    },
+    "component": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "bundled",
+            "external"
+          ]
+        },
+        "image": {
+          "$ref": "#/definitions/image"
+        },
+        "external": {
+          "type": "object"
+        },
+        "persistence": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "size": {
+              "type": "string",
+              "minLength": 1
+            },
+            "storageClass": {
+              "type": "string"
+            },
+            "retain": {
+              "type": "boolean"
+            }
+          }
+        }
+      },
+      "required": [
+        "mode",
+        "image",
+        "external"
+      ]
+    },
+    "persistentComponent": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/component"
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "bundled"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "persistence": {
+                "type": "object",
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  }
+                },
+                "required": [
+                  "enabled"
+                ]
+              }
+            },
+            "required": [
+              "persistence"
+            ]
+          }
+        }
+      ]
+    },
+    "opensearch": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/component"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "service": {
+              "type": "object",
+              "properties": {
+                "port": {
+                  "const": 9200
+                },
+                "transportPort": {
+                  "const": 9300
+                }
+              },
+              "required": [
+                "port",
+                "transportPort"
+              ]
+            },
+            "cluster": {
+              "type": "object",
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "replicas": {
+                  "type": "integer",
+                  "minimum": 1
+                },
+                "bootstrapMode": {
+                  "type": "string",
+                  "enum": [
+                    "single-node",
+                    "fresh",
+                    "existing"
+                  ]
+                },
+                "roles": {
+                  "type": "array",
+                  "minItems": 3,
+                  "uniqueItems": true,
+                  "items": {
+                    "type": "string"
+                  },
+                  "allOf": [
+                    {
+                      "contains": {
+                        "const": "cluster_manager"
+                      }
+                    },
+                    {
+                      "contains": {
+                        "const": "data"
+                      }
+                    },
+                    {
+                      "contains": {
+                        "const": "ingest"
+                      }
+                    }
+                  ]
+                },
+                "shardReplicas": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 2
+                },
+                "topologyKey": {
+                  "const": "kubernetes.io/hostname"
+                },
+                "podDisruptionBudget": {
+                  "type": "object",
+                  "properties": {
+                    "minAvailable": {
+                      "type": "integer",
+                      "minimum": 1
+                    }
+                  },
+                  "required": [
+                    "minAvailable"
+                  ]
+                },
+                "terminationGracePeriodSeconds": {
+                  "type": "integer",
+                  "minimum": 60,
+                  "maximum": 600
+                }
+              },
+              "required": [
+                "name",
+                "replicas",
+                "bootstrapMode",
+                "roles",
+                "shardReplicas",
+                "topologyKey",
+                "podDisruptionBudget",
+                "terminationGracePeriodSeconds"
+              ]
+            },
+            "tls": {
+              "type": "object",
+              "properties": {
+                "secretName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "httpCertificateKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "httpPrivateKeyKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "transportCertificateKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "transportPrivateKeyKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "caKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "nodeDn": {
+                  "type": "string",
+                  "pattern": "^CN=[^,]+(?:,[A-Z]+=[^,]+)*$"
+                },
+                "enforceHostnameVerification": {
+                  "type": "boolean"
+                },
+                "resolveHostname": {
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "secretName",
+                "httpCertificateKey",
+                "httpPrivateKeyKey",
+                "transportCertificateKey",
+                "transportPrivateKeyKey",
+                "caKey",
+                "nodeDn",
+                "enforceHostnameVerification",
+                "resolveHostname"
+              ]
+            },
+            "snapshot": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                },
+                "repository": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "bucket": {
+                  "type": "string",
+                  "minLength": 3
+                },
+                "endpoint": {
+                  "type": "string",
+                  "pattern": "^https://"
+                },
+                "region": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "pathStyleAccess": {
+                  "type": "boolean"
+                },
+                "credentialSecretName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "accessKeyKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "secretKeyKey": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "caSecretName": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "caKey": {
+                  "type": "string",
+                  "minLength": 1
+                }
+              },
+              "required": [
+                "enabled",
+                "repository",
+                "bucket",
+                "endpoint",
+                "region",
+                "pathStyleAccess",
+                "credentialSecretName",
+                "accessKeyKey",
+                "secretKeyKey",
+                "caSecretName",
+                "caKey"
+              ]
+            }
+          },
+          "required": [
+            "service",
+            "cluster",
+            "tls",
+            "snapshot"
+          ]
+        }
+      ]
+    },
+    "productionOpenSearch": {
+      "allOf": [
+        {
+          "$ref": "#/definitions/persistentComponent"
+        },
+        {
+          "$ref": "#/definitions/opensearch"
+        },
+        {
+          "if": {
+            "properties": {
+              "mode": {
+                "const": "bundled"
+              }
+            },
+            "required": [
+              "mode"
+            ]
+          },
+          "then": {
+            "properties": {
+              "image": {
+                "properties": {
+                  "digest": {
+                    "pattern": "^sha256:[a-f0-9]{64}$"
+                  }
+                },
+                "required": [
+                  "digest"
+                ]
+              },
+              "cluster": {
+                "properties": {
+                  "replicas": {
+                    "const": 3
+                  },
+                  "bootstrapMode": {
+                    "enum": [
+                      "fresh",
+                      "existing"
+                    ]
+                  },
+                  "shardReplicas": {
+                    "const": 1
+                  },
+                  "topologyKey": {
+                    "const": "kubernetes.io/hostname"
+                  },
+                  "podDisruptionBudget": {
+                    "properties": {
+                      "minAvailable": {
+                        "const": 2
+                      }
+                    }
+                  }
+                }
+              },
+              "tls": {
+                "properties": {
+                  "enforceHostnameVerification": {
+                    "const": true
+                  },
+                  "resolveHostname": {
+                    "const": true
+                  }
+                }
+              },
+              "snapshot": {
+                "properties": {
+                  "enabled": {
+                    "const": true
+                  },
+                  "endpoint": {
+                    "pattern": "^https://"
+                  },
+                  "pathStyleAccess": {
+                    "const": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

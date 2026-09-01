@@ -1,0 +1,74 @@
+{{- if include "nomosmart.applicationStageEnabled" . }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-frontend
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  replicas: {{ .Values.replicaCount.frontend }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: {{ .Values.highAvailability.rollingUpdate.maxUnavailable }}
+      maxSurge: {{ .Values.highAvailability.rollingUpdate.maxSurge }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+      annotations:
+        nomosmart.io/deployment-release: {{ printf "%s-%d" .Release.Name .Release.Revision | quote }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.highAvailability.terminationGracePeriodSeconds }}
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "nomosmart.backendReadyInitContainer" . | nindent 8 }}
+      containers:
+        - name: frontend
+          image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
+          imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: 3000
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 6
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+      {{- if or (eq .Values.rustfs.mode "bundled") (eq .Values.opensearch.mode "bundled") }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+      {{- end }}
+      {{- if .Values.highAvailability.enabled }}
+      affinity:
+        {{- include "nomosmart.haAffinity" (dict "root" . "component" "frontend") | nindent 8 }}
+      {{- end }}
+{{- end }}

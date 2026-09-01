@@ -1,0 +1,6 @@
+apiVersion: v2
+name: nomosmart
+description: NomoSmart enterprise knowledge management platform
+type: application
+version: 0.8.0
+appVersion: "0.1.0"

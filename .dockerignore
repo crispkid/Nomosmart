@@ -1,0 +1,14 @@
+# The repository-root Docker context is reserved for the migration image.
+# Deny everything by default so ignored local output, credentials and source
+# that the migration image does not need are never transferred to BuildKit.
+**
+
+!sql
+!sql/migrations
+!sql/migrations/**
+
+!deploy
+!deploy/migrations
+!deploy/migrations/Dockerfile
+!deploy/docker
+!deploy/docker/secret-env-entrypoint.sh

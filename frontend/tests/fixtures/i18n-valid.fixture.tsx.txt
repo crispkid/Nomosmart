@@ -1,0 +1,11 @@
+export function ValidCopy({ t, locale, localize, error }: { t: (key: string) => string; locale: string; localize: (message: string) => string; error: Error }) {
+  const date = new Date();
+  return (
+    <section aria-label={t("graphPreview")}>
+      <h1>{t("heading")}</h1>
+      <span>API</span>
+      <span>{date.toLocaleString(locale)}</span>
+      <span>{localize(error.message)}</span>
+    </section>
+  );
+}

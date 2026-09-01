@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 180" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart reversed logo</title>
+  <desc id="desc">NomoSmart Knowledge Gateway logo for dark backgrounds.</desc>
+  <g transform="translate(18 18) scale(1.125)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+          fill="none" stroke="#BFDCCE" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+          fill="none" stroke="#74C09A" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+    <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)"
+          fill="#D8C77A" stroke="#245F46" stroke-width="4"/>
+  </g>
+  <text x="184" y="94" fill="#FCFDFB"
+        font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="65" font-weight="650" letter-spacing="-2.7">NomoSmart</text>
+  <text x="188" y="130" fill="#BFDCCE"
+        font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="16" font-weight="600" letter-spacing="3.7">ENTERPRISE KNOWLEDGE CENTER</text>
+</svg>

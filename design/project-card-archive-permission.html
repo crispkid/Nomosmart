@@ -1,0 +1,762 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="icon" href="data:," />
+  <title>NomoSmart 專案卡片設計示意</title>
+  <style>
+    :root {
+      --mint-50: #f2faf6;
+      --mint-100: #eaf7f1;
+      --sage-200: #bfdcce;
+      --green-500: #5fae88;
+      --green-700: #2f7d57;
+      --green-800: #246546;
+      --coral-50: #fff5f4;
+      --coral-200: #f4c6c2;
+      --coral-600: #bd5d58;
+      --gold-50: #fffbed;
+      --gold-300: #d8c77a;
+      --white: #fcfdfb;
+      --surface: #ffffff;
+      --gray-50: #f7f9fa;
+      --gray-100: #eef2f4;
+      --gray-200: #e1e8eb;
+      --gray-400: #94a2aa;
+      --gray-600: #63717a;
+      --slate: #2e3a42;
+      --shadow: 0 10px 28px rgba(28, 55, 43, 0.07);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--slate);
+      background: #f5f8f6;
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    button, input { font: inherit; letter-spacing: 0; }
+    button { cursor: pointer; }
+
+    .app {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr);
+    }
+
+    .sidebar {
+      min-height: 100vh;
+      padding: 24px 16px;
+      background: var(--white);
+      border-right: 1px solid var(--gray-200);
+    }
+
+    .brand {
+      height: 48px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 10px 18px;
+      border-bottom: 1px solid var(--gray-200);
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .brand-mark {
+      width: 30px;
+      height: 30px;
+      display: grid;
+      place-items: center;
+      color: white;
+      background: var(--green-700);
+      border-radius: 6px;
+      font-weight: 800;
+    }
+
+    .nav {
+      margin-top: 22px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .nav-item {
+      min-height: 42px;
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      padding: 0 12px;
+      color: var(--gray-600);
+      border-left: 3px solid transparent;
+      font-weight: 600;
+    }
+
+    .nav-item.active {
+      color: var(--green-700);
+      background: var(--mint-100);
+      border-left-color: var(--green-700);
+    }
+
+    .icon {
+      width: 18px;
+      height: 18px;
+      flex: 0 0 auto;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 1.8;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .main { min-width: 0; }
+
+    .topbar {
+      height: 68px;
+      padding: 0 34px;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 12px;
+      background: rgba(252, 253, 251, 0.96);
+      border-bottom: 1px solid var(--gray-200);
+    }
+
+    .avatar {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      color: var(--green-800);
+      background: var(--mint-100);
+      border: 1px solid var(--sage-200);
+      font-weight: 800;
+    }
+
+    .user-meta { display: grid; gap: 2px; }
+    .user-meta strong { font-size: 13px; }
+    .user-meta span { color: var(--gray-600); font-size: 12px; }
+
+    .content {
+      width: min(1180px, calc(100% - 64px));
+      margin: 0 auto;
+      padding: 34px 0 56px;
+    }
+
+    .page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 24px;
+    }
+
+    .page-head h1 {
+      margin: 0;
+      font-size: 28px;
+      line-height: 1.25;
+    }
+
+    .page-head p {
+      margin: 7px 0 0;
+      color: var(--gray-600);
+      line-height: 1.6;
+    }
+
+    .button {
+      min-height: 40px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 15px;
+      border: 1px solid transparent;
+      border-radius: 6px;
+      font-weight: 700;
+      transition: color 180ms ease, background 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .button:focus-visible,
+    .tab:focus-visible,
+    .project-card:focus-within {
+      outline: 3px solid rgba(95, 174, 136, 0.28);
+      outline-offset: 2px;
+    }
+
+    .button.primary {
+      color: white;
+      background: var(--green-700);
+      border-color: var(--green-700);
+    }
+
+    .button.primary:hover { background: var(--green-800); border-color: var(--green-800); }
+
+    .button.secondary {
+      color: var(--green-700);
+      background: var(--surface);
+      border-color: var(--sage-200);
+    }
+
+    .button.secondary:hover { background: var(--mint-50); border-color: var(--green-500); }
+
+    .button.archive {
+      color: var(--coral-600);
+      background: var(--surface);
+      border-color: var(--coral-200);
+    }
+
+    .button.archive:hover {
+      color: #9f4743;
+      background: var(--coral-50);
+      border-color: var(--coral-600);
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: auto minmax(260px, 1fr) auto;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 18px;
+    }
+
+    .tabs {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px;
+      background: var(--gray-100);
+      border-radius: 7px;
+    }
+
+    .tab {
+      min-height: 36px;
+      padding: 0 15px;
+      color: var(--gray-600);
+      background: transparent;
+      border: 0;
+      border-radius: 5px;
+      font-weight: 700;
+    }
+
+    .tab.active {
+      color: var(--green-700);
+      background: var(--surface);
+      box-shadow: 0 1px 4px rgba(37, 69, 54, 0.09);
+    }
+
+    .search {
+      position: relative;
+      justify-self: end;
+      width: min(360px, 100%);
+    }
+
+    .search .icon {
+      position: absolute;
+      left: 13px;
+      top: 50%;
+      color: var(--gray-600);
+      transform: translateY(-50%);
+      pointer-events: none;
+    }
+
+    .search input {
+      width: 100%;
+      min-height: 40px;
+      padding: 0 14px 0 40px;
+      color: var(--slate);
+      background: var(--surface);
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+      outline: none;
+    }
+
+    .search input:focus { border-color: var(--green-500); box-shadow: 0 0 0 3px rgba(95, 174, 136, 0.14); }
+
+    .result-summary {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin: 0 0 14px;
+      color: var(--gray-600);
+      font-size: 13px;
+    }
+
+    .result-summary strong { color: var(--slate); }
+
+    .project-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .project-card {
+      width: 100%;
+      min-width: 0;
+      min-height: 286px;
+      display: grid;
+      grid-template-rows: auto auto 1fr auto;
+      padding: 20px;
+      background: var(--surface);
+      border: 1px solid var(--gray-200);
+      border-radius: 8px;
+      box-shadow: 0 2px 10px rgba(38, 62, 50, 0.035);
+      transition: border-color 180ms ease, box-shadow 180ms ease;
+    }
+
+    .project-card:hover {
+      border-color: var(--sage-200);
+      box-shadow: var(--shadow);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .identity {
+      width: 0;
+      min-width: 0;
+      display: flex;
+      flex: 1 1 0;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .project-icon {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      flex: 0 0 auto;
+      color: var(--green-700);
+      background: var(--mint-100);
+      border: 1px solid var(--sage-200);
+      border-radius: 7px;
+    }
+
+    .project-icon .icon { width: 21px; height: 21px; }
+
+    .title-block { min-width: 0; }
+
+    .title-block h2 {
+      margin: 0;
+      overflow: hidden;
+      color: var(--slate);
+      font-size: 17px;
+      line-height: 1.35;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .title-block span {
+      display: block;
+      margin-top: 4px;
+      color: var(--gray-600);
+      font-size: 12px;
+    }
+
+    .role-badge {
+      min-height: 27px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex: 0 0 auto;
+      padding: 0 9px;
+      color: var(--green-700);
+      background: var(--mint-50);
+      border: 1px solid var(--sage-200);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .role-badge.permission {
+      color: #716018;
+      background: var(--gold-50);
+      border-color: var(--gold-300);
+    }
+
+    .role-badge.viewer {
+      color: var(--gray-600);
+      background: var(--gray-50);
+      border-color: var(--gray-200);
+    }
+
+    .description {
+      min-height: 48px;
+      margin: 16px 0 14px;
+      color: #52616a;
+      line-height: 1.65;
+      display: -webkit-box;
+      overflow: hidden;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 2;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 1px;
+      align-self: start;
+      overflow: hidden;
+      background: var(--gray-200);
+      border: 1px solid var(--gray-200);
+      border-radius: 6px;
+    }
+
+    .metric {
+      min-width: 0;
+      padding: 10px 11px;
+      background: var(--gray-50);
+    }
+
+    .metric span {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--gray-600);
+      font-size: 11px;
+    }
+
+    .metric strong {
+      display: block;
+      overflow: hidden;
+      font-size: 13px;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .card-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 16px;
+      border-top: 1px solid var(--gray-200);
+    }
+
+    .model-state {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      color: var(--gray-600);
+      font-size: 12px;
+    }
+
+    .model-state .dot {
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      background: var(--green-500);
+      border-radius: 50%;
+      box-shadow: 0 0 0 3px var(--mint-100);
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      flex: 0 0 auto;
+    }
+
+    .actions .button { min-height: 38px; padding: 0 12px; }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      display: none;
+      place-items: center;
+      padding: 24px;
+      background: rgba(27, 39, 34, 0.42);
+      z-index: 10;
+    }
+
+    .modal-backdrop.open { display: grid; }
+
+    .modal {
+      width: min(520px, 100%);
+      padding: 22px;
+      background: var(--surface);
+      border-radius: 8px;
+      box-shadow: 0 24px 70px rgba(20, 33, 27, 0.24);
+    }
+
+    .modal-title { display: flex; align-items: flex-start; gap: 12px; }
+    .modal-title-icon { width: 40px; height: 40px; display: grid; place-items: center; color: var(--coral-600); background: var(--coral-50); border-radius: 7px; }
+    .modal h2 { margin: 0; font-size: 19px; }
+    .modal p { margin: 7px 0 0; color: var(--gray-600); line-height: 1.6; }
+    .modal-warning { margin-top: 18px; padding: 13px; color: #8d4743; background: var(--coral-50); border: 1px solid var(--coral-200); border-radius: 6px; line-height: 1.55; }
+    .impact-mini-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; margin-top: 14px; overflow: hidden; background: var(--gray-200); border: 1px solid var(--gray-200); border-radius: 6px; }
+    .impact-mini-grid div { padding: 11px 12px; background: var(--gray-50); }
+    .impact-mini-grid span { display: block; color: var(--gray-600); font-size: 11px; }
+    .impact-mini-grid strong { display: block; margin-top: 4px; font-size: 14px; }
+    .archive-name-field { display: grid; gap: 7px; margin-top: 16px; color: var(--slate); font-size: 12px; font-weight: 700; }
+    .archive-name-field input { min-height: 40px; padding: 0 11px; color: var(--slate); background: var(--surface); border: 1px solid var(--gray-200); border-radius: 6px; outline: none; }
+    .archive-name-field input:focus { border-color: var(--coral-600); box-shadow: 0 0 0 3px rgba(233, 139, 135, 0.15); }
+    .button:disabled { cursor: not-allowed; opacity: 0.48; }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+
+    @media (max-width: 980px) {
+      .app { grid-template-columns: 76px minmax(0, 1fr); }
+      .brand { justify-content: center; padding-inline: 0; }
+      .brand span:not(.brand-mark), .nav-item span { display: none; }
+      .nav-item { justify-content: center; padding: 0; }
+      .content { width: min(100% - 36px, 780px); }
+      .toolbar { grid-template-columns: 1fr auto; }
+      .search { grid-row: 2; grid-column: 1 / -1; justify-self: stretch; width: 100%; }
+      .project-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 620px) {
+      .app { display: block; }
+      .sidebar { display: none; }
+      .topbar { height: 58px; padding: 0 18px; }
+      .content { width: calc(100% - 28px); padding-top: 24px; }
+      .page-head { align-items: stretch; flex-direction: column; }
+      .page-head h1 { font-size: 24px; }
+      .toolbar { display: flex; align-items: stretch; flex-direction: column; }
+      .tabs { width: 100%; }
+      .tab { flex: 1; }
+      .project-card { min-height: 0; padding: 17px; }
+      .card-top { align-items: flex-start; }
+      .metrics { grid-template-columns: 1fr; }
+      .card-footer { align-items: stretch; flex-direction: column; }
+      .actions { width: 100%; min-width: 0; }
+      .actions .button { min-width: 0; flex: 1 1 0; padding-inline: 8px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { scroll-behavior: auto !important; transition: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">N</span><span>NomoSmart</span></div>
+      <nav class="nav" aria-label="主要導覽">
+        <div class="nav-item">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+          <span>系統首頁</span>
+        </div>
+        <div class="nav-item active">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+          <span>知識專案</span>
+        </div>
+        <div class="nav-item">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 11H3v10h6V11Z"/><path d="M15 3H9v18h6V3Z"/><path d="M21 7h-6v14h6V7Z"/></svg>
+          <span>統計報表</span>
+        </div>
+        <div class="nav-item">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06-2.83 2.83-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21h-4v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06-2.83-2.83.06-.06A1.65 1.65 0 0 0 4.6 15a1.65 1.65 0 0 0-1.51-1H3v-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06 2.83-2.83.06.06A1.65 1.65 0 0 0 9 4.6h.02A1.65 1.65 0 0 0 10 3.09V3h4v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06 2.83 2.83-.06.06A1.65 1.65 0 0 0 19.4 9c.12.61.66 1.04 1.28 1.04H21v4h-.09A1.65 1.65 0 0 0 19.4 15Z"/></svg>
+          <span>系統管理</span>
+        </div>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <div class="avatar">P</div>
+        <div class="user-meta"><strong>Peter</strong><span>peter@example.test</span></div>
+      </header>
+
+      <div class="content">
+        <div class="page-head">
+          <div>
+            <h1>知識專案</h1>
+            <p>管理文件、知識萃取、模型設定與發布內容。</p>
+          </div>
+          <button class="button primary" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            新增專案
+          </button>
+        </div>
+
+        <div class="toolbar">
+          <div class="tabs" role="tablist" aria-label="專案狀態">
+            <button class="tab active" role="tab" aria-selected="true" type="button">專案清單</button>
+            <button class="tab" role="tab" aria-selected="false" type="button">已封存</button>
+          </div>
+          <div class="search">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+            <input aria-label="搜尋專案" placeholder="搜尋專案名稱或描述" />
+          </div>
+          <button class="button secondary" type="button">
+            <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6h18M7 12h10M10 18h4"/></svg>
+            篩選
+          </button>
+        </div>
+
+        <div class="result-summary"><span>共 <strong>12</strong> 個可使用專案</span><span>最近更新排序</span></div>
+
+        <section class="project-grid" aria-label="專案清單">
+          <article class="project-card">
+            <div class="card-top">
+              <div class="identity">
+                <div class="project-icon">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+                </div>
+                <div class="title-block">
+                  <h2>企業級 Model as a Service 平台規劃</h2>
+                  <span>最後更新：今天 14:32</span>
+                </div>
+              </div>
+              <span class="role-badge">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 7h-9M14 17H5M17 4l3 3-3 3M8 14l-3 3 3 3"/></svg>
+                Owner
+              </span>
+            </div>
+            <p class="description">彙整企業 AI 平台架構、模型治理、資源配置與服務上線規範，提供跨部門共用的知識依據。</p>
+            <div class="metrics">
+              <div class="metric"><span>文件</span><strong>18 份</strong></div>
+              <div class="metric"><span>已發布版本</span><strong>6 個</strong></div>
+              <div class="metric"><span>模型配置</span><strong>3 / 3 完成</strong></div>
+            </div>
+            <footer class="card-footer">
+              <div class="model-state"><span class="dot"></span><span>可正常使用</span></div>
+              <div class="actions">
+                <button class="button archive js-archive" data-project="企業級 Model as a Service 平台規劃" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+                  封存
+                </button>
+                <button class="button primary" type="button">進入專案
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+            </footer>
+          </article>
+
+          <article class="project-card">
+            <div class="card-top">
+              <div class="identity">
+                <div class="project-icon">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+                </div>
+                <div class="title-block">
+                  <h2>風險治理與法遵知識庫</h2>
+                  <span>最後更新：昨天 17:18</span>
+                </div>
+              </div>
+              <span class="role-badge permission">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+                封存權限
+              </span>
+            </div>
+            <p class="description">集中管理內控政策、法規要求、風險評估標準與稽核知識，支援治理流程與跨單位查詢。</p>
+            <div class="metrics">
+              <div class="metric"><span>文件</span><strong>42 份</strong></div>
+              <div class="metric"><span>已發布版本</span><strong>31 個</strong></div>
+              <div class="metric"><span>模型配置</span><strong>3 / 3 完成</strong></div>
+            </div>
+            <footer class="card-footer">
+              <div class="model-state"><span class="dot"></span><span>可正常使用</span></div>
+              <div class="actions">
+                <button class="button archive js-archive" data-project="風險治理與法遵知識庫" type="button">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+                  封存
+                </button>
+                <button class="button primary" type="button">進入專案
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+            </footer>
+          </article>
+
+          <article class="project-card">
+            <div class="card-top">
+              <div class="identity">
+                <div class="project-icon">
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2Z"/></svg>
+                </div>
+                <div class="title-block">
+                  <h2>客服營運標準作業知識</h2>
+                  <span>最後更新：2026/07/13 09:05</span>
+                </div>
+              </div>
+              <span class="role-badge viewer">
+                <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 22a8 8 0 0 1 16 0"/></svg>
+                檢視者
+              </span>
+            </div>
+            <p class="description">收錄客服回覆規範、案件分類、升級處理與品質檢核標準，供第一線同仁快速查找。</p>
+            <div class="metrics">
+              <div class="metric"><span>文件</span><strong>24 份</strong></div>
+              <div class="metric"><span>已發布版本</span><strong>19 個</strong></div>
+              <div class="metric"><span>模型配置</span><strong>3 / 3 完成</strong></div>
+            </div>
+            <footer class="card-footer">
+              <div class="model-state"><span class="dot"></span><span>可正常使用</span></div>
+              <div class="actions">
+                <button class="button primary" type="button">進入專案
+                  <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+                </button>
+              </div>
+            </footer>
+          </article>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="archive-modal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="archive-title">
+      <div class="modal-title">
+        <div class="modal-title-icon">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8v13H3V8M1 3h22v5H1zM10 12h4"/></svg>
+        </div>
+        <div><h2 id="archive-title">封存專案</h2><p id="archive-project-name"></p></div>
+      </div>
+      <div class="modal-warning">封存後專案將立即停止使用，未完成內容會永久刪除且無法復原。</div>
+      <div class="impact-mini-grid" aria-label="封存影響摘要">
+        <div><span>保留</span><strong>6 個已發布版本</strong></div>
+        <div><span>永久刪除</span><strong>2 個未完成版本</strong></div>
+        <div><span>永久刪除</span><strong>4 個未完成檔案</strong></div>
+        <div><span>立即停用</span><strong>Public API 存取</strong></div>
+      </div>
+      <label class="archive-name-field"><span id="archive-confirm-label">輸入完整專案名稱以確認</span><input id="archive-confirm-input" autocomplete="off" /></label>
+      <div class="modal-actions">
+        <button class="button secondary" id="modal-cancel" type="button">取消</button>
+        <button class="button archive" id="archive-confirm-button" disabled type="button">確認封存</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    const modal = document.getElementById("archive-modal");
+    const projectName = document.getElementById("archive-project-name");
+    const confirmLabel = document.getElementById("archive-confirm-label");
+    const confirmInput = document.getElementById("archive-confirm-input");
+    const confirmButton = document.getElementById("archive-confirm-button");
+    let selectedProjectName = "";
+    document.querySelectorAll(".js-archive").forEach((button) => {
+      button.addEventListener("click", () => {
+        selectedProjectName = button.dataset.project;
+        projectName.textContent = selectedProjectName;
+        confirmLabel.textContent = `輸入完整專案名稱「${selectedProjectName}」以確認`;
+        confirmInput.value = "";
+        confirmButton.disabled = true;
+        modal.classList.add("open");
+      });
+    });
+    confirmInput.addEventListener("input", () => {
+      confirmButton.disabled = confirmInput.value !== selectedProjectName;
+    });
+    document.getElementById("modal-cancel").addEventListener("click", () => modal.classList.remove("open"));
+    modal.addEventListener("click", (event) => {
+      if (event.target === modal) modal.classList.remove("open");
+    });
+    document.addEventListener("keydown", (event) => {
+      if (event.key === "Escape") modal.classList.remove("open");
+    });
+  </script>
+</body>
+</html>

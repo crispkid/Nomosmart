@@ -1,0 +1,149 @@
+{{- if and (eq .Values.rustfs.mode "bundled") .Values.rustfs.cluster.enabled }}
+{{- $name := printf "%s-rustfs" (include "nomosmart.fullname" .) }}
+{{- $volumes := printf "https://%s-{0...%d}.%s-headless:%v/data" $name (sub (int .Values.rustfs.cluster.replicas) 1) $name .Values.rustfs.service.port }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-headless
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - {name: s3-tls, port: {{ .Values.rustfs.service.port }}, targetPort: s3-tls}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  type: ClusterIP
+  ports:
+    - {name: s3-tls, port: {{ .Values.rustfs.service.port }}, targetPort: s3-tls}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+  annotations:
+    nomosmart.io/erasure-layout: {{ printf "%d+%d" (int .Values.rustfs.cluster.dataShards) (int .Values.rustfs.cluster.parityShards) | quote }}
+    nomosmart.io/failure-domains: "3"
+spec:
+  serviceName: {{ $name }}-headless
+  replicas: {{ .Values.rustfs.cluster.replicas }}
+  podManagementPolicy: Parallel
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rustfs
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rustfs
+      annotations:
+        nomosmart.io/erasure-layout: {{ printf "%d+%d" (int .Values.rustfs.cluster.dataShards) (int .Values.rustfs.cluster.parityShards) | quote }}
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      topologySpreadConstraints:
+        - maxSkew: {{ .Values.rustfs.cluster.maxSkew }}
+          topologyKey: {{ .Values.rustfs.cluster.topologyKey }}
+          whenUnsatisfiable: DoNotSchedule
+          labelSelector:
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: rustfs
+      affinity:
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - weight: 100
+              podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    {{- include "nomosmart.selectorLabels" . | nindent 20 }}
+                    app.kubernetes.io/component: rustfs
+                topologyKey: {{ .Values.rustfs.cluster.topologyKey }}
+      containers:
+        - name: rustfs
+          image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
+          imagePullPolicy: {{ .Values.rustfs.image.pullPolicy }}
+          args: [{{ $volumes | quote }}]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: s3-tls, containerPort: 9000}]
+          env:
+            - {name: RUSTFS_ACCESS_KEY, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: S3_ACCESS_KEY_ID}}}
+            - {name: RUSTFS_SECRET_KEY, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: S3_SECRET_ACCESS_KEY}}}
+            - {name: RUSTFS_TLS_PATH, value: /opt/rustfs-tls}
+            - {name: RUSTFS_VOLUMES, value: {{ $volumes | quote }}}
+            - {name: RUSTFS_ADDRESS, value: {{ printf ":%v" .Values.rustfs.service.port | quote }}}
+            - {name: RUSTFS_CONSOLE_ENABLE, value: "false"}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tls, mountPath: /opt/rustfs-tls, readOnly: true}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - {{ printf "curl --cacert /opt/rustfs-tls/rustfs_ca.pem --resolve %s:%v:127.0.0.1 -fsS https://%s:%v/health >/dev/null" $name .Values.rustfs.service.port $name .Values.rustfs.service.port | quote }}
+            periodSeconds: 10
+            failureThreshold: 18
+          livenessProbe: {tcpSocket: {port: s3-tls}, initialDelaySeconds: 45, periodSeconds: 20}
+          resources:
+            {{- toYaml .Values.rustfs.resources | nindent 12 }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.rustfs.tls.secretName }}
+            items:
+              - {key: tls.crt, path: rustfs_cert.pem}
+              - {key: tls.key, path: rustfs_key.pem}
+              # The bundled default is ca.crt, path: rustfs_ca.pem; keep the key configurable for operator CA refs.
+              - {key: {{ .Values.rustfs.tls.caKey }}, path: rustfs_ca.pem}
+        {{- if not .Values.rustfs.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if .Values.rustfs.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.rustfs.persistence.storageClass }}
+        storageClassName: {{ .Values.rustfs.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.rustfs.persistence.size }}}}
+  {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  minAvailable: {{ .Values.rustfs.cluster.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rustfs
+{{- end }}

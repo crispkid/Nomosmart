@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart logo mark</title>
+  <desc id="desc">A structured N with a flowing knowledge path and AI spark.</desc>
+  <defs>
+    <linearGradient id="surface" x1="18" y1="14" x2="110" y2="116" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#245F46"/>
+      <stop offset="1" stop-color="#5FAE88"/>
+    </linearGradient>
+    <linearGradient id="flow" x1="31" y1="35" x2="95" y2="93" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FCFDFB"/>
+      <stop offset="0.62" stop-color="#EAF7F1"/>
+      <stop offset="1" stop-color="#A9DBE8"/>
+    </linearGradient>
+    <filter id="shadow" x="-18%" y="-14%" width="136%" height="142%">
+      <feDropShadow dx="0" dy="5" stdDeviation="6" flood-color="#1F4938" flood-opacity=".18"/>
+    </filter>
+  </defs>
+
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#surface)" filter="url(#shadow)"/>
+  <path d="M20 42C29 23 50 15 73 17c20 2 35 13 43 29-14-7-31-10-48-7-18 3-34 4-48 3Z"
+        fill="#FCFDFB" opacity=".07"/>
+
+  <path d="M34 91V38" fill="none" stroke="#FCFDFB" stroke-width="10" stroke-linecap="round"/>
+  <path d="M34 38C48 38 71 90 93 90" fill="none" stroke="url(#flow)" stroke-width="10" stroke-linecap="round"/>
+  <path d="M93 90V39" fill="none" stroke="#FCFDFB" stroke-width="10" stroke-linecap="round"/>
+
+  <circle cx="34" cy="38" r="7" fill="#BFDCCE" stroke="#FCFDFB" stroke-width="3"/>
+  <circle cx="63" cy="64" r="5.5" fill="#77C5D8" stroke="#FCFDFB" stroke-width="3"/>
+  <circle cx="93" cy="90" r="7" fill="#D8C77A" stroke="#FCFDFB" stroke-width="3"/>
+
+  <path d="M96 22c.8 5.2 3.8 8.2 9 9-5.2.8-8.2 3.8-9 9-.8-5.2-3.8-8.2-9-9 5.2-.8 8.2-3.8 9-9Z"
+        fill="#D8C77A"/>
+</svg>

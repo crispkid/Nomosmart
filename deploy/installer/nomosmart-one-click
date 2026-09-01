@@ -1,0 +1,480 @@
+#!/usr/bin/env sh
+set -eu
+
+# Safe operator wrapper for the guided installer. It delegates all Kubernetes,
+# package, custody and checkpoint behavior to nomosmart-install.
+
+usage() {
+  cat <<'EOF'
+Usage:
+  nomosmart-one-click --profile bundled \
+    --config /secure/nomosmart/install.toml --init-config
+  nomosmart-one-click --profile external-services \
+    --config /secure/nomosmart/install.toml --init-config
+  nomosmart-one-click --profile bundled \
+    --config /secure/nomosmart/install.toml --plan-only
+  nomosmart-one-click --profile bundled \
+    --config /secure/nomosmart/install.toml
+  nomosmart-one-click --profile external-services \
+    --config /secure/nomosmart/install.toml --yes
+  nomosmart-one-click --profile external-services \
+    --config /secure/nomosmart/install.toml \
+    --confirm-digest <config-digest>
+
+Profiles:
+  bundled             Install NomoSmart and the supported peripheral services.
+  external-services   Install only the NomoSmart application tier and use
+                      operator-provided external services.
+
+The config is a non-secret installer TOML outside the release package.
+--init-config creates the matching template as a new owner-only file and never
+contacts Kubernetes. It does not overwrite an existing path.
+
+The wrapper runs a read-only plan first, selects install/resume from current
+installer state, then finishes with status/verify. The password-login and
+directory-role identity checkpoint remains a protected human checkpoint.
+
+Options:
+  -c, --config PATH       Required non-secret installer configuration.
+  -p, --profile PROFILE   Explicit bundled or external-services profile.
+  --init-config           Create the matching config template, then stop.
+  --yes                   Explicitly accept the displayed plan.
+  --confirm-digest HASH   Non-interactive confirmation matching plan config_digest.
+  --plan-only             Run and print the read-only plan, then stop.
+  -h, --help              Show this help.
+
+Existing config-only calls remain compatible for this release. The wrapper
+detects the typed profile and shows the equivalent explicit command.
+
+This command never performs factory reset, permanent deletion or uninstall.
+It does not provision VM/OS/RKE2/Rancher/DNS/Registry/OpenLDAP.
+EOF
+}
+
+CONFIG=
+PROFILE=
+PROFILE_EXPLICIT=false
+INIT_CONFIG=false
+ASSUME_YES=false
+PLAN_ONLY=false
+CONFIRM_DIGEST=
+
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    -c|--config)
+      if [ "$#" -lt 2 ]; then
+        echo "--config requires a path" >&2
+        usage >&2
+        exit 20
+      fi
+      CONFIG=$2
+      shift 2
+      ;;
+    -p|--profile)
+      if [ "$#" -lt 2 ]; then
+        echo "--profile needs bundled or external-services; no changes were made" >&2
+        usage >&2
+        exit 20
+      fi
+      PROFILE=$2
+      PROFILE_EXPLICIT=true
+      shift 2
+      ;;
+    --init-config)
+      INIT_CONFIG=true
+      shift
+      ;;
+    --yes)
+      ASSUME_YES=true
+      shift
+      ;;
+    --confirm-digest)
+      if [ "$#" -lt 2 ]; then
+        echo "--confirm-digest requires a SHA-256 value" >&2
+        usage >&2
+        exit 20
+      fi
+      CONFIRM_DIGEST=$2
+      shift 2
+      ;;
+    --plan-only)
+      PLAN_ONLY=true
+      shift
+      ;;
+    -h|--help)
+      usage
+      exit 0
+      ;;
+    --)
+      shift
+      break
+      ;;
+    *)
+      echo "unknown option: $1" >&2
+      usage >&2
+      exit 20
+      ;;
+  esac
+done
+
+if [ "$#" -gt 0 ]; then
+  echo "unexpected argument: $1" >&2
+  usage >&2
+  exit 20
+fi
+
+if [ -z "$CONFIG" ]; then
+  echo "A config path is needed before continuing; no changes were made." >&2
+  usage >&2
+  exit 20
+fi
+
+case "$PROFILE" in
+  ""|bundled|external-services) ;;
+  *)
+    echo "The selected profile is not supported: $PROFILE" >&2
+    echo "Choose bundled or external-services; no changes were made." >&2
+    exit 20
+    ;;
+esac
+
+if [ "$INIT_CONFIG" = true ]; then
+  if [ "$PROFILE_EXPLICIT" != true ]; then
+    echo "Config initialization is ready after you select --profile bundled or --profile external-services." >&2
+    echo "No file or Kubernetes resource was changed." >&2
+    exit 20
+  fi
+  if [ "$PLAN_ONLY" = true ] || [ "$ASSUME_YES" = true ] || [ -n "$CONFIRM_DIGEST" ]; then
+    echo "--init-config is a local-only step and cannot be combined with plan or confirmation options." >&2
+    echo "No file or Kubernetes resource was changed." >&2
+    exit 20
+  fi
+fi
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd -P)
+PACKAGE_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd -P)
+
+PYTHON=$(command -v python3 2>/dev/null || true)
+if [ -z "$PYTHON" ]; then
+  echo "Python 3 is needed to validate the installer configuration; no changes were made." >&2
+  exit 20
+fi
+
+if [ "$INIT_CONFIG" = true ]; then
+  case "$PROFILE" in
+    bundled) TEMPLATE="$SCRIPT_DIR/nomosmart-install.example.toml" ;;
+    external-services) TEMPLATE="$SCRIPT_DIR/nomosmart-install.external-services.example.toml" ;;
+  esac
+
+  if "$PYTHON" - "$TEMPLATE" "$CONFIG" "$PACKAGE_ROOT" "$PROFILE" <<'PY'
+import json
+import os
+import stat
+import sys
+import tomllib
+
+
+source, requested_destination, package_root, expected_profile = sys.argv[1:]
+
+
+def stop(message: str) -> None:
+    print(message, file=sys.stderr)
+    print("No file or Kubernetes resource was changed.", file=sys.stderr)
+    raise SystemExit(20)
+
+
+try:
+    source_lstat = os.lstat(source)
+except OSError:
+    stop("The matching installer template is unavailable in this verified package.")
+if stat.S_ISLNK(source_lstat.st_mode) or not stat.S_ISREG(source_lstat.st_mode):
+    stop("The matching installer template is not a safe regular file.")
+
+try:
+    with open(source, "rb") as handle:
+        template_data = handle.read()
+    parsed = tomllib.loads(template_data.decode("utf-8"))
+except (OSError, UnicodeError, tomllib.TOMLDecodeError):
+    stop("The matching installer template could not be validated.")
+if parsed.get("deployment_profile") != expected_profile:
+    stop("The matching installer template does not contain the selected profile.")
+
+real_package_root = os.path.realpath(package_root)
+chart_root = os.path.join(real_package_root, "deploy", "helm", "nomosmart")
+profile_values = {
+    "bundled": ["values-prod.yaml"],
+    "external-services": [
+        "values-prod.yaml",
+        "values-external-services.example.yaml",
+    ],
+}[expected_profile]
+chart_metadata = os.path.join(chart_root, "Chart.yaml")
+if (
+    not os.path.isdir(chart_root)
+    or os.path.islink(chart_root)
+    or not os.path.isfile(chart_metadata)
+    or os.path.islink(chart_metadata)
+):
+    stop("The Helm chart is unavailable in this verified package.")
+for values_name in profile_values:
+    values_path = os.path.join(chart_root, values_name)
+    if not os.path.isfile(values_path) or os.path.islink(values_path):
+        stop("A required Helm values file is unavailable in this verified package.")
+
+# The examples are stored next to the installer and therefore use ../helm paths.
+# A generated config lives outside the package, so pin those paths to the exact
+# verified/extracted package used to initialize it.
+try:
+    generated_text = template_data.decode("utf-8")
+except UnicodeError:
+    stop("The matching installer template could not be validated.")
+relative_paths = [
+    "../helm/nomosmart/values-external-services.example.yaml",
+    "../helm/nomosmart/values-prod.yaml",
+    "../helm/nomosmart",
+]
+for relative_path in relative_paths:
+    absolute_path = os.path.join(
+        real_package_root,
+        "deploy",
+        relative_path.removeprefix("../"),
+    )
+    generated_text = generated_text.replace(
+        json.dumps(relative_path),
+        json.dumps(absolute_path),
+    )
+generated_data = generated_text.encode("utf-8")
+try:
+    generated = tomllib.loads(generated_text)
+except tomllib.TOMLDecodeError:
+    stop("The initialized installer configuration could not be validated.")
+application = generated.get("application", {})
+expected_values = [os.path.join(chart_root, name) for name in profile_values]
+if application.get("chart") != chart_root or application.get("values") != expected_values:
+    stop("The initialized installer configuration does not match the verified package.")
+
+destination_input = os.path.abspath(requested_destination)
+parent_input = os.path.dirname(destination_input)
+filename = os.path.basename(destination_input)
+if not filename:
+    stop("The config path must include a file name.")
+try:
+    parent_lstat = os.lstat(parent_input)
+except OSError:
+    stop("Create the private config parent directory first with mode 0700, then retry.")
+if stat.S_ISLNK(parent_lstat.st_mode) or not stat.S_ISDIR(parent_lstat.st_mode):
+    stop("The config parent must be an owner-controlled directory, not a symlink.")
+if parent_lstat.st_uid != os.geteuid() or stat.S_IMODE(parent_lstat.st_mode) & 0o077:
+    stop("Set the config parent directory to the current owner with mode 0700, then retry.")
+
+real_parent = os.path.realpath(parent_input)
+destination = os.path.join(real_parent, filename)
+try:
+    inside_package = os.path.commonpath((destination, real_package_root)) == real_package_root
+except ValueError:
+    inside_package = False
+if inside_package:
+    stop("Choose a private config path outside the source or extracted release package.")
+if os.path.lexists(destination):
+    stop("The config destination already exists and was left unchanged.")
+
+flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+flags |= getattr(os, "O_CLOEXEC", 0)
+flags |= getattr(os, "O_NOFOLLOW", 0)
+descriptor = None
+created = False
+try:
+    descriptor = os.open(destination, flags, 0o600)
+    created = True
+    os.fchmod(descriptor, 0o600)
+    with os.fdopen(descriptor, "wb", closefd=True) as output:
+        descriptor = None
+        output.write(generated_data)
+        output.flush()
+        os.fsync(output.fileno())
+except OSError:
+    if descriptor is not None:
+        os.close(descriptor)
+    if created:
+        try:
+            os.unlink(destination)
+        except OSError:
+            pass
+    stop("The config file could not be created safely; verify the directory permissions and free space, then retry.")
+
+PY
+  then
+    :
+  else
+    exit $?
+  fi
+
+  CONFIG_PATH=$(
+    "$PYTHON" -c 'import os, sys; print(os.path.realpath(sys.argv[1]))' "$CONFIG"
+  )
+  CONFIG_QUOTED=$(
+    "$PYTHON" -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$CONFIG_PATH"
+  )
+  WRAPPER_QUOTED=$(
+    "$PYTHON" -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$0"
+  )
+  echo "NomoSmart configuration template is ready."
+  echo "profile: $PROFILE"
+  echo "config: $CONFIG_PATH"
+  echo "mode: 0600"
+  echo "Helm chart and values now point to this verified package."
+  echo "Next, edit the non-secret environment values and Secret references in this file."
+  echo "Then preview the installation safely with:"
+  echo "  $WRAPPER_QUOTED --profile $PROFILE --config $CONFIG_QUOTED --plan-only"
+  exit 0
+fi
+
+if [ ! -f "$CONFIG" ]; then
+  echo "The installer config is not available as a regular file: $CONFIG" >&2
+  echo "Create it with --init-config or provide the approved config path; no changes were made." >&2
+  exit 20
+fi
+
+INSTALLER="$SCRIPT_DIR/nomosmart-install"
+if [ ! -x "$INSTALLER" ]; then
+  echo "The guided installer is not executable in this package: $INSTALLER" >&2
+  echo "Verify or restore the release package before continuing; no changes were made." >&2
+  exit 20
+fi
+
+if config_profile=$("$PYTHON" -c '
+import sys
+import tomllib
+
+try:
+    with open(sys.argv[1], "rb") as handle:
+        value = tomllib.load(handle).get("deployment_profile")
+except (OSError, tomllib.TOMLDecodeError):
+    raise SystemExit(1)
+if value not in {"bundled", "external-services"}:
+    raise SystemExit(1)
+print(value)
+' "$CONFIG" 2>/dev/null); then
+  :
+else
+  echo "The installer config does not contain a valid bundled or external-services profile." >&2
+  echo "Correct the non-secret TOML or initialize a new matching config; no changes were made." >&2
+  exit 20
+fi
+
+if [ "$PROFILE_EXPLICIT" = true ]; then
+  if [ "$PROFILE" != "$config_profile" ]; then
+    echo "The selected profile ($PROFILE) does not match the config profile ($config_profile)." >&2
+    echo "Use the matching profile or config file; the guided installer was not started." >&2
+    exit 20
+  fi
+  echo "Profile confirmed: $PROFILE"
+else
+  PROFILE=$config_profile
+  CONFIG_QUOTED=$(
+    "$PYTHON" -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$CONFIG"
+  )
+  WRAPPER_QUOTED=$(
+    "$PYTHON" -c 'import shlex, sys; print(shlex.quote(sys.argv[1]))' "$0"
+  )
+  echo "Configuration profile detected: $PROFILE"
+  echo "This compatible config-only call can continue. For a clearer next run, use:"
+  echo "  $WRAPPER_QUOTED --profile $PROFILE --config $CONFIG_QUOTED"
+fi
+
+case "$PROFILE" in
+  bundled)
+    echo "Deployment responsibility: NomoSmart and supported peripheral services will be managed in this release."
+    ;;
+  external-services)
+    echo "Deployment responsibility: only the NomoSmart application tier is managed; external services remain operator-owned."
+    ;;
+esac
+
+echo "== NomoSmart one-click installer: read-only plan =="
+if plan_output=$("$INSTALLER" plan --config "$CONFIG"); then
+  :
+else
+  rc=$?
+  echo "The read-only plan did not complete, and no installation mutation was requested (exit $rc)." >&2
+  echo "Review the redacted plan details, correct the prerequisite, and run the same command again." >&2
+  exit "$rc"
+fi
+printf '%s\n' "$plan_output"
+
+if config_digest=$(printf '%s\n' "$plan_output" | "$PYTHON" -c 'import json, sys; value=json.load(sys.stdin).get("config_digest", ""); print(value) if isinstance(value, str) and len(value) == 64 else sys.exit(1)'); then
+  :
+else
+  echo "The plan did not provide a valid config_digest, so the installation remains unchanged." >&2
+  echo "Verify the guided installer package and run the plan again." >&2
+  exit 20
+fi
+
+if [ "$PLAN_ONLY" = true ]; then
+  echo "Plan preview complete; no Kubernetes mutation was attempted."
+  echo "After this config_digest is approved, rerun the same explicit-profile command without --plan-only."
+  exit 0
+fi
+
+if status_output=$("$INSTALLER" status --config "$CONFIG"); then
+  :
+else
+  rc=$?
+  echo "Installer status was not available, and no installation mutation was requested (exit $rc)." >&2
+  echo "Use the redacted doctor guidance, correct the prerequisite, and retry safely." >&2
+  exit "$rc"
+fi
+
+if operation=$(printf '%s\n' "$status_output" | "$PYTHON" -c 'import json, sys; status=json.load(sys.stdin).get("status"); print({"not-installed": "install", "in-progress": "resume", "complete": "verify"}[status])'); then
+  :
+else
+  echo "Installer status returned an unsupported state, so the installation remains unchanged." >&2
+  echo "Run the guided installer doctor command before retrying." >&2
+  exit 20
+fi
+
+printf '%s\n' "$status_output"
+echo "plan config digest: $config_digest"
+echo "selected operation: $operation"
+
+if [ "$operation" != verify ]; then
+  if [ -n "$CONFIRM_DIGEST" ] && [ "$CONFIRM_DIGEST" != "$config_digest" ]; then
+    echo "--confirm-digest does not match the displayed plan, so the installation remains unchanged." >&2
+    echo "Review and approve the current config_digest before retrying." >&2
+    exit 10
+  fi
+  if [ "$ASSUME_YES" != true ] && [ -z "$CONFIRM_DIGEST" ]; then
+    if [ ! -t 0 ]; then
+      echo "Action required: review this plan, then rerun interactively and type APPLY $config_digest, or pass --yes." >&2
+      echo "No installation mutation was attempted." >&2
+      exit 10
+    fi
+    printf 'Type APPLY %s to continue (anything else cancels): ' "$config_digest"
+    if IFS= read -r confirmation; then
+      :
+    else
+      confirmation=
+    fi
+    if [ "$confirmation" != "APPLY $config_digest" ]; then
+      echo "Installation was safely cancelled; no Kubernetes mutation was attempted." >&2
+      echo "You can rerun the same command whenever the displayed plan is approved." >&2
+      exit 10
+    fi
+  fi
+
+  echo "== NomoSmart $operation =="
+  if "$INSTALLER" "$operation" --config "$CONFIG"; then
+    :
+  else
+    rc=$?
+    echo "$operation stopped safely with exit $rc; existing installer state is retained." >&2
+    echo "Use the redacted next_safe_command and rerun this same explicit-profile wrapper." >&2
+    exit "$rc"
+  fi
+fi
+
+echo "== NomoSmart status =="
+"$INSTALLER" status --config "$CONFIG"
+echo "== NomoSmart verification =="
+"$INSTALLER" verify --config "$CONFIG"
+echo "NomoSmart installation verification is complete; services remain running."

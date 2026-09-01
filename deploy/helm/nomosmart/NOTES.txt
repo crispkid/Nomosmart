@@ -1,0 +1,80 @@
+NomoSmart release {{ .Release.Name }} revision {{ .Release.Revision }} has been rendered.
+
+Wait for migration, bootstrap and application readiness:
+  helm status {{ .Release.Name }}
+  kubectl get jobs,pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Migration Job:
+  {{ include "nomosmart.fullname" . }}-migration-{{ .Release.Revision }}
+
+Bootstrap Job:
+  {{ include "nomosmart.fullname" . }}-bootstrap-{{ .Release.Revision }}
+
+Application Pods remain in their deployment-readiness init gate until
+secret-free bootstrap evidence for this revision exists. Use Helm with
+--wait --wait-for-jobs and inspect Job logs when a release fails.
+
+Frontend service:
+  {{ include "nomosmart.fullname" . }}-frontend:{{ .Values.frontend.service.port }}
+
+Backend service:
+  {{ include "nomosmart.fullname" . }}-backend:{{ .Values.backend.service.port }}
+
+Sensitive runtime values are read from:
+  {{ include "nomosmart.secretName" . }}
+
+First-use deployment phase:
+  {{ .Values.bootstrap.deploymentPhase }}
+First-use Portal/Keycloak credential:
+{{- if .Values.localDevelopment.enabled }}
+  nomosmart / P@ssw0rd (public Docker Desktop development default; temporary)
+{{- else }}
+  nomosmart / nomosmart (temporary; localhost/admin-allowlisted onboarding only)
+{{- end }}
+Onboarding source allowlist:
+  {{ .Values.bootstrap.onboardingAdminAllowCidr }}
+{{- if .Values.bootstrap.finalize.enabled }}
+
+Finalization Job:
+  {{ include "nomosmart.fullname" . }}-finalize-{{ .Release.Revision }}
+
+After this Job succeeds, remove BREAK_GLASS_INITIAL_PASSWORD from the external
+Secret and upgrade with bootstrap.deploymentPhase=operational and
+bootstrap.finalize.enabled=false.
+{{- else if ne .Values.bootstrap.deploymentPhase "operational" }}
+
+The release is onboarding-only. Complete the Keycloak password update,
+OIDC login and (for production) LDAP sync/replacement-admin evidence before
+enabling the one-shot finalization Job.
+{{- end }}
+
+For production, prefer setting secrets.existingSecret to a Kubernetes Secret
+managed by your platform or external secret controller.
+
+Bundled peripheral modes:
+  PostgreSQL: {{ .Values.postgresql.mode }}
+  Redis: {{ .Values.redis.mode }}
+  RustFS: {{ .Values.rustfs.mode }}
+  OpenSearch: {{ .Values.opensearch.mode }}
+  Neo4j: {{ .Values.neo4j.mode }}
+  Keycloak: {{ .Values.keycloak.mode }}
+
+Neo4j Community accepted risk:
+  {{ .Values.acceptedRisks.changeId }} / neo4j_community_admin_equivalent
+The distinct service credential is for rotation/audit and is not a role-level
+authorization boundary. Keep the Neo4j Service ClusterIP-only and retain the
+service-specific NetworkPolicy.
+
+{{- if .Values.localDevelopment.enabled }}
+Redis runs as three data Pods plus three Sentinel Pods with quorum two across
+Docker Desktop Kubernetes nodes. This is same-host logical failover, not host,
+storage or production HA. Keycloak and all other bundled stateful services are
+single-node.
+{{- else }}
+The bundled stateful baseline follows the selected profile and must not be
+described as HA without its required live disruption evidence.
+{{- end }}
+Retained PVCs are not deleted automatically with the release. Provide the RustFS and OpenSearch
+TLS/CA Secrets plus the Ingress TLS Secret from the active package generation
+before installing a bundled stack. Trust the active edge CA; do not bypass TLS
+warnings.

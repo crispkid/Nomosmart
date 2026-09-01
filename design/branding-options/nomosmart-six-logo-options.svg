@@ -1,0 +1,229 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1650" role="img" aria-labelledby="title desc">
+  <title id="title">Six professional NomoSmart logo options</title>
+  <desc id="desc">Six simple, clear and professional logo directions for NomoSmart.</desc>
+  <defs>
+    <filter id="cardShadow" x="-8%" y="-8%" width="116%" height="126%">
+      <feDropShadow dx="0" dy="12" stdDeviation="18" flood-color="#28463A" flood-opacity=".07"/>
+    </filter>
+
+    <!-- 01 Knowledge Gateway -->
+    <g id="mark-gateway">
+      <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+            fill="none" stroke="#245F46" stroke-width="16" stroke-linecap="round"/>
+      <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+            fill="none" stroke="#5FAE88" stroke-width="16" stroke-linecap="round"/>
+      <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+      <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)"
+            fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+    </g>
+
+    <!-- 02 Curated Layers -->
+    <g id="mark-layers">
+      <rect x="17" y="23" width="94" height="25" rx="12.5" fill="#245F46"/>
+      <rect x="25" y="52" width="86" height="25" rx="12.5" fill="#5FAE88"/>
+      <rect x="33" y="81" width="78" height="25" rx="12.5" fill="#77C5D8"/>
+      <rect x="84" y="28" width="18" height="15" rx="5" fill="#D8C77A" stroke="#FCFDFB" stroke-width="3"/>
+    </g>
+
+    <!-- 03 Trust Lens -->
+    <g id="mark-lens">
+      <path d="M64 18A46 46 0 0 0 64 110" fill="none" stroke="#245F46" stroke-width="17" stroke-linecap="round"/>
+      <path d="M64 18A46 46 0 0 1 64 110" fill="none" stroke="#5FAE88" stroke-width="17" stroke-linecap="round"/>
+      <circle cx="64" cy="64" r="19" fill="#DCEFF3"/>
+      <circle cx="64" cy="64" r="10" fill="#D8C77A"/>
+    </g>
+
+    <!-- 04 Intelligence Convergence -->
+    <g id="mark-convergence">
+      <rect x="26" y="26" width="76" height="76" rx="20" transform="rotate(-14 64 64)"
+            fill="none" stroke="#245F46" stroke-width="14"/>
+      <rect x="26" y="26" width="76" height="76" rx="20" transform="rotate(14 64 64)"
+            fill="none" stroke="#77C5D8" stroke-width="14"/>
+      <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)"
+            fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+    </g>
+
+    <!-- 05 Open Archive -->
+    <g id="mark-archive">
+      <path d="M16 29Q40 21 59 37V103Q40 87 16 94Z" fill="#245F46"/>
+      <path d="M112 29Q88 21 69 37V103Q88 87 112 94Z" fill="#5FAE88"/>
+      <path d="M64 18c1.2 8.5 6.5 13.8 15 15-8.5 1.2-13.8 6.5-15 15-1.2-8.5-6.5-13.8-15-15 8.5-1.2 13.8-6.5 15-15Z" fill="#D8C77A"/>
+    </g>
+
+    <!-- 06 Trusted Link -->
+    <g id="mark-link">
+      <rect x="16" y="34" width="70" height="40" rx="20" transform="rotate(-34 51 54)"
+            fill="none" stroke="#245F46" stroke-width="14"/>
+      <rect x="42" y="54" width="70" height="40" rx="20" transform="rotate(-34 77 74)"
+            fill="none" stroke="#FCFDFB" stroke-width="22"/>
+      <rect x="42" y="54" width="70" height="40" rx="20" transform="rotate(-34 77 74)"
+            fill="none" stroke="#77C5D8" stroke-width="14"/>
+      <circle cx="64" cy="64" r="9" fill="#D8C77A" stroke="#FCFDFB" stroke-width="3"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="1650" fill="#F4F7F5"/>
+  <rect width="2400" height="12" fill="#245F46"/>
+  <circle cx="2260" cy="90" r="250" fill="#EAF7F1"/>
+
+  <text x="90" y="88" fill="#2F7D57" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="16" font-weight="700" letter-spacing="4.5">NOMOSMART · PROFESSIONAL LOGO DIRECTIONS</text>
+  <text x="90" y="160" fill="#29373B" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="48" font-weight="700">六個簡單、清楚、可落地的設計方向</text>
+  <text x="92" y="208" fill="#65736F" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="21">不使用字母造型 · 不使用 AI 腦袋 · 以企業知識中心的核心價值建立識別</text>
+
+  <!-- Card 01 -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="270" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="130" y="320" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">01 · KNOWLEDGE GATEWAY</text>
+  <rect x="130" y="360" width="220" height="220" rx="34" fill="#EAF7F1"/>
+  <g transform="translate(176 405) scale(1)">
+    <use href="#mark-gateway"/>
+  </g>
+  <g transform="translate(665 302) scale(.25)">
+    <use href="#mark-gateway"/>
+  </g>
+  <text x="390" y="432" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">知識閘門</text>
+  <text x="390" y="470" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">GOVERNED CENTER</text>
+  <text x="390" y="520" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">清楚表達「有治理邊界的</text>
+  <text x="390" y="550" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">可信知識中心」。</text>
+  <line x1="130" y1="625" x2="740" y2="625" stroke="#E1E8E4"/>
+  <g transform="translate(130 665) scale(.54)">
+    <use href="#mark-gateway"/>
+  </g>
+  <text x="220" y="710" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="222" y="738" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">ENTERPRISE KNOWLEDGE CENTER</text>
+  <rect x="130" y="780" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="182" y="803" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">治理明確</text>
+  <rect x="245" y="780" width="104" height="34" rx="17" fill="#EEF6F8"/><text x="297" y="803" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">中心意象</text>
+
+  <!-- Card 02 -->
+  <g filter="url(#cardShadow)">
+    <rect x="855" y="270" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="895" y="320" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">02 · CURATED LAYERS</text>
+  <rect x="895" y="360" width="220" height="220" rx="34" fill="#F0F6F3"/>
+  <g transform="translate(941 406)">
+    <use href="#mark-layers"/>
+  </g>
+  <g transform="translate(1430 302) scale(.25)">
+    <use href="#mark-layers"/>
+  </g>
+  <text x="1155" y="432" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">知識層級</text>
+  <text x="1155" y="470" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">CURATED LAYERS</text>
+  <text x="1155" y="520" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">強調文件、資料與知識經過</text>
+  <text x="1155" y="550" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">分層整理及發布。</text>
+  <line x1="895" y1="625" x2="1505" y2="625" stroke="#E1E8E4"/>
+  <g transform="translate(895 665) scale(.54)">
+    <use href="#mark-layers"/>
+  </g>
+  <text x="985" y="710" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="987" y="738" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE, ORGANIZED</text>
+  <rect x="895" y="780" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="947" y="803" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">結構清楚</text>
+  <rect x="1010" y="780" width="104" height="34" rx="17" fill="#EEF6F8"/><text x="1062" y="803" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">資料意象</text>
+
+  <!-- Card 03 -->
+  <g filter="url(#cardShadow)">
+    <rect x="1620" y="270" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="1660" y="320" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">03 · TRUST LENS</text>
+  <rect x="1660" y="360" width="220" height="220" rx="34" fill="#EAF4F5"/>
+  <g transform="translate(1706 406)">
+    <use href="#mark-lens"/>
+  </g>
+  <g transform="translate(2195 302) scale(.25)">
+    <use href="#mark-lens"/>
+  </g>
+  <text x="1920" y="432" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">可信視窗</text>
+  <text x="1920" y="470" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">FOCUSED ANSWERS</text>
+  <text x="1920" y="520" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">聚焦可靠來源，讓搜尋與問答</text>
+  <text x="1920" y="550" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">得到明確答案。</text>
+  <line x1="1660" y1="625" x2="2270" y2="625" stroke="#E1E8E4"/>
+  <g transform="translate(1660 665) scale(.54)">
+    <use href="#mark-lens"/>
+  </g>
+  <text x="1750" y="710" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="1752" y="738" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE IN FOCUS</text>
+  <rect x="1660" y="780" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="1712" y="803" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">穩定沉著</text>
+  <rect x="1775" y="780" width="104" height="34" rx="17" fill="#FFF5D7"/><text x="1827" y="803" fill="#8A7425" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">焦點明確</text>
+
+  <!-- Card 04 -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="910" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="130" y="960" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">04 · INTELLIGENCE CONVERGENCE</text>
+  <rect x="130" y="1000" width="220" height="220" rx="34" fill="#EEF6F8"/>
+  <g transform="translate(176 1046)">
+    <use href="#mark-convergence"/>
+  </g>
+  <g transform="translate(665 942) scale(.25)">
+    <use href="#mark-convergence"/>
+  </g>
+  <text x="390" y="1072" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">智慧交集</text>
+  <text x="390" y="1110" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">GOVERNANCE × AI</text>
+  <text x="390" y="1160" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">治理與 AI 兩種能力交會，</text>
+  <text x="390" y="1190" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">中央產生可信知識。</text>
+  <line x1="130" y1="1265" x2="740" y2="1265" stroke="#E1E8E4"/>
+  <g transform="translate(130 1305) scale(.54)">
+    <use href="#mark-convergence"/>
+  </g>
+  <text x="220" y="1350" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="222" y="1378" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">GOVERNED INTELLIGENCE</text>
+  <rect x="130" y="1420" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="182" y="1443" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">科技理性</text>
+  <rect x="245" y="1420" width="104" height="34" rx="17" fill="#EEF6F8"/><text x="297" y="1443" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">雙重能力</text>
+
+  <!-- Card 05 -->
+  <g filter="url(#cardShadow)">
+    <rect x="855" y="910" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="895" y="960" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">05 · OPEN ARCHIVE</text>
+  <rect x="895" y="1000" width="220" height="220" rx="34" fill="#F0F6F3"/>
+  <g transform="translate(941 1046)">
+    <use href="#mark-archive"/>
+  </g>
+  <g transform="translate(1430 942) scale(.25)">
+    <use href="#mark-archive"/>
+  </g>
+  <text x="1155" y="1072" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">企業典藏</text>
+  <text x="1155" y="1110" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">OPEN ARCHIVE</text>
+  <text x="1155" y="1160" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">最直接的知識意象，適合強調</text>
+  <text x="1155" y="1190" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">企業資料累積與傳承。</text>
+  <line x1="895" y1="1265" x2="1505" y2="1265" stroke="#E1E8E4"/>
+  <g transform="translate(895 1305) scale(.54)">
+    <use href="#mark-archive"/>
+  </g>
+  <text x="985" y="1350" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="987" y="1378" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">ENTERPRISE KNOWLEDGE</text>
+  <rect x="895" y="1420" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="947" y="1443" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">一眼理解</text>
+  <rect x="1010" y="1420" width="104" height="34" rx="17" fill="#FFF5D7"/><text x="1062" y="1443" fill="#8A7425" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">知識意象</text>
+
+  <!-- Card 06 -->
+  <g filter="url(#cardShadow)">
+    <rect x="1620" y="910" width="690" height="590" rx="26" fill="#FCFDFB" stroke="#DCE5E0"/>
+  </g>
+  <text x="1660" y="960" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.2">06 · TRUSTED LINK</text>
+  <rect x="1660" y="1000" width="220" height="220" rx="34" fill="#EEF6F8"/>
+  <g transform="translate(1706 1046)">
+    <use href="#mark-link"/>
+  </g>
+  <g transform="translate(2195 942) scale(.25)">
+    <use href="#mark-link"/>
+  </g>
+  <text x="1920" y="1072" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="29" font-weight="700">可信連結</text>
+  <text x="1920" y="1110" fill="#6D7B78" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="1.8">CONNECTED KNOWLEDGE</text>
+  <text x="1920" y="1160" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">強調知識圖譜、Public API</text>
+  <text x="1920" y="1190" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">以及跨系統整合。</text>
+  <line x1="1660" y1="1265" x2="2270" y2="1265" stroke="#E1E8E4"/>
+  <g transform="translate(1660 1305) scale(.54)">
+    <use href="#mark-link"/>
+  </g>
+  <text x="1750" y="1350" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="1752" y="1378" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE, CONNECTED</text>
+  <rect x="1660" y="1420" width="104" height="34" rx="17" fill="#EEF6F8"/><text x="1712" y="1443" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">整合導向</text>
+  <rect x="1775" y="1420" width="104" height="34" rx="17" fill="#EAF7F1"/><text x="1827" y="1443" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">圖譜意象</text>
+
+  <line x1="90" y1="1560" x2="2310" y2="1560" stroke="#D7E1DC"/>
+  <text x="90" y="1605" fill="#52615D" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="17">共同設計標準：三色以內 · 24px 可辨識 · 可轉為單色 · 適用 Web、App、文件與企業簡報</text>
+  <text x="2310" y="1605" fill="#81908B" font-family="Avenir Next, sans-serif" font-size="14" text-anchor="end">VECTOR LOGO STUDY · 2026</text>
+</svg>

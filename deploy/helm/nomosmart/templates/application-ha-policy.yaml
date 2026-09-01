@@ -1,0 +1,41 @@
+{{- if include "nomosmart.applicationStageEnabled" . }}
+{{- $production := eq .Values.backend.env.APP_ENV "production" -}}
+{{- if and $production (not .Values.highAvailability.enabled) -}}
+{{- fail "production requires highAvailability.enabled=true" -}}
+{{- end -}}
+{{- if $production -}}
+{{- if or (lt (int .Values.replicaCount.frontend) 2) (lt (int .Values.replicaCount.backend) 2) (lt (int .Values.replicaCount.worker) 2) -}}
+{{- fail "production requires at least two Frontend, Backend and Worker replicas" -}}
+{{- end -}}
+{{- if ne .Values.highAvailability.topologyKey "kubernetes.io/hostname" -}}
+{{- fail "production HA requires hard kubernetes.io/hostname separation" -}}
+{{- end -}}
+{{- if ne (int .Values.highAvailability.rollingUpdate.maxUnavailable) 0 -}}
+{{- fail "production HA requires rollingUpdate.maxUnavailable=0" -}}
+{{- end -}}
+{{- if lt (int .Values.highAvailability.rollingUpdate.maxSurge) 1 -}}
+{{- fail "production HA requires rollingUpdate.maxSurge>=1" -}}
+{{- end -}}
+{{- if or (lt (int .Values.highAvailability.podDisruptionBudget.minAvailable) 1) (ge (int .Values.highAvailability.podDisruptionBudget.minAvailable) (int .Values.replicaCount.frontend)) (ge (int .Values.highAvailability.podDisruptionBudget.minAvailable) (int .Values.replicaCount.backend)) (ge (int .Values.highAvailability.podDisruptionBudget.minAvailable) (int .Values.replicaCount.worker)) -}}
+{{- fail "production HA PDB minAvailable must preserve at least one replica and allow one voluntary disruption" -}}
+{{- end -}}
+{{- end -}}
+{{- if .Values.highAvailability.enabled }}
+{{- range $component := list "frontend" "backend" "worker" }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nomosmart.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "nomosmart.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  minAvailable: {{ $.Values.highAvailability.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" $ | nindent 6 }}
+      app.kubernetes.io/component: {{ $component }}
+{{- end }}
+{{- end }}
+{{- end }}

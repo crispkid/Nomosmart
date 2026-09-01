@@ -1,0 +1,51 @@
+# CHG-252 isolated restore template. Render placeholders outside the repository;
+# never commit real Secret names if they disclose an environment identity.
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: nomosmart-postgresql-restore-source
+  namespace: ${RESTORE_NAMESPACE}
+spec:
+  configuration:
+    destinationPath: s3://nomosmart-postgresql-backups/production
+    endpointURL: https://nomosmart-rustfs.nomosmart.svc.cluster.local:9000
+    endpointCA:
+      name: ${RESTORE_RUSTFS_CA_SECRET}
+      key: ca.crt
+    s3Credentials:
+      accessKeyId:
+        name: ${RESTORE_READ_ONLY_S3_SECRET}
+        key: S3_ACCESS_KEY_ID
+      secretAccessKey:
+        name: ${RESTORE_READ_ONLY_S3_SECRET}
+        key: S3_SECRET_ACCESS_KEY
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: nomosmart-postgresql-pitr-check
+  namespace: ${RESTORE_NAMESPACE}
+  labels:
+    nomosmart.io/change-id: CHG-252
+    nomosmart.io/purpose: isolated-pitr-verification
+spec:
+  instances: 1
+  imageName: ${APPROVED_POSTGRESQL_IMAGE_WITH_DIGEST}
+  bootstrap:
+    recovery:
+      source: nomosmart-production-backup
+      recoveryTarget:
+        targetTime: ${RFC3339_PITR_TARGET}
+  externalClusters:
+    - name: nomosmart-production-backup
+      plugin:
+        name: barman-cloud.cloudnative-pg.io
+        parameters:
+          barmanObjectName: nomosmart-postgresql-restore-source
+          serverName: nomosmart-postgresql
+  storage:
+    size: 20Gi
+    storageClass: ${RESTORE_STORAGE_CLASS}
+  resources:
+    requests: {cpu: 250m, memory: 512Mi}
+    limits: {cpu: "1", memory: 2Gi}

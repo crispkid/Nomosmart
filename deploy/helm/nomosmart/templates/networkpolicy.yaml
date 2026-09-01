@@ -1,0 +1,275 @@
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-default-deny-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+  policyTypes: [Ingress]
+  ingress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-frontend-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingressController.podSelector | nindent 12 }}
+      ports: [{protocol: TCP, port: 3000}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-backend-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: backend
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: frontend
+      ports: [{protocol: TCP, port: 8000}]
+{{- if eq .Values.postgresql.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, beat, migration, deployment-bootstrap, deployment-finalize, keycloak]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 5432}]
+    {{- if .Values.postgresql.operator.enabled }}
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: postgresql
+      ports: [{protocol: TCP, port: 5432}]
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: cnpg-system
+          podSelector:
+            matchLabels:
+              app.kubernetes.io/name: cloudnative-pg
+      ports: [{protocol: TCP, port: 8000}]
+    {{- end }}
+{{- end }}
+{{- if eq .Values.redis.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-redis-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, beat, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 6379}]
+    {{- if .Values.redis.cluster.enabled }}
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [redis, redis-sentinel]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 6379}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-redis-sentinel-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis-sentinel
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, beat, redis-sentinel, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 26379}]
+    {{- end }}
+{{- end }}
+{{- if eq .Values.rustfs.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-rustfs-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rustfs
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, rustfs, opensearch, postgresql, postgresql-backup-bootstrap, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 9000}]
+{{- end }}
+{{- if eq .Values.opensearch.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-opensearch-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 9200}]
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: opensearch
+      ports: [{protocol: TCP, port: 9300}]
+{{- end }}
+{{- if eq .Values.neo4j.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-neo4j-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+  annotations:
+    nomosmart.io/accepted-risk: {{ .Values.acceptedRisks.changeId | quote }}
+    nomosmart.io/risk-detail: "neo4j_community_admin_equivalent"
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: neo4j
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [backend, worker, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 7687}]
+{{- end }}
+{{- if eq .Values.keycloak.mode "bundled" }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-keycloak-ingress
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            {{- toYaml .Values.networkPolicy.ingressController.namespaceSelector | nindent 12 }}
+          podSelector:
+            {{- toYaml .Values.networkPolicy.ingressController.podSelector | nindent 12 }}
+        - podSelector:
+            matchExpressions:
+              - key: app.kubernetes.io/component
+                operator: In
+                values: [frontend, backend, worker, deployment-bootstrap, deployment-finalize]
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+      ports: [{protocol: TCP, port: 8080}]
+    - from:
+        - podSelector:
+            matchLabels:
+              {{- include "nomosmart.selectorLabels" . | nindent 14 }}
+              app.kubernetes.io/component: keycloak
+      ports:
+        - {protocol: TCP, port: 7800}
+        - {protocol: TCP, port: 57800}
+{{- end }}
+{{- end }}

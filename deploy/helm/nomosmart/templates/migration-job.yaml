@@ -1,0 +1,68 @@
+{{- if include "nomosmart.applicationJobsEnabled" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-migration-{{ .Release.Revision }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: migration
+    nomosmart.io/installer-job: "true"
+    nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+spec:
+  backoffLimit: {{ .Values.migration.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.migration.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: migration
+        nomosmart.io/installer-job: "true"
+        nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: migration
+          image: "{{ .Values.image.migration.repository }}:{{ .Values.image.migration.tag }}"
+          imagePullPolicy: {{ .Values.image.migration.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          args:
+            {{- if .Values.migration.jdbcUrl }}
+            - {{ printf "-url=%s" .Values.migration.jdbcUrl | quote }}
+            {{- else if .Values.postgresql.operator.enabled }}
+            - {{ printf "-url=jdbc:postgresql://%s:%v/%s?sslmode=verify-full&sslrootcert=/etc/nomosmart/tls/postgresql-ca.crt" (include "nomosmart.postgresqlHost" .) .Values.postgresql.service.port .Values.postgresql.auth.database | quote }}
+            {{- else }}
+            - {{ printf "-url=jdbc:postgresql://%s:%v/%s" (include "nomosmart.postgresqlHost" .) .Values.postgresql.service.port .Values.postgresql.auth.database | quote }}
+            {{- end }}
+            - {{ printf "-user=$(%s)" .Values.migration.userSecretKey | quote }}
+            - {{ printf "-password=$(%s)" .Values.migration.passwordSecretKey | quote }}
+            - "-connectRetries=30"
+            - "-baselineOnMigrate=true"
+            - "-baselineVersion=22"
+            - "-validateMigrationNaming=true"
+            - "migrate"
+          env:
+            - name: {{ .Values.migration.userSecretKey }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.migration.userSecretKey }}
+            - name: {{ .Values.migration.passwordSecretKey }}
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.migration.passwordSecretKey }}
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+{{- end }}

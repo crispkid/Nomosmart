@@ -1,0 +1,83 @@
+server {
+    listen 80;
+    server_name ${NOMOSMART_PUBLIC_HOST};
+
+    location = /edge-health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ready\n";
+    }
+
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    server_name ${NOMOSMART_PUBLIC_HOST};
+
+    ssl_certificate /etc/nginx/tls/tls.crt;
+    ssl_certificate_key /etc/nginx/tls/tls.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    location = /edge-health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ready\n";
+    }
+
+    location ^~ /identity/admin/ {
+        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
+        deny all;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
+    }
+
+    location = /identity/admin {
+        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
+        deny all;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
+    }
+
+    location ^~ /identity/realms/master/ {
+        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
+        deny all;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
+    }
+
+    location ^~ /identity/ {
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
+    }
+
+    location / {
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${FRONTEND_EDGE_UPSTREAM};
+    }
+}

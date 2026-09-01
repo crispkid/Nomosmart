@@ -1,0 +1,94 @@
+{{- /* CHG-260 bundled and external-service topology policy. */ -}}
+{{- $profile := required "deploymentProfile must be auto, bundled, or external-services" .Values.deploymentProfile -}}
+{{- $components := dict
+  "postgresql" .Values.postgresql.mode
+  "redis" .Values.redis.mode
+  "rustfs" .Values.rustfs.mode
+  "opensearch" .Values.opensearch.mode
+  "neo4j" .Values.neo4j.mode
+  "keycloak" .Values.keycloak.mode
+-}}
+{{- if .Values.localDevelopment.enabled -}}
+  {{- if ne .Values.localDevelopment.platform "docker-desktop" -}}
+    {{- fail "localDevelopment requires platform=docker-desktop" -}}
+  {{- end -}}
+  {{- if not .Values.localDevelopment.knownCredentialRiskAccepted -}}
+    {{- fail "localDevelopment requires explicit knownCredentialRiskAccepted=true" -}}
+  {{- end -}}
+  {{- if ne $profile "bundled" -}}
+    {{- fail "Docker Desktop local development requires deploymentProfile=bundled" -}}
+  {{- end -}}
+  {{- if ne .Values.backend.env.APP_ENV "development" -}}
+    {{- fail "Docker Desktop local development requires APP_ENV=development" -}}
+  {{- end -}}
+  {{- if ne .Values.bootstrap.deploymentPhase "factory_acceptance" -}}
+    {{- fail "Docker Desktop local development requires deploymentPhase=factory_acceptance" -}}
+  {{- end -}}
+  {{- if .Values.secrets.existingSecret -}}
+    {{- fail "Docker Desktop local development requires a fresh Helm-owned runtime Secret" -}}
+  {{- end -}}
+  {{- if or (not .Values.redis.cluster.enabled) (ne (int .Values.redis.cluster.replicas) 3) (ne (int .Values.redis.cluster.sentinelReplicas) 3) (ne (int .Values.redis.cluster.sentinelQuorum) 2) -}}
+    {{- fail "Docker Desktop local development requires Redis 3 data / 3 Sentinel / quorum 2" -}}
+  {{- end -}}
+  {{- if or (ne (int .Values.keycloak.cluster.replicas) 1) (ne .Values.keycloak.cache.mode "local") .Values.keycloak.cache.stack -}}
+    {{- fail "Docker Desktop local development requires one Keycloak replica with local cache and no cache stack" -}}
+  {{- end -}}
+  {{- range $key := list "DATABASE_MIGRATION_PASSWORD" "POSTGRES_ADMIN_PASSWORD" "POSTGRES_PASSWORD" "POSTGRES_MIGRATION_PASSWORD" "KEYCLOAK_DB_PASSWORD" "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD" "S3_SECRET_ACCESS_KEY" "REDIS_PASSWORD" "REDIS_REPLICATION_PASSWORD" "REDIS_SENTINEL_PASSWORD" "NEO4J_ADMIN_PASSWORD" "NEO4J_PASSWORD" "BREAK_GLASS_INITIAL_PASSWORD" -}}
+    {{- if ne (index $.Values.secrets.data $key) "P@ssw0rd" -}}
+      {{- fail (printf "Docker Desktop local development requires public fixed credential for %s" $key) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if or (ne .Values.redis.auth.username "nomosmart") (ne .Values.redis.auth.replicationUsername "nomosmart") (ne .Values.redis.auth.sentinelUsername "nomosmart") -}}
+    {{- fail "Docker Desktop local development requires the shared Redis username nomosmart" -}}
+  {{- end -}}
+  {{- if eq (index .Values.secrets.data "OPENSEARCH_ADMIN_PASSWORD") (index .Values.secrets.data "OPENSEARCH_PASSWORD") -}}
+    {{- fail "OpenSearch admin and service passwords must be distinct" -}}
+  {{- end -}}
+{{- end -}}
+{{- if eq .Values.keycloak.cache.mode "local" -}}
+  {{- if or (ne (int .Values.keycloak.cluster.replicas) 1) .Values.keycloak.cache.stack -}}
+    {{- fail "Keycloak local cache requires exactly one replica and an empty cache stack" -}}
+  {{- end -}}
+{{- else if not .Values.keycloak.cache.stack -}}
+  {{- fail "Keycloak distributed cache requires a non-empty cache stack" -}}
+{{- end -}}
+{{- if eq $profile "bundled" -}}
+  {{- range $name, $mode := $components -}}
+    {{- if ne $mode "bundled" -}}
+      {{- fail (printf "deploymentProfile=bundled requires %s.mode=bundled" $name) -}}
+    {{- end -}}
+  {{- end -}}
+{{- else if eq $profile "external-services" -}}
+  {{- range $name, $mode := $components -}}
+    {{- if ne $mode "external" -}}
+      {{- fail (printf "deploymentProfile=external-services requires %s.mode=external" $name) -}}
+    {{- end -}}
+  {{- end -}}
+  {{- if ne .Values.bootstrap.keycloakMode "verify" -}}
+    {{- fail "external-services profile requires bootstrap.keycloakMode=verify" -}}
+  {{- end -}}
+  {{- if not .Values.secrets.existingSecret -}}
+    {{- fail "external-services profile requires secrets.existingSecret" -}}
+  {{- end -}}
+  {{- if or (not .Values.postgresql.external.host) (not .Values.postgresql.external.caSecretName) -}}
+    {{- fail "external-services profile requires PostgreSQL external.host and external.caSecretName" -}}
+  {{- end -}}
+  {{- if or (not (regexMatch "sslmode=verify-full" .Values.migration.jdbcUrl)) (not (regexMatch "sslrootcert=/etc/nomosmart/tls/postgresql-ca.crt" .Values.migration.jdbcUrl)) -}}
+    {{- fail "external-services profile requires a verify-full PostgreSQL migration URL using the projected CA" -}}
+  {{- end -}}
+  {{- if or (not (regexMatch "^rediss://" .Values.redis.external.url)) (not .Values.redis.external.caSecretName) -}}
+    {{- fail "external-services profile requires a TLS Redis URL and CA Secret" -}}
+  {{- end -}}
+  {{- if or (not (regexMatch "^https://" .Values.rustfs.external.url)) (not .Values.rustfs.external.caSecretName) -}}
+    {{- fail "external-services profile requires an HTTPS S3 URL and CA Secret" -}}
+  {{- end -}}
+  {{- if or (not (regexMatch "^https://" .Values.opensearch.external.url)) (not .Values.opensearch.external.caSecretName) -}}
+    {{- fail "external-services profile requires an HTTPS OpenSearch URL and CA Secret" -}}
+  {{- end -}}
+  {{- if not (regexMatch "^neo4j\\+s://" .Values.neo4j.external.uri) -}}
+    {{- fail "external-services profile requires a TLS Neo4j URI" -}}
+  {{- end -}}
+  {{- if not (regexMatch "^https://" .Values.keycloak.external.issuerUrl) -}}
+    {{- fail "external-services profile requires an HTTPS external Keycloak issuer" -}}
+  {{- end -}}
+{{- end -}}

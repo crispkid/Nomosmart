@@ -1,0 +1,74 @@
+# NomoSmart External Services profile.
+#
+# Create an owner-only copy with:
+# nomosmart-one-click --profile external-services --config /secure/nomosmart/install.toml --init-config
+# The command never overwrites an existing path and does not contact Kubernetes.
+# It also pins chart/values to absolute paths in the same verified package.
+#
+# This is a non-secret template. Replace endpoints, Secret names and image
+# digests for the target environment. The runtime Secret must already exist in
+# the target Namespace and contain the keys listed in the external-values
+# overlay; passwords/tokens/private keys must never be placed in this file.
+# The trusted_tls_dir is an owner-only directory containing the approved edge
+# certificate, key and CA (edge.crt, edge.key, edge-ca.crt). External service
+# CA certificates are Kubernetes Secret inputs listed by the Helm overlay; do
+# not copy external private keys into this directory.
+# This strict application-only profile never creates, resets, backs up or deletes
+# operator-owned PostgreSQL, Redis, S3, OpenSearch, Neo4j or Keycloak services.
+api_version = "install.nomosmart.io/v1alpha1"
+deployment_profile = "external-services"
+# Formal Production installs use install.nomosmart.io/v1alpha2 and must enable
+# the following signed-package identity. Keep the package read-only and obtain
+# the signer fingerprint through an independent trusted channel.
+# [release]
+# package_dir = "/opt/nomosmart/releases/nomosmart-1.0.0"
+# trusted_signer_fingerprint = "0123456789ABCDEF0123456789ABCDEF01234567"
+
+[target]
+context = "rke2-uat"
+api_server = "https://kubernetes.example.test:6443"
+cluster_uid = "REPLACE_WITH_CLUSTER_UID"
+namespace = "nomosmart"
+release = "nomosmart"
+
+[application]
+public_host = "nomosmart.example.test"
+ingress_class = "nginx"
+ingress_controller_namespace = "ingress-nginx"
+ingress_controller_name = "ingress-nginx-controller"
+storage_class = "nomosmart-longhorn-r3"
+chart = "../helm/nomosmart"
+values = ["../helm/nomosmart/values-prod.yaml", "../helm/nomosmart/values-external-services.example.yaml"]
+package_dir = "/secure/nomosmart/package"
+state_dir = "/secure/nomosmart/state"
+trusted_tls_dir = "/secure/nomosmart/tls"
+registry_pull_secret = "registry-pull"
+runtime_secret = "nomosmart-runtime-secrets"
+runtime_secret_mode = "existing"
+ingress_tls_secret = "nomosmart-ingress-tls"
+rustfs_tls_secret = "nomosmart-rustfs-tls"
+opensearch_tls_secret = "nomosmart-opensearch-tls"
+onboarding_admin_allow_cidr = "10.0.0.0/24"
+break_glass_runbook_uri = "https://runbooks.example.test/nomosmart/break-glass"
+break_glass_alerting_evidence = "REPLACE_WITH_ALERT_ROUTE_EVIDENCE"
+
+[images]
+frontend = "registry.example.test/nomosmart/frontend:RELEASE@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+backend = "registry.example.test/nomosmart/backend:RELEASE@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+migration = "registry.example.test/nomosmart/migrations:RELEASE@sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+postgresql = "registry.example.test/nomosmart/postgresql:RELEASE@sha256:dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+redis = "registry.example.test/redis:RELEASE@sha256:eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"
+rustfs = "registry.example.test/nomosmart/rustfs:RELEASE@sha256:ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+opensearch = "registry.example.test/nomosmart/opensearch:RELEASE@sha256:1111111111111111111111111111111111111111111111111111111111111111"
+neo4j = "registry.example.test/neo4j:RELEASE@sha256:2222222222222222222222222222222222222222222222222222222222222222"
+keycloak = "registry.example.test/nomosmart/keycloak:RELEASE@sha256:3333333333333333333333333333333333333333333333333333333333333333"
+
+[identity]
+mode = "preconfigured"
+realm = "nomosmart"
+provider_name = "external-keycloak-directory"
+mapper_name = "external-keycloak-directory-groups"
+admin_username = "replace-with-federated-admin"
+external_group_name = "replace-with-admin-group"
+local_role_name = "system-admin"
+group_path = "/ldap"

@@ -1,0 +1,53 @@
+{{- if .Values.productionCapacity.enabled }}
+{{- $workloads := list
+  (dict "name" "frontend" "replicas" .Values.replicaCount.frontend "requests" .Values.frontend.resources.requests "limits" .Values.frontend.resources.limits)
+  (dict "name" "backend" "replicas" .Values.replicaCount.backend "requests" .Values.backend.resources.requests "limits" .Values.backend.resources.limits)
+  (dict "name" "worker" "replicas" .Values.replicaCount.worker "requests" .Values.worker.resources.requests "limits" .Values.worker.resources.limits)
+  (dict "name" "beat" "replicas" .Values.beat.replicas "requests" .Values.worker.resources.requests "limits" .Values.worker.resources.limits)
+}}
+{{- $pvcs := list }}
+{{- if and (eq .Values.postgresql.mode "bundled") .Values.postgresql.operator.enabled }}
+{{- $workloads = append $workloads (dict "name" "postgresql" "replicas" .Values.postgresql.cluster.instances "requests" .Values.postgresql.resources.requests "limits" .Values.postgresql.resources.limits) }}
+{{- $pvcs = append $pvcs (dict "name" "postgresql" "count" .Values.postgresql.cluster.instances "size" .Values.postgresql.persistence.size) }}
+{{- end }}
+{{- if and (eq .Values.redis.mode "bundled") .Values.redis.cluster.enabled }}
+{{- $workloads = append $workloads (dict "name" "redis" "replicas" .Values.redis.cluster.replicas "requests" .Values.redis.resources.requests "limits" .Values.redis.resources.limits) }}
+{{- $workloads = append $workloads (dict "name" "redis-sentinel" "replicas" .Values.redis.cluster.sentinelReplicas "requests" .Values.redis.resources.requests "limits" .Values.redis.resources.limits) }}
+{{- $pvcs = append $pvcs (dict "name" "redis" "count" .Values.redis.cluster.replicas "size" .Values.redis.persistence.size) }}
+{{- end }}
+{{- if and (eq .Values.rustfs.mode "bundled") .Values.rustfs.cluster.enabled }}
+{{- $workloads = append $workloads (dict "name" "rustfs" "replicas" .Values.rustfs.cluster.replicas "requests" .Values.rustfs.resources.requests "limits" .Values.rustfs.resources.limits) }}
+{{- $pvcs = append $pvcs (dict "name" "rustfs" "count" .Values.rustfs.cluster.replicas "size" .Values.rustfs.persistence.size) }}
+{{- end }}
+{{- if eq .Values.opensearch.mode "bundled" }}
+{{- $workloads = append $workloads (dict "name" "opensearch" "replicas" .Values.opensearch.cluster.replicas "requests" .Values.opensearch.resources.requests "limits" .Values.opensearch.resources.limits) }}
+{{- $pvcs = append $pvcs (dict "name" "opensearch" "count" .Values.opensearch.cluster.replicas "size" .Values.opensearch.persistence.size) }}
+{{- end }}
+{{- if eq .Values.neo4j.mode "bundled" }}
+{{- $workloads = append $workloads (dict "name" "neo4j" "replicas" 1 "requests" .Values.neo4j.resources.requests "limits" .Values.neo4j.resources.limits) }}
+{{- $pvcs = append $pvcs (dict "name" "neo4j" "count" 1 "size" .Values.neo4j.persistence.size) }}
+{{- end }}
+{{- if eq .Values.keycloak.mode "bundled" }}
+{{- $workloads = append $workloads (dict "name" "keycloak" "replicas" .Values.keycloak.cluster.replicas "requests" .Values.keycloak.resources.requests "limits" .Values.keycloak.resources.limits) }}
+{{- end }}
+{{- $plan := dict
+  "apiVersion" "capacity.nomosmart.io/v1alpha1"
+  "minimumNodeAllocatable" .Values.productionCapacity.minimumNodeAllocatable
+  "reservePercent" .Values.productionCapacity.reservePercent
+  "longhorn" .Values.productionCapacity.longhorn
+  "workloads" $workloads
+  "persistentVolumeClaims" $pvcs
+}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-capacity-plan
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: capacity-plan
+  annotations:
+    nomosmart.io/read-only-evidence: "true"
+immutable: true
+binaryData:
+  plan.json: {{ $plan | toJson | b64enc | quote }}
+{{- end }}

@@ -1,0 +1,84 @@
+# Recommended app-only profile overlay.
+# Layer this after values-prod.yaml and replace every example endpoint/Secret
+# reference with operator-owned values. Kubernetes still runs Frontend,
+# Backend, Worker, Beat, migration and bootstrap/finalize Jobs; PostgreSQL,
+# Redis, RustFS/S3, OpenSearch, Neo4j and Keycloak are external.
+#
+# The runtime Secret must already contain all keys required by the chart and
+# must use the same credentials configured in the external services. It is an
+# input Secret, not a value to commit to this repository.
+deploymentProfile: external-services
+
+secrets:
+  existingSecret: nomosmart-runtime-secrets
+
+postgresql:
+  mode: external
+  operator:
+    enabled: false
+  external:
+    host: postgresql.external.example.test
+    port: 5432
+    caSecretName: external-postgresql-ca
+    caKey: ca.crt
+  backup:
+    enabled: false
+
+migration:
+  jdbcUrl: jdbc:postgresql://postgresql.external.example.test:5432/nomosmart?sslmode=verify-full&sslrootcert=/etc/nomosmart/tls/postgresql-ca.crt
+
+redis:
+  mode: external
+  cluster:
+    enabled: false
+  external:
+    url: rediss://redis.external.example.test:6379
+    caSecretName: external-redis-ca
+    caKey: ca.crt
+
+rustfs:
+  mode: external
+  cluster:
+    enabled: false
+  external:
+    url: https://s3.external.example.test
+    caSecretName: external-rustfs-ca
+    caKey: ca.crt
+
+opensearch:
+  mode: external
+  external:
+    url: https://opensearch.external.example.test:9200
+    caSecretName: external-opensearch-ca
+    caKey: ca.crt
+
+neo4j:
+  mode: external
+  external:
+    uri: neo4j+s://neo4j.external.example.test:7687
+    caSecretName: external-neo4j-ca
+    caKey: ca.crt
+
+keycloak:
+  mode: external
+  external:
+    issuerUrl: https://identity.external.example.test/realms/nomosmart
+    internalIssuerUrl: https://identity.external.example.test/realms/nomosmart
+    adminApiUrl: https://identity.external.example.test
+    discoveryUrl: https://identity.external.example.test/realms/nomosmart/.well-known/openid-configuration
+    jwksUrl: https://identity.external.example.test/realms/nomosmart/protocol/openid-connect/certs
+  adminIngress:
+    enabled: false
+
+bootstrap:
+  keycloakMode: verify
+
+backend:
+  env:
+    # DATABASE_URL, REDIS_URL and provider credentials are read from the
+    # existing runtime Secret. TLS CA paths are mounted by the chart.
+    REDIS_HA_MODE: standalone
+    REDIS_TLS_CA_CERT_PATH: /etc/nomosmart/tls/redis-ca.crt
+    S3_USE_SSL: "true"
+    S3_VERIFY_TLS: "true"
+    OPENSEARCH_VERIFY_TLS: "true"

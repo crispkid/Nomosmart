@@ -1,0 +1,63 @@
+{{- if and (eq .Values.installer.deploymentStage "foundation") (eq .Values.postgresql.mode "bundled") .Values.postgresql.operator.enabled .Values.postgresql.backup.prepareBucket }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql-backup-bucket-{{ .Release.Revision }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql-backup-bootstrap
+    nomosmart.io/installer-job: "true"
+    nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+spec:
+  backoffLimit: 30
+  activeDeadlineSeconds: 1800
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql-backup-bootstrap
+        nomosmart.io/installer-job: "true"
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: prepare-bucket
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.deployment.storage_bootstrap"]
+          args: ["--bucket", {{ .Values.postgresql.backup.bucket | quote }}]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          env:
+            - name: S3_ACCESS_KEY_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.backup.credentialSecretName }}
+                  key: {{ .Values.postgresql.backup.accessKeyKey }}
+            - name: S3_SECRET_ACCESS_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.postgresql.backup.credentialSecretName }}
+                  key: {{ .Values.postgresql.backup.secretKeyKey }}
+          volumeMounts:
+            - name: rustfs-ca
+              mountPath: /etc/nomosmart/tls/rustfs-ca.crt
+              subPath: ca.crt
+              readOnly: true
+      volumes:
+        - name: rustfs-ca
+          secret:
+            secretName: {{ .Values.postgresql.backup.caSecretName }}
+            items:
+              - key: {{ .Values.postgresql.backup.caKey }}
+                path: ca.crt
+{{- end }}

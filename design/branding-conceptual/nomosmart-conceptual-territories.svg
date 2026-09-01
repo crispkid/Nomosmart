@@ -1,0 +1,133 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1400" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart conceptual brand territories</title>
+  <desc id="desc">Three original brand principles: Emergent Order, The Rule Path, and Context Field.</desc>
+  <defs>
+    <linearGradient id="paper" x1="0" y1="0" x2="2400" y2="1400" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F8F9F7"/>
+      <stop offset="1" stop-color="#EEF4F0"/>
+    </linearGradient>
+    <filter id="lift" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="12" stdDeviation="20" flood-color="#19362D" flood-opacity=".07"/>
+    </filter>
+
+    <g id="mark-emergent">
+      <path d="M18 48C48 18 69 76 105 54M18 100C49 72 72 127 105 100M18 152C48 122 69 180 105 146"
+            fill="none" stroke="#1D4F3C" stroke-width="13" stroke-linecap="round"/>
+      <path d="M105 54H182M105 100H182M105 146H182"
+            fill="none" stroke="#61AF8A" stroke-width="13" stroke-linecap="round"/>
+      <path d="M105 35V165" stroke="#D7BD63" stroke-width="5" stroke-linecap="round"/>
+      <circle cx="105" cy="100" r="10" fill="#D7BD63" stroke="#F8F9F7" stroke-width="4"/>
+    </g>
+
+    <g id="mark-rule">
+      <path d="M27 28H173V172H57V58H143V142H87V88H116"
+            fill="none" stroke="#1D4F3C" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M87 142V88H116" fill="none" stroke="#61AF8A" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="116" cy="88" r="12" fill="#D7BD63" stroke="#F8F9F7" stroke-width="5"/>
+    </g>
+
+    <g id="mark-field">
+      <path d="M16 38C55 38 65 66 94 66M16 100H76M16 162C55 162 65 134 94 134"
+            fill="none" stroke="#1D4F3C" stroke-width="12" stroke-linecap="round"/>
+      <path d="M184 38C145 38 135 66 106 66M184 100H124M184 162C145 162 135 134 106 134"
+            fill="none" stroke="#67BDD0" stroke-width="12" stroke-linecap="round"/>
+      <rect x="88" y="88" width="24" height="24" rx="6" transform="rotate(45 100 100)"
+            fill="#D7BD63" stroke="#F8F9F7" stroke-width="5"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="1400" fill="url(#paper)"/>
+  <rect width="2400" height="12" fill="#193E32"/>
+  <circle cx="2250" cy="70" r="260" fill="#DDEBE4" opacity=".72"/>
+
+  <text x="90" y="90" fill="#2C7155" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="16" font-weight="700" letter-spacing="5">NOMOSMART · CONCEPTUAL BRAND TERRITORIES</text>
+  <text x="90" y="164" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="50" font-weight="700">這次不是畫圖示，而是建立品牌的視覺原理</text>
+  <text x="92" y="215" fill="#65736F" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="22">三個符號都源自同一句話：混亂知識，經治理成為可用智慧。</text>
+
+  <line x1="90" y1="270" x2="2310" y2="270" stroke="#CCD8D2"/>
+
+  <!-- Territory 01 -->
+  <rect x="90" y="320" width="700" height="810" rx="6" fill="#FCFDFB" stroke="#D8E1DC" filter="url(#lift)"/>
+  <text x="135" y="375" fill="#2C7155" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">TERRITORY 01</text>
+  <text x="735" y="375" fill="#9AA7A2" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">TRANSFORMATION</text>
+  <g transform="translate(310 435) scale(1.3)">
+    <use href="#mark-emergent"/>
+  </g>
+  <text x="135" y="755" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">秩序生成</text>
+  <text x="135" y="800" fill="#65736F" font-family="Avenir Next, sans-serif"
+        font-size="17" font-weight="700" letter-spacing="2.6">EMERGENT ORDER</text>
+  <text x="135" y="860" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">左側保留人與知識的自然流動，</text>
+  <text x="135" y="895" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">越過治理準線後，形成穩定秩序。</text>
+  <line x1="135" y1="950" x2="745" y2="950" stroke="#DDE5E1"/>
+  <g transform="translate(135 990) scale(.34)"><use href="#mark-emergent"/></g>
+  <text x="225" y="1034" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="227" y="1064" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">FROM KNOWLEDGE TO ORDER</text>
+  <text x="620" y="1062" fill="#2C7155" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="15" font-weight="650">最符合產品轉化價值</text>
+
+  <!-- Territory 02 -->
+  <rect x="850" y="320" width="700" height="810" rx="6" fill="#FCFDFB" stroke="#D8E1DC" filter="url(#lift)"/>
+  <text x="895" y="375" fill="#2C7155" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">TERRITORY 02</text>
+  <text x="1495" y="375" fill="#9AA7A2" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">STRUCTURE</text>
+  <g transform="translate(1110 420) scale(1.28)">
+    <use href="#mark-rule"/>
+  </g>
+  <text x="895" y="755" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">法則路徑</text>
+  <text x="895" y="800" fill="#65736F" font-family="Avenir Next, sans-serif"
+        font-size="17" font-weight="700" letter-spacing="2.6">THE RULE PATH</text>
+  <text x="895" y="860" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">一條連續、可追溯的路徑走向核心，</text>
+  <text x="895" y="895" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">把 Nomos 的「法則」轉成品牌圖形。</text>
+  <line x1="895" y1="950" x2="1505" y2="950" stroke="#DDE5E1"/>
+  <g transform="translate(895 988) scale(.34)"><use href="#mark-rule"/></g>
+  <text x="985" y="1034" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="987" y="1064" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE, GOVERNED</text>
+  <text x="1368" y="1062" fill="#2C7155" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="15" font-weight="650">最具專屬品牌感</text>
+
+  <!-- Territory 03 -->
+  <rect x="1610" y="320" width="700" height="810" rx="6" fill="#FCFDFB" stroke="#D8E1DC" filter="url(#lift)"/>
+  <text x="1655" y="375" fill="#2C7155" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">TERRITORY 03</text>
+  <text x="2255" y="375" fill="#9AA7A2" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">CONTEXT</text>
+  <g transform="translate(1830 435) scale(1.3)">
+    <use href="#mark-field"/>
+  </g>
+  <text x="1655" y="755" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">語境場</text>
+  <text x="1655" y="800" fill="#65736F" font-family="Avenir Next, sans-serif"
+        font-size="17" font-weight="700" letter-spacing="2.6">CONTEXT FIELD</text>
+  <text x="1655" y="860" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">治理與 AI 從兩側建立可信語境，</text>
+  <text x="1655" y="895" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="20">中央才浮現真正可用的知識核心。</text>
+  <line x1="1655" y1="950" x2="2265" y2="950" stroke="#DDE5E1"/>
+  <g transform="translate(1655 990) scale(.34)"><use href="#mark-field"/></g>
+  <text x="1745" y="1034" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="1747" y="1064" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">INTELLIGENCE IN CONTEXT</text>
+  <text x="2135" y="1062" fill="#2C7155" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="15" font-weight="650">最有 AI 品牌性格</text>
+
+  <!-- Brand behavior strip -->
+  <rect x="90" y="1190" width="2220" height="135" rx="4" fill="#193E32"/>
+  <text x="135" y="1235" fill="#9ECDB6" font-family="Avenir Next, sans-serif" font-size="13" font-weight="700" letter-spacing="3">MONOCHROME / MOTION READY</text>
+  <g transform="translate(700 1218) scale(.36)">
+    <g filter="none">
+      <path d="M18 48C48 18 69 76 105 54M18 100C49 72 72 127 105 100M18 152C48 122 69 180 105 146M105 54H182M105 100H182M105 146H182"
+            fill="none" stroke="#FCFDFB" stroke-width="13" stroke-linecap="round"/>
+      <path d="M105 35V165" stroke="#D7BD63" stroke-width="5" stroke-linecap="round"/>
+    </g>
+  </g>
+  <g transform="translate(1170 1215) scale(.38)">
+    <path d="M27 28H173V172H57V58H143V142H87V88H116"
+          fill="none" stroke="#FCFDFB" stroke-width="18" stroke-linecap="round" stroke-linejoin="round"/>
+    <circle cx="116" cy="88" r="12" fill="#D7BD63"/>
+  </g>
+  <g transform="translate(1660 1218) scale(.36)">
+    <path d="M16 38C55 38 65 66 94 66M16 100H76M16 162C55 162 65 134 94 134M184 38C145 38 135 66 106 66M184 100H124M184 162C145 162 135 134 106 134"
+          fill="none" stroke="#FCFDFB" stroke-width="12" stroke-linecap="round"/>
+    <rect x="88" y="88" width="24" height="24" rx="6" transform="rotate(45 100 100)" fill="#D7BD63"/>
+  </g>
+  <text x="2180" y="1270" fill="#9ECDB6" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16" text-anchor="end">三款都能自然發展成載入、搜尋與知識生成動畫</text>
+
+  <text x="90" y="1370" fill="#6C7B76" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">設計原則：非字母 · 非功能圖示 · 單色成立 · 24px 可辨識 · 可延伸為完整動態品牌語言</text>
+  <text x="2310" y="1370" fill="#8A9893" font-family="Avenir Next, sans-serif" font-size="13" text-anchor="end">CONCEPTUAL STUDY · 2026</text>
+</svg>

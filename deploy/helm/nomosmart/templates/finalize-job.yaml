@@ -1,0 +1,59 @@
+{{- if .Values.bootstrap.finalize.enabled }}
+{{- if ne .Values.installer.deploymentStage "application" }}
+{{- fail "bootstrap.finalize.enabled requires installer.deploymentStage=application" }}
+{{- end }}
+{{- if eq .Values.bootstrap.deploymentPhase "operational" }}
+{{- fail "bootstrap.finalize.enabled requires onboarding or factory_acceptance phase" }}
+{{- end }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-finalize-{{ .Release.Revision }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: deployment-finalize
+    nomosmart.io/installer-job: "true"
+    nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: {{ .Values.bootstrap.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: deployment-finalize
+        nomosmart.io/installer-job: "true"
+        nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: finalize
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.deployment.bootstrap"]
+          args: ["--mode", "finalize", "--wait-seconds", "0"]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          env:
+            {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
+            - {name: DEPLOYMENT_KEYCLOAK_MODE, value: "verify"}
+            - {name: DEPLOYMENT_PHASE, value: {{ .Values.bootstrap.deploymentPhase | quote }}}
+            - name: BREAK_GLASS_INITIAL_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.bootstrap.breakGlassPasswordKey }}}}
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+{{- end }}

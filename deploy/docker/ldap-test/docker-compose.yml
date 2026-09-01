@@ -1,0 +1,178 @@
+name: nomosmart-ldap-test
+
+services:
+  openldap:
+    image: docker.io/nfrastack/openldap:2.6@sha256:e1f778655d02b96875352879e2168e4bc233153b338ce40c4026812935b38dfa
+    container_name: nomosmart-openldap
+    hostname: nomosmart-openldap
+    environment:
+      DOMAIN: nomosmart.test
+      BASE_DN: dc=nomosmart,dc=test
+      ORGANIZATION: NomoSmart Local Test
+      ADD_DEFAULT_DATA: "FALSE"
+      ADMIN_PASS_FILE: /run/secrets/ldap_admin_password
+      CONFIG_PASS_FILE: /run/secrets/ldap_config_password
+      READONLY_USER_USER: nomosmart-bind
+      READONLY_USER_PASS_FILE: /run/secrets/ldap_bind_password
+      ENABLE_READONLY_USER: "FALSE"
+      ENABLE_BACKUP: "FALSE"
+      ENABLE_MONITOR: "FALSE"
+      ENABLE_PPOLICY: "FALSE"
+      ENABLE_REPLICATION: "FALSE"
+      ENABLE_TLS: "TRUE"
+      TLS_ENFORCE: "TRUE"
+      TLS_CREATE_SELFSIGNED: "FALSE"
+      TLS_CA_NAME: nomosmart-directory-ca
+      TLS_CA_CERT_PATH: /run/secrets
+      TLS_CA_CERT_FILE: ca.crt
+      TLS_CERT_PATH: /run/secrets
+      TLS_CERT_FILE: server.crt
+      TLS_KEY_PATH: /run/secrets
+      TLS_KEY_FILE: server.key
+      TLS_ENABLE_DH_PARAM: "FALSE"
+      TLS_RESET_PERMISSIONS: "FALSE"
+      TLS_VERIFY_CLIENT: never
+      SLAPD_HOSTS: ldap://nomosmart-openldap ldaps://nomosmart-openldap ldapi:///
+      LOG_TYPE: CONSOLE
+      LOG_LEVEL: "256"
+    secrets:
+      - ldap_admin_password
+      - ldap_config_password
+      - ldap_bind_password
+      - source: ldap_ca_cert
+        target: ca.crt
+      - source: ldap_server_cert
+        target: server.crt
+      - source: ldap_server_key
+        target: server.key
+    volumes:
+      - openldap-data:/data/db
+      - openldap-config:/data/config
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          LDAPTLS_REQCERT=demand LDAPTLS_CACERT=/run/secrets/ca.crt
+          ldapsearch -x -LLL -H ldaps://nomosmart-openldap:636
+          -D 'cn=admin,dc=nomosmart,dc=test'
+          -y /run/secrets/ldap_admin_password
+          -b '' -s base namingContexts >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks:
+      ldap-private:
+        aliases: [nomosmart-openldap]
+      kind:
+        ipv4_address: 172.19.0.20
+    restart: unless-stopped
+
+  directory-init:
+    image: docker.io/nfrastack/openldap:2.6@sha256:e1f778655d02b96875352879e2168e4bc233153b338ce40c4026812935b38dfa
+    container_name: nomosmart-openldap-init
+    entrypoint: [/bin/bash, -ec]
+    command:
+      - /bin/bash /seed/10-nomosmart-seed.sh && /bin/bash /seed/20-chg265-directory-data.sh
+    secrets:
+      - ldap_admin_password
+      - ldap_config_password
+      - ldap_bind_password
+      - source: ldap_ca_cert
+        target: ca.crt
+    volumes:
+      - ./seed/10-nomosmart-seed.sh:/seed/10-nomosmart-seed.sh:ro
+      - ./seed/20-chg265-directory-data.sh:/seed/20-chg265-directory-data.sh:ro
+    depends_on:
+      openldap:
+        condition: service_healthy
+    networks: [ldap-private]
+    restart: "no"
+
+  phpldapadmin:
+    image: docker.io/phpldapadmin/phpldapadmin:2.3.1@sha256:5ed66c77b792b0ad8a7d2e3de76681b4ea65ad4bf32bf4f14d7b42c58536c146
+    container_name: nomosmart-phpldapadmin
+    entrypoint: [/bin/sh, -ec]
+    command:
+      - |
+        export LDAP_USERNAME='cn=nomosmart-bind,dc=nomosmart,dc=test'
+        LDAP_PASSWORD="$$(tr -d '\r\n' </run/secrets/ldap-bind-password)"
+        export LDAP_PASSWORD
+        exec /sbin/init-docker --config /etc/caddy/Caddyfile --adapter caddyfile
+    env_file:
+      - path: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/phpldapadmin.env
+        required: true
+    environment:
+      APP_ENV: production
+      APP_DEBUG: "false"
+      APP_TIMEZONE: Asia/Taipei
+      LDAP_NAME: NomoSmart Local Test Directory
+      LDAP_CONNECTION: ldaps
+      LDAP_HOST: nomosmart-openldap
+      LDAP_PORT: "636"
+      LDAP_BASE_DN: dc=nomosmart,dc=test
+      LDAP_ALLOW_GUEST: "false"
+      LDAP_LOGIN_ATTR: DN
+      LDAP_LOGIN_ATTR_DESC: Distinguished Name
+      LDAP_LOGIN_OBJECTCLASS: organizationalRole,inetOrgPerson
+      LDAP_ALERT_ROOTDN: "false"
+      LDAP_LOGGING: "false"
+      LDAP_CACHE: "false"
+      LDAP_UPDATE_ENABLED: "true"
+      SERVER_NAME: :8080
+    ports:
+      - name: http
+        target: 8080
+        published: "8080"
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes:
+      - ./phpldapadmin-ldap.conf:/etc/ldap/ldap.conf:ro
+    secrets:
+      - source: ldap_ca_cert
+        target: nomosmart-directory-ca.crt
+      - source: ldap_bind_password
+        target: ldap-bind-password
+    depends_on:
+      directory-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: [CMD-SHELL, "curl -fsS http://127.0.0.1:8080/ >/dev/null"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
+    networks: [ldap-private, pla-loopback]
+    restart: unless-stopped
+
+secrets:
+  ldap_admin_password:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/secrets/ldap-admin-password
+  ldap_config_password:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/secrets/ldap-config-password
+  ldap_bind_password:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/secrets/ldap-bind-password
+  ldap_ca_cert:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/tls/ca.crt
+  ldap_server_cert:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/tls/server.crt
+  ldap_server_key:
+    file: ${LDAP_RUNTIME_DIR:?Set LDAP_RUNTIME_DIR}/tls/server.key
+
+volumes:
+  openldap-data:
+    name: nomosmart-ldap-test-data
+  openldap-config:
+    name: nomosmart-ldap-test-config
+
+networks:
+  ldap-private:
+    name: nomosmart-ldap-test
+    driver: bridge
+    internal: true
+  pla-loopback:
+    name: nomosmart-ldap-test-loopback
+    driver: bridge
+  kind:
+    external: true
+    name: kind

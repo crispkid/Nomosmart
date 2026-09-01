@@ -1,0 +1,14 @@
+export function InvalidCopy({ error, run, evidence }: { error: Error; run: { error_summary: string }; evidence: { block_reasons: string[] } }) {
+  const date = new Date();
+  return (
+    <section aria-label="Knowledge graph preview">
+      <h1>Hard-coded English heading</h1>
+      <input placeholder="請輸入名稱" />
+      <p>{true ? "Conditional fallback" : `Template fallback ${date}`}</p>
+      <span>{date.toLocaleString("zh-TW")}</span>
+      <span>{error.message}</span>
+      <span>{run.error_summary}</span>
+      <span>{evidence.block_reasons.join(", ")}</span>
+    </section>
+  );
+}
