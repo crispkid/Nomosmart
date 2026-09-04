@@ -7,10 +7,10 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.core.contracts import empty_project_capabilities
-from app.db.models import AIModel, Project, ProjectOwner
+from app.db.models import AIModel, Project, ProjectMember, ProjectOwner
 from app.security.context import IdentityContext
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PermissionAction, require_menu_permission, require_project_scope
-from app.security.project_roles import PROJECT_EDITOR_ROLES, PROJECT_OWNER_ROLES, PROJECT_VIEWER_ROLES, has_project_role
+from app.security.project_roles import PROJECT_EDITOR_ROLES, PROJECT_OWNER_ROLES, PROJECT_VIEWER_ROLES, canonical_project_role, has_project_role
 
 
 PROJECT_MODEL_GROUP_KEYS = (
@@ -127,13 +127,20 @@ def project_capabilities(
     *,
     user_id: UUID,
     visible_project_ids: set[UUID],
+    current_user_project_roles: set[str] | None = None,
 ) -> dict[str, bool]:
     capabilities = empty_project_capabilities()
     if project.status != "active" or project.id not in visible_project_ids:
         return capabilities
-    can_view = has_project_role(session, project.id, user_id, PROJECT_VIEWER_ROLES)
-    can_edit = has_project_role(session, project.id, user_id, PROJECT_EDITOR_ROLES)
-    is_owner = has_project_role(session, project.id, user_id, PROJECT_OWNER_ROLES)
+    if current_user_project_roles is None:
+        can_view = has_project_role(session, project.id, user_id, PROJECT_VIEWER_ROLES)
+        can_edit = has_project_role(session, project.id, user_id, PROJECT_EDITOR_ROLES)
+        is_owner = has_project_role(session, project.id, user_id, PROJECT_OWNER_ROLES)
+    else:
+        roles = set(current_user_project_roles)
+        can_view = bool(roles & PROJECT_VIEWER_ROLES)
+        can_edit = bool(roles & PROJECT_EDITOR_ROLES)
+        is_owner = bool(roles & PROJECT_OWNER_ROLES)
     capabilities.update(
         {
             "can_upload": can_edit,
@@ -149,3 +156,49 @@ def project_capabilities(
         }
     )
     return capabilities
+
+
+def project_response_projection(
+    session: Session,
+    project: Project,
+    *,
+    user_id: UUID,
+    visible_project_ids: set[UUID],
+    current_user_project_roles: set[str] | None = None,
+    is_owner: bool | None = None,
+) -> Project:
+    """Attach the current request's authoritative project access projection."""
+
+    roles = (
+        set(current_user_project_roles)
+        if current_user_project_roles is not None
+        else set(
+            session.scalars(
+                select(ProjectMember.project_role).where(
+                    ProjectMember.project_id == project.id,
+                    ProjectMember.user_id == user_id,
+                )
+            )
+        )
+    )
+    resolved_is_owner = (
+        is_owner
+        if is_owner is not None
+        else session.get(ProjectOwner, (project.id, user_id)) is not None
+    )
+    if resolved_is_owner:
+        roles.add("owner")
+
+    canonical_role = canonical_project_role(roles)
+    roles = {canonical_role} if canonical_role is not None else set()
+
+    project.is_owner = resolved_is_owner
+    project.current_user_project_roles = sorted(roles)
+    project.capabilities = project_capabilities(
+        session,
+        project,
+        user_id=user_id,
+        visible_project_ids=visible_project_ids,
+        current_user_project_roles=roles,
+    )
+    return project

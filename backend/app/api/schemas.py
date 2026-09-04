@@ -98,7 +98,7 @@ class RoleUsersResponse(BaseModel):
 
 class ProjectMemberInput(BaseModel):
     user_id: UUID
-    roles: list[str] = Field(min_length=1)
+    roles: list[str]
 
 
 class ProjectCreate(BaseModel):
@@ -120,7 +120,7 @@ class ProjectUpdate(BaseModel):
 
 
 class ProjectMemberUpdate(BaseModel):
-    roles: list[str] = Field(min_length=1)
+    roles: list[str]
     lock_version: int = Field(ge=1)
 
 
@@ -131,6 +131,24 @@ class ProjectMemberResponse(BaseModel):
     display_name: str
     email: str | None
     roles: list[str]
+
+
+class ProjectMemberCandidate(BaseModel):
+    id: UUID
+    employee_id: str | None = None
+    email: str | None = None
+    given_name: str | None = None
+    family_name: str | None = None
+    display_name: str
+    is_active: bool
+
+
+class ProjectMemberCandidatePage(BaseModel):
+    items: list[ProjectMemberCandidate]
+    total: int
+    offset: int
+    limit: int
+    ineligible_match_count: int
 
 
 class ProjectResponse(ORMModel):

@@ -220,7 +220,7 @@ class ProjectArchiveRun(UUIDPrimaryKeyMixin, Base):
 
 class ProjectMember(Base):
     __tablename__ = "project_members"
-    __table_args__ = (UniqueConstraint("project_id", "user_id", "project_role"),)
+    __table_args__ = (UniqueConstraint("project_id", "user_id", name="uq_project_members_project_user"),)
     project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id", ondelete="CASCADE"), primary_key=True)
     user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     project_role: Mapped[str] = mapped_column(String(32), primary_key=True)

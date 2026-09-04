@@ -316,6 +316,24 @@ export type ProjectMemberResponse = {
   roles: string[];
 };
 
+export type ProjectMemberCandidate = {
+  id: string;
+  employee_id: string | null;
+  email: string | null;
+  given_name: string | null;
+  family_name: string | null;
+  display_name: string;
+  is_active: boolean;
+};
+
+export type ProjectMemberCandidatePage = {
+  items: ProjectMemberCandidate[];
+  total: number;
+  offset: number;
+  limit: number;
+  ineligible_match_count: number;
+};
+
 export type ProjectMemberUpdatePayload = {
   roles: string[];
   lock_version: number;
@@ -1239,6 +1257,10 @@ export async function activateIntegrationClient(apiFetch: ApiFetch, clientId: st
 export async function deactivateIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; reason?: string | null }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/deactivate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function revokeIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; reason?: string | null }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/revoke`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function listProjectMembers(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectMemberResponse[]>(apiFetch, `/projects/${projectId}/members`); }
+export async function searchProjectMemberCandidates(apiFetch: ApiFetch, projectId: string, query: string, signal?: AbortSignal) {
+  const params = new URLSearchParams({ q: query.trim(), offset: "0", limit: "20" });
+  return apiJson<ProjectMemberCandidatePage>(apiFetch, `/projects/${projectId}/member-candidates?${params.toString()}`, { signal });
+}
 export async function replaceProjectMember(apiFetch: ApiFetch, projectId: string, userId: string, payload: ProjectMemberUpdatePayload) {
   return apiJson<ProjectMemberResponse[]>(apiFetch, `/projects/${projectId}/members/${userId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }

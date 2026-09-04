@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections import defaultdict
 from datetime import UTC, datetime
 from typing import Literal
 from uuid import UUID
@@ -9,14 +8,16 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectUpdate
+from app.api.schemas import ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberCandidate, ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectUpdate
 from app.core.errors import AppError
-from app.db.models import Document, DocumentVersion, Project, ProjectArchiveRun, ProjectMember, ProjectOwner, Role, RolePermission, RoleUser, User
+from app.db.models import Document, DocumentVersion, Project, ProjectArchiveRun, ProjectMember, ProjectOwner, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
-from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities, require_project_owner as _require_project_owner, resolve_project_model as _resolve_model, resolve_project_models as _resolve_models
+from app.domain.project_access import get_scoped_project as _get_scoped_project, project_response_projection as _project_response_projection, require_project_owner as _require_project_owner, resolve_project_model as _resolve_model, resolve_project_models as _resolve_models
 from app.domain.project_archival import archive_impact, begin_project_archive, retry_project_archive_cleanup
-from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, MENU_MODULE, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission
+from app.domain.project_members import lock_project_for_member_mutation as _lock_project_for_member_mutation, reject_protected_owner_mutation as _reject_protected_owner_mutation, search_project_member_candidates as _search_project_member_candidates, validate_project_member_candidates as _validate_project_member_candidates
+from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission
+from app.security.project_roles import canonical_project_role
 from app.services.audit import add_audit
 
 
@@ -24,42 +25,17 @@ router = APIRouter(prefix="/projects", tags=["projects"])
 PROJECT_ROLES = frozenset({"owner", "editor", "viewer"})
 
 
-def _validate_roles(roles: list[str]) -> set[str]:
-    normalized = set(roles)
-    if not normalized or not normalized.issubset(PROJECT_ROLES):
-        raise AppError("invalid_project_role", "Project roles must be owner, editor, or viewer", status_code=422)
-    return normalized
-
-
-def _users_with_knowledge_project_view(session: Session, user_ids: set[UUID]) -> set[UUID]:
-    if not user_ids:
-        return set()
-    return set(
-        session.scalars(
-            select(RoleUser.user_id)
-            .join(RolePermission, RolePermission.role_id == RoleUser.role_id)
-            .join(Role, Role.id == RoleUser.role_id)
-            .where(
-                RoleUser.user_id.in_(user_ids),
-                Role.is_active.is_(True),
-                Role.deleted_at.is_(None),
-                RolePermission.module_name == MENU_MODULE,
-                RolePermission.function_name == MENU_KNOWLEDGE_PROJECTS,
-                RolePermission.can_view.is_(True),
-            )
+def _validate_roles(roles: list[str]) -> str:
+    if len(roles) != 1:
+        raise AppError(
+            "invalid_project_role_cardinality",
+            "Exactly one Project role is required",
+            status_code=422,
         )
-    )
-
-
-def _validate_project_member_candidates(session: Session, user_ids: set[UUID]) -> None:
-    if not user_ids:
-        return
-    active_ids = set(session.scalars(select(User.id).where(User.id.in_(user_ids), User.is_active.is_(True))).all())
-    if active_ids != user_ids:
-        raise AppError("invalid_project_member", "All project members must be active users", status_code=422)
-    visible_menu_ids = _users_with_knowledge_project_view(session, user_ids)
-    if visible_menu_ids != user_ids:
-        raise AppError("invalid_project_member_permission", "Project members must have Knowledge Projects menu view permission", status_code=422)
+    role = roles[0]
+    if role not in PROJECT_ROLES:
+        raise AppError("invalid_project_role", "Project roles must be owner, editor, or viewer", status_code=422)
+    return role
 
 
 def _reject_repeated_singletons(request: Request, names: tuple[str, ...]) -> None:
@@ -233,17 +209,20 @@ def list_projects(
     projects: list[Project] = []
     for row in rows:
         project = row.Project
-        project_roles = set(row.current_user_project_roles or [])
-        if row.is_owner:
-            project_roles.add("owner")
-        project.current_user_project_roles = sorted(project_roles)
         project.document_count = int(row.document_count or 0)
         project.published_version_count = int(row.published_version_count or 0)
         project.last_activity_at = row.last_activity_at
         project.archive_cleanup_status = row.archive_cleanup_status
-        project.is_owner = bool(row.is_owner)
-        project.capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-        projects.append(project)
+        projects.append(
+            _project_response_projection(
+                session,
+                project,
+                user_id=context.user_id,
+                visible_project_ids=set(context.visible_project_ids),
+                current_user_project_roles=set(row.current_user_project_roles or []),
+                is_owner=bool(row.is_owner),
+            )
+        )
     return projects
 
 
@@ -261,10 +240,14 @@ def create_project(
         embedding_model_id=payload.embedding_model_id,
         ocr_model_id=payload.ocr_model_id,
     )
-    assignments: dict[UUID, set[str]] = defaultdict(set)
+    assignments: dict[UUID, str] = {}
     for member in payload.members:
-        assignments[member.user_id].update(_validate_roles(member.roles))
-    assignments[context.user_id].add("owner")
+        role = _validate_roles(member.roles)
+        existing_role = assignments.get(member.user_id)
+        if existing_role is not None and existing_role != role:
+            raise AppError("invalid_project_role_cardinality", "Exactly one Project role is required", status_code=422)
+        assignments[member.user_id] = role
+    assignments[context.user_id] = "owner"
     user_ids = set(assignments)
     _validate_project_member_candidates(session, user_ids)
 
@@ -272,23 +255,27 @@ def create_project(
     project = Project(name=payload.name, description=payload.description, llm_model_id=llm_model_id, embedding_model_id=embedding_model_id, ocr_model_id=ocr_model_id, status="active", created_by=context.user_id, lock_version=1, created_at=now, updated_at=now)
     session.add(project)
     session.flush()
-    for user_id, roles in assignments.items():
-        for role in roles:
-            session.add(ProjectMember(project_id=project.id, user_id=user_id, project_role=role, created_at=now))
-        if "owner" in roles:
+    for user_id, role in assignments.items():
+        session.add(ProjectMember(project_id=project.id, user_id=user_id, project_role=role, created_at=now))
+        if role == "owner":
             session.add(ProjectOwner(project_id=project.id, user_id=user_id, created_at=now))
     add_audit(session, actor_user_id=context.user_id, action="project.create", resource_type="project", resource_id=project.id, result="success", request_id=request.state.request_id, summary={"name": project.name, "member_count": len(assignments)})
     session.commit()
     session.refresh(project)
-    project.capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids={project.id})
-    return project
+    return _project_response_projection(
+        session,
+        project,
+        user_id=context.user_id,
+        visible_project_ids={project.id},
+        current_user_project_roles={assignments[context.user_id]},
+        is_owner=True,
+    )
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Project:
     project = _get_scoped_project(session, project_id, context)
-    project.capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-    return project
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
@@ -320,8 +307,7 @@ def update_project(project_id: UUID, payload: ProjectUpdate, request: Request, c
     add_audit(session, actor_user_id=context.user_id, action="project.update", resource_type="project", resource_id=project.id, result="success", request_id=request.state.request_id, summary={"fields": sorted(changes)})
     session.commit()
     session.refresh(project)
-    project.capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-    return project
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
 
 
 @router.get("/{project_id}/archive-impact", response_model=ProjectArchiveImpactResponse)
@@ -338,17 +324,13 @@ def archive_project(project_id: UUID, payload: ProjectArchiveRequest, request: R
     if existing.status == "archived":
         if payload.confirmation_name != existing.name:
             raise AppError("project_confirmation_mismatch", "Project name confirmation does not match", status_code=422)
-        existing.is_owner = is_owner
         existing.archive_cleanup_status = session.scalar(select(ProjectArchiveRun.status).where(ProjectArchiveRun.project_id == project_id).order_by(ProjectArchiveRun.queued_at.desc(), ProjectArchiveRun.id.desc()).limit(1))
-        existing.capabilities = project_capabilities(session, existing, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-        return existing
+        return _project_response_projection(session, existing, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
     project = begin_project_archive(session, project_id=project_id, actor_user_id=context.user_id, lock_version=payload.lock_version, confirmation_name=payload.confirmation_name, request_id=request.state.request_id)
     session.commit()
     session.refresh(project)
-    project.is_owner = is_owner
-    project.capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
     project.archive_cleanup_status = "queued"
-    return project
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
 
 
 @router.delete("/{project_id}", response_model=ProjectResponse)
@@ -365,9 +347,8 @@ def retry_archive_cleanup(project_id: UUID, request: Request, context: IdentityC
     retry_project_archive_cleanup(session, project=project, actor_user_id=context.user_id, request_id=request.state.request_id)
     session.commit()
     session.refresh(project)
-    project.is_owner = is_owner
     project.archive_cleanup_status = "queued"
-    return project
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
 
 
 @router.get("/{project_id}/members", response_model=list[ProjectMemberResponse])
@@ -387,52 +368,85 @@ def list_project_members(project_id: UUID, context: IdentityContext = Depends(ge
                 roles=[membership.project_role],
             )
         else:
-            existing.roles.append(membership.project_role)
+            canonical = canonical_project_role(set(existing.roles) | {membership.project_role})
+            existing.roles = [canonical] if canonical is not None else []
     return list(grouped.values())
+
+
+@router.get("/{project_id}/member-candidates", response_model=ProjectMemberCandidatePage)
+def list_project_member_candidates(
+    project_id: UUID,
+    q: str = Query(min_length=1, max_length=100),
+    offset: int = Query(default=0, ge=0),
+    limit: int = Query(default=20, ge=1, le=20),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> ProjectMemberCandidatePage:
+    _get_scoped_project(session, project_id, context)
+    _require_project_owner(session, project_id, context.user_id)
+    result = _search_project_member_candidates(session, query=q, offset=offset, limit=limit)
+    return ProjectMemberCandidatePage(
+        items=[
+            ProjectMemberCandidate(
+                id=user.id,
+                employee_id=user.employee_id,
+                email=user.email,
+                given_name=user.given_name,
+                family_name=user.family_name,
+                display_name=user.display_name,
+                is_active=user.is_active,
+            )
+            for user in result.users
+        ],
+        total=result.total,
+        offset=offset,
+        limit=limit,
+        ineligible_match_count=result.ineligible_match_count,
+    )
 
 
 @router.put("/{project_id}/members/{user_id}", response_model=list[ProjectMemberResponse])
 def replace_project_member(project_id: UUID, user_id: UUID, payload: ProjectMemberUpdate, request: Request, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> list[ProjectMemberResponse]:
-    project = _get_scoped_project(session, project_id, context)
-    _require_project_owner(session, project_id, context.user_id)
+    project = _lock_project_for_member_mutation(session, project_id, context)
     if project.lock_version != payload.lock_version:
         raise AppError("stale_project_version", "Project was changed by another request", status_code=409)
     user = session.get(User, user_id)
     if user is None or not user.is_active:
         raise AppError("invalid_project_member", "Project member must be an active user", status_code=422)
+    role = _validate_roles(payload.roles)
+    _reject_protected_owner_mutation(session, project_id=project_id, target_user_id=user_id, actor_user_id=context.user_id)
     _validate_project_member_candidates(session, {user_id})
-    roles = _validate_roles(payload.roles)
-    was_owner = session.get(ProjectOwner, (project_id, user_id)) is not None
-    if was_owner and "owner" not in roles:
-        owner_count = session.scalar(select(func.count()).select_from(ProjectOwner).where(ProjectOwner.project_id == project_id))
-        if owner_count == 1:
-            raise AppError("last_project_owner", "A project must retain at least one Owner", status_code=409)
+    previous_roles = set(
+        session.scalars(
+            select(ProjectMember.project_role).where(
+                ProjectMember.project_id == project_id,
+                ProjectMember.user_id == user_id,
+            )
+        )
+    )
+    previous_role = canonical_project_role(previous_roles)
     session.execute(delete(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id))
     session.execute(delete(ProjectOwner).where(ProjectOwner.project_id == project_id, ProjectOwner.user_id == user_id))
     now = datetime.now(UTC)
-    session.add_all([ProjectMember(project_id=project_id, user_id=user_id, project_role=role, created_at=now) for role in roles])
-    if "owner" in roles:
+    session.add(ProjectMember(project_id=project_id, user_id=user_id, project_role=role, created_at=now))
+    if role == "owner":
         session.add(ProjectOwner(project_id=project_id, user_id=user_id, created_at=now))
     project.lock_version += 1
-    add_audit(session, actor_user_id=context.user_id, action="project.member.replace", resource_type="project", resource_id=project_id, result="success", request_id=request.state.request_id, summary={"user_id": str(user_id), "roles": sorted(roles)})
+    add_audit(session, actor_user_id=context.user_id, action="project.member.replace", resource_type="project", resource_id=project_id, result="success", request_id=request.state.request_id, summary={"user_id": str(user_id), "before_role": previous_role, "after_role": role, "roles": [role]})
     session.commit()
     return list_project_members(project_id, context, session)
 
 
 @router.delete("/{project_id}/members/{user_id}", response_model=ProjectResponse)
 def remove_project_member(project_id: UUID, user_id: UUID, request: Request, lock_version: int = Query(ge=1), context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Project:
-    project = _get_scoped_project(session, project_id, context)
-    _require_project_owner(session, project_id, context.user_id)
+    project = _lock_project_for_member_mutation(session, project_id, context)
     if project.lock_version != lock_version:
         raise AppError("stale_project_version", "Project was changed by another request", status_code=409)
-    if session.get(ProjectOwner, (project_id, user_id)) is not None:
-        owners = list(session.scalars(select(ProjectOwner).where(ProjectOwner.project_id == project_id)))
-        if len(owners) <= 1:
-            raise AppError("last_project_owner", "A project must retain at least one Owner", status_code=409)
+    _reject_protected_owner_mutation(session, project_id=project_id, target_user_id=user_id, actor_user_id=context.user_id)
     session.execute(delete(ProjectMember).where(ProjectMember.project_id == project_id, ProjectMember.user_id == user_id))
     session.execute(delete(ProjectOwner).where(ProjectOwner.project_id == project_id, ProjectOwner.user_id == user_id))
     project.lock_version += 1
     add_audit(session, actor_user_id=context.user_id, action="project.member.remove", resource_type="project", resource_id=project_id, result="success", request_id=request.state.request_id, summary={"user_id": str(user_id)})
     session.commit()
     session.refresh(project)
-    return project
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))

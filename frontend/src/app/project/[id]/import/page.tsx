@@ -2,19 +2,23 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, MessageSquareText, Network, RotateCcw, ShieldCheck, Trash2, UploadCloud, UserPlus, UserRoundCog, X } from "lucide-react";
 import { ActionButton, AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
 import { ProjectChatTest } from "@/components/ProjectChatTest";
 import { ProjectGraphPreview } from "@/components/ProjectGraphPreview";
+import { ProjectMemberAutocomplete } from "@/components/ProjectMemberAutocomplete";
+import { ProjectMemberRoleSelector } from "@/components/ProjectMemberRoleSelector";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, listUsers, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSourceCreateResponse, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse, type UserSummary } from "@/lib/api";
+import { createDataSource, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, searchProjectMemberCandidates, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSourceCreateResponse, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberCandidate, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
-import { formatPersonName, personNameSearchText } from "@/lib/personName";
+import { formatPersonName } from "@/lib/personName";
+import { availableProjectMemberCandidates, projectMemberOwnerProtection } from "@/lib/projectPermissions";
+import { useDebouncedProjectMemberCandidateSearch } from "@/lib/useDebouncedProjectMemberCandidateSearch";
 
 type Translate = (key: TranslationKey) => string;
 
@@ -337,6 +341,7 @@ function syncRunStep(run: DataSyncRunResponse, t: Translate) {
 function projectImportErrorMessage(error: ApiError | Error | null, t: Translate, format: (key: TranslationKey, params: Record<string, string | number>) => string) {
   if (!error) return "";
   if ("code" in error && error.code === "last_project_owner") return t("projectImportLastOwnerError");
+  if ("code" in error && error.code === "project_owner_self_protected") return t("projectImportSelfOwnerError");
   return operationalErrorMessage(error, t, format, "projectImportPermissionSaveFailed");
 }
 
@@ -361,10 +366,8 @@ export default function ImportPage() {
   const [activeModal, setActiveModal] = useState<"graph" | "chat" | null>(null);
   const [permissionModalOpen, setPermissionModalOpen] = useState(false);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberResponse[]>([]);
-  const [permissionUsers, setPermissionUsers] = useState<UserSummary[]>([]);
   const [permissionQuery, setPermissionQuery] = useState("");
-  const [permissionSearchFocused, setPermissionSearchFocused] = useState(false);
-  const [pendingPermissionUsers, setPendingPermissionUsers] = useState<UserSummary[]>([]);
+  const [pendingPermissionUsers, setPendingPermissionUsers] = useState<ProjectMemberCandidate[]>([]);
   const [activePermissionRole, setActivePermissionRole] = useState<ProjectMemberRole>("owner");
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [permissionError, setPermissionError] = useState<ApiError | Error | null>(null);
@@ -408,15 +411,32 @@ export default function ImportPage() {
   const canManageProjectPermissions = project?.is_owner ?? false;
   const permissionRoleLabel = (role: ProjectMemberRole) => t(projectMemberRoles.find((item) => item.id === role)?.labelKey ?? "projectRoleViewer");
   const membersForActiveRole = projectMembers.filter((member) => member.roles.includes(activePermissionRole));
-  const filteredPermissionUsers = permissionUsers.filter((user) => {
-    const normalized = permissionQuery.trim().toLowerCase();
-    const alreadyInRole = projectMembers.some((member) => member.user_id === user.id && member.roles.includes(activePermissionRole));
-    const alreadyPending = pendingPermissionUsers.some((pendingUser) => pendingUser.id === user.id);
-    const haystack = `${personNameSearchText(user)} ${user.email ?? ""} ${user.employee_id ?? ""}`.toLowerCase();
-    return user.is_active && !alreadyInRole && !alreadyPending && (!normalized || haystack.includes(normalized));
-  }).slice(0, 8);
-  const selectedPermissionUser = permissionQuery.trim() ? filteredPermissionUsers[0] : undefined;
-  const showPermissionUserOptions = permissionSearchFocused && permissionQuery.trim().length > 0 && filteredPermissionUsers.length > 0;
+  const searchPermissionCandidates = useCallback(
+    (query: string, signal: AbortSignal) => searchProjectMemberCandidates(apiFetch, params.id, query, signal),
+    [apiFetch, params.id],
+  );
+  const permissionCandidateSearch = useDebouncedProjectMemberCandidateSearch({
+    enabled: permissionModalOpen && canManageProjectPermissions,
+    query: permissionQuery,
+    search: searchPermissionCandidates,
+  });
+  const permissionUsers = permissionCandidateSearch.result?.items ?? [];
+  const filteredPermissionUsers = availableProjectMemberCandidates(
+    permissionUsers,
+    projectMembers,
+    new Set(pendingPermissionUsers.map((user) => user.id)),
+  );
+  const permissionSearchMessage = permissionCandidateSearch.phase === "waiting" || permissionCandidateSearch.phase === "loading"
+    ? t("projectImportPermissionSearchLoading")
+    : permissionCandidateSearch.phase === "error"
+      ? t("projectImportPermissionSearchFailed")
+      : permissionCandidateSearch.phase === "ready" && !filteredPermissionUsers.length
+        ? permissionUsers.length
+          ? t("projectImportPermissionSearchNoAdditionalRole")
+          : (permissionCandidateSearch.result?.ineligible_match_count ?? 0) > 0
+            ? t("projectImportPermissionSearchMissingAccess")
+            : t("projectImportPermissionSearchNoResults")
+        : "";
 
   useEffect(() => {
     let cancelled = false;
@@ -437,9 +457,8 @@ export default function ImportPage() {
     setPermissionLoading(true);
     setPermissionError(null);
     try {
-      const [members, users, freshProject] = await Promise.all([listProjectMembers(apiFetch, params.id), listUsers(apiFetch, "project_members"), getProject(apiFetch, params.id)]);
+      const [members, freshProject] = await Promise.all([listProjectMembers(apiFetch, params.id), getProject(apiFetch, params.id)]);
       setProjectMembers(members);
-      setPermissionUsers(users);
       setProject(freshProject);
     } catch (error) {
       setPermissionError(error as ApiError | Error);
@@ -457,12 +476,14 @@ export default function ImportPage() {
     void loadProjectPermissions();
   }
 
-  async function saveProjectMemberRoles(userId: string, roles: ProjectMemberRole[]) {
+  async function saveProjectMemberRole(userId: string, role: ProjectMemberRole) {
     if (!project || !canManageProjectPermissions || permissionSavingUserId || permissionRemovingUserId) return;
+    const member = projectMembers.find((row) => row.user_id === userId);
+    if (member && projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id)) return;
     setPermissionSavingUserId(userId);
     setPermissionError(null);
     try {
-      const members = await replaceProjectMember(apiFetch, params.id, userId, { roles, lock_version: project.lock_version });
+      const members = await replaceProjectMember(apiFetch, params.id, userId, { roles: [role], lock_version: project.lock_version });
       const freshProject = await getProject(apiFetch, params.id);
       setProjectMembers(members);
       setProject(freshProject);
@@ -473,10 +494,9 @@ export default function ImportPage() {
     }
   }
 
-  function stagePermissionCandidate(user: UserSummary) {
+  function stagePermissionCandidate(user: ProjectMemberCandidate) {
     setPendingPermissionUsers((current) => current.some((item) => item.id === user.id) ? current : [...current, user]);
     setPermissionQuery("");
-    setPermissionSearchFocused(false);
   }
 
   async function commitPendingPermissionCandidates() {
@@ -487,10 +507,8 @@ export default function ImportPage() {
       let currentProject = project;
       let currentMembers = projectMembers;
       for (const user of pendingPermissionUsers) {
-        const existing = currentMembers.find((member) => member.user_id === user.id);
-        const roles = new Set<ProjectMemberRole>((existing?.roles.filter((role): role is ProjectMemberRole => projectMemberRoles.some((item) => item.id === role)) ?? []));
-        roles.add(activePermissionRole);
-        currentMembers = await replaceProjectMember(apiFetch, params.id, user.id, { roles: [...roles], lock_version: currentProject.lock_version });
+        if (currentMembers.some((member) => member.user_id === user.id)) continue;
+        currentMembers = await replaceProjectMember(apiFetch, params.id, user.id, { roles: [activePermissionRole], lock_version: currentProject.lock_version });
         currentProject = await getProject(apiFetch, params.id);
       }
       setProjectMembers(currentMembers);
@@ -506,6 +524,8 @@ export default function ImportPage() {
 
   async function removeProjectPermissionMember(userId: string) {
     if (!project || !canManageProjectPermissions || permissionSavingUserId || permissionRemovingUserId) return;
+    const member = projectMembers.find((row) => row.user_id === userId);
+    if (member && projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id)) return;
     setPermissionRemovingUserId(userId);
     setPermissionError(null);
     try {
@@ -1517,47 +1537,18 @@ export default function ImportPage() {
                   <div className="create-section-title"><UserRoundCog size={18} /><h3>{t("projectsOwnersAndMembers")}</h3></div>
                   {!canManageProjectPermissions ? <div className="permission-note locked"><AlertTriangle size={16} /> {t("projectImportPermissionOwnerOnly")}</div> : null}
                   <div className="member-search">
-                    <label>
-                      <span>{t("projectsSearchUsers")}</span>
-                      <div className="search-field project-permission-search-field">
-                        <input
-                          aria-autocomplete="list"
-                          aria-controls="project-permission-user-options"
-                          disabled={!canManageProjectPermissions}
-                          onBlur={() => setPermissionSearchFocused(false)}
-                          onChange={(event) => {
-                            setPermissionQuery(event.target.value);
-                            setPermissionSearchFocused(true);
-                          }}
-                          onFocus={() => setPermissionSearchFocused(true)}
-                          onKeyDown={(event) => {
-                            if (event.key === "Enter" && selectedPermissionUser && canManageProjectPermissions && !permissionSavingUserId && !permissionRemovingUserId) {
-                              event.preventDefault();
-                              stagePermissionCandidate(selectedPermissionUser);
-                            }
-                          }}
-                          placeholder={t("projectsSearchUsersPlaceholder")}
-                          value={permissionQuery}
-                        />
-                        {showPermissionUserOptions ? (
-                          <div className="project-permission-autocomplete" id="project-permission-user-options">
-                            {filteredPermissionUsers.map((user) => (
-                              <button
-                                key={user.id}
-                                onMouseDown={(event) => {
-                                  event.preventDefault();
-                                  stagePermissionCandidate(user);
-                                }}
-                                type="button"
-                              >
-                                <strong>{formatPersonName(user, locale)}</strong>
-                                <span>{[user.email, user.employee_id].filter(Boolean).join(" · ") || user.id}</span>
-                              </button>
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                    </label>
+                    <ProjectMemberAutocomplete
+                      candidates={filteredPermissionUsers}
+                      disabled={!canManageProjectPermissions || Boolean(permissionSavingUserId || permissionRemovingUserId)}
+                      id="project-permission-user-search"
+                      label={t("projectsSearchUsers")}
+                      locale={locale}
+                      onQueryChange={setPermissionQuery}
+                      onSelect={stagePermissionCandidate}
+                      placeholder={t("projectsSearchUsersPlaceholder")}
+                      statusMessage={permissionSearchMessage}
+                      value={permissionQuery}
+                    />
                     <button className="action-button secondary" disabled={!canManageProjectPermissions || !pendingPermissionUsers.length || Boolean(permissionSavingUserId || permissionRemovingUserId)} onClick={() => { void commitPendingPermissionCandidates(); }} type="button"><UserPlus size={16} /> {t("projectsAddMember")}</button>
                     {pendingPermissionUsers.length ? (
                       <div className="project-permission-selected-users">
@@ -1575,35 +1566,28 @@ export default function ImportPage() {
                   <div aria-label={t("projectsMemberRolesAria")} className="role-tabs" role="tablist">{projectMemberRoles.map((role) => <button aria-selected={activePermissionRole === role.id} className={activePermissionRole === role.id ? "role-tab active" : "role-tab"} key={role.id} onClick={() => { setPendingPermissionUsers([]); setActivePermissionRole(role.id); }} role="tab" type="button">{permissionRoleLabel(role.id)}<span>{projectMembers.filter((member) => member.roles.includes(role.id)).length}</span></button>)}</div>
                   <div className="project-permission-member-list">
                     {membersForActiveRole.map((member) => {
-                      const currentRoles = new Set<ProjectMemberRole>(member.roles.filter((role): role is ProjectMemberRole => projectMemberRoles.some((item) => item.id === role)));
+                      const currentRole = member.roles.find((role): role is ProjectMemberRole => projectMemberRoles.some((item) => item.id === role));
+                      if (!currentRole) return null;
                       const busy = permissionSavingUserId === member.user_id || permissionRemovingUserId === member.user_id;
+                      const protection = projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id);
+                      const protectionId = protection ? `project-member-protection-${member.user_id}` : undefined;
                       return (
-                        <article className="project-permission-member" key={member.user_id}>
+                        <article className={protection ? "project-permission-member protected" : "project-permission-member"} key={member.user_id}>
                           <div>
                             <strong>{formatPersonName(member, locale)}</strong>
                             <small>{member.email ?? member.user_id}</small>
+                            {protection ? <span className="project-permission-protection-reason" id={protectionId}><ShieldCheck size={13} />{t(protection === "last_owner" ? "projectImportLastOwnerProtected" : "projectImportSelfOwnerProtected")}</span> : null}
                           </div>
-                          <div className="project-permission-role-checks">
-                            {projectMemberRoles.map((role) => (
-                              <label key={role.id}>
-                                <input
-                                  checked={currentRoles.has(role.id)}
-                                  disabled={!canManageProjectPermissions || busy}
-                                  onChange={(event) => {
-                                    const next = new Set(currentRoles);
-                                    if (event.target.checked) next.add(role.id);
-                                    else next.delete(role.id);
-                                    if (next.size) void saveProjectMemberRoles(member.user_id, [...next]);
-                                  }}
-                                  type="checkbox"
-                                />
-                                <span>{permissionRoleLabel(role.id)}</span>
-                              </label>
-                            ))}
-                          </div>
-                          <button className="icon-button danger" disabled={!canManageProjectPermissions || busy} onClick={() => { void removeProjectPermissionMember(member.user_id); }} title={t("projectImportRemoveMember")} type="button" aria-label={t("projectImportRemoveMember")}>
-                            <Trash2 size={17} />
-                          </button>
+                          <ProjectMemberRoleSelector
+                            describedBy={protectionId}
+                            disabled={!canManageProjectPermissions || busy || Boolean(protection)}
+                            label={t("projectsMemberRolesAria")}
+                            memberId={member.user_id}
+                            onChange={(role) => { void saveProjectMemberRole(member.user_id, role); }}
+                            options={projectMemberRoles.map((role) => ({ id: role.id, label: permissionRoleLabel(role.id) }))}
+                            role={currentRole}
+                          />
+                          {protection ? null : <button className="icon-button danger" disabled={!canManageProjectPermissions || busy} onClick={() => { void removeProjectPermissionMember(member.user_id); }} title={t("projectImportRemoveMember")} type="button" aria-label={t("projectImportRemoveMember")}><Trash2 size={17} /></button>}
                         </article>
                       );
                     })}

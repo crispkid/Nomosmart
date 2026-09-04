@@ -127,10 +127,11 @@ test("AppShell page headers render only the primary title", async () => {
 });
 
 test("projects page uses live backend APIs and project import uses live-only document state", async () => {
-  const [api, projects, importPage, css, zh, en] = await Promise.all([
+  const [api, projects, importPage, memberAutocomplete, css, zh, en] = await Promise.all([
     readFile(new URL("../src/lib/api.ts", import.meta.url), "utf8"),
     readFile(new URL("../src/app/projects/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/app/project/[id]/import/page.tsx", import.meta.url), "utf8"),
+    readFile(new URL("../src/components/ProjectMemberAutocomplete.tsx", import.meta.url), "utf8"),
     readFile(new URL("../src/app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../src/i18n/locales/zh.json", import.meta.url), "utf8").then(JSON.parse),
     readFile(new URL("../src/i18n/locales/en.json", import.meta.url), "utf8").then(JSON.parse)
@@ -213,30 +214,44 @@ test("projects page uses live backend APIs and project import uses live-only doc
   assert.match(importPage, /const canManageProjectPermissions = project\?\.is_owner \?\? false/);
   assert.match(importPage, /if \(!canManageProjectPermissions\) return;/);
   assert.match(importPage, /listProjectMembers\(apiFetch, params\.id\)/);
-  assert.match(importPage, /listUsers\(apiFetch, "project_members"\)/);
+  assert.match(api, /searchProjectMemberCandidates\(apiFetch: ApiFetch, projectId: string, query: string, signal\?: AbortSignal\)/);
+  assert.match(importPage, /useDebouncedProjectMemberCandidateSearch/);
+  assert.match(importPage, /searchProjectMemberCandidates\(apiFetch, params\.id, query, signal\)/);
+  assert.doesNotMatch(importPage, /listUsers\(apiFetch, "project_members"\)/);
   assert.match(importPage, /replaceProjectMember\(apiFetch, params\.id, userId/);
   assert.match(importPage, /removeProjectMember\(apiFetch, params\.id, userId, project\.lock_version\)/);
   assert.match(importPage, /canManageProjectPermissions \? <button className="action-button secondary" onClick=\{openPermissionModal\}/);
   assert.match(importPage, /permissionModalOpen && canManageProjectPermissions \? \(/);
   assert.match(importPage, /project-permission-modal/);
   assert.match(importPage, /projectImportPermissionOwnerOnly/);
-  assert.match(importPage, /project-permission-search-field/);
-  assert.match(importPage, /project-permission-autocomplete/);
+  assert.match(importPage, /ProjectMemberAutocomplete/);
+  assert.match(memberAutocomplete, /project-permission-search-field/);
+  assert.match(memberAutocomplete, /role="combobox"/);
+  assert.match(memberAutocomplete, /role="listbox"/);
+  assert.match(memberAutocomplete, /role="option"/);
   assert.match(importPage, /pendingPermissionUsers/);
   assert.match(importPage, /stagePermissionCandidate/);
   assert.match(importPage, /commitPendingPermissionCandidates/);
   assert.match(importPage, /project-permission-selected-users/);
-  assert.match(importPage, /aria-autocomplete="list"/);
+  assert.match(importPage, /onSelect=\{stagePermissionCandidate\}/);
   assert.doesNotMatch(importPage, /<Search size=\{16\} \/>/);
   assert.doesNotMatch(importPage, /,\s*Search,\s*/);
   assert.doesNotMatch(importPage, /<datalist/);
-  assert.match(importPage, /selectedPermissionUser/);
+  assert.doesNotMatch(importPage, /selectedPermissionUser/);
+  assert.match(importPage, /projectMemberOwnerProtection\(member, projectMembers, currentUser\?\.user_id\)/);
+  assert.match(importPage, /protection \? null : <button className="icon-button danger"/);
+  assert.match(importPage, /disabled=\{!canManageProjectPermissions \|\| busy \|\| Boolean\(protection\)\}/);
+  assert.match(importPage, /projectImportPermissionSearchMissingAccess/);
+  assert.match(importPage, /projectImportLastOwnerProtected/);
+  assert.match(importPage, /projectImportSelfOwnerProtected/);
   assert.doesNotMatch(importPage, /project-permission-candidates/);
   assert.match(css, /\.project-permission-modal/);
   assert.match(css, /\.project-permission-member/);
   assert.match(css, /\.project-permission-autocomplete\s*\{[\s\S]*left:\s*0/);
   assert.match(css, /\.project-permission-autocomplete\s*\{[\s\S]*right:\s*0/);
-  assert.match(css, /\.project-permission-autocomplete button\s*\{[\s\S]*min-height:\s*54px/);
+  assert.match(css, /\.project-permission-autocomplete button\s*\{[\s\S]*min-height:\s*var\(--project-permission-option-height\)/);
+  assert.match(css, /max-height:\s*calc\(\(var\(--project-permission-option-height\) \* 5\) \+ 2px\)/);
+  assert.match(css, /\.project-permission-autocomplete\s*\{[\s\S]*overflow-y:\s*auto/);
   assert.match(css, /\.project-permission-selected-users\s*\{[\s\S]*flex-wrap:\s*wrap/);
   assert.match(css, /\.project-permission-selected-user\s*\{[\s\S]*border-radius:\s*999px/);
   assert.doesNotMatch(css, /\.project-permission-candidates/);
@@ -246,6 +261,10 @@ test("projects page uses live backend APIs and project import uses live-only doc
   assert.equal(en.projectImportPermissionManagement, "Permission Management");
   assert.equal(zh.projectImportRemovePendingMember, "移除待加入成員");
   assert.equal(en.projectImportRemovePendingMember, "Remove pending member");
+  assert.match(zh.projectImportPermissionSearchMissingAccess, /知識專案存取權/);
+  assert.match(en.projectImportPermissionSearchMissingAccess, /Knowledge Projects access/);
+  assert.match(zh.projectImportLastOwnerProtected, /最後一位 Owner/);
+  assert.match(en.projectImportSelfOwnerProtected, /own Owner membership/);
   assert.match(zh.projectImportPermissionHelp, /至少保留一位 Owner/);
   assert.match(en.projectImportPermissionHelp, /at least one Owner/);
 });
@@ -434,7 +453,11 @@ test("system management manual role users are searchable with visible draft memb
   assert.match(source, /disabled=\{!canEditRoles \|\| modal\.role\.isActive === false \|\| submitting \|\| isRetained\}/);
   assert.match(source, /replaceRoleUsers\(apiFetch, modal\.role\.id, \{ lock_version: roleUsers\.lock_version, user_ids: roleUserDraftIds \}\)/);
   assert.match(source, /className="system-crud-form role-user-editor"/);
+  assert.match(source, /modal\.type === "role-users" \? " role-user-modal"/);
   assert.match(source, /className="role-user-draft-summary"/);
+  assert.match(css, /\.role-user-modal\s*\{[^}]*height: min\(86vh, 820px\);[^}]*height: min\(86dvh, 820px\);/s);
+  assert.match(css, /\.role-user-modal > \.role-user-editor\s*\{[^}]*display: flex;[^}]*flex: 1 1 auto;[^}]*flex-direction: column;[^}]*min-height: 0;[^}]*overflow-y: auto;/s);
+  assert.match(css, /\.role-user-modal > \.role-user-editor > footer\s*\{[^}]*margin-top: auto;/s);
   assert.match(css, /\.role-user-picker-row input\[type="checkbox"\]\s*\{[^}]*width: 18px;[^}]*min-height: 18px;/s);
   assert.match(css, /\.role-user-summary-metrics\s*\{[^}]*grid-template-columns: repeat\(5, minmax\(0, 1fr\)\);/s);
   assert.match(css, /\.role-user-picker-row\.external-retained/s);

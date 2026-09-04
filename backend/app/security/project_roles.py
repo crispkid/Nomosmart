@@ -13,6 +13,11 @@ from app.security.permissions import require_project_scope
 PROJECT_OWNER_ROLES = frozenset({"owner"})
 PROJECT_EDITOR_ROLES = frozenset({"owner", "editor"})
 PROJECT_VIEWER_ROLES = frozenset({"owner", "editor", "viewer"})
+PROJECT_ROLE_PRECEDENCE = ("owner", "editor", "viewer")
+
+
+def canonical_project_role(roles: set[str]) -> str | None:
+    return next((role for role in PROJECT_ROLE_PRECEDENCE if role in roles), None)
 
 
 def project_roles(session: Session, project_id: UUID, user_id: UUID) -> set[str]:
@@ -26,7 +31,8 @@ def project_roles(session: Session, project_id: UUID, user_id: UUID) -> set[str]
     )
     if session.get(ProjectOwner, (project_id, user_id)) is not None:
         roles.add("owner")
-    return roles
+    canonical = canonical_project_role(roles)
+    return {canonical} if canonical is not None else set()
 
 
 def has_project_role(session: Session, project_id: UUID, user_id: UUID, allowed_roles: frozenset[str]) -> bool:

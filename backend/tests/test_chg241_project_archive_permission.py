@@ -116,7 +116,6 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
         session.add_all(
             [
                 ProjectMember(project_id=complete.id, user_id=actor.id, project_role="editor", created_at=now),
-                ProjectMember(project_id=complete.id, user_id=actor.id, project_role="viewer", created_at=now),
                 ProjectMember(project_id=incomplete.id, user_id=actor.id, project_role="viewer", created_at=now),
             ]
         )
@@ -164,7 +163,7 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
         )
         assert response.headers["X-Total-Count"] == "1"
         assert [project.id for project in projects] == [complete.id]
-        assert projects[0].current_user_project_roles == ["editor", "viewer"]
+        assert projects[0].current_user_project_roles == ["editor"]
         assert projects[0].document_count == 1
         assert projects[0].published_version_count == 1
         assert projects[0].last_activity_at is not None
@@ -188,7 +187,16 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
             _require_project_archive_authority(session, complete.id, revoked_context)
         assert revoked.value.code == "project_archive_permission_required"
 
-        session.add(ProjectOwner(project_id=complete.id, user_id=actor.id, created_at=now))
+        actor_membership = session.get(ProjectMember, (complete.id, actor.id, "editor"))
+        assert actor_membership is not None
+        session.delete(actor_membership)
+        session.flush()
+        session.add_all(
+            [
+                ProjectMember(project_id=complete.id, user_id=actor.id, project_role="owner", created_at=now),
+                ProjectOwner(project_id=complete.id, user_id=actor.id, created_at=now),
+            ]
+        )
         session.flush()
         owner_project, is_owner = _require_project_archive_authority(session, complete.id, revoked_context)
         assert owner_project.id == complete.id
@@ -209,7 +217,7 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
             session=session,
         )
         assert [project.id for project in owner_projects] == [complete.id]
-        assert owner_projects[0].current_user_project_roles == ["editor", "owner", "viewer"]
+        assert owner_projects[0].current_user_project_roles == ["owner"]
 
         with pytest.raises(AppError) as repeated:
             list_projects(

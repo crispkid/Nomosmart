@@ -317,7 +317,6 @@ def _seed_live_document_workspace(session_factory, user_id: str) -> dict[str, st
         for item in (project, target_project):
             session.add(ProjectOwner(project_id=item.id, user_id=user_uuid, created_at=now))
             session.add(ProjectMember(project_id=item.id, user_id=user_uuid, project_role="owner", created_at=now))
-            session.add(ProjectMember(project_id=item.id, user_id=user_uuid, project_role="editor", created_at=now))
 
         source_text = "Alpha architecture controls GPU isolation and API routing.\n\nBeta retrieval validates chunk tags and document tags."
         document = Document(
@@ -2759,13 +2758,16 @@ def test_live_approval_project_and_data_source_route_edges(live_client) -> None:
     document_id = UUID(data["document_id"])
     version_id = UUID(data["version_id"])
 
-    assert project_routes._validate_roles(["owner", "editor"]) == {"owner", "editor"}
+    assert project_routes._validate_roles(["owner"]) == "owner"
+    with pytest.raises(AppError) as multiple_roles:
+        project_routes._validate_roles(["owner", "editor"])
+    assert multiple_roles.value.code == "invalid_project_role_cardinality"
     with pytest.raises(AppError) as invalid_role:
         project_routes._validate_roles(["admin"])
     assert invalid_role.value.code == "invalid_project_role"
     with pytest.raises(AppError) as empty_role:
         project_routes._validate_roles([])
-    assert empty_role.value.code == "invalid_project_role"
+    assert empty_role.value.code == "invalid_project_role_cardinality"
 
     bad_member = User(
         employee_id=f"Z{uuid4().hex[:9]}",
@@ -3440,10 +3442,10 @@ def test_live_project_update_member_success_and_archive_routes(live_client) -> N
         client.put(
             f"/api/v1/projects/{project_id}/members/{member_id}",
             headers=headers,
-            json={"lock_version": updated["lock_version"], "roles": ["viewer", "editor"]},
+            json={"lock_version": updated["lock_version"], "roles": ["editor"]},
         )
     )
-    assert any(item["user_id"] == str(member_id) and set(item["roles"]) == {"viewer", "editor"} for item in members)
+    assert any(item["user_id"] == str(member_id) and item["roles"] == ["editor"] for item in members)
     after_member = _assert_ok(client.get(f"/api/v1/projects/{project_id}", headers=headers))
     removed = _assert_ok(client.delete(f"/api/v1/projects/{project_id}/members/{member_id}?lock_version={after_member['lock_version']}", headers=headers))
     assert removed["lock_version"] == after_member["lock_version"] + 1

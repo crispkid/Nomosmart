@@ -5138,7 +5138,8 @@ small {
   margin-bottom: 12px;
 }
 
-.member-search label {
+.member-search label,
+.project-permission-autocomplete-control {
   display: grid;
   gap: 6px;
   color: var(--muted);
@@ -5164,14 +5165,17 @@ small {
 }
 
 .project-permission-autocomplete {
+  --project-permission-option-height: 54px;
   position: absolute;
   top: calc(100% + 6px);
   right: 0;
   left: 0;
   z-index: 75;
   display: grid;
-  max-height: 220px;
+  max-height: calc((var(--project-permission-option-height) * 5) + 2px);
   overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
   border: 1px solid var(--cool-gray);
   border-radius: 8px;
   background: white;
@@ -5181,7 +5185,8 @@ small {
 .project-permission-autocomplete button {
   display: grid;
   gap: 3px;
-  min-height: 54px;
+  height: var(--project-permission-option-height);
+  min-height: var(--project-permission-option-height);
   border: 0;
   border-bottom: 1px solid var(--cool-gray);
   border-radius: 0;
@@ -5196,10 +5201,16 @@ small {
 }
 
 .project-permission-autocomplete button:hover,
-.project-permission-autocomplete button:focus-visible {
+.project-permission-autocomplete button:focus-visible,
+.project-permission-autocomplete button.active,
+.project-permission-autocomplete button[aria-selected="true"] {
   background: #f7fbf8;
   color: var(--deep-green);
-  outline: none;
+}
+
+.project-permission-autocomplete button:focus-visible {
+  outline: 2px solid var(--calm-green);
+  outline-offset: -3px;
 }
 
 .project-permission-autocomplete strong {
@@ -5212,6 +5223,15 @@ small {
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.project-permission-search-status {
+  min-height: 48px;
+  max-height: none;
+  padding: 12px;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
 }
 
 .project-permission-selected-users {
@@ -5592,6 +5612,11 @@ small {
   background: #fcfdfb;
 }
 
+.project-permission-member.protected {
+  border-color: var(--soft-sage);
+  background: #f4faf7;
+}
+
 .project-permission-member strong,
 .project-permission-member small {
   display: block;
@@ -5604,10 +5629,29 @@ small {
   font-size: 12px;
 }
 
+.project-permission-protection-reason {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 6px;
+  color: var(--deep-green);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.project-permission-member.protected .project-permission-role-checks label {
+  background: var(--fresh-mint);
+  color: var(--muted);
+}
+
 .project-permission-role-checks {
   display: flex;
   flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
 }
 
 .project-permission-role-checks label {
@@ -5626,6 +5670,11 @@ small {
 
 .project-permission-role-checks input {
   accent-color: var(--calm-green);
+}
+
+.project-permission-role-checks input:focus-visible {
+  outline: 2px solid var(--deep-green);
+  outline-offset: 2px;
 }
 
 .icon-button.danger {
@@ -10796,6 +10845,23 @@ small {
 
 .system-crud-modal > header {
   flex: 0 0 auto;
+}
+
+.role-user-modal {
+  height: min(86vh, 820px);
+  height: min(86dvh, 820px);
+}
+
+.role-user-modal > .role-user-editor {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.role-user-modal > .role-user-editor > footer {
+  margin-top: auto;
 }
 
 .model-delete-modal > header > span {
