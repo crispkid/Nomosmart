@@ -1103,8 +1103,15 @@ test("Milestone 15A protected routes do not render fixture fallback evidence", a
   assert.match(knowledgePage, /visibleTagDetails/);
   assert.match(knowledgePage, /tag\.source !== "rule"/);
   assert.match(knowledgePage, /const documentTags = visibleTagDetails\(liveDetail\?\.document_tags \?\? \[\]\)/);
-  assert.match(knowledgePage, /documentTags=\{documentTags\.map/);
-  assert.match(knowledgePage, /tagDetails: chunk\.tagDetails\.map/);
+  // Published assignments may no longer be fabricated from KnowledgeDetail.
+  assert.match(knowledgePage, /<VersionGraphPreview/);
+  const versionPreview = await readFile(new URL("../src/components/VersionGraphPreview.tsx", import.meta.url), "utf8");
+  assert.match(versionPreview, /getDocumentVersionGraph\(apiFetch/);
+  assert.match(versionPreview, /graphProjectionNotReady/);
+  assert.doesNotMatch(versionPreview, /@\/lib\/fixtures/);
+  const versionEvidence = await readFile(new URL("../src/lib/versionGraphEvidence.ts", import.meta.url), "utf8");
+  assert.match(versionEvidence, /tagDetails: tags\(node\.id, "CHUNK_HAS_TAG"\)/);
+  assert.match(versionEvidence, /documentTags: tags\(versionId, "VERSION_HAS_TAG"\)/);
   assert.doesNotMatch(knowledgePage, /function ChunkTagSummary/);
   assert.match(knowledgePage, /knowledgeDetailChunkTagResults/);
   assert.match(knowledgePage, /function TagResultStrip/);

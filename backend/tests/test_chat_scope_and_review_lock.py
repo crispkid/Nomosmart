@@ -81,19 +81,23 @@ def test_review_locked_document_versions_block_extraction_mutations_but_stay_vie
     assert '_ensure_not_review_locked(version, "document.extraction.start")' in documents
     assert '_ensure_not_review_locked(version, "document.pipeline.retry")' in documents
     assert '_ensure_not_review_locked(version, "knowledge.chunk.manual_create")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.chunk_tag.add")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.chunk_tag.delete")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.chunk_tag.auto")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.document_tag.add")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.document_tag.delete")' in documents
-    assert '_ensure_not_review_locked(version, "knowledge.document_tag.auto")' in documents
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.add")' in documents
+    guard = documents.split("def _ensure_tag_mutable(", 1)[1].split("def _refresh_tag_preview(", 1)[0]
+    assert "_ensure_not_review_locked(version, action)" in guard
+    assert "published_tag_revision_required" in guard
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.delete")' in documents
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.auto")' in documents
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.document_tag.add")' in documents
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.document_tag.delete")' in documents
+    assert '_ensure_tag_mutable(session, project, version, "knowledge.document_tag.auto")' in documents
     assert "manual_edit_enabled, manual_edit_reason = _manual_edit_state(session, version, pipeline, context)" in documents
     assert 'return False, "review_locked"' in documents
 
     assert 'reason === "review_locked"' in knowledge_page
     assert "const mutationLocked = liveDetail?.manual_edit_reason === \"review_locked\"" in knowledge_page
     assert "reviewLocked={mutationLocked}" in knowledge_page
-    assert "disabled={!liveDetail || mutationLocked}" in knowledge_page
+    assert "const tagMutationLocked = mutationLocked" in knowledge_page
+    assert "disabled={!liveDetail || tagMutationLocked}" in knowledge_page
     assert "knowledgeDetailReviewLockedReason" in knowledge_page
 
     assert "function isReviewLockedVersionStatus" in import_page

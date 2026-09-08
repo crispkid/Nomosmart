@@ -35,7 +35,7 @@ from app.db.models import (
     User,
 )
 from app.domain.embeddings import load_canonical_embeddings, resolve_index_retrieval_text
-from app.domain.graph_sync_jobs import enqueue_graph_sync
+from app.domain.graph_sync_jobs import enqueue_graph_sync, notify_graph_failure
 from app.domain.notifications import emit_notification_event
 from app.domain.search import vector_document_id
 from app.services.audit import add_audit
@@ -69,7 +69,7 @@ class PublishedIndexAdapter(Protocol):
 
 
 class GraphSyncAdapter(Protocol):
-    def sync_active_version(self, *, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> GraphSyncResult:
+    def sync_active_version(self, *, session: Session, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> GraphSyncResult:
         ...
 
 
@@ -228,11 +228,10 @@ class LiveNeo4jGraphSyncAdapter:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
 
-    def sync_active_version(self, *, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> GraphSyncResult:
-        return self._replace_version(project_id=project_id, document=document, version=version, chunks=chunks, status="active")
-
-    def sync_candidate_version(self, *, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk], chunk_tags: dict[UUID, list[dict[str, str]]] | None = None, version_tags: list[dict[str, str]] | None = None) -> GraphSyncResult:
-        return self._replace_version(project_id=project_id, document=document, version=version, chunks=chunks, status="staging", chunk_tags=chunk_tags, version_tags=version_tags)
+    def sync_active_version(self, *, session: Session, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> GraphSyncResult:
+        from app.domain.graph_reconciliation import synchronize_graph
+        result = synchronize_graph(session, self.settings, project_id, document.id, version.id)
+        return GraphSyncResult(len(result.graph["nodes"]), len(result.graph["edges"]))
 
     def delete_version(self, *, version_id: UUID) -> None:
         driver = self._driver()
@@ -245,17 +244,6 @@ class LiveNeo4jGraphSyncAdapter:
         finally:
             driver.close()
 
-    def _replace_version(self, *, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk], status: str, chunk_tags: dict[UUID, list[dict[str, str]]] | None = None, version_tags: list[dict[str, str]] | None = None) -> GraphSyncResult:
-        driver = self._driver()
-        node_count = 2 + len(chunks)
-        edge_count = 1 + len(chunks)
-        try:
-            with driver.session(database=self.settings.neo4j_database) as session:
-                session.execute_write(_write_graph, project_id, document, version, chunks, status, chunk_tags or {}, version_tags or [])
-        finally:
-            driver.close()
-        return GraphSyncResult(node_count=node_count, edge_count=edge_count)
-
     def _driver(self):
         try:
             from neo4j import GraphDatabase  # type: ignore[import-not-found]
@@ -265,61 +253,6 @@ class LiveNeo4jGraphSyncAdapter:
             self.settings.neo4j_uri,
             auth=(self.settings.neo4j_username.get_secret_value(), self.settings.neo4j_password.get_secret_value()),
             **neo4j_driver_options(self.settings),
-        )
-
-
-def _write_graph(tx, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk], status: str = "active", chunk_tags: dict[UUID, list[dict[str, str]]] | None = None, version_tags: list[dict[str, str]] | None = None) -> None:
-    _delete_version_chunks(tx, version.id)
-    tx.run(
-        """
-        MERGE (p:Project {id: $project_id})
-        MERGE (d:Document {id: $document_id})
-        SET d.title = $title, d.status = 'active'
-        MERGE (v:DocumentVersion {id: $version_id})
-        SET v.version_label = $version_label, v.status = $status
-        MERGE (p)-[:PROJECT_HAS_DOCUMENT]->(d)
-        MERGE (d)-[:DOCUMENT_HAS_VERSION]->(v)
-        """,
-        project_id=str(project_id),
-        document_id=str(document.id),
-        title=document.title,
-        version_id=str(version.id),
-        version_label=version.version_label,
-        status=status,
-    )
-    for chunk in chunks:
-        tx.run(
-            """
-            MATCH (v:DocumentVersion {id: $version_id})
-            MERGE (c:Chunk {id: $chunk_id})
-            SET c.chunk_index = $chunk_index, c.content_type = $content_type, c.title = $title
-            MERGE (v)-[:VERSION_HAS_CHUNK]->(c)
-            """,
-            version_id=str(version.id),
-            chunk_id=str(chunk.id),
-            chunk_index=chunk.chunk_index,
-            content_type=chunk.content_type,
-            title=chunk.title,
-        )
-        for tag in (chunk_tags or {}).get(chunk.id, []):
-            tx.run(
-                """
-                MATCH (c:Chunk {id: $chunk_id})
-                MERGE (t:Tag {id: $tag_id})
-                SET t.name = $tag_name, t.project_id = $project_id
-                MERGE (c)-[:CHUNK_HAS_TAG]->(t)
-                """,
-                chunk_id=str(chunk.id), tag_id=tag["id"], tag_name=tag["name"], project_id=str(project_id),
-            )
-    for tag in version_tags or []:
-        tx.run(
-            """
-            MATCH (v:DocumentVersion {id: $version_id})
-            MERGE (t:Tag {id: $tag_id})
-            SET t.name = $tag_name, t.project_id = $project_id
-            MERGE (v)-[:VERSION_HAS_TAG]->(t)
-            """,
-            version_id=str(version.id), tag_id=tag["id"], tag_name=tag["name"], project_id=str(project_id),
         )
 
 
@@ -479,9 +412,10 @@ def publish_version(
     search_adapter: PublishedIndexAdapter,
     graph_adapter: GraphSyncAdapter,
 ) -> tuple[ActiveVersionManifest, PublishedIndexResult, GraphSyncJob]:
-    project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update())
+    project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update().execution_options(populate_existing=True))
     if project is None or project.status != "active":
         raise AppError("project_archived", "Archived projects cannot publish document versions", status_code=409)
+    session.refresh(version, with_for_update=True)
     if version.lock_version != lock_version:
         raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
     if version.status not in {"approved", "inactive", "active"}:
@@ -552,17 +486,29 @@ def publish_version(
     session.flush()
     _start_pipeline_step(session, version.id, GRAPH_SYNC_STAGE, "Synchronizing knowledge graph")
     try:
-        graph_result = graph_adapter.sync_active_version(project_id=version.project_id, document=document, version=version, chunks=chunks)
+        graph_result = graph_adapter.sync_active_version(session=session, project_id=version.project_id, document=document, version=version, chunks=chunks)
         graph_job.status = "completed"
         graph_job.node_count = graph_result.node_count
         graph_job.edge_count = graph_result.edge_count
         graph_job.completed_at = datetime.now(UTC)
         _complete_pipeline_publication(session, version.id)
     except AppError as exc:
-        graph_job.status = "failed"
-        graph_job.error_message = exc.message
+        # Publication must remain uncommitted on graph failure. Persist only
+        # failure/audit/notification evidence in a fresh transaction, not the
+        # tentative manifest or published state.
+        scope = (version.project_id, document.id, version.id)
+        session.rollback()
+        project = session.scalar(select(Project).where(Project.id == scope[0]).with_for_update())
+        graph_job = GraphSyncJob(project_id=scope[0], document_id=scope[1], document_version_id=scope[2],
+            project_generation=project.work_generation if project else 0, requested_by_user_id=actor_user_id,
+            request_id=request_id, trigger_type="document_published", status="failed", error_code=exc.code,
+            error_message="Graph synchronization failed", created_at=now, completed_at=datetime.now(UTC))
+        session.add(graph_job)
+        session.flush()
         _fail_pipeline_step(session, version.id, GRAPH_SYNC_STAGE, exc.message)
         add_audit(session, actor_user_id=actor_user_id, action="graph_sync.failed", resource_type="document_version", resource_id=version.id, result="failed", request_id=request_id, summary={"code": exc.code})
+        notify_graph_failure(session, graph_job)
+        session.commit()
         raise
     request = session.scalar(select(ApprovalRequest).where(ApprovalRequest.document_version_id == version.id).order_by(desc(ApprovalRequest.created_at)).limit(1))
     if request:
@@ -584,6 +530,10 @@ def switch_active_version(
     audit_reason: str,
     request_id: str | None,
 ) -> tuple[ActiveVersionManifest, GraphSyncJob]:
+    project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update().execution_options(populate_existing=True))
+    if project is None or project.status != "active":
+        raise AppError("project_archived", "Archived projects cannot switch document versions", status_code=409)
+    session.refresh(version, with_for_update=True)
     if not impact_confirmed:
         raise AppError("impact_confirmation_required", "Active version switch requires impact confirmation", status_code=422)
     if not audit_reason.strip():

@@ -9,7 +9,7 @@ import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useAuth } from "@/components/AuthProvider";
 import { DocumentLayoutViewer } from "@/components/DocumentLayoutViewer";
-import { DocumentGraphPreview } from "@/components/DocumentGraphPreview";
+import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { SafeMarkdown } from "@/components/SafeMarkdown";
 import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getKnowledgeArtifactBlob, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type OriginalFileViewerMetadata, type PipelineRunDetail } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
@@ -390,6 +390,8 @@ export default function KnowledgePage() {
   const selectedSourceAnchors = useMemo(() => sourceAnchorsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const mutationLocked = liveDetail?.manual_edit_reason === "review_locked";
+  const tagMutationLocked = mutationLocked || Boolean(liveDetail?.tag_edit_reason)
+    || ["active", "inactive"].includes(liveDetail?.version.status ?? "");
   const knowledgeGateBlocked = liveDetail ? completionGateBlocksKnowledgeDetail(liveDetail) : false;
 
   const fetchDetail = useCallback(() => getKnowledgeDetail(apiFetch, params.id, params.knowledgeId), [apiFetch, params.id, params.knowledgeId]);
@@ -729,11 +731,11 @@ export default function KnowledgePage() {
               <div className="document-tag-strip">
                 <div>
                   <strong>{t("knowledgeDetailDocumentTags")}</strong>
-                  <small>{t("knowledgeDetailDocumentTagsHelp")}</small>
+                  <small>{t(tagMutationLocked && !mutationLocked ? "knowledgeDetailPublishedTagsReadonly" : "knowledgeDetailDocumentTagsHelp")}</small>
                 </div>
                 <TagEditor
                   busy={tagBusyKey?.startsWith("document:") ?? false}
-                  disabled={!liveDetail || mutationLocked}
+                  disabled={!liveDetail || tagMutationLocked}
                   draft={documentTagDraft}
                   onAdd={addDocumentTagFromDraft}
                   onAuto={autoTagWholeDocument}
@@ -862,9 +864,10 @@ export default function KnowledgePage() {
                 <div className="chunk-content-shell">
                   <ChunkPreview chunk={chunk} />
                 </div>
+                {tagMutationLocked && !mutationLocked ? <small className="field-note">{t("knowledgeDetailPublishedTagsReadonly")}</small> : null}
                 <TagEditor
                   busy={tagBusyKey?.startsWith(`chunk:${chunk.id}:`) ?? false}
-                  disabled={!liveDetail || mutationLocked}
+                  disabled={!liveDetail || tagMutationLocked}
                   draft={chunkTagDrafts[chunk.id] ?? ""}
                   label={t("knowledgeDetailChunkTagResults")}
                   onAdd={() => addChunkTagFromDraft(chunk.id)}
@@ -908,22 +911,9 @@ export default function KnowledgePage() {
                 <X size={18} />
               </button>
             </div>
-            <DocumentGraphPreview
-              documentTitle={liveDetail?.document.title}
-              documentTags={documentTags.map((tag) => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))}
-              version={liveDetail?.version.version_label}
-              graphChunks={displayChunks.map((chunk) => ({
-                chunkIndex: chunk.index,
-                content: chunk.content,
-                displayMarkdown: chunk.displayMarkdown,
-                id: chunk.id,
-                markdownContent: chunk.markdownContent,
-                type: chunk.type,
-                sourceLabel: chunk.sourceLabel,
-                tags: chunk.tags,
-                tagDetails: chunk.tagDetails.map((tag) => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))
-              }))}
-            />
+            {liveDetail ? <VersionGraphPreview projectId={params.id} documentId={liveDetail.document.id}
+              versionId={liveDetail.version.id} documentTitle={liveDetail.document.title}
+              version={liveDetail.version.version_label} /> : null}
           </section>
         </div>
       ) : null}

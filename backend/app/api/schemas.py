@@ -826,6 +826,7 @@ class KnowledgeDetailResponse(BaseModel):
     missing_markdown_count: int = 0
     manual_edit_enabled: bool = False
     manual_edit_reason: str | None = None
+    tag_edit_reason: str | None = None
     active_chunk_count: int = 0
     chunk_artifact_status: Literal["ready", "queued", "running", "failed", "chunks_required"] = "chunks_required"
     next_stage_allowed: bool = False
@@ -976,6 +977,7 @@ class ProjectGraphEdge(BaseModel):
     source: str
     target: str
     type: str
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectGraphResponse(BaseModel):

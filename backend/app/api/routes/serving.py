@@ -45,9 +45,9 @@ from app.api.schemas import (
     ValidationRunResponse,
 )
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
-from app.core.config import get_settings, neo4j_driver_options
+from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import AIModel, ActiveVersionManifest, ChatFeedbackEvent, ChatRecord, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingBuild, EmbeddingProfile, GraphSyncJob, Notification, OutboxEvent, Project, ProjectOwner, Tag, ValidationRun, ValidationRunItem
+from app.db.models import AIModel, ActiveVersionManifest, ChatFeedbackEvent, ChatRecord, Chunk, Document, DocumentVersion, EmbeddingBuild, EmbeddingProfile, GraphSyncJob, Notification, OutboxEvent, Project, ProjectOwner, ValidationRun, ValidationRunItem
 from app.db.session import get_db
 from app.domain.ai_provider import generate_rag_answer
 from app.domain.chat_citations import chunk_display_markdown, citation_persistence_payload, compact_citation_view, hydrate_citation_groups, validate_citation_markers
@@ -118,10 +118,11 @@ def get_project_graph_paths(project_id: UUID, source_id: str, target_id: str, ma
             visited.add(neighbor)
             queue.append((neighbor, [*path_nodes, neighbor], [*path_edges, edge_id]))
     if found_nodes is None or found_edges is None:
-        return ProjectGraphResponse(project_id=project_id, nodes=[], edges=[], node_limit=node_limit)
+        return ProjectGraphResponse(project_id=project_id, nodes=[], edges=[], truncated=graph.truncated, node_limit=node_limit)
     node_set, edge_set = set(found_nodes), set(found_edges)
     path_graph = ProjectGraphResponse(
         project_id=project_id,
+        truncated=graph.truncated,
         nodes=[node for node in graph.nodes if node.id in node_set],
         edges=[edge for edge in graph.edges if edge.id in edge_set],
         node_limit=node_limit,
@@ -154,7 +155,7 @@ def get_document_version_graph(
     ):
         raise AppError("document_version_not_found", "Document version was not found in the authorized scope", status_code=404)
     version_ids = {version.id}
-    graph = _project_graph_without_chunk_content(session, project, version_ids, node_limit)
+    graph = _project_graph_without_chunk_content(session, project, version_ids, node_limit, allow_preview=True)
     return _hydrate_graph_chunk_content(session, graph, project.id, version_ids)
 
 
@@ -175,6 +176,17 @@ def get_project_serving_status(project_id: UUID, context: IdentityContext = Depe
             .limit(1)
         )
         chunk_count = _serving_manifest_chunk_count(session, manifest)
+        # A completed historical job is not proof that the current graph still
+        # matches the canonical source. Verify without mutating or querying LLMs.
+        from app.domain.graph_projection import build_graph_projection
+        from app.domain.graph_reconciliation import Neo4jProjectionStore
+        actual = None
+        try:
+            projection = build_graph_projection(session, project, document, version)
+            actual = Neo4jProjectionStore(get_settings()).read(projection)
+            graph_verified = actual.matches(projection)
+        except AppError:
+            graph_verified = False
         documents.append(
             ProjectServingDocumentStatus(
                 document_id=document.id,
@@ -184,9 +196,9 @@ def get_project_serving_status(project_id: UUID, context: IdentityContext = Depe
                 publication_generation=manifest.publication_generation,
                 chunk_count=chunk_count,
                 index_ready=manifest.index_ready,
-                graph_sync_status=graph_job.status if graph_job else None,
-                graph_node_count=graph_job.node_count if graph_job else None,
-                graph_edge_count=graph_job.edge_count if graph_job else None,
+                graph_sync_status="completed" if graph_verified else (graph_job.status if graph_job and graph_job.status in {"queued", "running", "failed", "cancelled"} else "failed"),
+                graph_node_count=len(actual.graph["nodes"]) if actual else None,
+                graph_edge_count=len(actual.graph["edges"]) if actual else None,
             )
         )
     ready_index_count = sum(1 for item in documents if item.index_ready)
@@ -1810,9 +1822,10 @@ def _project_graph_without_chunk_content(
     project: Project,
     version_ids: set[UUID],
     node_limit: int,
+    *,
+    allow_preview: bool = False,
 ) -> ProjectGraphResponse:
-    graph = _read_neo4j_project_graph(project, version_ids, node_limit)
-    return _enrich_graph_tags(session, graph, version_ids, node_limit)
+    return _read_neo4j_project_graph(project, version_ids, node_limit, session=session, allow_preview=allow_preview)
 
 
 def _hydrate_graph_chunk_content(
@@ -1892,64 +1905,7 @@ def _hydrate_graph_chunk_content(
     return graph
 
 
-def _enrich_graph_tags(
-    session: Session,
-    graph: ProjectGraphResponse,
-    version_ids: set[UUID],
-    node_limit: int,
-) -> ProjectGraphResponse:
-    node_by_id = {node.id: node for node in graph.nodes}
-    edge_by_id = {edge.id: edge for edge in graph.edges}
-    chunk_ids = {
-        parsed
-        for node in graph.nodes
-        if node.type == "Chunk" and (parsed := _uuid_or_none(node.id)) is not None
-    }
 
-    def add_tag(parent_id: str, tag: Tag, relation: str) -> None:
-        tag_id = f"tag:{tag.id}"
-        if parent_id not in node_by_id:
-            return
-        if tag_id not in node_by_id:
-            if len(node_by_id) >= node_limit:
-                graph.truncated = True
-                return
-            node_by_id[tag_id] = ProjectGraphNode(
-                id=tag_id,
-                type="Tag",
-                label=tag.name,
-                metadata={"technical_id": str(tag.id)},
-            )
-        edge_id = f"{parent_id}:{tag_id}:{relation}"
-        edge_by_id.setdefault(
-            edge_id,
-            ProjectGraphEdge(
-                id=edge_id,
-                source=parent_id,
-                target=tag_id,
-                type=relation,
-            ),
-        )
-
-    if chunk_ids:
-        for chunk_id, tag in session.execute(
-            select(ChunkTag.chunk_id, Tag)
-            .join(Tag, ChunkTag.tag_id == Tag.id)
-            .where(ChunkTag.chunk_id.in_(chunk_ids))
-        ):
-            add_tag(str(chunk_id), tag, "CHUNK_HAS_TAG")
-
-    for version_id, tag in session.execute(
-        select(DocumentVersionTag.document_version_id, Tag)
-        .join(Tag, DocumentVersionTag.tag_id == Tag.id)
-        .where(DocumentVersionTag.document_version_id.in_(version_ids))
-    ):
-        add_tag(str(version_id), tag, "VERSION_HAS_TAG")
-
-    graph.nodes = list(node_by_id.values())
-    graph.edges = _filter_graph_edges(list(edge_by_id.values()), node_by_id)
-    graph.node_limit = node_limit
-    return graph
 
 
 def _neighbor_graph(graph: ProjectGraphResponse, node_id: str, node_limit: int) -> ProjectGraphResponse:
@@ -1979,141 +1935,57 @@ def _neighbor_graph(graph: ProjectGraphResponse, node_id: str, node_limit: int) 
     )
 
 
-def _read_neo4j_project_graph(project: Project, active_version_ids: set[UUID], node_limit: int = 120) -> ProjectGraphResponse:  # pragma: no cover - covered by live acceptance
-    try:
-        from app.core.config import get_settings
-        from neo4j import GraphDatabase
-    except Exception as exc:  # pragma: no cover - runtime dependency boundary
-        raise AppError("neo4j_driver_unavailable", "Neo4j driver is required for live graph reads", status_code=503) from exc
-    settings = get_settings()
-    driver = GraphDatabase.driver(
-        settings.neo4j_uri,
-        auth=(settings.neo4j_username.get_secret_value(), settings.neo4j_password.get_secret_value()),
-        **neo4j_driver_options(settings),
-    )
-    try:
-        with driver.session(database=settings.neo4j_database) as neo_session:
-            records = neo_session.execute_read(
-                lambda tx: list(
-                    tx.run(
-                        """
-                        MATCH (p:Project {id: $project_id})-[:PROJECT_HAS_DOCUMENT]->(d:Document)-[:DOCUMENT_HAS_VERSION]->(v:DocumentVersion)
-                        WHERE v.id IN $version_ids
-                        OPTIONAL MATCH (v)-[:VERSION_HAS_CHUNK]->(c:Chunk)
-                        RETURN d, v, collect(c)[0..$node_limit] AS chunks, count(c) AS chunk_count
-                        ORDER BY d.id, v.id
-                        LIMIT $node_limit
-                        """,
-                        project_id=str(project.id),
-                        version_ids=[str(item) for item in active_version_ids],
-                        node_limit=node_limit,
-                    )
-                )
-            )
-    finally:
-        driver.close()
+def _read_neo4j_project_graph(project: Project, active_version_ids: set[UUID], node_limit: int = 120,
+                              *, session: Session, allow_preview: bool = False) -> ProjectGraphResponse:
+    from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
+    from app.core.config import get_settings
+    from app.domain.graph_projection import build_graph_projection
+    from app.domain.graph_reconciliation import Neo4jProjectionStore
+
     nodes: dict[str, ProjectGraphNode] = {}
-    edges: list[ProjectGraphEdge] = []
-    truncated = False
-    project_id = str(project.id)
-    nodes[project_id] = ProjectGraphNode(
-        id=str(project.id),
-        type="Project",
-        label=project.name,
-        metadata={"technical_id": str(project.id), "status": project.status},
-    )
-
-    def add_node(node: ProjectGraphNode) -> bool:
-        nonlocal truncated
-        if node.id in nodes:
-            return True
-        if len(nodes) >= node_limit:
-            truncated = True
-            return False
-        nodes[node.id] = node
-        return True
-
-    for record in records:
-        document = dict(record["d"])
-        version = dict(record["v"])
-        document_id = str(document["id"])
-        version_id = str(version["id"])
-        source_type = document.get("source_type") or version.get("source_type") or "upload"
-        document_added = add_node(
-            ProjectGraphNode(
-                id=document_id,
-                type="Document",
-                label=document.get("title") or "Document",
-                metadata={
-                    "technical_id": document_id,
-                    "source_type": source_type,
-                    "version_label": version.get("version_label"),
-                    "version_status": version.get("status"),
-                    "document_version_ids": [version_id],
-                },
-            )
-        )
-        version_added = add_node(
-            ProjectGraphNode(
-                id=version_id,
-                type="DocumentVersion",
-                label=version.get("version_label") or "Document version",
-                metadata={
-                    "technical_id": version_id,
-                    "status": version.get("status"),
-                    "document_id": document_id,
-                },
-            )
-        )
-        if document_added:
-            edges.append(
-                ProjectGraphEdge(
-                    id=f"{project_id}:{document_id}:PROJECT_HAS_DOCUMENT",
-                    source=project_id,
-                    target=document_id,
-                    type="PROJECT_HAS_DOCUMENT",
-                )
-            )
-        if document_added and version_added:
-            edges.append(
-                ProjectGraphEdge(
-                    id=f"{document_id}:{version_id}:DOCUMENT_HAS_VERSION",
-                    source=document_id,
-                    target=version_id,
-                    type="DOCUMENT_HAS_VERSION",
-                )
-            )
-        if int(record["chunk_count"] or 0) > len(record["chunks"]):
-            truncated = True
-        for chunk_node in record["chunks"]:
-            if chunk_node is None:
-                continue
-            chunk = dict(chunk_node)
-            chunk_id = str(chunk["id"])
-            if not add_node(
-                ProjectGraphNode(
-                    id=chunk_id,
-                    type="Chunk",
-                    label=chunk.get("title") or f"Chunk {chunk.get('chunk_index') or ''}".strip(),
-                    metadata={
-                        "content_type": chunk.get("content_type"),
-                        "technical_id": chunk_id,
-                        "chunk_index": chunk.get("chunk_index"),
-                        "document_version_id": version_id,
-                    },
-                )
-            ):
-                continue
-            edges.append(
-                ProjectGraphEdge(
-                    id=f"{version_id}:{chunk_id}:VERSION_HAS_CHUNK",
-                    source=version_id,
-                    target=chunk_id,
-                    type="VERSION_HAS_CHUNK",
-                )
-            )
-    filtered_edges = [edge for edge in edges if edge.source in nodes and edge.target in nodes]
-    return ProjectGraphResponse(project_id=project.id, nodes=list(nodes.values()), edges=filtered_edges, truncated=truncated, node_limit=node_limit)
+    edges: dict[str, ProjectGraphEdge] = {}
+    store = Neo4jProjectionStore(get_settings())
+    for version_id in sorted(active_version_ids, key=str):
+        version = session.get(DocumentVersion, version_id)
+        document = session.get(Document, version.document_id) if version else None
+        if version is None or document is None or version.project_id != project.id or document.project_id != project.id or document.is_deleted:
+            raise AppError("document_version_not_found", "Document version was not found in the authorized scope", status_code=404)
+        projection = build_graph_projection(session, project, document, version)
+        if allow_preview and version.published_at is None:
+            graph = projection.graph
+        else:
+            try:
+                actual = store.read(projection)
+            except (Neo4jError, ServiceUnavailable, SessionExpired, OSError) as exc:
+                raise AppError("graph_projection_not_ready", "Graph projection is not ready", status_code=503) from exc
+            if version.published_at is None or not actual.matches(projection):
+                raise AppError("graph_projection_not_ready", "Graph projection is not ready", status_code=503)
+            graph = actual.graph
+        ids = {node["id"]: f'tag:{node["id"]}' if node["type"] == "Tag" else node["id"] for node in graph["nodes"]}
+        for node in graph["nodes"]:
+            props = node["properties"]
+            key = ids[node["id"]]
+            metadata = {**props, "technical_id": node["id"]}
+            if node["type"] == "Project":
+                metadata["status"] = project.status
+            elif node["type"] == "DocumentVersion":
+                metadata["status"] = version.status
+            elif node["type"] == "Document":
+                previous_ids = nodes[key].metadata.get("document_version_ids", []) if key in nodes else []
+                metadata.update(version_label=version.version_label, version_status=version.status,
+                    document_version_ids=[*previous_ids, str(version.id)])
+            nodes[key] = ProjectGraphNode(id=key, type=node["type"],
+                label=props.get("name") or props.get("title") or props.get("version_label") or node["type"],
+                metadata=metadata)
+        for edge in graph["edges"]:
+            source, target = ids[edge["source"]], ids[edge["target"]]
+            key = f'{source}:{target}:{edge["type"]}'
+            edges[key] = ProjectGraphEdge(id=key, source=source, target=target, type=edge["type"], metadata=edge["properties"])
+    priority = {"Project": 0, "Document": 1, "DocumentVersion": 2, "Chunk": 3, "Tag": 4}
+    ordered = sorted(nodes.values(), key=lambda n: (priority[n.type], n.metadata.get("chunk_index", 0), n.id))
+    visible = {n.id: n for n in ordered[:node_limit]}
+    return ProjectGraphResponse(project_id=project.id, nodes=list(visible.values()),
+        edges=_filter_graph_edges(list(edges.values()), visible), truncated=len(nodes) > node_limit, node_limit=node_limit)
 
 
 def _search_document_staging_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:

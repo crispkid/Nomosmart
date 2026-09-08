@@ -106,7 +106,7 @@ def test_persistence_payload_is_an_explicit_compact_allowlist() -> None:
 
 def test_graph_hydration_uses_only_authorized_display_sources() -> None:
     source = (BACKEND_ROOT / "app/api/routes/serving.py").read_text(encoding="utf-8")
-    body = source.split("def _hydrate_graph_chunk_content(", 1)[1].split("def _enrich_graph_tags(", 1)[0]
+    body = source.split("def _hydrate_graph_chunk_content(", 1)[1].split("def _neighbor_graph(", 1)[0]
 
     assert "Chunk.project_id == project_id" in body
     assert "Chunk.document_version_id.in_(version_ids)" in body

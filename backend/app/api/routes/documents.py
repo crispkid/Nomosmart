@@ -1049,12 +1049,13 @@ def delete_chunk_tag(project_id: UUID, document_id: UUID, version_id: UUID, chun
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.chunk_tag.delete")
+    _ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.delete")
     chunk = _get_active_chunk(session, project.id, document.id, version.id, chunk_id)
     link = session.get(ChunkTag, (chunk.id, tag_id))
     if link is None:
         raise AppError("chunk_tag_not_found", "Chunk tag was not found", status_code=404)
     session.delete(link)
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk_tag.delete", resource_type="chunk", resource_id=chunk.id, result="success", request_id=request.state.request_id, summary={"tag_id": str(tag_id)})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
@@ -1065,12 +1066,13 @@ def auto_tag_chunk(project_id: UUID, document_id: UUID, version_id: UUID, chunk_
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.chunk_tag.auto")
+    _ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.auto")
     chunk = _get_active_chunk(session, project.id, document.id, version.id, chunk_id)
     result = _llm_tags(session, project, chunk.content, payload.max_tags, allow_empty=True, usage_purpose="chunk_auto_tag", actor_user_id=context.user_id, document_id=document.id, version_id=version.id, chunk_id=chunk.id, correlation_id=getattr(request.state, "request_id", None))
     _delete_rule_chunk_tags(session, chunk.id)
     for tag_text in _result_tags(result):
         _attach_chunk_tag(session, project.id, chunk.id, tag_text, "llm", context.user_id, _tag_metadata(result))
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk_tag.auto", resource_type="chunk", resource_id=chunk.id, result="success", request_id=request.state.request_id, summary={"tag_count": len(_result_tags(result)), "llm_model_id": str(project.llm_model_id) if project.llm_model_id else None})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
@@ -1086,11 +1088,12 @@ def delete_document_tag(project_id: UUID, document_id: UUID, version_id: UUID, t
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.document_tag.delete")
+    _ensure_tag_mutable(session, project, version, "knowledge.document_tag.delete")
     link = session.get(DocumentVersionTag, (version.id, tag_id))
     if link is None:
         raise AppError("document_tag_not_found", "Document tag was not found", status_code=404)
     session.delete(link)
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.document_tag.delete", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"tag_id": str(tag_id)})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
@@ -1101,13 +1104,14 @@ def auto_tag_document(project_id: UUID, document_id: UUID, version_id: UUID, pay
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.document_tag.auto")
+    _ensure_tag_mutable(session, project, version, "knowledge.document_tag.auto")
     chunks = _active_chunks(session, project.id, document.id, version.id)
     text = "\n\n".join(chunk.content for chunk in chunks)[:12000]
     result = _llm_tags(session, project, text, payload.max_tags, usage_purpose="document_auto_tag", actor_user_id=context.user_id, document_id=document.id, version_id=version.id, correlation_id=getattr(request.state, "request_id", None))
     _delete_rule_document_tags(session, version.id)
     for tag_text in _result_tags(result):
         _attach_document_tag(session, project.id, version.id, tag_text, "llm", context.user_id, _tag_metadata(result))
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.document_tag.auto", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"tag_count": len(_result_tags(result)), "llm_model_id": str(project.llm_model_id) if project.llm_model_id else None})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
@@ -1346,6 +1350,7 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
         missing_markdown_count=missing_markdown_count,
         manual_edit_enabled=manual_edit_enabled,
         manual_edit_reason=manual_edit_reason,
+        tag_edit_reason=("review_locked" if _is_review_locked(version) else "published_tag_revision_required" if version.published_at is not None or version.status in {"active", "inactive"} else None),
         active_chunk_count=len(chunks),
         chunk_artifact_status=artifact_status,
         next_stage_allowed=next_stage_allowed,
@@ -1648,6 +1653,29 @@ def _normalize_tag_text(tag_text: str) -> str:
     return normalized[:80]
 
 
+def _ensure_tag_mutable(session: Session, project: Project, version: DocumentVersion, action: str) -> None:
+    # Same lock order as formal graph synchronization; close publish/tag races.
+    current = session.scalar(select(Project).where(Project.id == project.id).with_for_update().execution_options(populate_existing=True))
+    if current is None or current.status != "active":
+        raise AppError("project_archived", "Archived projects cannot edit tags", status_code=409)
+    document = session.scalar(select(Document).where(Document.id == version.document_id).with_for_update().execution_options(populate_existing=True))
+    if document is None or document.project_id != project.id or document.is_deleted:
+        raise AppError("document_not_found", "Document was not found", status_code=404)
+    session.refresh(version, with_for_update=True)
+    _ensure_not_review_locked(version, action)
+    if version.published_at is not None or version.status in {"active", "inactive"}:
+        raise AppError("published_tag_revision_required", "Published tags require a new reviewed version", status_code=409)
+
+
+def _refresh_tag_preview(session: Session, project: Project, document: Document, version: DocumentVersion) -> None:
+    from app.domain.extraction_pipeline import _graph_preview_artifact
+    session.flush()
+    version.chunk_strategy = {**(version.chunk_strategy or {}),
+        "graph_tag_revision": int((version.chunk_strategy or {}).get("graph_tag_revision") or 0) + 1}
+    version.chunk_strategy = {**version.chunk_strategy, "graph_preview": _graph_preview_artifact(
+        session, project, document, version, _active_chunks(session, project.id, document.id, version.id))}
+
+
 def _require_tag_edit_permission(session: Session, project_id: UUID, context: IdentityContext) -> None:
     require_project_role(session, project_id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to edit tags")
 
@@ -1691,9 +1719,10 @@ def _mutate_chunk_tag(project_id: UUID, document_id: UUID, version_id: UUID, chu
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.chunk_tag.add")
+    _ensure_tag_mutable(session, project, version, "knowledge.chunk_tag.add")
     chunk = _get_active_chunk(session, project.id, document.id, version.id, chunk_id)
     _attach_chunk_tag(session, project.id, chunk.id, tag_text, source, context.user_id, {"source": source})
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk_tag.add", resource_type="chunk", resource_id=chunk.id, result="success", request_id=request.state.request_id, summary={"tag_text": _normalize_tag_text(tag_text), "source": source})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
@@ -1703,8 +1732,9 @@ def _mutate_document_tag(project_id: UUID, document_id: UUID, version_id: UUID, 
     project = _get_scoped_project(session, project_id, context)
     _require_tag_edit_permission(session, project.id, context)
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
-    _ensure_not_review_locked(version, "knowledge.document_tag.add")
+    _ensure_tag_mutable(session, project, version, "knowledge.document_tag.add")
     _attach_document_tag(session, project.id, version.id, tag_text, source, context.user_id, {"source": source})
+    _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.document_tag.add", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"tag_text": _normalize_tag_text(tag_text), "source": source})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)

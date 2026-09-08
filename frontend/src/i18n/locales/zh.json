@@ -1,4 +1,7 @@
 {
+  "graphProjectionNotReady": "圖譜尚未通過一致性驗證，請專案 Owner 或管理員檢查同步狀態。",
+  "graphVersionTruncatedStatus": "最多顯示 {limit} 個授權範圍內的節點，此預覽已截斷。",
+  "knowledgeDetailPublishedTagsReadonly": "已發布版本的標籤為唯讀；如需修改，請建立新修訂並重新完成審核與發布。",
   "appName": "NomoSmart",
   "home": "首頁",
   "dashboard": "知識專案",

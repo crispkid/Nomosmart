@@ -1603,9 +1603,19 @@ def test_live_external_services_and_domain_adapters(live_client) -> None:
         version.extraction_artifact_uri = f"opensearch://{published.index_name}"
         published_adapter.delete_staging_documents(version=version)
 
-        graph_result = LiveNeo4jGraphSyncAdapter(settings).sync_active_version(project_id=project.id, document=document, version=version, chunks=chunks)
-        assert graph_result.node_count == 2 + len(chunks)
-        assert graph_result.edge_count == 1 + len(chunks)
+        # CHG-292: formal synchronization requires a published canonical scope
+        # and verifies the real complete graph, including Tag assignments.
+        from app.domain.graph_projection import build_graph_projection
+        from app.domain.graph_reconciliation import Neo4jProjectionStore
+        document.status = "active"
+        version.status = "active"
+        version.published_at = datetime.now(UTC)
+        session.flush()
+        graph_result = LiveNeo4jGraphSyncAdapter(settings).sync_active_version(session=session, project_id=project.id, document=document, version=version, chunks=chunks)
+        projection = build_graph_projection(session, project, document, version)
+        assert Neo4jProjectionStore(settings).read(projection).matches(projection)
+        assert graph_result.node_count == len(projection.graph["nodes"])
+        assert graph_result.edge_count == len(projection.graph["edges"])
         session.rollback()
 
     storage = S3ObjectStorage(settings)

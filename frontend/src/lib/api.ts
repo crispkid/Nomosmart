@@ -708,6 +708,7 @@ export type KnowledgeDetailResponse = {
   missing_markdown_count: number;
   manual_edit_enabled: boolean;
   manual_edit_reason: string | null;
+  tag_edit_reason?: string | null;
   active_chunk_count: number;
   chunk_artifact_status: "ready" | "queued" | "running" | "failed" | "chunks_required";
   next_stage_allowed: boolean;
@@ -929,7 +930,7 @@ export type ImpactedReferenceProjectsResponse = {
 export type ProjectGraphResponse = {
   project_id: string | null;
   nodes: { id: string; type: string; label: string; metadata: Record<string, unknown> }[];
-  edges: { id: string; source: string; target: string; type: string }[];
+  edges: { id: string; source: string; target: string; type: string; metadata?: Record<string, unknown> }[];
   truncated: boolean;
   node_limit: number;
 };

@@ -387,7 +387,7 @@ export function ProjectGraphPreview() {
   const { apiFetch, authReady } = useAuth();
   const { format, t } = useI18n();
   const [liveGraph, setLiveGraph] = useState<ProjectGraphResponse | null>(null);
-  const [graphStatus, setGraphStatus] = useState<"empty" | "error" | "forbidden" | "live" | "loading">("loading");
+  const [graphStatus, setGraphStatus] = useState<"empty" | "error" | "not-ready" | "forbidden" | "live" | "loading">("loading");
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -398,10 +398,10 @@ export function ProjectGraphPreview() {
       if (cancelled) return;
       setLiveGraph(graph);
       setGraphStatus(graph.nodes.length ? "live" : "empty");
-    }).catch((error: Error & { status?: number }) => {
+    }).catch((error: Error & { status?: number; code?: string }) => {
       if (cancelled) return;
       setLiveGraph(null);
-      setGraphStatus(error.status === 403 ? "forbidden" : "error");
+      setGraphStatus(error.status === 403 ? "forbidden" : ["graph_projection_not_ready", "graph_identity_conflict"].includes(error.code ?? "") ? "not-ready" : "error");
     });
     return () => { cancelled = true; };
   }, [apiFetch, authReady, params?.id]);
@@ -412,8 +412,11 @@ export function ProjectGraphPreview() {
     setExpandingNodeId(nodeId);
     getProjectGraphNeighbors(apiFetch, projectId, nodeId, 80).then((neighborGraph) => {
       setLiveGraph((current) => current ? mergeProjectGraphs(current, neighborGraph) : neighborGraph);
-    }).catch(() => {
-      // Neighbor expansion is additive; keep the current graph visible on transient failures.
+    }).catch((error: { code?: string }) => {
+      if (["graph_projection_not_ready", "graph_identity_conflict"].includes(error.code ?? "")) {
+        setLiveGraph(null);
+        setGraphStatus("not-ready");
+      }
     }).finally(() => setExpandingNodeId((current) => current === nodeId ? null : current));
   }
 
@@ -454,7 +457,7 @@ export function ProjectGraphPreview() {
           ? t("graphProjectForbiddenStatus")
           : graphStatus === "loading"
             ? t("graphProjectLoadingStatus")
-            : t("graphProjectUnavailableStatus");
+            : graphStatus === "not-ready" ? t("graphProjectionNotReady") : t("graphProjectUnavailableStatus");
 
   return (
     <GraphExplorer

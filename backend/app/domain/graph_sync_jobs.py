@@ -7,8 +7,11 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.db.models import Chunk, Document, DocumentVersion, GraphSyncJob, OutboxEvent, Project
+from app.core.errors import AppError
+from app.db.models import Chunk, Document, DocumentVersion, GraphSyncJob, OutboxEvent, Project, ProjectOwner
+from app.domain.notifications import emit_notification_event, resolve_business_notifications
 from app.services.audit import add_audit
+from app.domain.graph_reconciliation import locked_projection, synchronize_graph
 
 
 GRAPH_SYNC_TOPIC = "graph_sync.requested"
@@ -27,6 +30,7 @@ def enqueue_graph_sync(
     parent_job_id: UUID | None = None,
 ) -> GraphSyncJob:
     now = datetime.now(UTC)
+    projection = locked_projection(session, project_id, document_id, document_version_id)
     project = session.get(Project, project_id)
     project_generation = project.work_generation if project is not None else 0
     job = GraphSyncJob(
@@ -51,7 +55,7 @@ def enqueue_graph_sync(
             aggregate_id=job.id,
             project_id=project_id,
             project_generation=project_generation,
-            payload={"job_id": str(job.id), "parent_job_id": str(parent_job_id) if parent_job_id else None, "project_generation": project_generation},
+            payload={"job_id": str(job.id), "parent_job_id": str(parent_job_id) if parent_job_id else None, "project_generation": project_generation, "graph_binding": projection.binding()},
             status="pending",
             attempts=0,
             available_at=now,
@@ -63,14 +67,18 @@ def enqueue_graph_sync(
 
 def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID) -> None:
     now = datetime.now(UTC)
-    job = session.scalar(select(GraphSyncJob).where(GraphSyncJob.id == job_id).with_for_update())
+    job = session.get(GraphSyncJob, job_id)
+    if job is None:
+        return
+    project_id = job.project_id
+    project = session.scalar(select(Project).where(Project.id == project_id).with_for_update().execution_options(populate_existing=True))
+    job = session.scalar(select(GraphSyncJob).where(GraphSyncJob.id == job_id).with_for_update().execution_options(populate_existing=True))
     if job is None or job.status == "completed":
         return
     if job.status == "running" and job.lease_expires_at is not None and job.lease_expires_at > now:
         return
     if job.status not in {"queued", "running"}:
         return
-    project = session.scalar(select(Project).where(Project.id == job.project_id).with_for_update())
     if project is None or project.status != "active" or project.work_generation != job.project_generation:
         job.status = "cancelled"
         job.error_code = "project_work_generation_stale"
@@ -89,7 +97,11 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
     job.error_message = None
     session.commit()
 
-    project = session.scalar(select(Project).where(Project.id == job.project_id).with_for_update())
+    project = session.scalar(select(Project).where(Project.id == project_id).with_for_update().execution_options(populate_existing=True))
+    job = session.scalar(select(GraphSyncJob).where(GraphSyncJob.id == job_id).with_for_update().execution_options(populate_existing=True))
+    if job is None or job.claim_token != claim_token:
+        session.rollback()
+        return
     if project is None or project.status != "active" or project.work_generation != job.project_generation:
         cancelled = session.get(GraphSyncJob, job_id)
         if cancelled is not None and cancelled.claim_token == claim_token:
@@ -117,16 +129,18 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
     )
     try:
         if document is None or version is None or not chunks:
-            raise RuntimeError("graph_sync_resource_not_ready")
-        from app.domain.review_publish import LiveNeo4jGraphSyncAdapter
-
-        result = LiveNeo4jGraphSyncAdapter(settings).sync_active_version(
-            project_id=job.project_id,
-            document=document,
-            version=version,
-            chunks=chunks,
-        )
+            raise AppError("graph_sync_resource_not_ready", _SAFE_FAILURE_MESSAGE, status_code=409)
+        event = session.scalar(select(OutboxEvent).where(OutboxEvent.topic == GRAPH_SYNC_TOPIC,
+            OutboxEvent.aggregate_id == job.id).order_by(OutboxEvent.created_at.desc()))
+        binding = (event.payload or {}).get("graph_binding") if event is not None else None
+        if not binding:
+            raise AppError("graph_work_binding_required", _SAFE_FAILURE_MESSAGE, status_code=409)
+        result = synchronize_graph(session, settings, job.project_id, document.id, version.id, expected_binding=binding)
     except Exception as exc:
+        # Preserve the committed claim but discard any aborted source/read
+        # transaction before recording durable failure evidence.
+        session.rollback()
+        session.scalar(select(Project).where(Project.id == project_id).with_for_update())
         failed = session.scalar(select(GraphSyncJob).where(GraphSyncJob.id == job_id).with_for_update())
         if failed is None or failed.claim_token != claim_token:
             session.rollback()
@@ -148,6 +162,7 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
             request_id=failed.request_id,
             summary={"error_code": failed.error_code, "attempt": failed.attempt},
         )
+        notify_graph_failure(session, failed)
         session.commit()
         return
 
@@ -156,14 +171,15 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
         session.rollback()
         return
     completed.status = "completed"
-    completed.node_count = result.node_count
-    completed.edge_count = result.edge_count
+    completed.node_count = len(result.graph["nodes"])
+    completed.edge_count = len(result.graph["edges"])
     completed.error_code = None
     completed.error_message = None
     completed.completed_at = datetime.now(UTC)
     completed.claim_token = None
     completed.claimed_at = None
     completed.lease_expires_at = None
+    resolve_business_notifications(session, business_key=f"graph:{completed.document_version_id}", reason="graph_verified")
     add_audit(
         session,
         actor_user_id=completed.requested_by_user_id,
@@ -172,6 +188,16 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
         resource_id=completed.id,
         result="success",
         request_id=completed.request_id,
-        summary={"node_count": result.node_count, "edge_count": result.edge_count, "attempt": completed.attempt},
+        summary={"node_count": completed.node_count, "edge_count": completed.edge_count, "attempt": completed.attempt},
     )
     session.commit()
+
+
+def notify_graph_failure(session: Session, job: GraphSyncJob) -> None:
+    recipients = list(session.scalars(select(ProjectOwner.user_id).where(ProjectOwner.project_id == job.project_id)))
+    if job.requested_by_user_id is not None:
+        recipients.append(job.requested_by_user_id)
+    emit_notification_event(session, project_id=job.project_id, event_type="graph_sync.failed",
+        business_key=f"graph:{job.document_version_id}", recipient_user_ids=recipients, severity="error",
+        title="知識圖譜同步失敗", message="圖譜尚未通過一致性驗證，請檢查同步工作。",
+        action_type="graph_sync", action_payload={"job_id": str(job.id), "document_version_id": str(job.document_version_id), "error_code": job.error_code})

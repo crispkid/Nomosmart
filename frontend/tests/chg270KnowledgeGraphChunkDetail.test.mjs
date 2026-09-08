@@ -54,9 +54,15 @@ test("wires both graph surfaces to explicit content/index inspector fields", asy
   assert.match(explorer, /<ChunkMarkdownView/);
   assert.match(explorer, /role="region"/);
   assert.doesNotMatch(explorer, /dangerouslySetInnerHTML/);
-  assert.match(knowledgePage, /chunkIndex: chunk\.index/);
-  assert.match(knowledgePage, /content: chunk\.content/);
-  assert.match(knowledgePage, /displayMarkdown: chunk\.displayMarkdown/);
+  // CHG-292: the knowledge dialog gets scoped graph evidence from the API;
+  // content/index/display fields must survive that adapter, not a PG-tag redraw.
+  assert.match(knowledgePage, /<VersionGraphPreview/);
+  const versionEvidence = await readFile(new URL("../src/lib/versionGraphEvidence.ts", import.meta.url), "utf8");
+  const versionPreview = await readFile(new URL("../src/components/VersionGraphPreview.tsx", import.meta.url), "utf8");
+  assert.match(versionPreview, /getDocumentVersionGraph\(apiFetch/);
+  assert.match(versionEvidence, /chunkIndex: Number\(metadata\.chunk_index/);
+  assert.match(versionEvidence, /content: typeof metadata\.content/);
+  assert.match(versionEvidence, /displayMarkdown: typeof metadata\.display_markdown/);
   assert.match(approvalPage, /chunkIndex: chunk\.index/);
   assert.match(approvalPage, /displayMarkdown: chunk\.display_markdown/);
   assert.match(english, /"graphDetailChunkNumber": "Number"/);

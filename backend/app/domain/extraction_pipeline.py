@@ -2076,47 +2076,8 @@ def _attach_document_tag(session: Session, project_id: UUID, version_id: UUID, t
 
 
 def _graph_preview_artifact(session: Session, project: Project, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> dict[str, object]:
-    tag_rows = session.execute(select(ChunkTag.chunk_id, Tag.name).join(Tag, Tag.id == ChunkTag.tag_id).where(ChunkTag.chunk_id.in_([chunk.id for chunk in chunks]))) if chunks else []
-    tag_by_chunk: dict[UUID, list[str]] = {}
-    for chunk_id, tag_name in tag_rows:
-        tag_by_chunk.setdefault(chunk_id, []).append(tag_name)
-    nodes: list[dict[str, object]] = [
-        {"id": str(project.id), "type": "project", "label": project.name, "technical_id": str(project.id)},
-        {"id": str(document.id), "type": "document", "label": document.title or "Document", "technical_id": str(document.id)},
-        {"id": str(version.id), "type": "version", "label": version.version_label or "Document version", "status": version.status, "technical_id": str(version.id)},
-    ]
-    edges: list[dict[str, object]] = [
-        {"source": str(project.id), "target": str(document.id), "type": "PROJECT_HAS_DOCUMENT"},
-        {"source": str(document.id), "target": str(version.id), "type": "DOCUMENT_HAS_VERSION"},
-    ]
-    seen_tags: set[str] = set()
-    for chunk in chunks:
-        nodes.append(
-            {
-                "id": str(chunk.id),
-                "type": "chunk",
-                "label": chunk.title or f"Chunk {chunk.chunk_index}",
-                "chunk_index": chunk.chunk_index,
-                "content_type": chunk.content_type,
-                "technical_id": str(chunk.id),
-            }
-        )
-        edges.append({"source": str(version.id), "target": str(chunk.id), "type": "VERSION_HAS_CHUNK"})
-        for tag in tag_by_chunk.get(chunk.id, []):
-            tag_id = f"tag:{tag}"
-            if tag_id not in seen_tags:
-                seen_tags.add(tag_id)
-                nodes.append({"id": tag_id, "type": "tag", "label": tag})
-            edges.append({"source": str(chunk.id), "target": tag_id, "type": "CHUNK_HAS_TAG"})
-    return {
-        "status": "available",
-        "source": "postgresql_staging_preview",
-        "node_count": len(nodes),
-        "edge_count": len(edges),
-        "chunk_count": len(chunks),
-        "nodes": nodes,
-        "edges": edges,
-    }
+    from app.domain.graph_projection import build_graph_projection, preview_artifact
+    return preview_artifact(build_graph_projection(session, project, document, version, chunks))
 
 
 def _step_message(step_name: str, ocr_name: str, force_ocr: bool) -> str:

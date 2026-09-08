@@ -1,4 +1,7 @@
 {
+  "graphProjectionNotReady": "The graph has not passed consistency verification. Ask the project owner or administrator to check synchronization.",
+  "graphVersionTruncatedStatus": "Showing up to {limit} scoped graph nodes. This preview is truncated.",
+  "knowledgeDetailPublishedTagsReadonly": "Published tags are read-only. Create a new revision and complete review and publication to change them.",
   "appName": "NomoSmart",
   "home": "Home",
   "dashboard": "Knowledge Projects",

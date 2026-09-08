@@ -9,10 +9,9 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.db.models import Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingBuild, GraphSyncJob, OutboxEvent, Project, Tag
+from app.db.models import Chunk, Document, DocumentVersion, EmbeddingBuild, OutboxEvent, Project
 from app.domain.embeddings import embed_chunks
 from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, _graph_preview_artifact
-from app.domain.review_publish import LiveNeo4jGraphSyncAdapter
 
 
 ARTIFACT_METADATA_KEY = "chunk_artifacts"
@@ -105,31 +104,18 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
     _set_status(version, revision, "running" if chunks else "chunks_required")
     session.flush()
     staging = LiveOpenSearchStagingIndexAdapter(settings)
-    graph = LiveNeo4jGraphSyncAdapter(settings)
     try:
         session.refresh(project)
         if project.status != "active" or project.work_generation != expected_generation:
             raise AppError("project_archived", "Archived projects cannot write chunk artifacts", status_code=409)
         if not chunks:
             staging.delete_version(project_id=project.id, version_id=version.id)
-            graph.delete_version(version_id=version.id)
             result = None
         else:
             batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=settings)
             result = staging.write_chunks(project=project, document=document, version=version, chunks=chunks, vectors=batch.vectors, profile=batch.profile)
             batch.build.status = "staged"
             batch.build.index_name = result.index_name
-            chunk_tags, version_tags = _graph_tags(session, version.id, expected_chunk_ids)
-            graph_result = graph.sync_candidate_version(
-                project_id=project.id, document=document, version=version, chunks=chunks,
-                chunk_tags=chunk_tags, version_tags=version_tags,
-            )
-            now = datetime.now(UTC)
-            session.add(GraphSyncJob(
-                id=uuid4(), project_id=project.id, document_id=document.id, document_version_id=version.id,
-                trigger_type="chunk_reconciliation", status="completed", node_count=graph_result.node_count,
-                edge_count=graph_result.edge_count, created_at=now, completed_at=now,
-            ))
     except Exception as exc:  # noqa: BLE001 - store only a safe failure code
         session.rollback()
         current = session.get(DocumentVersion, version_id)
@@ -192,22 +178,6 @@ def _mark_failed(session: Session, version: DocumentVersion, revision: int, erro
         "updated_at": datetime.now(UTC).isoformat(),
     }}
     session.flush()
-
-
-def _graph_tags(session: Session, version_id: UUID, chunk_ids: list[UUID]) -> tuple[dict[UUID, list[dict[str, str]]], list[dict[str, str]]]:
-    by_chunk: dict[UUID, list[dict[str, str]]] = {}
-    if chunk_ids:
-        for chunk_id, tag_id, name in session.execute(
-            select(ChunkTag.chunk_id, Tag.id, Tag.name).join(Tag, Tag.id == ChunkTag.tag_id).where(ChunkTag.chunk_id.in_(chunk_ids))
-        ):
-            by_chunk.setdefault(chunk_id, []).append({"id": str(tag_id), "name": name})
-    version_tags = [
-        {"id": str(tag_id), "name": name}
-        for tag_id, name in session.execute(
-            select(Tag.id, Tag.name).join(DocumentVersionTag, DocumentVersionTag.tag_id == Tag.id).where(DocumentVersionTag.document_version_id == version_id)
-        )
-    ]
-    return by_chunk, version_tags
 
 
 def _uuid(value: object) -> UUID | None:
