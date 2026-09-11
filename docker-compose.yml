@@ -5,13 +5,19 @@ x-nomosmart-env-file: &nomosmart_env_file
     required: false
 
 x-backend-volumes: &backend_volumes
+  - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
   - ${RUSTFS_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/rustfs-ca.crt}:/etc/nomosmart/tls/rustfs-ca.crt:ro
   - ${OPENSEARCH_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/opensearch-ca.crt}:/etc/nomosmart/tls/opensearch-ca.crt:ro
 
 x-internal-ca-volumes: &internal_ca_volumes
+  - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ${RUSTFS_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/rustfs-ca.crt}:/etc/nomosmart/tls/rustfs-ca.crt:ro
   - ${OPENSEARCH_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/opensearch-ca.crt}:/etc/nomosmart/tls/opensearch-ca.crt:ro
+
+x-nonroot-runtime: &nonroot_runtime
+  user: "0:0"
+  entrypoint: ["/opt/nomosmart/secret-env-entrypoint.sh"]
 
 x-backend-secrets: &backend_secrets
   - app_encryption_key
@@ -75,6 +81,8 @@ x-backend-environment: &backend_environment
   APP_HOST: 0.0.0.0
   APP_PORT: 8000
   APP_ENCRYPTION_KEY_FILE: /run/secrets/app_encryption_key
+  NOMOSMART_RUN_AS: 10001:10001
+  NOMOSMART_COPY_DIRS: /etc/nomosmart/tls:/run/nomosmart/tls
   LOG_LEVEL: ${LOG_LEVEL:-INFO}
   LOG_FORMAT: ${LOG_FORMAT:-json}
   CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:-https://nomosmart.local}
@@ -229,6 +237,7 @@ services:
     restart: unless-stopped
 
   backend:
+    <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
     build:
       context: ./backend
@@ -270,6 +279,7 @@ services:
     restart: unless-stopped
 
   celery-worker:
+    <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
     build:
       context: ./backend
@@ -291,6 +301,7 @@ services:
     restart: unless-stopped
 
   celery-beat:
+    <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
     build:
       context: ./backend
@@ -337,6 +348,7 @@ services:
     restart: "no"
 
   deployment-bootstrap:
+    <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
     build:
       context: ./backend
@@ -381,6 +393,7 @@ services:
     restart: "no"
 
   deployment-finalize:
+    <<: *nonroot_runtime
     profiles: ["finalize"]
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
     build:

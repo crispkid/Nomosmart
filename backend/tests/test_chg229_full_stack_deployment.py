@@ -54,7 +54,10 @@ def test_compose_defaults_to_the_complete_internal_stack_and_only_edge_publishes
     assert services["postgresql"]["environment"]["POSTGRES_USER"] == "${POSTGRES_ADMIN_USER:-postgres}"
     assert services["postgresql"]["environment"]["NOMOSMART_DB_USER"] == "${POSTGRES_USER:-nomosmart}"
     assert "CREATE ROLE %I LOGIN PASSWORD %L" in read("deploy/docker/postgresql-init.sh")
-    assert "COPY --chmod=0555 docker/postgresql-init.sh" in read("deploy/postgresql/Dockerfile")
+    postgresql_image = read("deploy/postgresql/Dockerfile")
+    assert "COPY --chmod=0555 docker/postgresql-init.sh" in postgresql_image
+    assert "NOMOSMART_REMAP_SECRETS=1" in postgresql_image
+    assert "secret-env-entrypoint.sh" in postgresql_image
     rustfs_health = " ".join(services["rustfs"]["healthcheck"]["test"])
     assert "curl --cacert /opt/rustfs-tls/rustfs_ca.pem" in rustfs_health
     assert "--resolve rustfs:9000:127.0.0.1" in rustfs_health
@@ -129,7 +132,18 @@ def test_frontend_and_migration_images_use_the_chart_numeric_non_root_identity()
     assert "adduser -S -u 10001" in read("frontend/Dockerfile")
     migration = read("deploy/migrations/Dockerfile")
     assert "adduser -S -D -h /home/nomosmart -u 10001" in migration
-    assert "USER 10001:10001" in migration
+    assert "NOMOSMART_RUN_AS=10001:10001" in migration
+    assert "USER 0" in migration
+    assert "apk add --no-cache su-exec" in migration
+    rustfs = read("deploy/rustfs/Dockerfile")
+    assert "NOMOSMART_RUN_AS=10001:10001" in rustfs
+    assert "USER 0" in rustfs
+    assert "apk add --no-cache su-exec" in rustfs
+    entrypoint = read("deploy/docker/secret-env-entrypoint.sh")
+    assert "su-exec" in entrypoint
+    assert "--reuid" in entrypoint
+    assert "NOMOSMART_REMAP_SECRETS" in entrypoint
+    assert "/run/nomosmart/secrets" in entrypoint
 
 
 def test_public_oidc_issuer_is_separate_from_internal_transport() -> None:

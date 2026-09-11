@@ -304,6 +304,10 @@ def test_compose_limits_admin_secrets_to_bootstrap_and_finalize() -> None:
     assert {"opensearch_admin_password", "neo4j_admin_password"} <= bootstrap
     assert compose["services"]["deployment-finalize"]["profiles"] == ["finalize"]
     assert compose["services"]["rustfs"]["environment"]["NOMOSMART_SECRET_EXPORTS"]
+    for name in ("backend", "celery-worker", "celery-beat", "deployment-bootstrap", "deployment-finalize"):
+        assert compose["services"][name]["user"] == "0:0"
+        assert compose["services"][name]["entrypoint"] == ["/opt/nomosmart/secret-env-entrypoint.sh"]
+    assert compose["services"]["backend"]["environment"]["NOMOSMART_RUN_AS"] == "10001:10001"
     assert "~* &*" in " ".join(compose["services"]["redis"]["command"])
     assert "celerybeat-schedule.db" in " ".join(compose["services"]["celery-beat"]["healthcheck"]["test"])
     assert set(compose["services"]["edge"]["ports"]) == {
