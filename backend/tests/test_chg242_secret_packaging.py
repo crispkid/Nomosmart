@@ -349,3 +349,26 @@ def test_keycloak_management_identity_can_complete_idempotent_bootstrap() -> Non
     assert bootstrap.index("_reconcile_identity_database(settings, client=identity_client)") < bootstrap.index(
         "manager.disable_bootstrap_admin()"
     )
+
+
+def test_compose_preflight_treats_missing_minikube_as_stopped(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    module = _module()
+
+    def fake_run(command, *args, **kwargs):
+        if command[0] == "minikube":
+            raise FileNotFoundError(command[0])
+        if command[0] == "lsof":
+            return subprocess.CompletedProcess(command, 1, "", "")
+        raise AssertionError(command)
+
+    monkeypatch.setattr(module.subprocess, "run", fake_run)
+    monkeypatch.setattr(module, "_local_host_mapping", lambda *_args, **_kwargs: True)
+    args = module._parser().parse_args(["preflight", "--runtime", "compose"])
+
+    assert module.preflight_package(args) == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["status"] == "ready"
+    assert payload["runtime"] == "compose"
+    assert payload["other_runtime"] == "stopped"

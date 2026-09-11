@@ -1223,12 +1223,15 @@ def _compose_project_running(project: str) -> bool:
 
 
 def _minikube_profile_running(profile: str) -> bool:
-    completed = subprocess.run(
-        ["minikube", "status", "-p", profile, "-o", "json"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
+    try:
+        completed = subprocess.run(
+            ["minikube", "status", "-p", profile, "-o", "json"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return False
     if completed.returncode != 0:
         return False
     try:
