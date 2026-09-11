@@ -6,6 +6,7 @@ import os
 from pathlib import Path
 import shutil
 import stat
+import string
 import subprocess
 import sys
 
@@ -18,6 +19,21 @@ from app.deployment.bootstrap import DeploymentBootstrapSettings
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_SCRIPT = REPOSITORY_ROOT / "deploy" / "package" / "nomosmart_package.py"
+
+
+def _assert_strong_opensearch_passwords(values: dict[str, str]) -> None:
+    passwords = {
+        values["opensearch_admin_password"],
+        values["opensearch_service_password"],
+    }
+    assert len(passwords) == 2
+    for value in passwords:
+        assert len(value) == 64
+        assert any(character in string.ascii_lowercase for character in value)
+        assert any(character in string.ascii_uppercase for character in value)
+        assert any(character in string.digits for character in value)
+        assert "-" in value
+        assert value != "P@ssw0rd"
 
 
 def _module():
@@ -82,7 +98,9 @@ def test_factory_init_is_private_unique_idempotent_and_redacted(tmp_path: Path, 
     assert all(
         values[name] == "P@ssw0rd"
         for name in module.KNOWN_PERIPHERAL_SECRET_NAMES
+        if name not in {"opensearch_admin_password", "opensearch_service_password"}
     )
+    _assert_strong_opensearch_passwords(values)
     cryptographic_names = {
         "app_encryption_key",
         "oidc_client_secret",
@@ -118,7 +136,7 @@ def test_production_uses_fixed_first_use_break_glass_and_rejects_factory_profile
     values = _secret_values(output / "current", manifest)
     assert values["break_glass_initial_password"] == "nomosmart"
     assert manifest["credential_mode"] == "first_use_fixed"
-    assert values["opensearch_admin_password"] == "P@ssw0rd"
+    _assert_strong_opensearch_passwords(values)
 
     mismatch = _args(module, tmp_path / "invalid", profile="factory_acceptance", app_env="production")
     with pytest.raises(module.PackageError, match="factory acceptance requires"):

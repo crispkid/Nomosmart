@@ -758,11 +758,10 @@ def _build_values(
     if first_use:
         for name in KNOWN_PERIPHERAL_SECRET_NAMES:
             values[name] = "P@ssw0rd"
-        if docker_desktop_local:
-            values["opensearch_admin_password"] = _random_opensearch_password()
-            values["opensearch_service_password"] = _random_opensearch_password()
-    else:
-        values["opensearch_admin_password"] = _random_opensearch_password()
+    values["opensearch_admin_password"] = _random_opensearch_password()
+    values["opensearch_service_password"] = _random_opensearch_password()
+    while values["opensearch_service_password"] == values["opensearch_admin_password"]:
+        values["opensearch_service_password"] = _random_opensearch_password()
     values["break_glass_initial_password"] = (
         "P@ssw0rd"
         if first_use and docker_desktop_local
