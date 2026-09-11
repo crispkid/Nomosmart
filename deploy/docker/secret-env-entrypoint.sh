@@ -87,6 +87,7 @@ fi
 
 if [ "$remap_secrets" = 1 ] && [ -d /run/secrets ]; then
   mkdir -p /run/nomosmart/secrets
+  previous_umask=$(umask)
   umask 077
   for secret_file in /run/secrets/*; do
     [ -e "$secret_file" ] || continue
@@ -102,6 +103,7 @@ if [ "$remap_secrets" = 1 ] && [ -d /run/secrets ]; then
       chmod 0444 "/run/nomosmart/secrets/$base"
     fi
   done
+  umask "$previous_umask"
   _chown_run_as /run/nomosmart/secrets
   _rewrite_env_prefix /run/secrets /run/nomosmart/secrets
 fi

@@ -308,6 +308,7 @@ def test_compose_limits_admin_secrets_to_bootstrap_and_finalize() -> None:
         assert compose["services"][name]["user"] == "0:0"
         assert compose["services"][name]["entrypoint"] == ["/opt/nomosmart/secret-env-entrypoint.sh"]
     assert compose["services"]["backend"]["environment"]["NOMOSMART_RUN_AS"] == "10001:10001"
+    assert compose["services"]["backend"]["command"] == ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     assert "~* &*" in " ".join(compose["services"]["redis"]["command"])
     assert "celerybeat-schedule.db" in " ".join(compose["services"]["celery-beat"]["healthcheck"]["test"])
     assert set(compose["services"]["edge"]["ports"]) == {

@@ -58,6 +58,7 @@ def test_compose_defaults_to_the_complete_internal_stack_and_only_edge_publishes
     assert "COPY --chmod=0555 docker/postgresql-init.sh" in postgresql_image
     assert "NOMOSMART_REMAP_SECRETS=1" in postgresql_image
     assert "secret-env-entrypoint.sh" in postgresql_image
+    assert 'CMD ["postgres"]' in postgresql_image
     rustfs_health = " ".join(services["rustfs"]["healthcheck"]["test"])
     assert "curl --cacert /opt/rustfs-tls/rustfs_ca.pem" in rustfs_health
     assert "--resolve rustfs:9000:127.0.0.1" in rustfs_health
@@ -143,6 +144,7 @@ def test_frontend_and_migration_images_use_the_chart_numeric_non_root_identity()
     assert "su-exec" in entrypoint
     assert "--reuid" in entrypoint
     assert "NOMOSMART_REMAP_SECRETS" in entrypoint
+    assert "previous_umask" in entrypoint
     assert "/run/nomosmart/secrets" in entrypoint
 
 

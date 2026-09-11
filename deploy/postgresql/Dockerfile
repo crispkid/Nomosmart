@@ -7,3 +7,4 @@ COPY --chmod=0555 docker/postgresql-init.sh /docker-entrypoint-initdb.d/10-datab
 
 ENV NOMOSMART_REMAP_SECRETS=1
 ENTRYPOINT ["/opt/nomosmart/secret-env-entrypoint.sh", "docker-entrypoint.sh"]
+CMD ["postgres"]
