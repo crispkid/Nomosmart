@@ -8,7 +8,9 @@ import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
-import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, listProjectChatConversations, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation } from "@/lib/api";
+import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatConversationResponse } from "@/lib/api";
+import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
+import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked, mergeChatHistory } from "@/lib/chatConversationAccess";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
@@ -96,7 +98,7 @@ function formatDateTime(value: string | null | undefined, locale: "en" | "zh") {
 
 export default function ChatTestPage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
-  const { apiFetch, authReady } = useAuth();
+  const { apiFetch, authReady, currentUser } = useAuth();
   const { locale, format, localize, localizeKnown } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const extractionHref = `/project/${params.id}/knowledge/${params.knowledgeId}`;
@@ -106,6 +108,13 @@ export default function ChatTestPage() {
   const [question, setQuestion] = useState("");
   const [conversationEntries, setConversationEntries] = useState<ConversationEntry[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [histories, setHistories] = useState<ProjectChatConversationResponse[]>([]);
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const [historyReady, setHistoryReady] = useState(false);
+  const [batchDisplay, setBatchDisplay] = useState(false);
+  const scopeEpoch = useRef(new ChatRequestEpoch());
+  const selectionEpoch = useRef(new ChatRequestEpoch());
   const [evaluations, setEvaluations] = useState<Record<string, AnswerEvaluation>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFileName, setUploadFileName] = useState("");
@@ -116,13 +125,45 @@ export default function ChatTestPage() {
   const versionId = detail?.version.id;
   const latestConversationEntry = conversationEntries[conversationEntries.length - 1];
   const queryBusy = conversationEntries.some((entry) => entry.loading);
-  const persistedTurnCount = conversationEntries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length;
-  const persistedTurnLabel = format(
-    locale === "en" && persistedTurnCount === 1 ? "documentChatTurnCountOne" : "documentChatTurnCountMany",
-    { count: persistedTurnCount },
-  );
+  const activeHistory = histories.find((item) => item.id === activeConversationId);
+  const access = chatConversationAccess(activeHistory, currentUser?.user_id);
+  const canContinue = authReady && historyReady && !loadError && !batchDisplay && Boolean(versionId) && (!activeConversationId || access.canContinue);
+  const otherConversation = Boolean(activeConversationId && !access.isMine);
+  const authorName = (activeConversationId ? activeHistory?.created_by_display_name : currentUser?.display_name)?.trim() || t("chatAuthorNameMissing");
+
+  function selectConversation(item: ProjectChatConversationResponse | null) {
+    setBatchDisplay(false);
+    selectionEpoch.current.invalidate();
+    setActiveConversationId(item?.id ?? null);
+    setConversationEntries((item?.records ?? []).map((record) => ({ id: record.id, recordId: record.id,
+      question: record.question, answer: record.answer ?? undefined, askedAt: record.asked_at,
+      answeredAt: record.answered_at, citations: record.citations,
+      status: record.answer ? "answered" : "no_answer" })));
+    setEvaluations(Object.fromEntries((item?.records ?? []).filter((record) => record.evaluation !== "not_evaluated")
+      .map((record) => [record.id, { judgment: record.evaluation === "correct" ? "correct" : "needs_revision", suggestion: record.revision_suggestion ?? "" }])));
+    setQuestion("");
+    setUploadOpen(false);
+    setUploadError("");
+    setBatchCompletedCount(null);
+  }
 
   useEffect(() => {
+    const scopeGuard = scopeEpoch.current;
+    const selectionGuard = selectionEpoch.current;
+    scopeGuard.invalidate();
+    selectionGuard.invalidate();
+    setBatchDisplay(false);
+    setHistoryReady(false);
+    setHistoryBusy(false);
+    setHistories([]);
+    setHistoryCursor(null);
+    setDetail(null);
+    setConversationEntries([]);
+    setActiveConversationId(null);
+    setEvaluations({});
+    setQuestion("");
+    setUploadOpen(false);
+    setLoadError(null);
     if (!authReady) return;
     let cancelled = false;
     async function load() {
@@ -130,37 +171,56 @@ export default function ChatTestPage() {
         const loaded = await getKnowledgeDetail(apiFetch, params.id, params.knowledgeId);
         if (cancelled) return;
         setDetail(loaded);
-        const conversations = await listProjectChatConversations(apiFetch, params.id, { scope_mode: "document_staging", document_version_id: loaded.version.id });
+        const page = await listProjectChatConversationPage(apiFetch, params.id, { scope_mode: "document_staging", document_version_id: loaded.version.id });
         if (cancelled) return;
-        const selectedConversation = conversations[0] ?? null;
-        const records = selectedConversation?.records ?? [];
-        setActiveConversationId(selectedConversation?.id ?? null);
-        const entries = records
-          .filter((record) => record.selected_document_version_ids.includes(loaded.version.id))
-          .map((record) => ({
-            id: record.id,
-            recordId: record.id,
-            question: record.question,
-            answer: record.answer ?? undefined,
-            askedAt: record.asked_at,
-            answeredAt: record.answered_at,
-            citations: record.citations,
-            status: record.answer ? "answered" as const : "no_answer" as const
-          }));
-        setConversationEntries(entries);
-        setEvaluations(Object.fromEntries(entries.filter((record) => record.recordId && records.some((item) => item.id === record.recordId && item.evaluation !== "not_evaluated")).map((entry) => {
-          const source = records.find((item) => item.id === entry.recordId);
-          return [entry.id, { judgment: source?.evaluation === "correct" ? "correct" : "needs_revision", suggestion: source?.revision_suggestion ?? "" }];
-        })));
+        setHistories(page.items);
+        setHistoryCursor(page.next_cursor);
+        setHistoryReady(true);
+        selectConversation(page.items[0] ?? null);
       } catch (error) {
-        if (!cancelled) setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
+        if (!cancelled) {
+          if (chatScopeRevoked(error)) setDetail(null);
+          setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
+        }
       }
     }
     void load();
     return () => {
       cancelled = true;
+      scopeGuard.invalidate();
+      selectionGuard.invalidate();
     };
-  }, [apiFetch, authReady, format, params.id, params.knowledgeId, t]);
+  }, [apiFetch, authReady, currentUser?.user_id, format, params.id, params.knowledgeId, t]);
+
+  async function loadMoreHistory() {
+    if (!versionId || !historyCursor || historyBusy) return;
+    const scope = scopeEpoch.current.capture();
+    setHistoryBusy(true);
+    try {
+      const page = await listProjectChatConversationPage(apiFetch, params.id, { scope_mode: "document_staging", document_version_id: versionId, cursor: historyCursor });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      setHistories((current) => mergeChatHistory(current, page.items));
+      setHistoryCursor(page.next_cursor);
+    } catch (error) {
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope)) setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
+    } finally {
+      if (scopeEpoch.current.isCurrent(scope)) setHistoryBusy(false);
+    }
+  }
+
+  function discardRevokedScope(error: unknown) {
+    if (!chatScopeRevoked(error)) return false;
+    scopeEpoch.current.invalidate();
+    selectConversation(null);
+    setHistories([]);
+    setHistoryCursor(null);
+    setHistoryBusy(false);
+    setDetail(null);
+    setHistoryReady(false);
+    setLoadError(operationalErrorMessage(error, t, format));
+    return true;
+  }
 
   useEffect(() => {
     if (!chatThreadRef.current || !conversationEntries.length) return;
@@ -179,14 +239,19 @@ export default function ChatTestPage() {
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedQuestion = question.trim();
-    if (!trimmedQuestion || !versionId || queryBusy) return;
+    if (!trimmedQuestion || !versionId || queryBusy || !canContinue) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
+    const conversationId = activeConversationId ?? crypto.randomUUID();
     const localId = `pending-${Date.now()}`;
     const askedAt = new Date().toISOString();
     setConversationEntries((entries) => [...entries, { id: localId, question: trimmedQuestion, askedAt, citations: [], loading: true }]);
     setQuestion("");
     try {
-      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: activeConversationId, conversation_title: detail?.document.title ?? trimmedQuestion });
-      setActiveConversationId(result.conversation_id ?? activeConversationId);
+      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: conversationId, conversation_title: detail?.document.title ?? trimmedQuestion });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      if (selectionEpoch.current.isCurrent(selection)) {
+      setActiveConversationId(result.conversation_id ?? conversationId);
       setConversationEntries((entries) => entries.map((entry) => entry.id === localId ? {
         ...entry,
         id: result.chat_record_id ?? localId,
@@ -197,7 +262,14 @@ export default function ChatTestPage() {
         loading: false,
         status: result.status
       } : entry));
+      }
+      const saved = await getProjectChatConversation(apiFetch, params.id, result.conversation_id ?? conversationId, { scope_mode: "document_staging", document_version_id: versionId });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      setHistories((current) => mergeChatHistory(current, [saved]));
+      if (selectionEpoch.current.isCurrent(selection)) selectConversation(saved);
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+      if (discardRevokedScope(error)) return;
       setConversationEntries((entries) => entries.map((entry) => entry.id === localId ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry));
     }
   }
@@ -209,17 +281,16 @@ export default function ChatTestPage() {
   }
 
   function startNewConversation() {
-    if (queryBusy) return;
-    setConversationEntries([]);
-    setEvaluations({});
-    setActiveConversationId(null);
-    setQuestion("");
+    selectConversation(null);
   }
 
   async function downloadConversationRecords() {
-    if (!activeConversationId || !versionId) return;
+    if (!activeConversationId || !versionId || !access.canExport) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     try {
       const blob = await downloadProjectChatConversationCsv(apiFetch, params.id, activeConversationId, { scope_mode: "document_staging", document_version_id: versionId });
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -227,6 +298,7 @@ export default function ChatTestPage() {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection) || discardRevokedScope(error)) return;
       setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
     }
   }
@@ -238,6 +310,7 @@ export default function ChatTestPage() {
   }
 
   function openUploadModal() {
+    if (!canContinue) return;
     setUploadFileName("");
     setUploadQuestions([]);
     setUploadError("");
@@ -246,6 +319,8 @@ export default function ChatTestPage() {
   }
 
   async function selectCsvFile(event: ChangeEvent<HTMLInputElement>) {
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     const file = event.target.files?.[0];
     setUploadQuestions([]);
     setUploadError("");
@@ -260,7 +335,9 @@ export default function ChatTestPage() {
       return;
     }
     try {
-      const rows = parseCsv(await file.text(), t);
+      const contents = await file.text();
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+      const rows = parseCsv(contents, t);
       const headers = rows[0]?.map((header, index) => (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim()) ?? [];
       const questionIndex = headers.indexOf("question");
       if (questionIndex < 0) throw new Error(t("projectChatCsvMissingQuestion"));
@@ -268,12 +345,15 @@ export default function ChatTestPage() {
       if (!questions.length) throw new Error(t("projectChatCsvNoQuestions"));
       setUploadQuestions(questions);
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       setUploadError(error instanceof Error ? localizeKnown(error.message) ?? t("projectChatCsvParseFailed") : t("projectChatCsvParseFailed"));
     }
   }
 
   async function confirmBatchUpload() {
-    if (!versionId || uploadQuestions.length === 0 || uploadError || queryBusy) return;
+    if (!versionId || uploadQuestions.length === 0 || uploadError || queryBusy || !canContinue) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     try {
       const run = await createProjectChatValidationRun(apiFetch, params.id, {
         uploaded_file_name: uploadFileName || null,
@@ -281,8 +361,14 @@ export default function ChatTestPage() {
         selected_document_version_ids: [versionId],
         questions: uploadQuestions.map((value) => ({ question: value, selected_document_ids: [versionId] }))
       });
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       const startedAt = Date.now();
-      setConversationEntries((current) => [...current, ...run.items.map((item, index) => ({
+      // Validation items have independent Backend conversation IDs, not turns
+      // belonging to the currently selected interactive conversation.
+      setActiveConversationId(null);
+      setBatchDisplay(true);
+      setEvaluations({});
+      setConversationEntries(run.items.map((item, index) => ({
         id: item.chat_record_id ?? item.id,
         recordId: item.chat_record_id ?? undefined,
         question: item.question,
@@ -293,18 +379,28 @@ export default function ChatTestPage() {
         loading: ["pending", "running"].includes(item.status),
         error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "documentChatQueryFailed") : undefined,
         status: item.answer ? "answered" as const : undefined
-      }))]);
+      })));
       setBatchCompletedCount(run.items.length);
       requestAnimationFrame(() => chatThreadRef.current?.scrollTo({ behavior: "smooth", top: chatThreadRef.current.scrollHeight }));
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+      if (discardRevokedScope(error)) return;
       setUploadError(operationalErrorMessage(error, t, format, "documentChatValidationCreateFailed"));
     }
   }
 
   async function recordEvaluation(entry: ConversationEntry, value: Judgment, suggestion = "") {
-    setEvaluations((current) => ({ ...current, [entry.id]: { judgment: value, suggestion } }));
-    if (entry.recordId) {
-      await updateProjectChatFeedback(apiFetch, params.id, entry.recordId, { evaluation: value === "correct" ? "correct" : "needs_revision", revision_suggestion: suggestion || null });
+    if (!entry.recordId || !access.canEvaluate) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
+    try {
+      const updated = await updateProjectChatFeedback(apiFetch, params.id, entry.recordId, { evaluation: value, revision_suggestion: suggestion || null });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      setHistories((current) => current.map((item) => item.id === updated.conversation_id ? { ...item, records: item.records.map((record) => record.id === updated.id ? updated : record) } : item));
+      if (selectionEpoch.current.isCurrent(selection)) setEvaluations((current) => ({ ...current, [entry.id]: { judgment: value, suggestion } }));
+    } catch (error) {
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection)) setLoadError(operationalErrorMessage(error, t, format));
     }
   }
 
@@ -334,10 +430,17 @@ export default function ChatTestPage() {
 
           <div className="chat-sidebar-section">
             <p className="eyebrow">{t("conversationHistory")}</p>
-            <button className="chat-history-item active" type="button">
-              <MessageSquarePlus size={16} />
-              <span><strong>{detail?.document.title ?? t("documentChatCurrentDocument")}</strong><small>{persistedTurnLabel}</small></span>
-            </button>
+            <div aria-label={t("conversationHistory")} className="chat-document-history-list" role="region" tabIndex={0}>
+            {histories.map((item) => {
+              const itemAccess = chatConversationAccess(item, currentUser?.user_id);
+              return <button aria-pressed={item.id === activeConversationId} className={`chat-history-item${item.id === activeConversationId ? " active" : ""}`} onClick={() => selectConversation(item)} key={item.id} type="button">
+                <MessageSquarePlus size={16} />
+                <span><strong>{item.title}</strong><ChatHistoryAuthor name={item.created_by_display_name} isMine={itemAccess.isMine} readOnly={!itemAccess.canContinue} />
+                  <small>{format(item.message_count === 1 ? "documentChatTurnCountOne" : "documentChatTurnCountMany", { count: item.message_count })} · {formatDateTime(item.updated_at, locale)}</small></span>
+              </button>;
+            })}
+            {historyCursor ? <button className="action-button secondary" disabled={historyBusy} onClick={() => void loadMoreHistory()} type="button">{t("chatHistoryLoadMore")}</button> : null}
+            </div>
           </div>
         </aside>
 
@@ -345,25 +448,25 @@ export default function ChatTestPage() {
           <header className="chat-conversation-header">
             <div><strong>{detail?.document.title ?? t("documentChatTitleFallback")}</strong><small>{t("documentChatScopeHelp")}</small></div>
             <div className="chat-conversation-header-actions">
-              <button className="action-button secondary" disabled={!versionId || queryBusy} onClick={openUploadModal} type="button"><Upload size={17} /> {t("uploadTestConversations")}</button>
-              <button className="action-button secondary" disabled={!activeConversationId || !conversationEntries.length} onClick={() => void downloadConversationRecords()} type="button"><Download size={17} /> {t("downloadConversation")}</button>
-              <button className="action-button secondary" disabled={queryBusy} onClick={startNewConversation} type="button"><MessageSquarePlus size={17} /> {t("newConversation")}</button>
+              <button className="action-button secondary" disabled={!canContinue || queryBusy} onClick={openUploadModal} type="button"><Upload size={17} /> {t("uploadTestConversations")}</button>
+              <button className="action-button secondary" disabled={!access.canExport || !conversationEntries.length} onClick={() => void downloadConversationRecords()} type="button"><Download size={17} /> {t("downloadConversation")}</button>
+              <button className="action-button secondary" disabled={!historyReady} onClick={startNewConversation} type="button"><MessageSquarePlus size={17} /> {t("chatNewOwnConversation")}</button>
             </div>
           </header>
-
           <div className="chat-thread" aria-live="polite" ref={chatThreadRef}>
+            {(activeConversationId || batchDisplay) && !canContinue ? <p role="status" className="chat-readonly-notice">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</p> : null}
             {conversationEntries.length === 0 ? <div className="chat-empty-state"><MessageSquarePlus size={22} /><span>{t("emptyConversation")}</span></div> : null}
             {conversationEntries.map((entry) => (
               <div className="chat-response-pair" key={entry.id}>
-                <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{t("labelCurrentUser")}</small><p>{entry.question}</p></div></article>
-                <AssistantMessage entry={entry} evaluation={evaluations[entry.id]} extractionHref={extractionHref} onEvaluate={recordEvaluation} />
+                <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
+                <AssistantMessage key={`${activeConversationId}-${entry.id}`} entry={entry} canEvaluate={access.canEvaluate} evaluation={evaluations[entry.id]} extractionHref={extractionHref} onEvaluate={recordEvaluation} />
               </div>
             ))}
           </div>
 
           <form aria-busy={queryBusy} className="chat-composer" onSubmit={submitQuestion}>
             <label htmlFor="chat-question">{t("askQuestion")}</label>
-            <div><textarea id="chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitQuestionOnEnter} placeholder={t("chatPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!question.trim() || !versionId || queryBusy} type="submit"><Send size={17} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>
+            <div><textarea disabled={!canContinue || queryBusy} id="chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitQuestionOnEnter} placeholder={t("chatPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!question.trim() || !canContinue || queryBusy} type="submit"><Send size={17} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>
           </form>
         </div>
       </section>
@@ -389,13 +492,14 @@ export default function ChatTestPage() {
   );
 }
 
-function AssistantMessage({ entry, evaluation, extractionHref, onEvaluate }: { entry: ConversationEntry; evaluation?: AnswerEvaluation; extractionHref: string; onEvaluate: (entry: ConversationEntry, value: Judgment, suggestion?: string) => Promise<void> }) {
+function AssistantMessage({ entry, canEvaluate, evaluation, extractionHref, onEvaluate }: { entry: ConversationEntry; canEvaluate: boolean; evaluation?: AnswerEvaluation; extractionHref: string; onEvaluate: (entry: ConversationEntry, value: Judgment, suggestion?: string) => Promise<void> }) {
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [revisionOpen, setRevisionOpen] = useState(false);
   const [revisionSuggestion, setRevisionSuggestion] = useState("");
 
   function openRevisionModal() {
+    if (!canEvaluate) return;
     setRevisionSuggestion(evaluation?.suggestion ?? "");
     setRevisionOpen(true);
   }
@@ -403,7 +507,7 @@ function AssistantMessage({ entry, evaluation, extractionHref, onEvaluate }: { e
   async function submitRevision(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const suggestion = revisionSuggestion.trim();
-    if (!suggestion) return;
+    if (!suggestion || !canEvaluate) return;
     await onEvaluate(entry, "needs_revision", suggestion);
     setRevisionOpen(false);
   }
@@ -425,8 +529,8 @@ function AssistantMessage({ entry, evaluation, extractionHref, onEvaluate }: { e
           />
         )}
         <div className="answer-judgment" aria-label={t("documentChatAnswerJudgmentAria")}>
-          <button className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><CheckCircle2 size={16} /> {t("answerCorrect")}</button>
-          <button className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId} onClick={openRevisionModal} type="button"><Wrench size={16} /> {t("answerNeedsRevision")}</button>
+          <button className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId || !canEvaluate} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><CheckCircle2 size={16} /> {t("answerCorrect")}</button>
+          <button className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId || !canEvaluate} onClick={openRevisionModal} type="button"><Wrench size={16} /> {t("answerNeedsRevision")}</button>
           {evaluation ? <span>{evaluation.judgment === "correct" ? t("documentChatRecordedCorrect") : format("documentChatRecordedSuggestion", { suggestion: evaluation.suggestion })}</span> : null}
         </div>
       </div>

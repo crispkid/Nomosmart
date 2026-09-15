@@ -187,7 +187,10 @@ def test_integration_client_management_routes_cover_lifecycle_and_usage(integrat
         assert created.api_key_prefix == created.api_key[:16]
         assert created.project_ids == [integration_workspace["project_id"]]
 
-        listed = integration_clients.list_integration_clients(request=request, context=context, session=session)
+        # Direct domain-flow invocation supplies explicit values. FastAPI's
+        # Query defaults are resolved by HTTP, covered separately in CHG-295.
+        listed = integration_clients.list_integration_clients(request=request, status=None, project_id=None,
+            name=None, expiry=None, cursor=None, limit=50, context=context, session=session)
         assert any(item.id == created.id for item in listed.items)
         fetched = integration_clients.get_integration_client(created.id, context, session)
         assert fetched.requests_per_minute == 15

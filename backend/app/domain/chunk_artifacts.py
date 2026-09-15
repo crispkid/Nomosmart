@@ -12,10 +12,30 @@ from app.core.errors import AppError
 from app.db.models import Chunk, Document, DocumentVersion, EmbeddingBuild, OutboxEvent, Project
 from app.domain.embeddings import embed_chunks
 from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, _graph_preview_artifact
+from app.domain.graph_reconciliation import clear_zero_candidate_chunks
 
 
 ARTIFACT_METADATA_KEY = "chunk_artifacts"
 RECONCILIATION_TOPIC = "chunk.artifacts.reconcile"
+
+
+def lock_chunk_write_scope(session: Session, version: DocumentVersion) -> tuple[Project | None, Document | None, DocumentVersion | None]:
+    """Enter before changing rows: governance parents precede the version fence.
+
+    Do not autoflush a pending Version update ahead of its Project lock. Callers
+    invoke this at entry, not after preparing mutations; refreshed rows are the
+    authoritative scope after a wait. Authorization remains with the caller.
+    """
+    project_id, document_id, version_id = version.project_id, version.document_id, version.id
+    with session.no_autoflush:
+        project = session.scalar(select(Project).where(Project.id == project_id)
+            .with_for_update().execution_options(populate_existing=True))
+        document = session.scalar(select(Document).where(Document.id == document_id, Document.project_id == project_id)
+            .with_for_update().execution_options(populate_existing=True))
+        current = session.scalar(select(DocumentVersion).where(DocumentVersion.id == version_id,
+            DocumentVersion.project_id == project_id, DocumentVersion.document_id == document_id)
+            .with_for_update().execution_options(populate_existing=True))
+    return project, document, current
 
 
 def chunk_artifact_state(version: DocumentVersion, active_chunk_count: int) -> tuple[str, bool, str | None]:
@@ -79,7 +99,10 @@ def queue_chunk_artifact_reconciliation(session: Session, version: DocumentVersi
 
 
 def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, settings: Settings) -> None:
-    version = session.scalar(select(DocumentVersion).where(DocumentVersion.id == version_id).with_for_update())
+    version = session.get(DocumentVersion, version_id)
+    if version is None:
+        return
+    project, document, version = lock_chunk_write_scope(session, version)
     if version is None:
         return
     initial_metadata = _metadata(version)
@@ -88,9 +111,7 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
         return
     if initial_metadata.get("status") == "ready" or (initial_metadata.get("status") == "chunks_required" and initial_metadata.get("reconciled_at")):
         return
-    project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update())
-    document = session.get(Document, version.document_id)
-    if project is None or document is None:
+    if project is None or document is None or document.is_deleted or document.status == "deleted":
         _mark_failed(session, version, revision, "chunk_artifact_scope_missing")
         session.commit()
         return
@@ -109,6 +130,7 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
         if project.status != "active" or project.work_generation != expected_generation:
             raise AppError("project_archived", "Archived projects cannot write chunk artifacts", status_code=409)
         if not chunks:
+            clear_zero_candidate_chunks(session, settings, version)
             staging.delete_version(project_id=project.id, version_id=version.id)
             result = None
         else:
@@ -118,7 +140,11 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
             batch.build.index_name = result.index_name
     except Exception as exc:  # noqa: BLE001 - store only a safe failure code
         session.rollback()
+        # Reacquire the fence after rollback: a newer edit may have committed
+        # while an external write failed. Never stamp its revision as failed.
         current = session.get(DocumentVersion, version_id)
+        if current is not None:
+            _project, _document, current = lock_chunk_write_scope(session, current)
         if current is not None and current.lock_version == revision:
             _mark_failed(session, current, revision, getattr(exc, "code", "chunk_artifact_reconciliation_failed"))
             session.commit()

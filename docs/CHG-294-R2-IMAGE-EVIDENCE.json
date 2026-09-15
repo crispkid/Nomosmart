@@ -1,0 +1,81 @@
+{
+  "change": "CHG-294-R2",
+  "date": "2026-09-11",
+  "scope": "Frontend image build, isolated verification and security scans only",
+  "status": "built_scans_pass_functional_smoke_blocked",
+  "image": {
+    "tag": "nomosmart/frontend:0.1.0-chg294-r2",
+    "id": "sha256:2c65c3eab7f7601612297a6c1ec11f8445ac0b2c174c18f4076cf98c2a70eb9d",
+    "platformManifest": "sha256:a315c612e79edb4423fe694c288778e3d1664db790518c8f2c69ea82de68c4fa",
+    "config": "sha256:4918560774440d178266a6d7f86eed509bca572b585c14613111234cd805562b",
+    "platform": "linux/arm64",
+    "user": "nomosmart",
+    "buildExitCode": 0,
+    "oldTagPreserved": "sha256:5281abacf6c0ba6fc07c757325aebf9ba9b964ca2eb8ce4f68bd664c36683655"
+  },
+  "functionalSmoke": {
+    "exitCode": 1,
+    "assertion": "Container network must be none",
+    "source": "frontend/scripts/chg294-image-smoke.mjs:27",
+    "expectedInterfaces": ["lo"],
+    "actualInterfaces": ["lo", "tunl0", "gre0", "gretap0", "erspan0", "ip_vti0", "ip6_vti0", "sit0", "ip6tnl0", "ip6gre0"],
+    "nextStarted": false,
+    "nativeImageTestsRun": false,
+    "helperModified": false,
+    "isolationBypassed": false
+  },
+  "separateReadonlyDiagnostic": {
+    "exitCode": 0,
+    "networkMode": "none",
+    "readOnlyRoot": true,
+    "uid": 10001,
+    "capDrop": ["ALL"],
+    "noNewPrivileges": true,
+    "publishedPorts": [],
+    "allNonLoopbackInterfacesDown": true,
+    "nonLoopbackRoutes": 0,
+    "node": "v24.21.0",
+    "bundledOpenSSL": "3.5.8",
+    "systemCrypto": ["libcrypto3-3.5.8-r0", "libssl3-3.5.8-r0", "openssl-3.5.8-r0"],
+    "libc": "musl",
+    "nodeDynamicallyLinksSystemCrypto": false,
+    "notFunctionalSmokeAcceptance": true
+  },
+  "security": {
+    "scanner": "Docker Scout v1.24.0",
+    "highCriticalExitCode": 0,
+    "highCriticalSarifResults": 0,
+    "allSeverityExitCode": 0,
+    "allSeveritySarifResults": 0,
+    "spdxVersion": "SPDX-2.3",
+    "indexedPackages": 350,
+    "spdxPackagesIncludingRoot": 351,
+    "bundledOpenSSLIsSeparateSbomPackage": false,
+    "suppressionOrWaiver": false
+  },
+  "artifactsRoot": "/tmp/chg294-r2-image.86XvU9",
+  "artifactSha256": {
+    "build.log": "d4b7ebdb33bf9c650258fd2dddac19fd7ce31ab39b7d5b03e740ecca5380aa93",
+    "security/frontend.scout.sarif.json": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df",
+    "security/frontend.all-severities.sarif.json": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df",
+    "security/frontend.spdx.json": "0bda048055641813c1489a3ac92911b5db56dd2b88d3448d6dffeb7250564c0a",
+    "network-container.json": "3c7300c102c90be7a7fdac8692174fdd890affe83d1149a83a9578b30f7854f2",
+    "network-diagnostic.json": "ec35f42596be252be25895ea12e8646ad0d49d7eae719bdc44cc5a4ef60e8cef"
+  },
+  "preservation": {
+    "packageJsonSha256": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404",
+    "lockSha256": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+    "dockerfileSha256": "3b5e7c827f4bdc9f28e9088002e61d50615270792a300ff33aeb0a18b53157bf",
+    "imageSmokeSha256": "3277cb5595235d3e9bd92b973b88d61d8b831f37e64ff6de191aea8668eb797a",
+    "productChartFingerprint": "578ff4d192c59010a619f519d43156da1188c1fb215272f480ecdb018e2efa79",
+    "stageContainerInventoryAfterCleanup": [],
+    "kubernetesAccess": false,
+    "helmAccess": false,
+    "backendMigrationRebuild": false,
+    "providerCalls": 0,
+    "applicationDataMutated": false,
+    "deployed": false,
+    "renderSha256": null,
+    "coverageAndFullE2EGatesRemainOpen": true
+  }
+}

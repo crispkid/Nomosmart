@@ -1,12 +1,14 @@
 "use client";
 
-import { ChangeEvent, DragEvent, FormEvent, KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Bot, Check, CheckCircle2, ChevronDown, ChevronRight, Download, FileDown, FileText, MessageSquarePlus, Search, Send, Trash2, Upload, UserRound, Wrench, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
-import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversations, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectChatCitation, type ProjectChatConversationResponse, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
+import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectChatCitation, type ProjectChatConversationResponse, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
+import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
+import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked } from "@/lib/chatConversationAccess";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -29,6 +31,8 @@ type ProjectConversation = {
   createdAt: number;
   updatedAt: number;
   persisted?: boolean;
+  history?: ProjectChatConversationResponse;
+  validationRunId?: string;
 };
 
 type Translate = (key: TranslationKey) => string;
@@ -108,17 +112,17 @@ function timestamp(value: string) {
 }
 
 function conversationFromHistory(item: ProjectChatConversationResponse): ProjectConversation {
-  const entries = item.records.map((record) => ({
-    id: timestamp(record.asked_at),
+  const entries = item.records.map((record, index) => ({
+    id: index,
     recordId: record.id,
     question: record.question,
     answer: record.answer ?? undefined,
     citations: record.citations,
     status: record.answer ? "answered" as const : "no_answer" as const
   }));
-  const judgmentEntries = item.records.flatMap((record): [number, Judgment][] => {
-    if (record.evaluation === "needs_revision") return [[timestamp(record.asked_at), "revision"]];
-    if (record.evaluation === "correct") return [[timestamp(record.asked_at), "correct"]];
+  const judgmentEntries = item.records.flatMap((record, index): [number, Judgment][] => {
+    if (record.evaluation === "needs_revision") return [[index, "revision"]];
+    if (record.evaluation === "correct") return [[index, "correct"]];
     return [];
   });
   const updatedAt = timestamp(item.updated_at);
@@ -129,7 +133,8 @@ function conversationFromHistory(item: ProjectChatConversationResponse): Project
     judgments: Object.fromEntries(judgmentEntries) as Record<number, Judgment>,
     createdAt: updatedAt,
     updatedAt,
-    persisted: true
+    persisted: true,
+    history: item,
   };
 }
 
@@ -145,7 +150,7 @@ function validationItemMessage(status: string, answer: string | null | undefined
 
 export function ProjectChatTest() {
   const params = useParams<{ id?: string }>();
-  const { apiFetch, authReady } = useAuth();
+  const { apiFetch, authReady, currentUser } = useAuth();
   const { t, format, localize, localizeKnown } = useI18n();
   const [documents, setDocuments] = useState<ChatDocument[]>([]);
   const [documentSource, setDocumentSource] = useState<"loading" | "live" | "empty" | "error">("loading");
@@ -158,6 +163,10 @@ export function ProjectChatTest() {
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [historyStatus, setHistoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const [historyError, setHistoryError] = useState("");
+  const [historyCursor, setHistoryCursor] = useState<string | null>(null);
+  const [historyBusy, setHistoryBusy] = useState(false);
+  const scopeEpoch = useRef(new ChatRequestEpoch());
+  const selectionEpoch = useRef(new ChatRequestEpoch());
   const [query, setQuery] = useState("");
   const [question, setQuestion] = useState("");
   const [revisionEntryId, setRevisionEntryId] = useState<number | null>(null);
@@ -169,12 +178,17 @@ export function ProjectChatTest() {
   const [uploadDragging, setUploadDragging] = useState(false);
   const [batchCompletedCount, setBatchCompletedCount] = useState<number | null>(null);
   const [activeValidationRun, setActiveValidationRun] = useState<ValidationRunResponse | null>(null);
+  const [validationConversationId, setValidationConversationId] = useState<string | null>(null);
   const [servingExpanded, setServingExpanded] = useState(false);
   const [deleteTargetId, setDeleteTargetId] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const chatThreadRef = useRef<HTMLDivElement>(null);
   const activeConversation = activeConversationId ? conversations.find((conversation) => conversation.id === activeConversationId) ?? null : null;
+  const access = chatConversationAccess(activeConversation?.history, currentUser?.user_id);
+  const canContinue = authReady && historyStatus === "ready" && !activeConversation?.validationRunId && (!activeConversation?.persisted || access.canContinue);
+  const otherConversation = Boolean(activeConversation?.persisted && !access.isMine);
+  const authorName = (activeConversation?.persisted ? activeConversation.history?.created_by_display_name : currentUser?.display_name)?.trim() || t("chatAuthorNameMissing");
   const scopeIds = activeConversation?.scopeIds ?? selectedIds;
   const entries = activeConversation?.entries ?? [];
   const queryBusy = entries.some((entry) => entry.loading);
@@ -194,12 +208,84 @@ export function ProjectChatTest() {
   const servingReadinessLabel = servingStatus?.readiness === "ready" ? t("projectChatServingReady") : servingStatus?.readiness === "partial" ? t("projectChatServingPartial") : servingStatus?.readiness === "empty" ? t("projectChatServingEmpty") : t("projectChatServingLoading");
   const unavailableVersionLabel = t("projectChatUnavailableVersion");
 
+  const discardRevokedScope = useCallback((error: unknown) => {
+    if (!chatScopeRevoked(error)) return false;
+    scopeEpoch.current.invalidate();
+    selectionEpoch.current.invalidate();
+    setConversations([]);
+    setHistoryCursor(null);
+    setHistoryBusy(false);
+    setActiveConversationId(null);
+    setActiveValidationRun(null);
+    setValidationConversationId(null);
+    setDocuments([]);
+    setServingStatus(null);
+    setSelectedIds([]);
+    setQuestion("");
+    setUploadOpen(false);
+    setRevisionEntryId(null);
+    setHistoryStatus("error");
+    setHistoryError(operationalErrorMessage(error, t, format));
+    return true;
+  }, [format, t]);
+
+  useEffect(() => {
+    const projectId = params?.id;
+    const scopeGuard = scopeEpoch.current;
+    const selectionGuard = selectionEpoch.current;
+    scopeGuard.invalidate();
+    selectionGuard.invalidate();
+    setDocuments([]);
+    setServingStatus(null);
+    setDocumentSource("loading");
+    setConversations([]);
+    setActiveConversationId(null);
+    setActiveValidationRun(null);
+    setValidationConversationId(null);
+    setSelectedIds([]);
+    setHistoryCursor(null);
+    setHistoryBusy(false);
+    setQuestion("");
+    setUploadOpen(false);
+    setRevisionEntryId(null);
+    setDeleteTargetId(null);
+    if (!authReady || !projectId) return;
+    let cancelled = false;
+    const scope = scopeGuard.capture();
+    setHistoryStatus("loading");
+    setHistoryError("");
+    listProjectChatConversationPage(apiFetch, projectId).then((page) => {
+      if (cancelled || !scopeGuard.isCurrent(scope)) return;
+      const history = page.items;
+      setHistoryCursor(page.next_cursor);
+      setHistoryStatus("ready");
+      setHistoryError("");
+      if (history.length) {
+        const restored = history.map(conversationFromHistory);
+        setConversations(restored);
+        setActiveConversationId(restored[0].id);
+        setSelectedIds(restored[0].scopeIds);
+      } else {
+        setConversations([]);
+        setActiveConversationId(null);
+      }
+    }).catch((error) => {
+      if (cancelled || !scopeGuard.isCurrent(scope) || discardRevokedScope(error)) return;
+      setConversations([]);
+      setActiveConversationId(null);
+      setHistoryStatus("error");
+      setHistoryError(operationalErrorMessage(error, t, format, "projectChatHistoryLoadFailed"));
+    });
+    return () => { cancelled = true; scopeGuard.invalidate(); selectionGuard.invalidate(); };
+  }, [apiFetch, authReady, currentUser?.user_id, discardRevokedScope, format, params?.id, t]);
+
   useEffect(() => {
     const projectId = params?.id;
     if (!authReady || !projectId) return;
     let cancelled = false;
+    const scope = scopeEpoch.current.capture();
     Promise.all([listProjectDocuments(apiFetch, projectId), getProjectServingStatus(apiFetch, projectId)]).then(([items, status]) => {
-      if (cancelled) return;
+      if (cancelled || !scopeEpoch.current.isCurrent(scope)) return;
       setServingStatus(status);
       const chatDocuments = items
         .map((item) => {
@@ -219,15 +305,16 @@ export function ProjectChatTest() {
       const eligibleDocuments = chatDocuments.filter((document) => document.documentStatus === "active" && document.versionStatus === "active" && status.documents.some((servingDocument) => servingDocument.document_version_id === document.id && servingDocument.index_ready));
       if (chatDocuments.length) {
         setDocuments(chatDocuments);
-        setSelectedIds(eligibleDocuments.map((item) => item.id));
+        setSelectedIds((current) => current.length ? current : eligibleDocuments.map((item) => item.id));
         setDocumentSource(eligibleDocuments.length ? "live" : "empty");
       } else {
         setDocuments([]);
         setSelectedIds([]);
         setDocumentSource("empty");
       }
-    }).catch(() => {
-      if (!cancelled) {
+    }).catch((error) => {
+      if (!cancelled && scopeEpoch.current.isCurrent(scope)) {
+        if (discardRevokedScope(error)) return;
         setServingStatus(null);
         setDocuments([]);
         setSelectedIds([]);
@@ -235,35 +322,28 @@ export function ProjectChatTest() {
       }
     });
     return () => { cancelled = true; };
-  }, [apiFetch, authReady, params?.id, unavailableVersionLabel]);
+  }, [apiFetch, authReady, currentUser?.user_id, discardRevokedScope, params?.id, unavailableVersionLabel]);
 
-  useEffect(() => {
-    const projectId = params?.id;
-    if (!authReady || !projectId) return;
-    let cancelled = false;
-    setHistoryStatus("loading");
-    setHistoryError("");
-    listProjectChatConversations(apiFetch, projectId).then((history) => {
-      if (cancelled) return;
-      setHistoryStatus("ready");
-      setHistoryError("");
-      if (history.length) {
-        const restored = history.map(conversationFromHistory);
-        setConversations(restored);
-        setActiveConversationId(restored[0].id);
-      } else {
-        setConversations([]);
-        setActiveConversationId(null);
-      }
-    }).catch((error) => {
-      if (cancelled) return;
-      setConversations([]);
-      setActiveConversationId(null);
-      setHistoryStatus("error");
-      setHistoryError(operationalErrorMessage(error, t, format, "projectChatHistoryLoadFailed"));
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, authReady, format, params?.id, t]);
+  async function loadMoreHistory() {
+    if (!params?.id || !historyCursor || historyBusy) return;
+    const scope = scopeEpoch.current.capture();
+    setHistoryBusy(true);
+    try {
+      const page = await listProjectChatConversationPage(apiFetch, params.id, { cursor: historyCursor });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      setConversations((current) => {
+        const byId = new Map(current.map((item) => [item.id, item]));
+        for (const item of page.items) if (!byId.has(item.id)) byId.set(item.id, conversationFromHistory(item));
+        return [...byId.values()];
+      });
+      setHistoryCursor(page.next_cursor);
+    } catch (error) {
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope)) setHistoryError(operationalErrorMessage(error, t, format));
+    } finally {
+      if (scopeEpoch.current.isCurrent(scope)) setHistoryBusy(false);
+    }
+  }
 
   useEffect(() => {
     if (!chatThreadRef.current || !entries.length) return;
@@ -283,12 +363,13 @@ export function ProjectChatTest() {
   useEffect(() => {
     if (!authReady || !params?.id || !activeValidationRun || !validationRunning) return;
     let cancelled = false;
+    const scope = scopeEpoch.current.capture();
     const timer = window.setInterval(() => {
       getProjectChatValidationRun(apiFetch, params.id!, activeValidationRun.id).then((run) => {
-        if (cancelled) return;
+        if (cancelled || !scopeEpoch.current.isCurrent(scope)) return;
         setActiveValidationRun(run);
         setBatchCompletedCount(run.completed_count + run.failed_count);
-        setConversations((current) => current.map((conversation) => conversation.id === activeConversationId ? {
+        setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? {
           ...conversation,
           entries: conversation.entries.map((entry) => {
             if (!entry.validationItemId) return entry;
@@ -307,15 +388,15 @@ export function ProjectChatTest() {
           updatedAt: Date.now()
         } : conversation));
       }).catch((error) => {
-        if (cancelled) return;
-        setConversations((current) => current.map((conversation) => conversation.id === activeConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry), updatedAt: Date.now() } : conversation));
+        if (cancelled || !scopeEpoch.current.isCurrent(scope) || discardRevokedScope(error)) return;
+        setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry), updatedAt: Date.now() } : conversation));
       });
     }, 2500);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
     };
-  }, [activeConversationId, activeValidationRun, apiFetch, authReady, format, params?.id, t, validationRunning]);
+  }, [validationConversationId, activeValidationRun, apiFetch, authReady, discardRevokedScope, format, params?.id, t, validationRunning]);
 
   function toggleDocument(id: string) {
     if (!eligibleIds.includes(id)) return;
@@ -333,13 +414,8 @@ export function ProjectChatTest() {
     return t("projectChatDocumentIndexNotReady");
   }
 
-  function updateActiveConversation(update: (conversation: ProjectConversation) => ProjectConversation) {
-    if (!activeConversationId) return;
-    setConversations((current) => current.map((conversation) => conversation.id === activeConversationId ? update(conversation) : conversation));
-  }
-
   function startScopedConversation() {
-    if (!selectedIds.length || queryBusy) return;
+    if (!selectedIds.length || historyStatus !== "ready") return;
     const existingDraft = conversations.find((conversation) => !conversation.persisted && !conversation.entries.length && sameScopeIds(conversation.scopeIds, selectedIds));
     if (existingDraft) {
       activateConversation(existingDraft);
@@ -348,11 +424,16 @@ export function ProjectChatTest() {
     const now = Date.now();
     const conversation: ProjectConversation = { id: newConversationId(), scopeIds: [...selectedIds], entries: [], judgments: {}, createdAt: now, updatedAt: now };
     setConversations((current) => [conversation, ...current]);
-    setActiveConversationId(conversation.id);
-    setQuestion("");
+    activateConversation(conversation);
   }
 
   function activateConversation(conversation: ProjectConversation) {
+    selectionEpoch.current.invalidate();
+    setRevisionEntryId(null);
+    setRevisionText("");
+    setUploadOpen(false);
+    setUploadError("");
+    setDeleteTargetId(null);
     setActiveConversationId(conversation.id);
     setSelectedIds(conversation.scopeIds.filter((id) => eligibleIds.includes(id)));
     setQuestion("");
@@ -365,33 +446,41 @@ export function ProjectChatTest() {
       setDeleteTargetId(null);
       return;
     }
+    if (target.persisted && !chatConversationAccess(target.history, currentUser?.user_id).canDelete) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     setDeleteBusy(true);
     setDeleteError("");
     try {
       if (params?.id && isUuid(target.id) && target.persisted) {
         await deleteProjectChatConversation(apiFetch, params.id, target.id);
       }
+      if (!scopeEpoch.current.isCurrent(scope)) return;
       const remaining = conversations.filter((conversation) => conversation.id !== target.id);
-      if (remaining.length) {
+      setConversations((current) => current.filter((conversation) => conversation.id !== target.id));
+      if (selectionEpoch.current.isCurrent(selection) && target.id === activeConversationId) {
         const nextActive = [...remaining].sort((a, b) => b.updatedAt - a.updatedAt)[0];
-        setConversations(remaining);
-        if (target.id === activeConversationId) activateConversation(nextActive);
-      } else {
-        setConversations([]);
-        setActiveConversationId(null);
-        if (!selectedIds.length && allIds.length) setSelectedIds(allIds);
+        if (nextActive) activateConversation(nextActive);
+        else {
+          selectionEpoch.current.invalidate();
+          setActiveConversationId(null);
+          setQuestion("");
+          if (!selectedIds.length && allIds.length) setSelectedIds(allIds);
+        }
       }
       setDeleteTargetId(null);
     } catch (error) {
-      setDeleteError(operationalErrorMessage(error, t, format, "projectChatDeleteFailed"));
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection)) setDeleteError(operationalErrorMessage(error, t, format, "projectChatDeleteFailed"));
     } finally {
-      setDeleteBusy(false);
+      if (scopeEpoch.current.isCurrent(scope)) setDeleteBusy(false);
     }
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
-    if (!question.trim() || !scopeIds.length || scopeDirty || queryBusy) return;
+    if (!question.trim() || !scopeIds.length || scopeDirty || queryBusy || !canContinue) return;
+    const scope = scopeEpoch.current.capture();
     const now = Date.now();
     const text = question.trim();
     const localConversationId = activeConversation?.id ?? newConversationId();
@@ -416,12 +505,20 @@ export function ProjectChatTest() {
       return;
     }
     try {
-      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: allScopeIdsFormal ? localScopeIds : undefined, conversation_id: activeConversation?.persisted && isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text });
+      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
       setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, id: result.conversation_id || conversation.id, persisted: Boolean(result.conversation_id) || conversation.persisted, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, recordId: result.chat_record_id ?? undefined, answer: result.answer, citations: result.citations, status: result.status, retrievalStrategy: result.retrieval_strategy, loading: false } : entry), updatedAt: Date.now() } : conversation));
       setHistoryStatus("ready");
       setHistoryError("");
-      if (result.conversation_id) setActiveConversationId(result.conversation_id);
+      if (result.conversation_id) {
+        setActiveConversationId((current) => current === localConversationId ? result.conversation_id! : current);
+        const saved = await getProjectChatConversation(apiFetch, params.id!, result.conversation_id);
+        if (!scopeEpoch.current.isCurrent(scope)) return;
+        setConversations((current) => current.map((conversation) => conversation.id === saved.id ? conversationFromHistory(saved) : conversation));
+      }
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      if (discardRevokedScope(error)) return;
       setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry), updatedAt: Date.now() } : conversation));
     }
   }
@@ -433,6 +530,7 @@ export function ProjectChatTest() {
   }
 
   function openUploadModal() {
+    if (!canContinue) return;
     setUploadFileName("");
     setUploadQuestions([]);
     setUploadError("");
@@ -443,6 +541,8 @@ export function ProjectChatTest() {
   }
 
   async function processUploadFile(file?: File) {
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     setUploadQuestions([]);
     setUploadError("");
     setBatchCompletedCount(null);
@@ -453,7 +553,9 @@ export function ProjectChatTest() {
       return;
     }
     try {
-      const rows = parseCsv(await file.text(), t);
+      const contents = await file.text();
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+      const rows = parseCsv(contents, t);
       const headers = rows[0]?.map((value, index) => (index ? value : value.replace(/^\uFEFF/, "")).trim()) ?? [];
       const questionIndex = headers.indexOf("question");
       if (questionIndex < 0) throw new Error(t("projectChatCsvMissingQuestion"));
@@ -481,6 +583,7 @@ export function ProjectChatTest() {
       if (!questions.length) throw new Error(t("projectChatCsvNoQuestions"));
       setUploadQuestions(questions);
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       setUploadError(error instanceof Error && !(`status` in error) ? localizeKnown(error.message) ?? t("projectChatCsvParseFailed") : operationalErrorMessage(error, t, format, "projectChatCsvParseFailed"));
     }
   }
@@ -503,27 +606,33 @@ export function ProjectChatTest() {
   }
 
   async function confirmBatchUpload() {
-    if (!uploadQuestions.length || uploadError || queryBusy) return;
+    if (!uploadQuestions.length || uploadError || queryBusy || !canContinue) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     const started = Date.now();
-    const localConversationId = activeConversation?.id ?? newConversationId();
+    const localConversationId = newConversationId();
     const localScopeIds = [...scopeIds];
     if (params?.id && localScopeIds.length && allScopeIdsFormal && allScopeIdsEligible) {
       try {
         const run = await createProjectChatValidationRun(apiFetch, params.id, { uploaded_file_name: uploadFileName || null, scope_mode: "published", selected_document_version_ids: localScopeIds, questions: uploadQuestions });
+        if (!scopeEpoch.current.isCurrent(scope)) return;
         setActiveValidationRun(run);
+        setValidationConversationId(localConversationId);
         const validationEntries: Entry[] = run.items.map((item, index) => ({ id: started + index, validationItemId: item.id, question: item.question, answer: validationItemMessage(item.status, item.answer, t), citations: item.citations, loading: ["pending", "running"].includes(item.status), error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined, status: item.answer ? "answered" as const : undefined }));
         setConversations((current) => {
           if (current.some((conversation) => conversation.id === localConversationId)) {
             return current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: [...conversation.entries, ...validationEntries], updatedAt: started } : conversation);
           }
-          return [{ id: localConversationId, scopeIds: localScopeIds, entries: validationEntries, judgments: {}, createdAt: started, updatedAt: started }, ...current];
+          return [{ id: localConversationId, scopeIds: localScopeIds, entries: validationEntries, judgments: {}, createdAt: started, updatedAt: started, validationRunId: run.id }, ...current];
         });
-        setActiveConversationId(localConversationId);
+        if (selectionEpoch.current.isCurrent(selection)) setActiveConversationId(localConversationId);
         setHistoryStatus("ready");
         setHistoryError("");
         setBatchCompletedCount(run.completed_count + run.failed_count);
         return;
       } catch (error) {
+        if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+        if (discardRevokedScope(error)) return;
         setUploadError(retrievalErrorMessage(error, t, format));
         return;
       }
@@ -532,27 +641,47 @@ export function ProjectChatTest() {
   }
 
   async function retryFailedValidationItems() {
-    if (!params?.id || !activeValidationRun) return;
+    if (!params?.id || !activeValidationRun || otherConversation || activeConversationId !== validationConversationId) return;
+    const scope = scopeEpoch.current.capture();
     try {
       const run = await retryFailedProjectChatValidationItems(apiFetch, params.id, activeValidationRun.id);
+      if (!scopeEpoch.current.isCurrent(scope)) return;
       setActiveValidationRun(run);
       setBatchCompletedCount(run.completed_count + run.failed_count);
-      updateActiveConversation((conversation) => ({ ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId && run.items.some((item) => item.id === entry.validationItemId && ["pending", "running"].includes(item.status)) ? { ...entry, answer: t("projectChatRetryQueued"), loading: true, error: undefined } : entry), updatedAt: Date.now() }));
+      setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId && run.items.some((item) => item.id === entry.validationItemId && ["pending", "running"].includes(item.status)) ? { ...entry, answer: t("projectChatRetryQueued"), loading: true, error: undefined } : entry) } : conversation));
     } catch (error) {
-      setUploadError(retrievalErrorMessage(error, t, format));
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope)) setUploadError(retrievalErrorMessage(error, t, format));
     }
   }
 
   async function persistFeedback(entry: Entry, evaluation: Judgment) {
     const next = evaluation === "revision" ? "needs_revision" : "correct";
-    if (!params?.id || !entry.recordId) return;
-    await updateProjectChatFeedback(apiFetch, params.id, entry.recordId, { evaluation: next, revision_suggestion: next === "needs_revision" ? revisionText : null });
+    if (!params?.id || !entry.recordId || !access.canEvaluate || !activeConversationId) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
+    const conversationId = activeConversationId;
+    try {
+      const updated = await updateProjectChatFeedback(apiFetch, params.id, entry.recordId, { evaluation: next, revision_suggestion: next === "needs_revision" ? revisionText : null });
+      if (!scopeEpoch.current.isCurrent(scope)) return;
+      setConversations((current) => current.map((item) => item.id === conversationId ? { ...item,
+        judgments: { ...item.judgments, [entry.id]: evaluation },
+        history: item.history ? { ...item.history, records: item.history.records.map((record) => record.id === updated.id ? updated : record) } : undefined,
+      } : item));
+      if (selectionEpoch.current.isCurrent(selection)) setRevisionEntryId(null);
+    } catch (error) {
+      if (scopeEpoch.current.isCurrent(scope) && discardRevokedScope(error)) return;
+      if (scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection)) setHistoryError(operationalErrorMessage(error, t, format));
+    }
   }
 
   async function downloadConversation() {
-    if (!params?.id || !activeConversation?.persisted || !isUuid(activeConversation.id)) return;
+    if (!params?.id || !activeConversation?.persisted || !isUuid(activeConversation.id) || !access.canExport) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
     try {
       const blob = await downloadProjectChatConversationCsv(apiFetch, params.id, activeConversation.id, { scope_mode: "published" });
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
       anchor.href = url;
@@ -560,6 +689,7 @@ export function ProjectChatTest() {
       anchor.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch (error) {
+      if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection) || discardRevokedScope(error)) return;
       setHistoryError(retrievalErrorMessage(error, t, format));
     }
   }
@@ -606,18 +736,20 @@ export function ProjectChatTest() {
             {historyStatus === "error" ? <div className="project-history-state error"><Bot size={16} /><span><strong>{t("projectChatHistoryLoadFailed")}</strong><small>{localize(historyError)}</small></span></div> : null}
             {historyStatus === "ready" && !orderedConversations.length ? <div className="project-history-state"><MessageSquarePlus size={16} /><span><strong>{t("projectChatHistoryEmptyTitle")}</strong><small>{t("projectChatHistoryEmptyHelp")}</small></span></div> : null}
             {historyStatus !== "loading" && orderedConversations.map((conversation) => {
-              const title = conversation.entries[0]?.question || t("newConversation");
+              const title = conversation.history?.title || conversation.entries[0]?.question || t("newConversation");
               const draft = !conversation.persisted;
+              const itemAccess = chatConversationAccess(conversation.history, currentUser?.user_id);
               return (
                 <div className={`project-history-row${conversation.id === activeConversationId ? " active" : ""}${draft ? " draft" : ""}`} key={conversation.id}>
-                  <button className="project-history-select" onClick={() => activateConversation(conversation)} type="button">
+                  <button aria-pressed={conversation.id === activeConversationId} className="project-history-select" onClick={() => activateConversation(conversation)} type="button">
                     <MessageSquarePlus size={15} />
-                    <span><strong>{title.length > 22 ? `${title.slice(0, 22)}…` : title}{draft ? <em>{t("projectChatDraftBadge")}</em> : null}</strong><small>{draft ? format("projectChatDraftSummary", { documents: conversation.scopeIds.length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) }) : format(conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length === 1 ? "projectChatHistorySummaryOne" : "projectChatHistorySummaryMany", { documents: conversation.scopeIds.length, count: conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) })}</small></span>
+                    <span><strong>{title.length > 22 ? `${title.slice(0, 22)}…` : title}{draft ? <em>{t("projectChatDraftBadge")}</em> : null}</strong><ChatHistoryAuthor name={draft ? currentUser?.display_name : conversation.history?.created_by_display_name} isMine={draft || itemAccess.isMine} readOnly={!draft && !itemAccess.canContinue} /><small>{draft ? format("projectChatDraftSummary", { documents: conversation.scopeIds.length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) }) : format(conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length === 1 ? "projectChatHistorySummaryOne" : "projectChatHistorySummaryMany", { documents: conversation.scopeIds.length, count: conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) })}</small></span>
                   </button>
-                  <button aria-label={format("projectChatDeleteConversationAria", { title })} className="project-history-delete" onClick={() => { setDeleteTargetId(conversation.id); setDeleteError(""); }} type="button"><Trash2 size={14} /></button>
+                  {draft || itemAccess.canDelete ? <button aria-label={format("projectChatDeleteConversationAria", { title })} className="project-history-delete" onClick={() => { setDeleteTargetId(conversation.id); setDeleteError(""); }} type="button"><Trash2 size={14} /></button> : null}
                 </div>
               );
             })}
+            {historyCursor ? <button className="action-button secondary" disabled={historyBusy} onClick={() => void loadMoreHistory()} type="button">{t("chatHistoryLoadMore")}</button> : null}
           </div>
         </div>
         <dl className="project-chat-models"><div><dt>LLM</dt><dd>{t("projectChatModelConfigured")}</dd></div><div><dt>Embedding</dt><dd>{t("projectChatModelConfigured")}</dd></div><div><dt>{t("labelIndex")}</dt><dd>{t("projectChatProductionActiveOnly")}</dd></div></dl>
@@ -627,16 +759,18 @@ export function ProjectChatTest() {
         <header className="chat-conversation-header">
           <div><strong>{t("projectChatKnowledgeValidation")}</strong><small>{format("projectChatCurrentScopeSummary", { count: scopeIds.length })}</small></div>
           <div className="chat-conversation-header-actions">
-            <button className="action-button secondary" disabled={!selectedIds.length || scopeDirty || queryBusy} onClick={openUploadModal} type="button"><Upload size={16} /> {t("uploadTestConversations")}</button>
-            <button className="action-button secondary" disabled={!entries.length || !activeConversation?.persisted} onClick={() => void downloadConversation()} type="button"><Download size={16} /> {t("downloadConversation")}</button>
-            <button className="action-button secondary" disabled={!selectedIds.length || queryBusy} onClick={startScopedConversation} type="button"><MessageSquarePlus size={16} /> {t("newConversation")}</button>
+            <button className="action-button secondary" disabled={!selectedIds.length || scopeDirty || queryBusy || !canContinue} onClick={openUploadModal} type="button"><Upload size={16} /> {t("uploadTestConversations")}</button>
+            <button className="action-button secondary" disabled={!entries.length || !access.canExport} onClick={() => void downloadConversation()} type="button"><Download size={16} /> {t("downloadConversation")}</button>
+            <button className="action-button secondary" disabled={!selectedIds.length || historyStatus !== "ready"} onClick={startScopedConversation} type="button"><MessageSquarePlus size={16} /> {t("chatNewOwnConversation")}</button>
           </div>
         </header>
         <div className="chat-thread" aria-live="polite" ref={chatThreadRef}>
+          {historyStatus === "ready" && historyError ? <p role="alert" className="field-error">{localize(historyError)}</p> : null}
+          {(activeConversation?.persisted || activeConversation?.validationRunId) && !canContinue ? <p role="status" className="chat-readonly-notice">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</p> : null}
           {!entries.length ? <div className="chat-empty-state"><Bot size={24} /><strong>{t("projectChatEmptyTitle")}</strong><span>{t("projectChatEmptyHelp")}</span></div> : null}
           {entries.map((entry) => (
             <div className="chat-response-pair" key={entry.id}>
-              <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{t("submitReviewCurrentUser")}</small><p>{entry.question}</p></div></article>
+              <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
               <article aria-busy={entry.loading || undefined} className="chat-message assistant-message">
                 <div className="message-avatar"><Bot size={17} /></div>
                 <div className="assistant-message-body">
@@ -652,15 +786,15 @@ export function ProjectChatTest() {
                     />
                   )}
                   <div className="answer-judgment">
-                    <button className={judgments[entry.id] === "correct" ? "selected correct" : ""} onClick={() => { const now = Date.now(); updateActiveConversation((conversation) => ({ ...conversation, judgments: { ...conversation.judgments, [entry.id]: "correct" }, updatedAt: now })); void persistFeedback(entry, "correct"); }} type="button"><CheckCircle2 size={15} /> {t("answerCorrect")}</button>
-                    <button className={judgments[entry.id] === "revision" ? "selected needs-revision" : ""} onClick={() => { setRevisionEntryId(entry.id); setRevisionText(""); }} type="button"><Wrench size={15} /> {t("answerNeedsRevision")}</button>
+                    <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "correct" ? "selected correct" : ""} onClick={() => void persistFeedback(entry, "correct")} type="button"><CheckCircle2 size={15} /> {t("answerCorrect")}</button>
+                    <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "revision" ? "selected needs-revision" : ""} onClick={() => { if (!access.canEvaluate) return; setRevisionEntryId(entry.id); setRevisionText(""); }} type="button"><Wrench size={15} /> {t("answerNeedsRevision")}</button>
                   </div>
                 </div>
               </article>
             </div>
           ))}
         </div>
-        <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!question.trim() || !scopeIds.length || scopeDirty || queryBusy} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <small className="composer-warning">{t("projectChatScopeChangedWarning")}</small> : null}</form>
+        <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea disabled={!canContinue || queryBusy} id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!canContinue || !question.trim() || !scopeIds.length || scopeDirty || queryBusy} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <small className="composer-warning">{t("projectChatScopeChangedWarning")}</small> : null}</form>
       </div>
     </section>
     {uploadOpen ? (
@@ -704,7 +838,7 @@ export function ProjectChatTest() {
         </section>
       </div>
     ) : null}
-    {revisionEntryId !== null ? <div className="modal-backdrop" role="presentation"><section aria-modal="true" className="modal-panel chat-small-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2>{t("revisionSuggestion")}</h2></div><button className="icon-button" onClick={() => setRevisionEntryId(null)} type="button"><X size={18} /></button></div><form className="revision-suggestion-form" onSubmit={(event) => { event.preventDefault(); if (!revisionText.trim()) return; const target = entries.find((entry) => entry.id === revisionEntryId); const now = Date.now(); updateActiveConversation((conversation) => ({ ...conversation, judgments: { ...conversation.judgments, [revisionEntryId]: "revision" }, updatedAt: now })); if (target) void persistFeedback(target, "revision"); setRevisionEntryId(null); }}><textarea onChange={(event) => setRevisionText(event.target.value)} placeholder={t("revisionPlaceholder")} required value={revisionText} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionEntryId(null)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionText.trim()} type="submit">{t("saveSuggestion")}</button></div></form></section></div> : null}
+    {revisionEntryId !== null ? <div className="modal-backdrop" role="presentation"><section aria-modal="true" className="modal-panel chat-small-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2>{t("revisionSuggestion")}</h2></div><button className="icon-button" onClick={() => setRevisionEntryId(null)} type="button"><X size={18} /></button></div><form className="revision-suggestion-form" onSubmit={(event) => { event.preventDefault(); if (!revisionText.trim() || !access.canEvaluate) return; const target = entries.find((entry) => entry.id === revisionEntryId); if (target) void persistFeedback(target, "revision"); }}><textarea onChange={(event) => setRevisionText(event.target.value)} placeholder={t("revisionPlaceholder")} required value={revisionText} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionEntryId(null)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionText.trim()} type="submit">{t("saveSuggestion")}</button></div></form></section></div> : null}
     {deleteTargetId ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="project-chat-delete-title" aria-modal="true" className="modal-panel chat-small-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{t("projectChatDeleteConversationEyebrow")}</p><h2 id="project-chat-delete-title">{t("projectChatDeleteConversationTitle")}</h2></div><button aria-label={t("close")} className="icon-button" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)} type="button"><X size={18} /></button></div><div className="delete-confirmation-body"><Trash2 size={22} /><p>{t("projectChatDeleteConversationHelp")}</p>{deleteError ? <p className="field-error">{localize(deleteError)}</p> : null}</div><div className="modal-actions"><button className="action-button secondary" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={deleteBusy} onClick={() => { void confirmDeleteConversation(); }} type="button"><Trash2 size={16} /> {deleteBusy ? t("projectChatDeletingConversation") : t("projectChatConfirmDeleteConversation")}</button></div></section></div> : null}
     </>
   );

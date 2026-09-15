@@ -1,0 +1,228 @@
+{
+  "generated_at": "2026-09-10T23:33:23.434157+00:00",
+  "scope": "CHG-294 R2 acceptance-first continuation",
+  "accepted": false,
+  "deployed": false,
+  "provider_calls": false,
+  "source": {
+    "files": 419,
+    "copy_matches_repository": true,
+    "manifest_sha256": "240bb065bc11e7fd84c93932328a4e24c68b3997d7a8a0ea4f098af37cfc8ae7",
+    "product_chart_sha256": "578ff4d192c59010a619f519d43156da1188c1fb215272f480ecdb018e2efa79"
+  },
+  "backend": {
+    "command": "./HARNESS/harness.sh test:backend (NOMOSMART_HARNESS_ROOT_DIR=disposable source)",
+    "failed": 23,
+    "passed": 496,
+    "warnings": 1,
+    "duration_seconds": 56.17,
+    "setup_errors": 0,
+    "coverage": {
+      "covered_lines": 11685,
+      "num_statements": 18626,
+      "percent_covered": 58.58954973118279,
+      "percent_covered_display": "59",
+      "missing_lines": 6941,
+      "excluded_lines": 117,
+      "percent_statements_covered": 62.734886717491676,
+      "percent_statements_covered_display": "63",
+      "num_branches": 5182,
+      "num_partial_branches": 872,
+      "covered_branches": 2264,
+      "missing_branches": 2918,
+      "percent_branches_covered": 43.6896950984176,
+      "percent_branches_covered_display": "44"
+    },
+    "failed_tests": [
+      "tests/test_approval_evidence_parity.py::test_approval_detail_exposes_readonly_knowledge_evidence",
+      "tests/test_chat_scope_and_review_lock.py::test_chat_history_is_scoped_by_surface_and_document_version",
+      "tests/test_chg202_completion.py::test_project_graph_serving_uses_formal_five_node_model",
+      "tests/test_chg209_public_api_behavior.py::test_integration_client_management_routes_cover_lifecycle_and_usage",
+      "tests/test_chg216_config_security.py::test_development_configuration_keeps_local_service_defaults",
+      "tests/test_chg229_full_stack_deployment.py::test_compose_defaults_to_the_complete_internal_stack_and_only_edge_publishes_ports",
+      "tests/test_chg229_full_stack_deployment.py::test_helm_schema_rejects_ambiguous_modes_and_floating_tags",
+      "tests/test_chg237_role_lifecycle.py::test_chg237_release_docs_prohibit_unsafe_code_only_rollback",
+      "tests/test_chg241_project_archive_permission.py::test_chg241_live_project_discovery_and_archive_execute_revocation",
+      "tests/test_chg264_local_ldap_stack.py::test_chg264_runbook_has_non_destructive_lifecycle_boundary",
+      "tests/test_chg264_local_ldap_stack.py::test_chg265_runbook_documents_synthetic_directory_scope",
+      "tests/test_live_backend_api_behavior.py::test_live_system_reports_and_session_drafts",
+      "tests/test_live_backend_api_behavior.py::test_live_seeded_document_knowledge_serving_chat_and_notifications",
+      "tests/test_live_backend_api_behavior.py::test_live_seeded_reference_and_approval_workflows",
+      "tests/test_live_backend_api_behavior.py::test_live_external_services_and_domain_adapters",
+      "tests/test_live_backend_api_behavior.py::test_live_integration_adapter_embedding_and_switch_edges",
+      "tests/test_live_backend_api_behavior.py::test_live_configuration_identity_worker_and_sync_edges",
+      "tests/test_live_backend_api_behavior.py::test_live_pipeline_execution_and_publish_edge_behaviors",
+      "tests/test_live_backend_api_behavior.py::test_live_serving_and_document_response_helpers",
+      "tests/test_live_backend_api_behavior.py::test_live_extraction_ai_provider_and_publish_helper_edges",
+      "tests/test_live_backend_api_behavior.py::test_live_approval_project_and_data_source_route_edges",
+      "tests/test_live_backend_api_behavior.py::test_live_compatibility_routes_execute_governed_workflows",
+      "tests/test_live_backend_api_behavior.py::test_live_permanent_chunk_deletion_is_version_scoped_and_blocks_zero_chunk_next_stage"
+    ]
+  },
+  "e2e": {
+    "generated_at": "2026-09-10T23:27:46.007Z",
+    "mode": "live-e2e-browser-acceptance",
+    "summary": {
+      "total": 6,
+      "passed": 5,
+      "failed": 1,
+      "skipped": 0,
+      "blocked": 0
+    },
+    "checks": [
+      {
+        "name": "live E2E prerequisites are configured",
+        "status": "passed",
+        "duration_ms": 0
+      },
+      {
+        "name": "frontend live endpoint is reachable",
+        "status": "passed",
+        "duration_ms": 47
+      },
+      {
+        "name": "backend live health endpoint is reachable",
+        "status": "passed",
+        "duration_ms": 101
+      },
+      {
+        "name": "OIDC issuer discovery endpoint is reachable",
+        "status": "passed",
+        "duration_ms": 39
+      },
+      {
+        "name": "browser-backed E2E runner is available",
+        "status": "passed",
+        "duration_ms": 233
+      },
+      {
+        "name": "browser-backed peter/john governance and publish acceptance passes",
+        "status": "failed",
+        "duration_ms": 510,
+        "error": "Command failed: /Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python /private/tmp/chg294-acceptance.R5Y9Ar/source/backend/scripts/e2e_governance_fixture.py setup --peter-email peter@acceptance.invalid --john-email john@acceptance.invalid\nTraceback (most recent call last):\n  File \"/private/tmp/chg294-acceptance.R5Y9Ar/source/backend/scripts/e2e_governance_fixture.py\", line 414, in <module>\n    raise SystemExit(main())\n                     ^^^^^^\n  File \"/private/tmp/chg294-acceptance.R5Y9Ar/source/backend/scripts/e2e_governance_fixture.py\", line 86, in main\n    result = provision(args.peter_email, args.john_email)\n             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/chg294-acceptance.R5Y9Ar/source/backend/scripts/e2e_governance_fixture.py\", line 233, in provision\n    content_fingerprint=_content_fingerprint(model, [chunk], [content]),\n                        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/chg294-acceptance.R5Y9Ar/source/backend/app/domain/embeddings.py\", line 208, in _content_fingerprint\n    \"chunks\": [_fingerprint_chunk(chunk, text) for chunk, text in zip(chunks, texts, strict=True)],\n               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/private/tmp/chg294-acceptance.R5Y9Ar/source/backend/app/domain/embeddings.py\", line 215, in _fingerprint_chunk\n    normalizer_version = str(strategy[\"normalizer_version\"])\n                             ~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^\nKeyError: 'normalizer_version'\n"
+      }
+    ]
+  },
+  "frontend_previous_unchanged_product_coverage": {
+    "lines": {
+      "total": 6057,
+      "covered": 766,
+      "skipped": 0,
+      "pct": 12.64
+    },
+    "statements": {
+      "total": 7834,
+      "covered": 897,
+      "skipped": 0,
+      "pct": 11.45
+    },
+    "functions": {
+      "total": 2288,
+      "covered": 276,
+      "skipped": 0,
+      "pct": 12.06
+    },
+    "branches": {
+      "total": 7820,
+      "covered": 744,
+      "skipped": 0,
+      "pct": 9.51
+    },
+    "branchesTrue": {
+      "total": 0,
+      "covered": 0,
+      "skipped": 0,
+      "pct": 100
+    }
+  },
+  "frontend_build": "passed with clean npm ci and Node 24.21.0; no dependency changes",
+  "supplementary_browser": "real isolated Keycloak login, callback and authenticated home passed; not full E2E",
+  "services": {
+    "images": {
+      "postgres": "sha256:9b18b78397054fce88a9552e9d5a3ad5bb7fd258c5b3cc1c5028e46373d6ea8f",
+      "keycloak": "sha256:5912dc85fd5fdfb89e7a0bba9d9ffe0624fc385d2846e543a0114c3fb4fddc6a",
+      "opensearch": "sha256:f524546c5259efe3ca4ff18dee0ec76357b89761754f3a97cdac92384caea2be",
+      "neo4j": "sha256:b3bafbd02e8676a4af5b08edbe029ab727eb3862496aa811a0e01003ae9afc7f",
+      "rustfs": "sha256:b0e7524813b1137d7a83680e1efac975ef6bea5a77de0fc7a17b0f9e33ae8361",
+      "redis": "sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"
+    },
+    "internal_network": "671d342694b44a3fc033760ca257241f90bd2355b7e96110b64ea85dc9ea3202",
+    "created_containers": {
+      "postgres": "2e809593a9c4a8b5a3a238e224ebca8b86e7d650773983c495402a0c3602429c",
+      "keycloak": "e7fb7c5c3e0cca5a6e146ebe4b0822b7defa07bb67c3e009c7eff9ef84b56b2a",
+      "opensearch": "4de7afed84c19d63966c3f8d05b9393ef1c1e548e9ea2a8c263d7887f9776a31",
+      "neo4j": "29bb8d50ab65c2df8c51bb1d0c956d03675ecdb52022847516c4f5118ccb44c9",
+      "redis": "147fb6d3471bd81895cc88da4e6b5d653007ef965055eee6e01d5d1efcccea4c",
+      "rustfs": "2b1d58a5b9e0000ec9660eb77b983c1f67f6be122fcab0209f8f95a7a0fdaca9",
+      "relay": "adbe13b7404dca11f48e963ee4979148b0a4aa03c9e0cf7161f66e829749481f"
+    },
+    "cleanup": "all seven containers and internal network removed; four host processes stopped; dedicated browser closed",
+    "schema": "real Flyway applied 48 migrations including V042 to new isolated database, V049 not applied"
+  },
+  "existing_deployment_readonly": {
+    "release": "nomosmart-local",
+    "revision": 36,
+    "status": "deployed",
+    "backend_frontend_worker_beat_ready": "1/1 each",
+    "keycloak_ready": "1/1",
+    "redis_sentinel_ready": "3/3"
+  },
+  "artifacts": {
+    "backend-full.log": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/backend-full.log",
+      "sha256": "eeeb3f6f22f6247e131ac02ecd8cf99ea6dc206a164c581c80e1cd5a879c60e9"
+    },
+    "backend-full-run2.log": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/backend-full-run2.log",
+      "sha256": "f682de18c99f21f69a5b9658b3f4498ceaeeb586ec12df601536dbe8bf128d0c"
+    },
+    "backend-full-refined.log": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/backend-full-refined.log",
+      "sha256": "883184732e16d6cb6e095b1bcf6c0cb9ae4cd368ae29adc6fe34c900e39b2481"
+    },
+    "backend-coverage-initial.json": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/backend-coverage-initial.json",
+      "sha256": "6a3b5eb6108ce8090b2d62cb97695b90e80557d6d3d64d6a15019b747e141f07"
+    },
+    "source/backend/coverage.json": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/source/backend/coverage.json",
+      "sha256": "7291230e27316d114bcda301631c9223ee9bd9f2fd07f2cbc908367ef29be47b"
+    },
+    "e2e-full.log": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/e2e-full.log",
+      "sha256": "890d09796dc9e10f00929bafab006ac33b983bd81cd0e6805859dae9943f040f"
+    },
+    "source/test-results/e2e/summary.json": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/source/test-results/e2e/summary.json",
+      "sha256": "424d4ca9ef0f797f347a57e0de09406e5e85f65e03f26d36100caa05610a483f"
+    },
+    "frontend-build.log": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/frontend-build.log",
+      "sha256": "76a1430748050dc479b64f13ece2376917d046af90ab4af44b17b120f8164590"
+    },
+    "source/output/playwright/chg294-full-acceptance/login-home.png": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/source/output/playwright/chg294-full-acceptance/login-home.png",
+      "sha256": "228a7c6553099af640c2a207962a78e9448e00c9388d9d7122471691d06372a5"
+    },
+    "stack.py": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/stack.py",
+      "sha256": "da884464898788707f83cfc1bb6994f549bfa71e52f9169326290bafe3081888"
+    },
+    "transport.py": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/transport.py",
+      "sha256": "1eaa2ac434b8188dc8493416e1a3a6e31a40d8c8ca6eec84b282a7c3b05a11c9"
+    },
+    "prepare.py": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/prepare.py",
+      "sha256": "7f370e484b13f6e8b7b0caac464e27f92f8fc33990e6e919b7224f2303aef0d8"
+    },
+    "refine_environment.py": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/refine_environment.py",
+      "sha256": "ae0a2228e5d9ddbfab7880ce16821112ff9fcc0aacff46650a0179f9d1085d01"
+    },
+    "run.py": {
+      "path": "/tmp/chg294-acceptance.R5Y9Ar/run.py",
+      "sha256": "f10bc452d4c3c1000c5cbb1dcefc7e535183445219df53fa3f2217e32e97518c"
+    }
+  }
+}

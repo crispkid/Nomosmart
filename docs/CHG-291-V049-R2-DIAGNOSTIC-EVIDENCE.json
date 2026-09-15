@@ -1,0 +1,60 @@
+{
+  "date": "2026-09-13",
+  "requirement": "V49-U007",
+  "status": "DIFFERENT",
+  "backup_qualified": false,
+  "real_restore_attempts": 1,
+  "exit_code": 1,
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "80c749dafdb1d9458a819a7c35a6866e7c72d375d58ca9863ca2fd97146a80cf",
+    "backend/tests/test_chg291_v049_live_backup.py": "24ed9552511d7cedb65051502d20c1967e46ef4ab6f733f76f6c4382dd115159"
+  },
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "equal_categories": {
+    "properties": true, "roles": true, "schema": false,
+    "tables": true, "sequences": true, "large_objects": true
+  },
+  "counts": {"expected_tables": 62, "actual_tables": 62, "expected_rows": 1341, "actual_rows": 1341, "sequences": 0, "large_objects": 0},
+  "schema_clues": {
+    "archive_reconstructed_comment_blocks": 11,
+    "restored_pg_dump_comment_blocks": 12,
+    "archive_create_extensions": ["pgcrypto"],
+    "restored_dump_create_extensions": ["pgcrypto"],
+    "not_original_source_schema": true,
+    "not_equivalence_proof": true,
+    "original_extension_owner_baseline_available": false,
+    "sole_root_cause_proven": false
+  },
+  "test_run": "/private/tmp/v049-backup-plain-r2-A56GONwx",
+  "tests": {"passed": 62, "failed": 1, "errors": 0, "new_diagnostic_passed": 7, "human_gpg_deselected": 1, "retained_failure": "test_extension_owner_is_preserved_by_full_restore"},
+  "coverage": {
+    "new_diagnostic": {"covered_statements": 143, "statements": 152, "covered_branches": 14, "branches": 16},
+    "shared_safety": {"covered_statements": 360, "statements": 368, "covered_branches": 61, "branches": 68},
+    "whole_tool": {"covered_statements": 892, "statements": 1177, "covered_branches": 141, "branches": 182},
+    "excluded_lines": 0,
+    "r2_safety_gate": true,
+    "full_qualification": false
+  },
+  "test_report_sha256": {
+    "tests.xml": "e93e5ab6b2d449b3fe638d301f702bac838135439eefa2de65f19c1fa4769d94",
+    "coverage.json": "2aa9a8aa46157c44fa042f8158916f0cd251a4a348c6e8818339dee9a646e3fa",
+    ".coverage.tests": "0c1c3154db8a6af1fcc5a7f94522897b3a92416531b83cff716a8effe50176d3",
+    "cleanup.json": "c15e1ec92f1085df8765d7e5e8b90ddd81f33cdd9d8abff6df950dd7aab4d1ff"
+  },
+  "private_diagnostic_directory": "/Users/peter/NomoSmartBackups/V049/run-20260913T050023Z-0fab208e7f354a1e/r2-diagnostic",
+  "diagnostic_report_sha256": {
+    "claim.json": "cdd0213a83e0b4196c3c85b4c1982583f5bada5da37c54445012445127b061ba",
+    "comparison.json": "ee1682954ec1a391300c9b13c52c59b10a6db2e2fe587d13bc548dc84e8e76b7",
+    "diagnostic.json": "8f17a6caecbbce8900d426a4017f73126462be230daa0beaa85964b987891f6e",
+    "postcheck.json": "7fe18173e3b3761f9396e4c08bbd0f74e51b34f9b1cd7cd365da2786a235b26a"
+  },
+  "original_archive_sha256": "a1b2395fb8d0778319d18303fbc678f5a06b2551abe34fa8b5a8a453c33b139a",
+  "original_inputs_unchanged": true,
+  "owned_container_absent": true,
+  "docker_baseline_equal": true,
+  "current_service_access": false,
+  "new_export": false,
+  "migration_applied": false,
+  "deployment": false,
+  "provider_calls": 0
+}

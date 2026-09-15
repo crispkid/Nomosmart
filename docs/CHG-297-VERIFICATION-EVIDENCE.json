@@ -1,0 +1,1272 @@
+{
+  "change": "CHG-297",
+  "date": "2026-09-12",
+  "specification": "10.54",
+  "status": "Three scoped repairs verified; overall acceptance partial; not deployed",
+  "sourceCopyVerified": true,
+  "verifiedSourceFileCount": 236,
+  "sources": {
+    "backend/app/api/routes/compatibility.py": "a8475b15033f704e2b7304f4fb04eed663b52d02b1d8727d15ee81cf79795d2d",
+    "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+    "backend/app/core/idempotency.py": "8c295ff1d41811618e13f178c7c9c719e4ffa405d621e4e5b811967d21c1d661",
+    "backend/app/domain/public_api_controls.py": "232aef5783596b4bd6bc7116edcb8dd3c3349c509ef0c5e86589269639fc2bfa",
+    "backend/tests/test_chg247_contract_baseline.py": "f9b77d2944f508a57870934a0fb346d0b4d04c7565f018a2e185cfd63b5fea49",
+    "backend/tests/test_chg293_project_content_and_chat_history.py": "08953e8edd74e64b5f40e9ab1d0cfd5db634892c453ba8a66f1237231994d8e4",
+    "backend/tests/test_chg295_acceptance_contracts.py": "eecd2873369977b8cc6f87d96b2e56c329c4e513cbb85046e3d3555457638022",
+    "backend/tests/test_chg295_chunk_deletion.py": "09822f3ef3b8b69ad10ae6bd88a6dc05b0ec73ae92fb7c4f03245b506b87ef47",
+    "backend/tests/test_chg295_lock_order.py": "709c5c14a138e16fd474421fe8b4633df0a46dc3814a357834f109b1e6db880c",
+    "backend/tests/test_chg296_cursor_and_switch_guards.py": "4bf11ab49934af0ff23ccdd340c9fe4de0e8984527d7ed219123c9996a24790e",
+    "backend/tests/test_chg297_sync_graph_idempotency.py": "7979250290d49dc86b183eb58e6010cd09a111084df050a5823a95b3166aef64",
+    "backend/tests/test_live_backend_api_behavior.py": "0f042801ee56c6b10371162c667d95ea1ca942fa7ba1211956f72de55604f462"
+  },
+  "sourceManifestSha256": "3661f2e242ba4cff3366db7418b74d5d1efc1ef32ec329fb1860072c08a717aa",
+  "baseline": {
+    "compatibility.py": "8a7acc5ec0f88f2ed5e684ccf7731323a5a28aff07f3a78821dc65a8f1df488b",
+    "data_sources.py": "d37613b7ad66fc18cfa843a5e145a1e84c912b9ac5a34dea8326823e4cd4217c",
+    "idempotency.py": "3576349ae03e85e6249999f03f7b9575c2c88d73dd162308d510eed990a4d7ae",
+    "public_api_controls.py": "b40074f4a6da17ebb894af702239f965326e8e7ad8f7214926b0745039c2e8cb"
+  },
+  "scripts": {
+    "audit_runtime.py": "482574d1312228ec7cfd80eb919b001c9ad895c98f3a215f7bb547a009dc3358",
+    "cleanup_verified.py": "79a2b3b89cf51c2edd7f51fa72e043cf0e35a4ab5d2abcd93e7355fdf7506c5a",
+    "evidence.py": "ac07f2da642e72a9c16ecfeb1cfdc909b06949a65a2de091da24beee0e302edd",
+    "prepare.py": "4069731bf34e3c1a7eb7f6c698e8aa400c27bce6a5ea3140cd659175ead5dbae",
+    "prepare_api.py": "6f9765c82f6035f66796a730e583887ad025355ab5a6e3299842727c39d43ccf",
+    "run_capture.py": "574839a97ac519c2f5dc82d6cee84f2984a4a3f94306f63f22f8aa7bac81b816",
+    "run_focused.py": "66e4dcc0612a7fa034dffb88f519f6abc6832eec111d1daa4a3351d50146eb5c",
+    "stack.py": "938edd76f647d985b6aaed788ba589e9d758abc9c483b9cc122ba2a3836c38a0",
+    "transport.py": "979d1bb5973e7454fba302710d10a01c4e7b9e64f04dc68a782b84212056cb14"
+  },
+  "runs": {
+    "focused-r1": {
+      "tests": 40,
+      "failures": 3,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 37,
+      "seconds": 3.566,
+      "artifact": "/tmp/chg297-repair.8ATeC6/focused-r1.xml",
+      "sha256": "33138ab408c1143458fcdf1042d7c80bc966bd91e706475ae13803c202ff512a",
+      "logSha256": "49cc13d20c6ba448e81df4f0aa005f16cd76f77646aca44b29204905c1825aa3",
+      "cases": [
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_and_scheduled_generation_preserve_source_and_schedule",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[viewer-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[None-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[owner-True-409]",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_real_unique_constraint_failure_rolls_back_all_creation_rows",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[archive]",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[generation]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_manual_queue_accepts_only_one_request",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[5-2]",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.approve-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.reject-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.publish-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.switch-active-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[graph-sync.retry-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-chat-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-feedback-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-item-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-reextract-3]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_short_legacy_and_long_replay_conflict_failure_and_identity",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[short]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[invalid key]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[in_progress]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[lease]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[ttl]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_long_scope_single_claim_and_conflict_reread",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_missing_key_missing_target_and_guard_rollbacks",
+          "result": "PASS"
+        }
+      ]
+    },
+    "focused-r2": {
+      "tests": 41,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 41,
+      "seconds": 3.335,
+      "artifact": "/tmp/chg297-repair.8ATeC6/focused-r2.xml",
+      "sha256": "842b8f0d3b110b5fab2b1118998f2085e877b4f42d9f2faea93aecef9c39f78d",
+      "logSha256": "693ab83a0add18d1ed6d95aa620526a7ec07acc672d6fed7a98a1fb1a7e8b7f4",
+      "cases": [
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_and_scheduled_generation_preserve_source_and_schedule",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[viewer-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[None-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[owner-True-409]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_real_unique_constraint_failure_rolls_back_all_creation_rows",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[archive]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[generation]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_manual_queue_accepts_only_one_request",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[5-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.approve-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.reject-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.publish-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.switch-active-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[graph-sync.retry-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-chat-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-feedback-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-item-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-reextract-3]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document.submit-review-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_short_legacy_and_long_replay_conflict_failure_and_identity",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[short]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[invalid key]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[in_progress]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[lease]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[ttl]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_long_scope_single_claim_and_conflict_reread",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_missing_key_missing_target_and_guard_rollbacks",
+          "result": "PASS"
+        }
+      ]
+    },
+    "focused-final": {
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 47,
+      "seconds": 3.771,
+      "artifact": "/tmp/chg297-repair.8ATeC6/focused-final.xml",
+      "sha256": "f5a93d42fdadb9d18315042581475f1840091d08e81391b4801d9a456b5abb2d",
+      "logSha256": "63ea7f888e90735fcb195d0ba6c3a05977ae23a3ec3e2793599c05b7d4d1b594",
+      "cases": [
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[1-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_initial_generation_and_existing_response[7-editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_and_scheduled_generation_preserve_source_and_schedule",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[viewer-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[None-False-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_create_scope_and_archive_denials_are_atomic[owner-True-409]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_real_unique_constraint_failure_rolls_back_all_creation_rows",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[archive]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_enqueue_parent_lock_refreshes_cached_state[generation]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_manual_queue_accepts_only_one_request",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_graph_job_safe_projection_and_cursor_isolation[5-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_storage_scope_boundary_and_real_varchar[\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599\\u8cc7\\u6599]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.approve-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[approval.reject-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.publish-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-version.switch-active-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[graph-sync.retry-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-chat-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[public-feedback-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-upload-item-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document-reextract-3]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_caller_scope_compatibility[document.submit-review-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_short_legacy_and_long_replay_conflict_failure_and_identity",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[short]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_invalid_idempotency_key_never_persists[invalid key]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[in_progress]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[lease]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_existing_idempotency_lifecycle[ttl]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_concurrent_long_scope_single_claim_and_conflict_reread",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_missing_key_missing_target_and_guard_rollbacks",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_existing_guard_preserves_idempotency_and_business_state[stale-stale_document_version-409]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_existing_guard_preserves_idempotency_and_business_state[legacy-retrieval_reprocessing_required-409]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_switch_existing_guard_preserves_idempotency_and_business_state[owner-project_owner_required-403]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_sync_denial_preserves_all_work[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_sync_denial_preserves_all_work[foreign]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg297_sync_graph_idempotency::test_manual_sync_denial_preserves_all_work[archived]",
+          "result": "PASS"
+        }
+      ]
+    },
+    "chg296-r1": {
+      "tests": 39,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 39,
+      "seconds": 15.37,
+      "artifact": "/tmp/chg297-repair.8ATeC6/chg296-r1.xml",
+      "sha256": "ac78eb4cdc3b424a08d096fd4f9c629d23d1133ac0ccdbfbe03d3640f126cb21",
+      "logSha256": "51249ffd929093a01ff775ae91c841f67d9464f1f15c3beff5d597fd362e6d66",
+      "cases": [
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_opensearch_mismatch_is_read_only_and_atomic[consistent_storage_read]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_canonical_read_validation_does_not_bind_version",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_real_connection_refusal_preserves_active_state",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_owner_stale_and_legacy_refusals",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg296_cursor_and_switch_guards::test_authenticated_chat_validation_identity_and_client_pages",
+          "result": "PASS"
+        }
+      ]
+    },
+    "eleven-r1": {
+      "tests": 11,
+      "failures": 4,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 7,
+      "seconds": 13.558,
+      "artifact": "/tmp/chg297-repair.8ATeC6/eleven-r1.xml",
+      "sha256": "1da662b584ecc5b02d193a7b1b895a61ed9388e52c5ced2cf74b8b38d7b99531",
+      "logSha256": "6ef9359f838b6371956c3b6ef60857895d2ffeee594dc637d73c64884164fb47",
+      "cases": [
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_system_reports_and_session_drafts",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_seeded_document_knowledge_serving_chat_and_notifications",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_seeded_reference_and_approval_workflows",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_external_services_and_domain_adapters",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_integration_adapter_embedding_and_switch_edges",
+          "result": "FAILURE"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_configuration_identity_worker_and_sync_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_pipeline_execution_and_publish_edge_behaviors",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_serving_and_document_response_helpers",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_extraction_ai_provider_and_publish_helper_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_approval_project_and_data_source_route_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_live_backend_api_behavior::test_live_compatibility_routes_execute_governed_workflows",
+          "result": "FAILURE"
+        }
+      ]
+    },
+    "regressions-r1": {
+      "tests": 80,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "passed": 80,
+      "seconds": 14.704,
+      "artifact": "/tmp/chg297-repair.8ATeC6/regressions-r1.xml",
+      "sha256": "88399332063f72d0385111357b69f3ad54ca68c43afe6b27206586ed6c984e4b",
+      "logSha256": "7c0a7fa65e18b943a7485dacf56dcd0a9158ce264846fb069a9879e2f5735af5",
+      "cases": [
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles0-False-True-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles1-False-True-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles2-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles3-True-False-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles4-False-True-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles5-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_editor_deny[roles6-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_foreign_creator_cannot_reuse_existing_uuid",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_deleted_and_legacy_ids_are_not_new[True-published]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_deleted_and_legacy_ids_are_not_new[False-None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_mixed_creators_are_not_guessed",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_same_uuid_is_serialized_across_real_connections",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_malformed_stored_fixed_scope_fails_closed[fixed_scope0]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_malformed_stored_fixed_scope_fails_closed[fixed_scope1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_malformed_stored_fixed_scope_fails_closed[fixed_scope2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_authenticated_shared_history_names_scope_and_paging",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_real_fixed_version_and_unused_only_guards",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_authenticated_other_creator_mutations_denied_before_provider[owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_authenticated_other_creator_mutations_denied_before_provider[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_lifecycle_and_governance_are_separate",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_creator_feedback_export_soft_delete_and_deleted_id_guard",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_published_history_is_shared_but_cannot_mix_surfaces",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_inactive_creator_remains_visible_but_disabled_reader_is_denied",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_removed_reader_and_conflicting_history_fail_closed",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_scope_unchanged_and_new_identity_allowance_are_provider_free",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archive_write_denial_and_list_detail_capability_parity",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_lifecycle_keeps_stale_and_activation_guards",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_cannot_bypass_review_locked_chunk",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_shared_reads_do_not_modify_conversation_or_usage",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_archived_retry_policy_is_independent_from_active_content",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_manual_chunk_crud_preserves_raw_and_queues_real_outbox",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_document_and_chunk_tag_crud_updates_postgresql_preview",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[foreign]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[removed]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[disabled]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[missing_menu]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_content_write_denials_preserve_rows_and_outbox[archived]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_writes_keep_review_and_published_locks[pending_manager_review-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_writes_keep_review_and_published_locks[pending_owner_review-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_writes_keep_review_and_published_locks[approved-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_writes_keep_review_and_published_locks[active-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_editor_content_writes_keep_review_and_published_locks[inactive-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_nullable_heading_path_binding_honors_v046_constraint[None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_nullable_heading_path_binding_honors_v046_constraint[heading_path1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_nullable_heading_path_binding_honors_v046_constraint[heading_path2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_json_null_heading_path_is_still_rejected_by_database",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg293_project_content_and_chat_history::test_failed_replacement_rolls_back_superseded_state_and_outbox",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_acceptance_contracts::test_integration_client_http_defaults_and_permission_denial",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_exact_deletion_retains_shared_tags_raw_other_versions[owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_exact_deletion_retains_shared_tags_raw_other_versions[editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_ledger_and_retry_history_survive_scoped_evidence_deletion",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[lineage]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[chat]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[chat_scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[citations]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[usage]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[retry]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[submitted]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_protected_or_unprovable_reference_is_atomic_conflict[unknown_fk]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_unauthorized_delete_cannot_touch_data[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_unauthorized_delete_cannot_touch_data[outsider]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_real_constraint_failure_rolls_back_every_mutation",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_two_actual_delete_requests_commit_only_once",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_vector_storage_deletion_is_build_scoped[False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_vector_storage_deletion_is_build_scoped[True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_staging_evidence_shared_fence_prevents_late_citations",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_authenticated_delete_obeys_parent_governance_lock_order",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_zero_chunk_actual_graph_search_cleanup_retry_and_isolation[False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_chunk_deletion::test_zero_chunk_actual_graph_search_cleanup_retry_and_isolation[True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_parent_governance_lock_never_waits_on_a_child_held_by_waiting_writer[edit_enqueue]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_parent_governance_lock_never_waits_on_a_child_held_by_waiting_writer[reconcile]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_cached_scope_is_revalidated_before_candidate_mutation[archive-project_archived]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_cached_scope_is_revalidated_before_candidate_mutation[delete_document-document_version_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_cached_scope_is_revalidated_before_candidate_mutation[review-document_version_review_locked]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_cached_scope_is_revalidated_before_candidate_mutation[revision-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_deleted_document_worker_refuses_before_external_artifacts",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg295_lock_order::test_staging_reader_parent_fk_commit_does_not_deadlock_waiting_edit",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg247_contract_baseline::test_idempotency_terminal_states_do_not_reopen",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests.test_chg247_contract_baseline::test_graph_retry_and_switch_active_use_durable_hashed_idempotent_commands",
+          "result": "PASS"
+        }
+      ]
+    }
+  },
+  "runtimeAudit": {
+    "flywayVersion": 48,
+    "successfulSwitchAudits": 0,
+    "guardTargetsSwitched": 0,
+    "networkPolicy": "Internal Docker network; loopback-only allowlisted byte relay; no Provider runtime configured"
+  },
+  "cleanup": {
+    "label": "chg297-repair-8atec6",
+    "containersRemoved": 7,
+    "anonymousVolumesRemoved": 5,
+    "networksRemoved": 1,
+    "transportPidStopped": 6397,
+    "baseline": [
+      {
+        "idPrefix": "f5419ca062b08dc559f9f49f2440c143cd86fbc737ee68b3a27ee015252e7a28",
+        "startedAt": "2026-09-07T03:01:06.756581926Z",
+        "running": false
+      },
+      {
+        "idPrefix": "9c2da911b170d5a10e9ac07cdaea58619161110b308c135d3ef0222e60f22653",
+        "startedAt": "2026-09-07T03:01:01.177603298Z",
+        "running": false
+      },
+      {
+        "idPrefix": "945f0089317bfffd339e189d02605289165c2945dfe526337a078186d496a01e",
+        "startedAt": "2026-09-07T20:08:05.765003041Z",
+        "running": true
+      },
+      {
+        "idPrefix": "125e83c8ac297ddebfec6d1b17f44229e326d535ae7249aa92789033a6649891",
+        "startedAt": "2026-09-09T14:27:36.23941196Z",
+        "running": true
+      },
+      {
+        "idPrefix": "aae7c2bf8972198f6488d58f1dd9bc8d1fe7411295290d641ea82759fbda4f47",
+        "startedAt": "2026-09-07T20:08:05.782693Z",
+        "running": true
+      },
+      {
+        "idPrefix": "8ef553e20fc95e8555d8e52f893d0dbc22c74c4fc4cc378c066e61f03c0b86fc",
+        "startedAt": "2026-08-19T16:22:23.227768758Z",
+        "running": false
+      },
+      {
+        "idPrefix": "7b21e23bb3de5f8377926f61cdccfd2758437595b5a95b7d3ca2996c665ae262",
+        "startedAt": "2026-09-07T02:04:49.224820167Z",
+        "running": false
+      },
+      {
+        "idPrefix": "ef3bc2ddec4b6386f135f54b2a8cf91c53f2950b6de8b24d346971272006067b",
+        "startedAt": "2026-09-07T02:04:49.224474292Z",
+        "running": false
+      },
+      {
+        "idPrefix": "744392cdf86e33d194cfbab2c4690455c0bcc1c84fbabea53fc4e0077ac484b6",
+        "startedAt": "2026-09-07T20:08:05.8079315Z",
+        "running": true
+      },
+      {
+        "idPrefix": "bc4a66b2a094a71fc2297958545a33cfc3515ab080f6335e50cbf0765ae9cd39",
+        "startedAt": "2026-08-17T17:38:18.883148676Z",
+        "running": false
+      },
+      {
+        "idPrefix": "2c96e654bdb53af5d6310657168502c2bb86103938e02792d5c06b373aa4d1f7",
+        "startedAt": "2026-08-17T16:29:22.459625262Z",
+        "running": false
+      },
+      {
+        "idPrefix": "cba543e4b6a0d0ca8fee42d8d3b4ca24efa2ad38b5f946ec99559967008952e2",
+        "startedAt": "2026-08-17T16:29:12.261993924Z",
+        "running": false
+      },
+      {
+        "idPrefix": "fb05aa86075d152a4adf1af4d0f946c55ab20861d7edc31b937dc3dd9f52934b",
+        "startedAt": "2026-08-17T16:29:11.685290465Z",
+        "running": false
+      },
+      {
+        "idPrefix": "93ab984de332b73b111a34b031bc765fff81eea370667b005c91fa67f528d70a",
+        "startedAt": "2026-08-17T16:29:11.68791259Z",
+        "running": false
+      }
+    ],
+    "baselineUnchangedDuringCleanup": true,
+    "imagesRemoved": 0,
+    "privateEvidenceRetained": true
+  },
+  "limitations": [
+    "No Provider/image/deployment/current-data changes",
+    "Original cases 3/4/5 need genuine model/publication evidence",
+    "Original case 11 has unchanged completed-job retry success expectation",
+    "Global coverage/full Frontend/Backend/E2E/security/deployment gates not rerun"
+  ],
+  "harnessChecks": {
+    "spec:doctor": {
+      "exitCode": 0,
+      "output": "\n== Specification doctor ==\nok: SPECIFICATION.md found\nok: TEST_PLAN.md includes the 80% coverage gate\nok: VIBECODING workflow documents mention specification-driven development\nok: active specification change is CHG-297\n"
+    },
+    "spec:trace": {
+      "exitCode": 0,
+      "output": "\n== Specification traceability ==\n+ /Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python /Users/peter/Documents/GitHub/Nomosmart/HARNESS/scripts/spec_trace.py /Users/peter/Documents/GitHub/Nomosmart\nok: CHG-297 has 4 active requirement mappings, unique stable IDs and complete trace columns\nok: active change CHG-297 is referenced by specification, plan, test plan and traceability\n"
+    },
+    "plan:approved": {
+      "exitCode": 0,
+      "output": "\n== Development plan approval ==\n\n== Development plan doctor ==\nok: DEVELOPMENT_PLAN.md includes human confirmation gates\nok: active development plan section is CHG-297\nok: active development plan CHG-297 has explicit Gate 2 and Gate 4 approval\n"
+    },
+    "test:plan": {
+      "exitCode": 0,
+      "output": "\n== Test plan ==\nok: TEST_PLAN.md defines the 80% coverage requirement\nok: TEST_PLAN.md covers active change CHG-297\n"
+    },
+    "backend:syntax": {
+      "exitCode": 0,
+      "output": "\n== Backend syntax ==\n+ /Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python -m compileall -q main.py models.py connection.py migrate.py app tests scripts\n"
+    },
+    "git diff --check": {
+      "exitCode": 0,
+      "output": ""
+    }
+  }
+}

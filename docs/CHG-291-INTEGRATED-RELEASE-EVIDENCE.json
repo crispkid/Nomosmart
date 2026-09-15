@@ -1,0 +1,773 @@
+{
+  "scope": "CHG-291 approved preparation A-C, partial results; no deployment approval",
+  "date": "2026-09-12",
+  "status": "RELEASE BLOCKED; preparation incomplete",
+  "source": {
+    "root": "/private/tmp/chg291-release-385z05xz",
+    "gitHead": "bbaf03850fd83892327c9e47cf3e9f8da7dbc5f3",
+    "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+    "fileCount": 684,
+    "manifestSha256": "95dbdbdcd4e93bae1400874b51bbb2ef57a1f96eb18d5e0d38ec6df0e7cdb59c",
+    "v049Sha256": "b8d256be49ff99c2c157ec8f95bf96f5ac2846aae450637f895747bb298f9f96"
+  },
+  "images": {
+    "backend": {
+      "command": [
+        "docker",
+        "--context",
+        "desktop-linux",
+        "build",
+        "--platform",
+        "linux/arm64",
+        "--progress=plain",
+        "--iidfile",
+        "/private/tmp/chg291-release-385z05xz/images/backend.iid",
+        "-f",
+        "/private/tmp/chg291-release-385z05xz/source/backend/Dockerfile",
+        "-t",
+        "nomosmart/backend:0.1.0-chg299-v049",
+        "/private/tmp/chg291-release-385z05xz/source/backend"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 77.75,
+      "logSha256": "aec1899e29b1fb8d7ec09a65392ac0bc08723b74df6fcbe920e06e54b6c3b1b1",
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "tag": "nomosmart/backend:0.1.0-chg299-v049",
+      "imageId": "sha256:b9c5cefc215650b2b3dbdc3bbfecd6a3f035a5566077be4479b987ad13b1e338",
+      "architecture": "arm64",
+      "user": "nomosmart"
+    },
+    "frontend": {
+      "command": [
+        "docker",
+        "--context",
+        "desktop-linux",
+        "build",
+        "--platform",
+        "linux/arm64",
+        "--progress=plain",
+        "--iidfile",
+        "/private/tmp/chg291-release-385z05xz/images/frontend.iid",
+        "-f",
+        "/private/tmp/chg291-release-385z05xz/source/frontend/Dockerfile",
+        "-t",
+        "nomosmart/frontend:0.1.0-chg299-v049",
+        "/private/tmp/chg291-release-385z05xz/source/frontend"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 19.5,
+      "logSha256": "40a86ec666c85e4d6d193f1cce15492faad7e1ad1f66d0e806a4d69d6f121af3",
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "tag": "nomosmart/frontend:0.1.0-chg299-v049",
+      "imageId": "sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f",
+      "architecture": "arm64",
+      "user": "nomosmart"
+    },
+    "migrations": {
+      "command": [
+        "docker",
+        "--context",
+        "desktop-linux",
+        "build",
+        "--platform",
+        "linux/arm64",
+        "--progress=plain",
+        "--iidfile",
+        "/private/tmp/chg291-release-385z05xz/images/migrations.iid",
+        "-f",
+        "/private/tmp/chg291-release-385z05xz/source/deploy/migrations/Dockerfile",
+        "-t",
+        "nomosmart/migrations:0.1.0-chg299-v049",
+        "/private/tmp/chg291-release-385z05xz/source"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 2.31,
+      "logSha256": "723b8c82f5232f9ba254d87de7757637c376745886c406fcb6127c0db7c1c9f3",
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "tag": "nomosmart/migrations:0.1.0-chg299-v049",
+      "imageId": "sha256:f9abf8575034e44d0a1ce050d1150b8cd2e18f1ef1545b7b37799ad0b2a78018",
+      "architecture": "arm64",
+      "user": "10001:10001"
+    }
+  },
+  "frontend": {
+    "harness": {
+      "check": "frontend",
+      "command": [
+        "bash",
+        "/private/tmp/chg291-release-385z05xz/source/HARNESS/harness.sh",
+        "test:frontend"
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 13.72,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/frontend.log",
+      "logSha256": "d6d8c75fb1b7721ad4a3452c5a76a57744e0e8209164f647c363033cf160dc3a",
+      "node": "v24.21.0"
+    },
+    "contractTestsPassed": 156,
+    "componentTestsPassed": 94,
+    "actualChromeGeometryPassed": true,
+    "coverage": {
+      "lines": {
+        "total": 6057,
+        "covered": 766,
+        "skipped": 0,
+        "pct": 12.64
+      },
+      "statements": {
+        "total": 7834,
+        "covered": 897,
+        "skipped": 0,
+        "pct": 11.45
+      },
+      "functions": {
+        "total": 2288,
+        "covered": 276,
+        "skipped": 0,
+        "pct": 12.06
+      },
+      "branches": {
+        "total": 7820,
+        "covered": 744,
+        "skipped": 0,
+        "pct": 9.51
+      },
+      "branchesTrue": {
+        "total": 0,
+        "covered": 0,
+        "skipped": 0,
+        "pct": 100
+      }
+    },
+    "imageSmoke": {
+      "exitCode": 0,
+      "imageId": "sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f",
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "helperSha256": "199acb6bc166379496fbe2df2fdad921dd8fd5454b856acc52b4fa348bb78424",
+      "wrapperSha256": "36f3aa1052aa3d3b03b8f3306697cc31df357dfe458deaee2ad92e764a8e80ee",
+      "logSha256": "ea806c9078deabaad356be7ccbb0133b65f02976b2fe836b0a5b008fb0099fba",
+      "containerIdSetUnchanged": true,
+      "existingImagesPreserved": true
+    }
+  },
+  "backend": {
+    "full": {
+      "command": [
+        "/Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python",
+        "-B",
+        "-m",
+        "pytest",
+        "-o",
+        "addopts=",
+        "-p",
+        "no:cacheprovider",
+        "--tb=short",
+        "-q",
+        "tests",
+        "--junitxml=/private/tmp/chg291-release-385z05xz/backend-full.xml",
+        "--cov=app",
+        "--cov-report=json:/private/tmp/chg291-release-385z05xz/backend-full-coverage.json",
+        "--cov-report=term",
+        "--cov-fail-under=80"
+      ],
+      "exitCode": 1,
+      "elapsedSeconds": 145.03,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "82",
+          "failures": "3",
+          "skipped": "0",
+          "tests": "705",
+          "time": "143.543",
+          "timestamp": "2026-09-12T22:29:39.124946+08:00",
+          "hostname": "Peters-Mac.local"
+        }
+      ],
+      "coverageTotals": {
+        "covered_lines": 9938,
+        "num_statements": 18901,
+        "percent_covered": 48.505766130698966,
+        "percent_covered_display": "49",
+        "missing_lines": 8963,
+        "excluded_lines": 117,
+        "percent_statements_covered": 52.57922861224274,
+        "percent_statements_covered_display": "53",
+        "num_branches": 5292,
+        "num_partial_branches": 637,
+        "covered_branches": 1797,
+        "missing_branches": 3495,
+        "percent_branches_covered": 33.956916099773245,
+        "percent_branches_covered_display": "34"
+      }
+    },
+    "fullJUnit": {
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "82",
+          "failures": "3",
+          "skipped": "0",
+          "tests": "705",
+          "time": "143.543",
+          "timestamp": "2026-09-12T22:29:39.124946+08:00",
+          "hostname": "Peters-Mac.local"
+        }
+      ],
+      "failureGroups": {
+        "failure:tests.test_chg203_auth_search_revalidation": 1,
+        "error:tests.test_chg291_v049_live_rehearsal": 13,
+        "failure:tests.test_chg292_tag_graph_consistency.TagGraphTests": 1,
+        "error:tests.test_chg297_sync_graph_idempotency": 23,
+        "error:tests.test_chg298_graph_retry": 1,
+        "error:tests.test_chg299_s3_manual_extraction": 25,
+        "error:tests.test_live_backend_api_behavior": 20,
+        "failure:tests.test_live_prerequisites": 1
+      },
+      "sha256": "1a9c8746094ef369f78165f8caf221d930f9f58bc4b1f357cd4b8ace1b32e85e"
+    },
+    "initialCombined": {
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "74",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "233",
+          "time": "52.205",
+          "timestamp": "2026-09-12T22:26:37.098944+08:00",
+          "hostname": "Peters-Mac.local"
+        }
+      ],
+      "failureGroups": {
+        "error:tests.test_chg295_e2e_cleanup": 25,
+        "error:tests.test_chg297_sync_graph_idempotency": 23,
+        "error:tests.test_chg298_graph_retry": 1,
+        "error:tests.test_chg299_s3_manual_extraction": 25
+      },
+      "sha256": "2e54f0cc1f0ed478d46d0529d50ead827224df815c98e8cf6f3b17bb5855fc93"
+    },
+    "separateProcesses": {
+      "chg297-sync-graph-idempotency": {
+        "command": [
+          "/Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python",
+          "-B",
+          "-m",
+          "pytest",
+          "-o",
+          "addopts=",
+          "-p",
+          "no:cacheprovider",
+          "--tb=short",
+          "-q",
+          "tests/test_chg297_sync_graph_idempotency.py",
+          "--junitxml=/private/tmp/chg291-release-385z05xz/separate-chg297-sync-graph-idempotency.xml",
+          "--cov=app",
+          "--cov-report=json:/private/tmp/chg291-release-385z05xz/separate-chg297-sync-graph-idempotency-coverage.json",
+          "--cov-report=term",
+          "--cov-fail-under=80"
+        ],
+        "exitCode": 1,
+        "elapsedSeconds": 8.37,
+        "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "47",
+            "time": "7.225",
+            "timestamp": "2026-09-12T22:33:56.776832+08:00",
+            "hostname": "Peters-Mac.local"
+          }
+        ],
+        "coverageTotals": {
+          "covered_lines": 5736,
+          "num_statements": 18901,
+          "percent_covered": 24.65175877319886,
+          "percent_covered_display": "25",
+          "missing_lines": 13165,
+          "excluded_lines": 117,
+          "percent_statements_covered": 30.347600656049945,
+          "percent_statements_covered_display": "30",
+          "num_branches": 5292,
+          "num_partial_branches": 150,
+          "covered_branches": 228,
+          "missing_branches": 5064,
+          "percent_branches_covered": 4.308390022675737,
+          "percent_branches_covered_display": "4"
+        }
+      },
+      "chg298-graph-retry": {
+        "command": [
+          "/Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python",
+          "-B",
+          "-m",
+          "pytest",
+          "-o",
+          "addopts=",
+          "-p",
+          "no:cacheprovider",
+          "--tb=short",
+          "-q",
+          "tests/test_chg298_graph_retry.py",
+          "--junitxml=/private/tmp/chg291-release-385z05xz/separate-chg298-graph-retry.xml",
+          "--cov=app",
+          "--cov-report=json:/private/tmp/chg291-release-385z05xz/separate-chg298-graph-retry-coverage.json",
+          "--cov-report=term",
+          "--cov-fail-under=80"
+        ],
+        "exitCode": 1,
+        "elapsedSeconds": 62.4,
+        "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "1",
+            "time": "61.165",
+            "timestamp": "2026-09-12T22:34:05.224776+08:00",
+            "hostname": "Peters-Mac.local"
+          }
+        ],
+        "coverageTotals": {
+          "covered_lines": 5451,
+          "num_statements": 18901,
+          "percent_covered": 23.04385566072831,
+          "percent_covered_display": "23",
+          "missing_lines": 13450,
+          "excluded_lines": 117,
+          "percent_statements_covered": 28.839743928892652,
+          "percent_statements_covered_display": "29",
+          "num_branches": 5292,
+          "num_partial_branches": 84,
+          "covered_branches": 124,
+          "missing_branches": 5168,
+          "percent_branches_covered": 2.3431594860166287,
+          "percent_branches_covered_display": "2"
+        }
+      },
+      "chg299-s3-manual-extraction": {
+        "command": [
+          "/Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python",
+          "-B",
+          "-m",
+          "pytest",
+          "-o",
+          "addopts=",
+          "-p",
+          "no:cacheprovider",
+          "--tb=short",
+          "-q",
+          "tests/test_chg299_s3_manual_extraction.py",
+          "--junitxml=/private/tmp/chg291-release-385z05xz/separate-chg299-s3-manual-extraction.xml",
+          "--cov=app",
+          "--cov-report=json:/private/tmp/chg291-release-385z05xz/separate-chg299-s3-manual-extraction-coverage.json",
+          "--cov-report=term",
+          "--cov-fail-under=80"
+        ],
+        "exitCode": 1,
+        "elapsedSeconds": 14.07,
+        "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "0",
+            "skipped": "0",
+            "tests": "28",
+            "time": "12.929",
+            "timestamp": "2026-09-12T22:35:07.705249+08:00",
+            "hostname": "Peters-Mac.local"
+          }
+        ],
+        "coverageTotals": {
+          "covered_lines": 5724,
+          "num_statements": 18901,
+          "percent_covered": 24.445087421981565,
+          "percent_covered_display": "24",
+          "missing_lines": 13177,
+          "excluded_lines": 117,
+          "percent_statements_covered": 30.284111951748585,
+          "percent_statements_covered_display": "30",
+          "num_branches": 5292,
+          "num_partial_branches": 114,
+          "covered_branches": 190,
+          "missing_branches": 5102,
+          "percent_branches_covered": 3.5903250188964475,
+          "percent_branches_covered_display": "4"
+        }
+      },
+      "live-backend-api-behavior": {
+        "command": [
+          "/Users/peter/Documents/GitHub/Nomosmart/backend/.venv/bin/python",
+          "-B",
+          "-m",
+          "pytest",
+          "-o",
+          "addopts=",
+          "-p",
+          "no:cacheprovider",
+          "--tb=short",
+          "-q",
+          "tests/test_live_backend_api_behavior.py",
+          "--junitxml=/private/tmp/chg291-release-385z05xz/separate-live-backend-api-behavior.xml",
+          "--cov=app",
+          "--cov-report=json:/private/tmp/chg291-release-385z05xz/separate-live-backend-api-behavior-coverage.json",
+          "--cov-report=term",
+          "--cov-fail-under=80"
+        ],
+        "exitCode": 1,
+        "elapsedSeconds": 25.35,
+        "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+        "suites": [
+          {
+            "name": "pytest",
+            "errors": "0",
+            "failures": "3",
+            "skipped": "0",
+            "tests": "21",
+            "time": "23.925",
+            "timestamp": "2026-09-12T22:35:21.839206+08:00",
+            "hostname": "Peters-Mac.local"
+          }
+        ],
+        "coverageTotals": {
+          "covered_lines": 11072,
+          "num_statements": 18901,
+          "percent_covered": 53.77588558673997,
+          "percent_covered_display": "54",
+          "missing_lines": 7829,
+          "excluded_lines": 117,
+          "percent_statements_covered": 58.578911168721234,
+          "percent_statements_covered_display": "59",
+          "num_branches": 5292,
+          "num_partial_branches": 894,
+          "covered_branches": 1938,
+          "missing_branches": 3354,
+          "percent_branches_covered": 36.621315192743765,
+          "percent_branches_covered_display": "37"
+        }
+      }
+    },
+    "imageSmoke": {
+      "exitCode": 0,
+      "imageId": "sha256:b9c5cefc215650b2b3dbdc3bbfecd6a3f035a5566077be4479b987ad13b1e338",
+      "programSha256": "6927cf8ee48068ea0d848e6359837f810094cf1cf32b65087afbc465fd3851ac",
+      "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "result": {
+        "status": "pass",
+        "uid": 10001,
+        "network": "none",
+        "source_hashes": {
+          "app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+          "app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+          "app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+          "app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+          "app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+          "app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+          "app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+          "app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+          "app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+          "app/domain/graph_reconciliation.py": "2705673920a8c82f291c2f42fce9a7d1ac6803b1f539675a9de92f5191b28005"
+        },
+        "liveness_http": 200,
+        "chat_and_graph_routes_present": true,
+        "author_capability_contract_present": true,
+        "heading_path_none_as_null": true,
+        "readiness_tested": false,
+        "database_provider_calls": 0
+      }
+    }
+  },
+  "migration": {
+    "newImageEmptyTo48To49": "actual Flyway 13.0.0 / PostgreSQL 18.4 succeeded; console transcript; no historical user normalization inserted for this run",
+    "orderProbe": {
+      "uid": 10001,
+      "python": "3.12.3",
+      "flywayVersion": 48,
+      "successfulV049Rows": 0,
+      "databaseReadinessResult": {
+        "name": "database",
+        "detail": "migrated"
+      },
+      "finding": "V048 accepted without V049; migration ordering is not enforced by this check",
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "images": {
+        "backend": "sha256:b9c5cefc215650b2b3dbdc3bbfecd6a3f035a5566077be4479b987ad13b1e338",
+        "migrations": "sha256:f9abf8575034e44d0a1ce050d1150b8cd2e18f1ef1545b7b37799ad0b2a78018"
+      },
+      "isolatedDatabase": "gate_69b4dfa4a5e149b7a1bd563130cfd57b",
+      "providerCalls": 0,
+      "currentEnvironmentWrites": 0,
+      "migrationLogSha256": "895864020ecd95bf4abd4691e06cc8458b80779d24706cedb6d11ae10c6f51e9",
+      "releaseGate": "BLOCKED: real V048 readiness acceptance reproduced"
+    },
+    "exactImageFullRoleMatrix": "NOT RUN; historical independent rehearsal not relabeled"
+  },
+  "checks": {
+    "install": {
+      "check": "install",
+      "command": [
+        "/tmp/chg294-r2.5S694K/node-v24.21.0-darwin-arm64/bin/npm",
+        "ci",
+        "--no-audit",
+        "--no-fund"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 3.36,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/install.log",
+      "logSha256": "6e8e1275ac1f87b0c9eb0fcfc498a494bfb32c4607ad793b9994c021d3d548da",
+      "node": "v24.21.0"
+    },
+    "syntax": {
+      "check": "syntax",
+      "command": [
+        "bash",
+        "/private/tmp/chg291-release-385z05xz/source/HARNESS/harness.sh",
+        "backend:syntax"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.34,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/syntax.log",
+      "logSha256": "a1fa0ee156f3546945017e6e202be00ef64a0e7b72e2e9cdf4ecb19e2dd84e27",
+      "node": "v24.21.0"
+    },
+    "lint": {
+      "check": "lint",
+      "command": [
+        "bash",
+        "/private/tmp/chg291-release-385z05xz/source/HARNESS/harness.sh",
+        "frontend:lint"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 5.97,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/lint.log",
+      "logSha256": "98932f9b4763c2dd832e70c7207888bf6e4de5f4c3d067139640d8c84432f788",
+      "node": "v24.21.0"
+    },
+    "helm-lint": {
+      "check": "helm-lint",
+      "command": [
+        "bash",
+        "/private/tmp/chg291-release-385z05xz/source/HARNESS/harness.sh",
+        "helm:lint"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.11,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/helm-lint.log",
+      "logSha256": "3b96baae5aa889b7f13ef2d540aedd87b1d5b01b8e53448d5d58dd6e2e9e8ac3",
+      "node": "v24.21.0"
+    },
+    "config-policy": {
+      "check": "config-policy",
+      "command": [
+        "bash",
+        "/private/tmp/chg291-release-385z05xz/source/HARNESS/harness.sh",
+        "deploy:config-policy"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.05,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/config-policy.log",
+      "logSha256": "a36c902fbb5bd71059ee9c14c5390cbf012e7130e2a0f34b2463dc5375357244",
+      "node": "v24.21.0"
+    },
+    "compose": {
+      "check": "compose",
+      "command": [
+        "docker",
+        "compose",
+        "config",
+        "--no-env-resolution",
+        "--quiet"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 0.35,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/compose.log",
+      "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "node": "v24.21.0"
+    },
+    "static-security": {
+      "check": "static-security",
+      "command": [
+        "uvx",
+        "--offline",
+        "bandit",
+        "-r",
+        "backend/app",
+        "deploy/installer/nomosmart_installer",
+        "deploy/release/nomosmart_release",
+        "-lll",
+        "-iii"
+      ],
+      "exitCode": 2,
+      "elapsedSeconds": 0.05,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/static-security.log",
+      "logSha256": "e61886bcf299dc32cd8cc66cd575f2fed90e94b6f8642be240d8ae214b64dc4e",
+      "node": "v24.21.0"
+    },
+    "static-security-retry": {
+      "check": "static-security-retry",
+      "command": [
+        "uvx",
+        "--offline",
+        "bandit",
+        "-r",
+        "backend/app",
+        "deploy/installer/nomosmart_installer",
+        "deploy/release/nomosmart_release",
+        "-lll",
+        "-iii"
+      ],
+      "exitCode": 0,
+      "elapsedSeconds": 2.02,
+      "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+      "log": "/private/tmp/chg291-release-385z05xz/results/static-security-retry.log",
+      "logSha256": "e17d6a6d67be14861d6de3a52125e599ffb68235627637036b54619500e8db3a",
+      "node": "v24.21.0"
+    }
+  },
+  "dryrun": {
+    "exitCode": 0,
+    "sourceSha256": "aea6a1ce709e925c6c6396bdcee1c25a7a6fdb7f66644c5fca3e2d6d2e0f0e95",
+    "scriptSha256": "711307036b2252b3d001ff7ae8fb86186f4c139edee932c398f42fb435ef9ce6",
+    "summaries": [
+      {
+        "after": {
+          "deployment_specs_sha256": "7b4dd9596010e46567b4b37409ed9f5cfbd30e43e6098f7b21e521fc417fad91",
+          "revision": 36,
+          "revision37_jobs": 0,
+          "values_sha256": "5a9b73395ced6bf62da8d9d04bc0155590fc66fbdf0aa57ea3dc53750e980ccd"
+        },
+        "before": {
+          "deployment_specs_sha256": "7b4dd9596010e46567b4b37409ed9f5cfbd30e43e6098f7b21e521fc417fad91",
+          "revision": 36,
+          "revision37_jobs": 0,
+          "values_sha256": "5a9b73395ced6bf62da8d9d04bc0155590fc66fbdf0aa57ea3dc53750e980ccd"
+        },
+        "renders": [
+          {
+            "app_image_references": {
+              "nomosmart/backend:0.1.0-chg299-v049": 8,
+              "nomosmart/frontend:0.1.0-chg299-v049": 1,
+              "nomosmart/migrations:0.1.0-chg299-v049": 1
+            },
+            "bootstrap_release": "nomosmart-local-37",
+            "canonical_bytes": 96231,
+            "jobs": [
+              "nomosmart-local-bootstrap-37",
+              "nomosmart-local-migration-37"
+            ],
+            "kinds": {
+              "ConfigMap": 3,
+              "Deployment": 6,
+              "Ingress": 2,
+              "Job": 2,
+              "NetworkPolicy": 10,
+              "PodDisruptionBudget": 3,
+              "Service": 10,
+              "ServiceAccount": 1,
+              "StatefulSet": 5
+            },
+            "normalized_nonsecret_manifest_parity": true,
+            "render_sha256": "98f564723f02b408145c001d750bf64d5faa0fc28ac7799d1392d92c4d39537a",
+            "revision": 37,
+            "run": 1,
+            "secret_body_hidden": true,
+            "secret_manifest_objects": 0
+          },
+          {
+            "app_image_references": {
+              "nomosmart/backend:0.1.0-chg299-v049": 8,
+              "nomosmart/frontend:0.1.0-chg299-v049": 1,
+              "nomosmart/migrations:0.1.0-chg299-v049": 1
+            },
+            "bootstrap_release": "nomosmart-local-37",
+            "canonical_bytes": 96231,
+            "jobs": [
+              "nomosmart-local-bootstrap-37",
+              "nomosmart-local-migration-37"
+            ],
+            "kinds": {
+              "ConfigMap": 3,
+              "Deployment": 6,
+              "Ingress": 2,
+              "Job": 2,
+              "NetworkPolicy": 10,
+              "PodDisruptionBudget": 3,
+              "Service": 10,
+              "ServiceAccount": 1,
+              "StatefulSet": 5
+            },
+            "normalized_nonsecret_manifest_parity": true,
+            "render_sha256": "98f564723f02b408145c001d750bf64d5faa0fc28ac7799d1392d92c4d39537a",
+            "revision": 37,
+            "run": 2,
+            "secret_body_hidden": true,
+            "secret_manifest_objects": 0
+          }
+        ],
+        "status": "pass"
+      }
+    ],
+    "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "deploymentAuthorized": false,
+    "readinessOrderingGate": "BLOCKED separately"
+  },
+  "cleanup": {
+    "containersRemoved": 7,
+    "anonymousVolumesRemoved": 5,
+    "networksRemoved": 1,
+    "baselineContainerCount": 14,
+    "baselineUnchanged": true,
+    "imagesRemoved": 0,
+    "privateEvidenceRetained": true
+  },
+  "security": {
+    "dockerScout": "COMPLETED after Peter explicitly approved external candidate package/SBOM metadata transmission with 是 on 2026-09-12",
+    "dockerScoutPriorHistory": "Initial attempt BLOCKED by approval review for unapproved external metadata transfer; no bypass. Subsequent explicit approval resolved transmission authority only.",
+    "dockerScoutEvidence": "docs/CHG-291-CANDIDATE-SCOUT-EVIDENCE.json",
+    "dependencyScan": "NOT RUN for candidate",
+    "containerScan": "COMPLETED: Backend and Frontend high/critical exit 0; Migration high/critical exit 2 with 4 Critical and 32 High SARIF records (28 unique advisory IDs); release security gate FAIL",
+    "sbom": "GENERATED for all three exact candidates in SPDX 2.3; package entries including image root: Backend 341, Frontend 351, Migration 501",
+    "offlineBandit": "PASS at existing high-severity/high-confidence threshold; not proof of zero lower-severity findings"
+  },
+  "remaining": {
+    "migrationImageSecurity": "4 Critical/32 High records; remediation needs discussion/approval; no dependency, Dockerfile or SQL change, no risk waiver",
+    "backup": "NOT STARTED: guarded tool/safety tests and Peter local Terminal password step remain; no live dump exported",
+    "freshProtectedInventory": "Only revision/values/deployment specs/jobs checked; complete DB/PVC/Secret/identity/index/writer inventory still pending",
+    "providerCases": "3 explicitly blocked, no model binding supplied; no new Provider calls",
+    "fullE2E": "NOT COMPLETED",
+    "rolloutGate": "New candidate _database_check accepts V048 without V049; product/chart repair or explicit staged strategy needs discussion"
+  },
+  "toolHashes": {
+    "backend/scripts/chg291_candidate_checks.py": "ede399915af860b1e19eeaf6f6623dbbebb5594060de9658f41f725bbc4b1fdd",
+    "backend/scripts/chg291_dryrun.py": "3f2074a53fc56ad5f63b39071bbffe1506c4a206d7a88dc084b423b6be00ee57",
+    "backend/scripts/chg291_frontend_image_check.py": "3b751e788024e13a703e1ae047bca9220592ca3da15d2d573a6418b7f7f3ef4b",
+    "backend/scripts/chg291_integrated_lab.py": "86a8c648810c4a6b1f60774c45ee1d07b0488067234554ce76632053dcd803d3",
+    "backend/scripts/chg291_integrated_preparation.py": "dffe11219798fe4080980680d18bdaf5b962ea6430f337a882272c0383c860f4",
+    "backend/scripts/chg291_isolated_tests.py": "097d75177caad4c8d8cc933606de8695a989b4a98cc17ac05693ca8b07b287b9",
+    "backend/scripts/chg291_v049_rehearsal.py": "819fa0fc59bbee770b8961ae7ec7303eb31d08fa75ab766f2ee6f05b046f6d7c"
+  },
+  "safety": {
+    "helmWrites": 0,
+    "kubernetesJobsCreated": 0,
+    "liveV049Apply": false,
+    "liveApplicationDataWrites": false,
+    "providerCalls": 0,
+    "sourceProductOrSQLOrDependencyOrChartRepair": false,
+    "historicalFailuresRetained": true
+  }
+}

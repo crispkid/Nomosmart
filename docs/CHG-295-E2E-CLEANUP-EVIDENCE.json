@@ -1,0 +1,138 @@
+{
+  "change": "CHG-295",
+  "scope": "Exact Run-Owned E2E Cleanup Plan Amendment",
+  "date": "2026-09-11",
+  "sources": {
+    "backend/scripts/e2e_run_resources.py": "e57ab26c19ba4c1c1668662901fd0a6e55aaca79e973efed9d3e49b7c53ba6a4",
+    "backend/scripts/e2e_external_resources.py": "7e934004a702ab44428babd832a171109bf753c717c328ff34748b1ddf5d7c3f",
+    "backend/scripts/e2e_governance_fixture.py": "ed5c104de0a67396c3f778ee955e16d864c917bb72043b49d0b76204e9122cb7",
+    "backend/tests/test_chg295_e2e_cleanup.py": "4dc42eda18bace6202d1892f0da0a83425a0667ee262436d655d003b7224444e",
+    "frontend/tests/e2eLive.mjs": "26f119d57c43ea83047602c507990cb560b952180a342917ddda8a424925a072",
+    "frontend/tests/e2eRunLifecycle.mjs": "b2307bb39850f24618be451b84abf77051d3e48462374f5162bb37495187db30",
+    "frontend/tests/chg295E2ELifecycle.test.mjs": "d0a0c0aa362089e5b4d9631f48d4ea06830607850a71c27872e52b76fe061032",
+    "frontend/tests/chg295DeletionErrors.test.mjs": "b1e7e86cf0c984fefcb50aa2666c5e53220a30f573960a166c87b3e6ec7593b5",
+    "frontend/src/lib/operationalMessages.ts": "823db9b46845b69544c7120750e2ac230247d11a8e6c66173dc3a8fc1ad3b467",
+    "backend/scripts/cleanup_test_data.py": "72b6cef7ec1f1bc782dcb3cd24191d96a4ad7b12d1a8ccf998b8021da4540441"
+  },
+  "narrowCoverage": {
+    "totals": {
+      "covered_lines": 459,
+      "num_statements": 524,
+      "percent_covered": 86.82539682539682,
+      "percent_covered_display": "87",
+      "missing_lines": 65,
+      "excluded_lines": 0,
+      "percent_statements_covered": 87.59541984732824,
+      "percent_statements_covered_display": "88",
+      "num_branches": 106,
+      "num_partial_branches": 2,
+      "covered_branches": 88,
+      "missing_branches": 18,
+      "percent_branches_covered": 83.01886792452831,
+      "percent_branches_covered_display": "83"
+    },
+    "files": {
+      "backend/scripts/e2e_external_resources.py": {
+        "covered_lines": 195,
+        "num_statements": 195,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 34,
+        "num_partial_branches": 0,
+        "covered_branches": 34,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "backend/scripts/e2e_governance_fixture.py": {
+        "covered_lines": 28,
+        "num_statements": 92,
+        "percent_covered": 26.363636363636363,
+        "percent_covered_display": "26",
+        "missing_lines": 64,
+        "excluded_lines": 0,
+        "percent_statements_covered": 30.434782608695652,
+        "percent_statements_covered_display": "30",
+        "num_branches": 18,
+        "num_partial_branches": 1,
+        "covered_branches": 1,
+        "missing_branches": 17,
+        "percent_branches_covered": 5.555555555555555,
+        "percent_branches_covered_display": "6"
+      },
+      "backend/scripts/e2e_run_resources.py": {
+        "covered_lines": 236,
+        "num_statements": 237,
+        "percent_covered": 99.3127147766323,
+        "percent_covered_display": "99",
+        "missing_lines": 1,
+        "excluded_lines": 0,
+        "percent_statements_covered": 99.57805907172995,
+        "percent_statements_covered_display": "99",
+        "num_branches": 54,
+        "num_partial_branches": 1,
+        "covered_branches": 53,
+        "missing_branches": 1,
+        "percent_branches_covered": 98.14814814814815,
+        "percent_branches_covered_display": "98"
+      }
+    }
+  },
+  "tests": {
+    "realServicePassed": 28,
+    "realServiceFailed": 0,
+    "nodeLifecyclePassed": 4,
+    "deletionFormatterPassed": 2
+  },
+  "artifacts": {
+    "junitSha256": "8a3bdebf6f7f0b8f2be5c0cdd176be405c717f0029f0aa45cead535e7dd1650a",
+    "coverageSha256": "e1da3dc020b4254404db6cbe54aeda9dc2345928cc7adffb9171dce65b3f0d58",
+    "migrationLogSha256": "dae73c5be03675a8715fb2249b90e8307fc8ac495c193e4696bab3a38c3483fe"
+  },
+  "isolation": {
+    "label": "chg295-cleanup-uczv6b",
+    "containers": {
+      "postgres": "461c920cd733af00f27d1f03baede8a5a817ed9136e0ed40d2be73741c145fbb",
+      "opensearch": "5b2ba6b70abb1dac3d4e345c8779f5ab86c2cdbe75878629f341362cbdf8755b",
+      "neo4j": "73dc6e523ec87048beb50b09eb17fe109dca3272c766657ff86de4d9d3c08141",
+      "rustfs": "dd22e9c5ff72591514056188b75415c8b5819ef1d1db235968c03df1f01d0f02",
+      "relay": "0b8194a6d869ea7419421a20d0248a9e547840365cc42b8fba56fe5541eaaa36"
+    },
+    "network": "cf86a55d2dc82cc5b2a848e76989970889610d778439b5c464ee9c2378cebc90",
+    "cleaned": true,
+    "postCleanupVerification": "No containers/networks with this exact run label; four pre-existing Docker services still running.",
+    "relayProcess": {
+      "pid": 55141,
+      "action": "SIGTERM after exact command-path verification; exec session exited 0"
+    }
+  },
+  "gates": {
+    "specDoctor": "passed",
+    "specTrace": "passed",
+    "planApproved": "passed",
+    "testPlan": "passed",
+    "backendSyntax": "passed",
+    "coverageCheck": "failed: missing full frontend coverage evidence",
+    "fullE2E": "blocked: fresh application/OIDC prerequisites absent; genuine generation and workflow receipts not implemented",
+    "staticSecurity": "blocked: bandit not installed",
+    "fullBackend": "not rerun; historical 529 pass/11 fail not superseded",
+    "fullFrontend": "not rerun; full application/browser prerequisites absent",
+    "targetedESLint": "passed: e2eLive.mjs, e2eRunLifecycle.mjs, chg295E2ELifecycle.test.mjs"
+  },
+  "authority": {
+    "providerCalls": 0,
+    "imageBuilds": 0,
+    "kubernetesWrites": 0,
+    "currentApplicationDataChanges": 0,
+    "generalCleanupUtilityChanges": 0
+  },
+  "warnings": [
+    "Narrow coverage is not full Backend/Frontend coverage. CLI subprocess execution is outside this pytest coverage report.",
+    "First isolated Flyway attempt failed at V042 because the fresh database was named acceptance; a new database named nomosmart was created in the same disposable instance and unchanged V001..V048 migrations passed.",
+    "No actual browser launch failure test or real generation/publication path was completed."
+  ]
+}

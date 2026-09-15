@@ -88,6 +88,7 @@ class PipelineRunListItem(BaseModel):
 class PipelineRunPage(BaseModel):
     items: list[PipelineRunListItem]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ApprovalCancellationResponse(BaseModel):
@@ -147,6 +148,7 @@ class GraphSyncJobResponse(BaseModel):
 class GraphSyncJobPage(BaseModel):
     items: list[GraphSyncJobResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class AuditLogResponse(BaseModel):
@@ -164,6 +166,7 @@ class AuditLogResponse(BaseModel):
 class AuditLogPage(BaseModel):
     items: list[AuditLogResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 @router.get("/projects/{project_id}/embedding-settings", response_model=ProjectEmbeddingSettingsResponse)
@@ -218,7 +221,7 @@ def list_pipeline_runs(
         _get_scoped_project(session, project_id, context)
         visible = {project_id}
     if not visible:
-        return PipelineRunPage(items=[])
+        return PipelineRunPage(items=[], has_more=False)
     filter_hash = cursor_filter_hash({"actor": context.user_id, "project_id": project_id, "status": status})
     statement = select(PipelineRun).where(PipelineRun.project_id.in_(visible))
     if status:
@@ -249,7 +252,7 @@ def list_pipeline_runs(
             namespace="pipeline-runs",
             payload={"filter": filter_hash, "created_at": last.created_at.isoformat(), "id": str(last.id)},
         )
-    return PipelineRunPage(items=[_pipeline_response(row) for row in rows], next_cursor=next_cursor)
+    return PipelineRunPage(items=[_pipeline_response(row) for row in rows], next_cursor=next_cursor, has_more=has_more)
 
 
 @router.post("/approval-requests/{approval_request_id}/cancel", response_model=ApprovalCancellationResponse)
@@ -371,7 +374,7 @@ def list_graph_sync_jobs(
         _get_scoped_project(session, project_id, context)
         visible = {project_id}
     if not visible:
-        return GraphSyncJobPage(items=[])
+        return GraphSyncJobPage(items=[], has_more=False)
     filter_hash = cursor_filter_hash({"actor": context.user_id, "project_id": project_id, "status": status})
     statement = select(GraphSyncJob).where(GraphSyncJob.project_id.in_(visible))
     if status:
@@ -402,7 +405,11 @@ def list_graph_sync_jobs(
             namespace="graph-sync-jobs",
             payload={"filter": filter_hash, "created_at": last.created_at.isoformat(), "id": str(last.id)},
         )
-    return GraphSyncJobPage(items=rows, next_cursor=next_cursor)
+    return GraphSyncJobPage(
+        items=[GraphSyncJobResponse.model_validate(row, from_attributes=True) for row in rows],
+        next_cursor=next_cursor,
+        has_more=has_more,
+    )
 
 
 @router.get("/audit-logs", response_model=AuditLogPage)
@@ -476,7 +483,7 @@ def list_audit_logs(
             )
             for row in rows
         ],
-        next_cursor=next_cursor,
+        next_cursor=next_cursor, has_more=has_more,
     )
 
 

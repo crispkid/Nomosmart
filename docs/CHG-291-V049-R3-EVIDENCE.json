@@ -1,0 +1,143 @@
+{
+  "change": "CHG-291 R3",
+  "date": "2026-09-13",
+  "artifact_directory": "/private/tmp/v049-backup-plain-r3-x3yKqn0T",
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "595f3cb45fa4bce488da5dc14a515fea9bb06fafc84dee41ba3b67a69713681f",
+    "backend/tests/test_chg291_v049_live_backup.py": "14ba2087afa58f66e50660c574d8f80830cea08592d86467005459b92ef74608"
+  },
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "pytest": {
+    "exit_code": 1,
+    "cases": 94,
+    "passed": 93,
+    "failures": [
+      "test_extension_owner_is_preserved_by_full_restore"
+    ],
+    "errors": 0,
+    "skipped": 0,
+    "human_gpg_deselected": 1,
+    "new_r3_passed": 31
+  },
+  "coverage": {
+    "whole_tool": {
+      "covered_lines": 983,
+      "num_statements": 1268,
+      "percent_covered": 77.6027397260274,
+      "percent_covered_display": "78",
+      "missing_lines": 285,
+      "excluded_lines": 0,
+      "percent_statements_covered": 77.52365930599369,
+      "percent_statements_covered_display": "78",
+      "num_branches": 192,
+      "num_partial_branches": 14,
+      "covered_branches": 150,
+      "missing_branches": 42,
+      "percent_branches_covered": 78.125,
+      "percent_branches_covered_display": "78"
+    },
+    "r3_collector_and_integration": {
+      "statements": 149,
+      "covered_statements": 149,
+      "statement_percent": 100,
+      "branches": 12,
+      "covered_branches": 11,
+      "branch_percent": 91.66666666666667,
+      "combined_percent": 99.37888198757764
+    },
+    "shared_safety": {
+      "statements": 340,
+      "covered_statements": 331,
+      "statement_percent": 97.3529411764706,
+      "branches": 58,
+      "covered_branches": 51,
+      "branch_percent": 87.93103448275862,
+      "combined_percent": 95.97989949748744
+    }
+  },
+  "synthetic_extension_difference": {
+    "status": "DIFFERENT",
+    "changed_objects": 43,
+    "kinds": {
+      "routine": 40,
+      "extension": 2,
+      "language": 1
+    },
+    "fields": {
+      "acl": 41,
+      "owner": 43
+    }
+  },
+  "cleanup": {
+    "cleanup_ok": true,
+    "baseline_equal": true,
+    "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+    "source_sha256": "595f3cb45fa4bce488da5dc14a515fea9bb06fafc84dee41ba3b67a69713681f",
+    "kubernetes_access": false,
+    "provider_calls": 0,
+    "live_data": false
+  },
+  "reports": {
+    "tests.xml": {
+      "sha256": "0660c6154bb34aa3f2d8c0edf0e36848c8c670f6caa9edc247484420c24aaae8",
+      "bytes": 13580
+    },
+    "coverage.json": {
+      "sha256": "2b830d4e776548c84d0034ff778e0ae092d0773fbaf126d290a5d6f10ecc23d3",
+      "bytes": 94720
+    },
+    ".coverage.tests": {
+      "sha256": "49f19fb8124d8b6ca7ff4ed057203361dd7740e3c900f66f84caa181ac7fd768",
+      "bytes": 106496
+    },
+    "cleanup.json": {
+      "sha256": "129d1dd51cbab62caa0f7bf940a9e8b83e20f86d1e74b35c3722422922b17a25",
+      "bytes": 299
+    },
+    "extension_owner_8b7a5528/object-comparison.json": {
+      "sha256": "e1370ba6a8201b1248debe1d4f40d7ede9b5e037aba2b27553cca64158bafebb",
+      "bytes": 17057
+    },
+    "extension_owner_8b7a5528/schema-evidence-v1.json": {
+      "sha256": "52b64296c6f0426bcd39660007ae7d6a4ec69fdec8cbec964fea6c6f8e11bcf7",
+      "bytes": 60287
+    },
+    "extension_owner_8b7a5528/comparison-diagnostic.json": {
+      "sha256": "39af8cc2b83f4a0d9289d5feaeca8bad92604e223e020ef8ce78e8050d321568",
+      "bytes": 903
+    },
+    "r3_representation_7b1f76b2/schema-comparison-fcba731707a76574.json": {
+      "sha256": "41b79a606fa3353341752324caddf6ec83f31f9c7ae7c6bc6e6d724dd52d306b",
+      "bytes": 496
+    },
+    "r3_custody_e0d9a766/schema-comparison-e3f1b5e4ef15c1cc.json": {
+      "sha256": "56586f3421d32ada304eb36600f5cba01c52f1ec4865413c716ebb24bcc9f0fb",
+      "bytes": 73
+    },
+    "fresh_cluster_ec5caf6b/result.json": {
+      "sha256": "9d04c0e04c8b90b291153d68c817e101c7d29927b1504874950c920137b0e0d9",
+      "bytes": 1431
+    }
+  },
+  "limits": {
+    "current_services_accessed": false,
+    "retained_archive_accessed": false,
+    "new_current_export": false,
+    "restore_privilege_strategy_changed": false,
+    "provider_calls": 0,
+    "scans": false,
+    "images_built": false,
+    "deployment": false,
+    "v049_applied": false,
+    "qualified_backup": false
+  },
+  "harness": {
+    "spec:doctor": "PASS",
+    "spec:trace": "PASS",
+    "plan:doctor": "PASS",
+    "plan:approved": "PASS",
+    "test:plan": "PASS",
+    "backend:syntax": "PASS",
+    "git diff --check": "PASS"
+  }
+}

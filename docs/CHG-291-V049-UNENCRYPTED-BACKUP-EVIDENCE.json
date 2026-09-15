@@ -1,0 +1,41 @@
+{
+  "change": "CHG-291",
+  "date": "2026-09-13",
+  "status": "QUALIFICATION_BLOCKED",
+  "approved_plan": "docs/CHG-291-V049-UNENCRYPTED-BACKUP-PLAN.md",
+  "gate4_approved": true,
+  "latest_artifacts": "/private/tmp/v049-backup-plain-7wejptt4",
+  "tool_sha256": "4b8aa48ffe26d95a3b4648b828633434c31b583657989ed51ebe360564ea82e6",
+  "tests_sha256": "da56123fe997e8d8bca89187d147936d22b25bcc16d2259c9028fa553e603b39",
+  "postgres_image_id": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "tests": {"passed": 49, "failed": 0, "errors": 0, "skipped": 0, "human_gpg_deselected": 1},
+  "coverage": {
+    "covered_lines": 692, "num_statements": 860,
+    "covered_branches": 115, "num_branches": 156,
+    "percent_statements": 80.46511627906976,
+    "percent_branches": 73.71794871794872,
+    "percent_combined": 79.42913385826772,
+    "excluded_lines": 0, "gate_passed": false
+  },
+  "reports": {
+    "tests.xml": "04c7729088063caa71d3bb2178df425e7c31ea707a56ebc266ff849500c65593",
+    "coverage.json": "de95e43aad5f184b062014e0bd53aaaa92db6421e0d725e2b5178e7c39173cd6",
+    "cleanup.json": "822934e56d547a1e27476b3cb6d0396fe688e8a09505bb3738d03ae17248cf12"
+  },
+  "cleanup_ok": true,
+  "docker_baseline_equal": true,
+  "remaining_owned_test_containers": 0,
+  "qualified_manifest_created": false,
+  "current_db_queries": 0,
+  "current_db_exports": 0,
+  "current_backup_created": false,
+  "kubernetes_inventory_this_turn": false,
+  "kubernetes_mutations": 0,
+  "migration_applied": false,
+  "deployments": 0,
+  "provider_calls": 0,
+  "scans": 0,
+  "prior_run_suffixes": ["m4NI0X", "Fz5nIm", "kstyg614", "h4nvmjp9", "jca3ngia", "8zngp2o0", "x5pea048"],
+  "prior_reports_retained": true,
+  "next_scope": "DISCUSSION_ONLY: source read-only preflight within qualification, before the unchanged full coverage gate; no execution approval"
+}

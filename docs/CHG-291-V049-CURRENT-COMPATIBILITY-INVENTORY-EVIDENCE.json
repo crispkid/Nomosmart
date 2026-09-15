@@ -1,0 +1,226 @@
+{
+  "change": "CHG-291 current read-only compatibility inventory",
+  "date": "2026-09-13",
+  "authorization": "Peter Ok to current read-only inventory only; no export/write/deploy",
+  "artifact_directory": "/private/tmp/v049-current-compatibility-7ydlQKjw",
+  "inventory": {
+    "scope": "current-readonly-compatibility-inventory",
+    "started_utc": "2026-09-13T07:19:31.435770+00:00",
+    "status": "INVENTORY_COMPLETE",
+    "backup_exported": false,
+    "restored": false,
+    "qualified": false,
+    "deployment": false,
+    "provider_calls": 0,
+    "sources": {
+      "backend/scripts/chg291_v049_live_backup.py": "ceefb6c0de67a80684fc571a9815087fc02a46e838b877f47abd654ec2fb454f",
+      "backend/tests/test_chg291_v049_live_backup.py": "b6db9ea71de78c53e30f0aa1d11ed7cf65e9cb9756a6116ef2699c256d851269"
+    },
+    "identity": {
+      "context": "docker-desktop",
+      "namespace": "nomosmart",
+      "release": "nomosmart-local",
+      "revision": 36,
+      "pod_uid": "83e48efc-56e4-4cda-81da-e9117acb9ef6",
+      "pod": "nomosmart-local-postgresql-0",
+      "container": "postgresql",
+      "database": "nomosmart",
+      "image": "nomosmart/postgresql:18.4",
+      "runtime_image_id": "docker.io/nomosmart/postgresql@sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a"
+    },
+    "restore_image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+    "stable": {
+      "baseline": true,
+      "properties": true,
+      "catalog": true,
+      "profile": true,
+      "selection": true,
+      "identity": true
+    },
+    "database": {
+      "database": "nomosmart",
+      "server_version": "18.4",
+      "server_version_num": 180004,
+      "readonly": "on",
+      "isolation": "repeatable read",
+      "database_bytes": 16660159
+    },
+    "baseline": {
+      "v49": 0,
+      "failed": 0,
+      "latest": [
+        "048",
+        1657807790,
+        true
+      ],
+      "owners": 1,
+      "members": 3,
+      "database": "nomosmart",
+      "projects": 1,
+      "readonly": "on",
+      "expected_owner": 1,
+      "expected_members": 3
+    },
+    "catalog": {
+      "complete": true,
+      "coverage": {
+        "schema": 1,
+        "relation": 230,
+        "column": 1255,
+        "type": 124,
+        "routine": 40,
+        "constraint": 885,
+        "trigger": 0,
+        "rule": 0,
+        "policy": 0,
+        "default_acl": 2,
+        "extension": 2,
+        "language": 1
+      },
+      "unsupported_count": 0,
+      "sha256": "6af59e3a7248ea85088f2df457695cf728a0db5abba3a78e9ef63a2b5f5dea71"
+    },
+    "selection": {
+      "status": "UNSUPPORTED_PROFILE",
+      "error_code": "restore_profile_mixed_owners"
+    },
+    "extensions": [
+      {
+        "name": "pgcrypto",
+        "version": "1.4",
+        "schema": "public",
+        "owner_sha256": "ff30378410eb1b0d4971fc06084a7f69c193a51f1afa1198b6d559a251e1d1dd",
+        "member_count": 37,
+        "member_kinds": {
+          "routine": 37
+        },
+        "member_owner_count": 1,
+        "all_members_match_extension_owner": false,
+        "member_inventory_sha256": "198493ec078727ef6de72ed71c8f1f243172dbad9b542155e1e4d2dbf2dea499",
+        "matches_r4_member_inventory": true,
+        "initial_acl_members": 0
+      },
+      {
+        "name": "plpgsql",
+        "version": "1.0",
+        "schema": "pg_catalog",
+        "owner_sha256": "264c0424e4bd463a7d02b9db6896143e1a96cd1c52511119f839d2bc9c934241",
+        "member_count": 4,
+        "member_kinds": {
+          "language": 1,
+          "routine": 3
+        },
+        "member_owner_count": 1,
+        "all_members_match_extension_owner": true,
+        "member_inventory_sha256": "3db14108c290004fc8727332676dd2267b72e238ccdef7b259f6a4c5f6194dfd",
+        "matches_r4_member_inventory": true,
+        "initial_acl_members": 0
+      }
+    ],
+    "current_data_not_proven_restorable": true,
+    "live_export_support_enabled": false,
+    "elapsed_seconds": 1.018,
+    "finished_utc": "2026-09-13T07:19:32.453882+00:00",
+    "inventory_script_sha256": "827d4d757ed82ec197521b02a04e02429f20e0ef1e88461941165e9b954efc07"
+  },
+  "trusted_extension_facts": {
+    "status": "READONLY_FACTS_COMPLETE",
+    "session": {
+      "readonly": "on",
+      "isolation": "repeatable read"
+    },
+    "extensions": [
+      {
+        "name": "pgcrypto",
+        "trusted": true,
+        "version": "1.4",
+        "requires_superuser": true,
+        "extension_owner_superuser": false,
+        "extension_owner_is_database_owner": true,
+        "extension_owner_can_create_database_objects": true
+      },
+      {
+        "name": "plpgsql",
+        "trusted": true,
+        "version": "1.0",
+        "requires_superuser": true,
+        "extension_owner_superuser": true,
+        "extension_owner_is_database_owner": false,
+        "extension_owner_can_create_database_objects": true
+      }
+    ],
+    "source_catalog_unchanged": true,
+    "source_identity_unchanged": true,
+    "sources": {
+      "backend/scripts/chg291_v049_live_backup.py": "ceefb6c0de67a80684fc571a9815087fc02a46e838b877f47abd654ec2fb454f",
+      "backend/tests/test_chg291_v049_live_backup.py": "b6db9ea71de78c53e30f0aa1d11ed7cf65e9cb9756a6116ef2699c256d851269"
+    },
+    "script_sha256": "7d1b4b8c9e0ce3a7abb3429ceda4b86337bab745081e737ba316cf2437ace312",
+    "backup_exported": false,
+    "role_mutation": false,
+    "deployment": false
+  },
+  "reports": {
+    "inventory.py": {
+      "bytes": 7022,
+      "sha256": "827d4d757ed82ec197521b02a04e02429f20e0ef1e88461941165e9b954efc07"
+    },
+    "owner-facts.py": {
+      "bytes": 2161,
+      "sha256": "7d1b4b8c9e0ce3a7abb3429ceda4b86337bab745081e737ba316cf2437ace312"
+    },
+    "identity-before.json": {
+      "bytes": 430,
+      "sha256": "084b1229ece80e511438ec1b8bd33cf43d607fee52a350febe7969cd860a458d"
+    },
+    "identity-after.json": {
+      "bytes": 430,
+      "sha256": "084b1229ece80e511438ec1b8bd33cf43d607fee52a350febe7969cd860a458d"
+    },
+    "metadata-before.json": {
+      "bytes": 2072518,
+      "sha256": "5d70f185f666796bd50a45d3534eedf1c7301211a9eebb8f3dc861b0d56104d4"
+    },
+    "metadata-after.json": {
+      "bytes": 2072518,
+      "sha256": "5d70f185f666796bd50a45d3534eedf1c7301211a9eebb8f3dc861b0d56104d4"
+    },
+    "inventory-summary.json": {
+      "bytes": 3585,
+      "sha256": "1579c9f62411156a41e34c43581eab88955204fc40ae327a5670aae3d0d80651"
+    },
+    "owner-facts.json": {
+      "bytes": 1173,
+      "sha256": "92cfa8826305a043392a3a3062e780fdd5c8f74daf4df205fc9f62b05bc6cd0d"
+    }
+  },
+  "conclusion": {
+    "inventory_completed": true,
+    "r4_live_profile_supported": false,
+    "reason": "restore_profile_mixed_owners",
+    "current_permissions_need_repair": false,
+    "new_restore_implementation_approved": false,
+    "old_archive_cause_proven": false,
+    "backup_qualified": false,
+    "deployment_performed": false
+  },
+  "boundaries": {
+    "business_content_read": false,
+    "secret_body_read": false,
+    "role_password_read": false,
+    "pg_dump": false,
+    "pg_restore": false,
+    "archive_read": false,
+    "containers_created": 0,
+    "application_writes": false,
+    "ddl": false,
+    "helm_write": false,
+    "v049_apply": false,
+    "provider_calls": 0,
+    "source_files_changed": false
+  },
+  "official_references": [
+    "https://www.postgresql.org/docs/18/sql-createextension.html",
+    "https://www.postgresql.org/docs/18/extend-extensions.html"
+  ]
+}

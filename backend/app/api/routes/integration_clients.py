@@ -87,7 +87,7 @@ def list_integration_clients(
             namespace="integration-clients",
             payload={"created_at": last.created_at.isoformat(), "id": str(last.id), "filters": filter_hash},
         )
-    return IntegrationClientPage(items=[_client_response(session, client) for client in clients], next_cursor=next_cursor)
+    return IntegrationClientPage(items=[_client_response(session, client) for client in clients], next_cursor=next_cursor, has_more=has_more)
 
 
 @router.post("", response_model=IntegrationClientCreateResponse, status_code=201)

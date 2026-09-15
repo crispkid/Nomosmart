@@ -1,0 +1,166 @@
+{
+  "change": "CHG-295",
+  "defect": "CHG295-B01",
+  "date": "2026-09-11",
+  "scope": "Bug-first approved candidate deletion/concurrency repair",
+  "requirements": [
+    "CHUNK-DEL-001",
+    "CHUNK-DEL-003",
+    "CHUNK-DEL-004"
+  ],
+  "testCase": "T31",
+  "result": "Confirmed actual 40P01 product deadlocks repaired; focused verification PASS; release acceptance incomplete; not deployed",
+  "rootCause": "Version->Project lock order inverted existing Project->Document->Version governance order",
+  "repair": "Parent-first entry and exception reacquisition; refreshed parent/version state; staging parent KEY SHARE then Version SHARE through evidence commit",
+  "sources": {
+    "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+    "backend/app/api/routes/serving.py": "dee40484b7379181b6b2b92b6edacf77e52a338be87feeb6ab2c4e980699fa53",
+    "backend/app/domain/chunk_artifacts.py": "6c15b2a2abb540a08f5b97934f5e6dc6d3421020a3841617ac93553bdb0b9580",
+    "backend/tests/test_chg295_lock_order.py": "709c5c14a138e16fd474421fe8b4633df0a46dc3814a357834f109b1e6db880c",
+    "backend/tests/test_chg295_chunk_deletion.py": "09822f3ef3b8b69ad10ae6bd88a6dc05b0ec73ae92fb7c4f03245b506b87ef47",
+    "backend/tests/test_chg295_acceptance_contracts.py": "eecd2873369977b8cc6f87d96b2e56c329c4e513cbb85046e3d3555457638022",
+    "backend/tests/test_chg293_project_content_and_chat_history.py": "08953e8edd74e64b5f40e9ab1d0cfd5db634892c453ba8a66f1237231994d8e4",
+    "SPECIFICATION.md": "6bb4d34bab1dc6732d49e96094afd6d6dfadf60d7352018013f34403633dbb21",
+    "SPEC_CHANGELOG.md": "ceaacf969a960a30fab3f37cd57804ee74d275b362685e6b84e801d92ff9b0fd",
+    "DEVELOPMENT_PLAN.md": "e535bacfea42694f2e59d5f504c65ad461c3be97daa322e7249e167a75e9192e",
+    "TEST_PLAN.md": "771b7e0745ff19e525fef64048d880cc04f56c52ddd7a71d91bc42a4ba8f9746",
+    "TRACEABILITY.md": "8103fa62f7d9cf0d0bb66c3ad5e3dc9b3b9f1700aa4ac550de68745f431d91e3",
+    "docs/CHG-295-BUGFIX-VERIFICATION.md": "1462cc5a0a41999c665a4992228829062822d19e6064e328bf3c3c1850987f6b"
+  },
+  "artifacts": {
+    "/tmp/chg295-bugs.ViCm2F/before.xml": "3392e5e2366328422638e75793327d9030d9d258438880583d726023155816ef",
+    "/tmp/chg295-bugs.ViCm2F/after-first.xml": "52c0f76f803b5a6e19d4db9d9c74e7b208b96d64dc6c1c8a780b065e5043ee4b",
+    "/tmp/chg295-bugs.ViCm2F/expanded.xml": "f2d78f48288cd15dda4bade1bc8e80857ecc702950dc5da0d1ee570674e2ca96",
+    "/tmp/chg295-bugs.ViCm2F/regression.xml": "3555786e37c8b412ee45fb324dfa3634dfddfba19517041b0960530e7f04f94b",
+    "/tmp/chg295-bugs.ViCm2F/regression-r2.xml": "64c3b35346b16ba8e2c53cee53ffa9005b2b861c140c4156ff2f4ecd09a9f8bb",
+    "/tmp/chg295-bugs.ViCm2F/before.log": "3fb257ef240afeb1fcb37074d719417397de1fcca5cb075fd216deae50a41d06",
+    "/tmp/chg295-bugs.ViCm2F/after-first.log": "4559d0b7aaba2c1eda1bb5ab375e5eaf7350b629d3f32ce05a771a1415eedecc",
+    "/tmp/chg295-bugs.ViCm2F/expanded.log": "61aef053f03192a0655ad68fbb2b29793b51a8e06a23d0e759c65fc027d33595",
+    "/tmp/chg295-bugs.ViCm2F/regression.log": "91d5e85772853f95d7f1f52f76a02f1a0aa3baf1d1252e252f6cc1fe2d638f46",
+    "/tmp/chg295-bugs.ViCm2F/regression-r2.log": "06d4a53941638edc2ad21e518629e0ed4900fd00dcfc784c2cbceb9db64d591c",
+    "/tmp/chg295-bugs.ViCm2F/migrations.log": "593540818457c078ba4122fc6f24ee7287f24f83c1efaf795e265c6fe1e8ac41"
+  },
+  "tests": {
+    "before": {
+      "tests": 2,
+      "passed": 0,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.866,
+      "postgresSqlstate": "40P01",
+      "log": "before.log",
+      "junit": "before.xml"
+    },
+    "unchangedCasesAfter": {
+      "tests": 2,
+      "passed": 2,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.685,
+      "log": "after-first.log",
+      "junit": "after-first.xml"
+    },
+    "expanded": {
+      "tests": 8,
+      "passed": 8,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 0.807,
+      "log": "expanded.log",
+      "junit": "expanded.xml"
+    },
+    "firstCombined": {
+      "tests": 78,
+      "passed": 15,
+      "failures": 0,
+      "errors": 63,
+      "skipped": 0,
+      "seconds": 1.959,
+      "log": "regression.log",
+      "junit": "regression.xml",
+      "cause": "Schema-only fixture search_path excluded public pgcrypto.digest in migrated outer database; not a product test result"
+    },
+    "combinedRerun": {
+      "tests": 78,
+      "passed": 78,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 19.313,
+      "warnings": 1,
+      "warning": "Existing multipart import PendingDeprecationWarning",
+      "log": "regression-r2.log",
+      "junit": "regression-r2.xml",
+      "prerequisiteRepair": "Fresh dedicated API database lets unchanged fixture own pgcrypto and isolated schema; no assertion/product migration changes"
+    },
+    "countsOverlap": "78 includes 8 focused lock/state tests, 1 new authenticated DELETE-vs-governance race, and 69 prior focused regressions; repeated runs are not additive coverage",
+    "method": "Real independent PostgreSQL sessions, real Keycloak tokens/JWKS and FastAPI authorization; actual Neo4j/OpenSearch scoped cleanup; stored inputs not generation or fabricated readiness",
+    "command": "backend/.venv/bin/python -m pytest -c /dev/null --rootdir=<repository> -p no:cacheprovider --tb=short -q backend/tests/test_chg295_lock_order.py backend/tests/test_chg295_chunk_deletion.py backend/tests/test_chg295_acceptance_contracts.py backend/tests/test_chg293_project_content_and_chat_history.py",
+    "privateRunner": "/tmp/chg295-bugs.ViCm2F/run.py"
+  },
+  "gates": {
+    "spec:doctor": 0,
+    "spec:trace": 0,
+    "plan:approved": 0,
+    "test:plan": 0,
+    "backend:syntax": 0,
+    "git diff --check": 0
+  },
+  "isolation": {
+    "dockerContext": "desktop-linux",
+    "runLabel": "chg295-bugs-vicm2f",
+    "networkInternalOnly": true,
+    "services": [
+      "PostgreSQL 17.10",
+      "Keycloak",
+      "Neo4j 5.26.4",
+      "OpenSearch 2.19.6",
+      "read-only byte relay"
+    ],
+    "baselineUntouched": [
+      "nomosmart-local-ingress-http-loopback",
+      "nomosmart-local-ingress-https-loopback",
+      "nomosmart-openldap",
+      "nomosmart-phpldapadmin"
+    ],
+    "baselineIdsStartTimesAndRunningVerified": true,
+    "cleanup": {
+      "exactRemovedContainers": {
+        "postgres": "b565b766250fdc72d68f48911fa439cc25c1591ec36a6fd81ad440a9cebdd2bc",
+        "relay": "9907acc6ae9135b0efae88c0b9a23fc6d4103fb7c2bf45354ca9f542d9bc4727",
+        "keycloak": "cb64d9dc9e440388a4bc89c630fce74b744d5146358a9ef706a93c0c8f818294",
+        "opensearch": "f75ee113df0350d657e4254c634fc372c5420efdecd176585288259add1a7e4c",
+        "neo4j": "74b1a63a29edc16d421894cab2a9b6c6ac4e2572a8b50180b9942b350578fa00"
+      },
+      "removedAnonymousVolumes": 3,
+      "removedNetworkId": "7fbd0aa078e7c7ca2fd85312984c7a8947f7d403259bc08b10d9705dd17558bd",
+      "stoppedExactHostRelayPids": [
+        60057,
+        60177,
+        60266
+      ],
+      "remainingRunContainers": 0,
+      "remainingRunNetworks": 0,
+      "remainingOwnedAnonymousVolumes": 0
+    }
+  },
+  "authority": {
+    "providerCalls": 0,
+    "imageBuilds": 0,
+    "kubernetesOrHelmActions": 0,
+    "currentEnvironmentDataChanges": 0,
+    "productSchemaOrMigrationChanges": 0,
+    "frontendChangesForB01": 0
+  },
+  "limitations": [
+    "Historical full Backend 529 PASS / 11 FAIL not rerun or cleared; historical combined coverage 59.3662% remains below 80%",
+    "Full Frontend/browser and genuine E2E acceptance incomplete",
+    "Remaining reference/concurrency combinations in T05..T10 not all covered",
+    "Same-project contention may increase with parent locks; no load/Provider-backed generation performance acceptance",
+    "Raw private logs may contain fresh disposable credentials; only hashes and safe summaries published",
+    "After-source hashes bind the repaired files; pre-repair full-source hash snapshot was not separately captured in this continuation"
+  ]
+}

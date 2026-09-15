@@ -203,6 +203,10 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
+  # Operator-bound release contract. Empty settings never pass bootstrap/readiness.
+  requiredVersion: ""
+  requiredChecksum: ""
+  checkTimeoutSeconds: 10
   jdbcUrl: ""
   userSecretKey: DATABASE_MIGRATION_USER
   passwordSecretKey: DATABASE_MIGRATION_PASSWORD

@@ -1,0 +1,71 @@
+{
+  "date": "2026-09-13",
+  "requirement": "V49-U001..U006/U010..U012",
+  "authorization": "Peter: Ok — one new unencrypted backup and isolated restore; no V049/deploy",
+  "status": "FAILED_NOT_USABLE",
+  "prepare_source_exit": 0,
+  "backup_cli_exit": 1,
+  "failure_code": "member_comments_state_differs",
+  "failure_phase": "member comment precheck before write transaction",
+  "differing_categories": "UNKNOWN: actual_state differences were not recorded",
+  "source_binding_sha256": "fe7cd20df51f68b6b2933f9e2bd6b8378b8f17b6a66ed192bdb6a2b5548de308",
+  "qualification_directory": "/private/tmp/v049-backup-plain-r6-dbi2mr3c",
+  "directory": "/Users/peter/NomoSmartBackups/V049/run-20260913T120543Z-da508f9c7bd2591a",
+  "archive": {
+    "filename": "database.partial.dump",
+    "bytes": 1213458,
+    "sha256": "1a5519f24931c87e2c6f52f404aeaccc6777881c857acb15c69dda72aee7b4ef",
+    "encrypted": false,
+    "usable_backup": false,
+    "retained": true
+  },
+  "source_snapshot_counts": {"tables": 62, "rows": 1341},
+  "full_comparison": false,
+  "comment_replay_committed": false,
+  "export_claim_consumed": true,
+  "qualified_still_valid_at_audit": "PASS",
+  "independent_cleanup_audit": {
+    "owned_container_removed": true,
+    "container_id": "db6465890c52badad1bbb728c5abeb6d9156ee6291ab08b0cc0e4f9d3ed70f68",
+    "container_run": "v49b-5d48494d5abefd2e",
+    "owned_pg_count": 0,
+    "docker_baseline_equal": true
+  },
+  "independent_post_failure_readonly_audit": {
+    "current_identity_protections_baseline_compatibility_equal": true,
+    "release_revision": 36,
+    "v049_rows": 0,
+    "checks_sha256": "ba13f46cdb87fce5ce5fa816c654daaea09a05a919119fa3ca1d2bcb8d9dc18d",
+    "protected_baseline_sha256": "747ee6b2fc741f06d7ab1302c76aa52f508c6a48a8a86f53e3da8260d600eea1",
+    "private_custody": "PASS"
+  },
+  "tool_sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "e42eeb866dfd7fd8db13a5051c699d2b2660352e2663443a04706418a16a56c9",
+    "backend/tests/test_chg291_v049_live_backup.py": "dd9d88d0f5c8c8c15986b8579731a09e5bd2d794fb567b5f14c244161c086152"
+  },
+  "report_hashes": {
+    "restore-identity-v3.json": "70c9dcfd1d3d2761da6b8de81ba25c1f0ac39690dc88597757902a49de042ed4",
+    "schema-evidence-v1.json": "2ada48cec148836d7b535371ba3ee14b4f972ddee42debb1d7f6e7a91c1c880d",
+    "extension-member-comments-v2.json": "3270e6095501893c0341eb093077fe6ed29c0b0f1d35fa1327cf9ea255ad1731",
+    "source-binding.json": "1aa53340b5220563ed5ae705d5deb9dc2c91622509d5af5a6a29dd54e78c9184",
+    "container-intent.json": "0e4e0e95bef755ea46b6e47ed48fedf12df57b8f8bb2fa06a79c4257b38d94ff",
+    "entry-claim.json": "1ff12a2b46e96ba6aa2eae06d603bf685bdd9b4d86f65748ccd94bef178523f0",
+    "snapshot.json": "54bfb213b84444e945e78709406d723f2618da51db8d72e3b4172bd0a5ac703b",
+    "backup-source-v1.json": "86008ede1254950fd764dd8b5a7c0d779cb7f42b06ddcc03f7be1c4a65ba77b0",
+    "container-receipt.json": "89344cfffb9bc0ba2249c140ab335fb1e3af2b8fe8bb704c631cfb161e525328",
+    "failed.json": "731702a15de37b7bc3e6082061a437c26e5e19a4793ab9fc89d6d6cbf469305a",
+    "schema-comparison-39ab9440b58a2c18.json": "56586f3421d32ada304eb36600f5cba01c52f1ec4865413c716ebb24bcc9f0fb",
+    "member-comments-replay-2879700442290805.json": "fd97adf43428efc518a7e68452e34679e9a900b4a1f961903b3920fa138bc490",
+    "restore-preparation-14f61fc7511f1b9f.json": "37fd464ccc8f8c859285d0952988a4ffa7f3599c880d0e027026e5fb704e0985"
+  },
+  "logs": {
+    "directory": "/private/tmp/v049-r7-current-backup-RMjr4RZ9",
+    "prepare-source.log": "30a3356cd57991f819d90bd833da63fe1d002e16e64ecff0ea112b347b08e14b",
+    "backup-cli.log": "7827a6946837a03dcf7dca849773bcce8bd981d718cb709ea3f9e907d78a1fd8"
+  },
+  "retry": false,
+  "historical_r2_replay": false,
+  "migration_applied": false,
+  "deployment": false,
+  "provider_call": false
+}

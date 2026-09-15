@@ -106,9 +106,18 @@ def test_helm_schema_rejects_ambiguous_modes_and_floating_tags() -> None:
     image_tag = schema["definitions"]["image"]["properties"]["tag"]
     assert component_mode["enum"] == ["bundled", "external"]
     assert set(image_tag["not"]["enum"]) == {"latest", "stable", "main", "master"}
+    helm = shutil.which("helm")
+    assert helm, "Real local Helm is required for values schema acceptance"
+    baseline = subprocess.run([helm, "template", "chg295-contract", str(CHART)], capture_output=True, text=True)
+    assert baseline.returncode == 0, baseline.stderr
     for name in PERIPHERALS:
-        expected = "#/definitions/opensearch" if name == "opensearch" else "#/definitions/component"
-        assert schema["properties"][name]["$ref"] == expected
+        # Equivalent inline/allOf/$ref schemas are acceptable; validate behavior
+        # with Helm rather than requiring one serialization of JSON Schema.
+        for field, value in [("mode", "ambiguous"), *[("image.tag", tag) for tag in image_tag["not"]["enum"]]]:
+            result = subprocess.run([helm, "template", "chg295-contract", str(CHART),
+                "--set-string", f"{name}.{field}={value}"], capture_output=True, text=True)
+            assert result.returncode != 0, (name, field, value)
+            assert name in result.stderr and "schema" in result.stderr.lower(), result.stderr
 
 
 def test_migration_image_uses_the_verified_current_flyway_release() -> None:

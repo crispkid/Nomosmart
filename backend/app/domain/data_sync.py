@@ -13,7 +13,7 @@ from app.core.config import Settings
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, OutboxEvent, Project
-from app.domain.document_imports import ObjectStorage, UploadedFilePayload, queue_document_extraction, validate_file_payload
+from app.domain.document_imports import ObjectStorage, UploadedFilePayload, validate_file_payload
 from app.domain.reference_events import create_source_reference_events
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension
 from app.integrations.remote_sources import FTPRemoteSourceClient, FTPSRemoteSourceClient, HTTPRemoteSourceClient, SFTPRemoteSourceClient
@@ -143,20 +143,21 @@ def _execute_data_source_sync_attempt(
         session.add(version)
         session.flush()
     _store_version_source(settings=settings, storage=snapshot, project=project, document=document, version=version, original_name=original_name, remote=remote, identity=identity)
-    queued_at = datetime.now(UTC)
+    synced_at = datetime.now(UTC)
+    # Sync only preserves the source. The explicit manual extraction action
+    # selects OCR and enqueues a pipeline (DSYNC-MANUAL-001).
     version.status = "ready_for_extraction"
     version.chunk_strategy = {**(version.chunk_strategy or {}), "data_sync_run_id": str(run.id), "previous_source_version_id": str(latest.id) if latest else None}
-    version.updated_at = queued_at
-    document.updated_at = queued_at
-    queue_document_extraction(session, project=project, document=document, version=version)
+    version.updated_at = synced_at
+    document.updated_at = synced_at
     run.status = "success"
-    run.completed_at = queued_at
+    run.completed_at = synced_at
     run.content_fingerprint = identity.content_sha256
     run.document_version_id = version.id
     run.remote_metadata = _remote_metadata(connection, remote, identity.content_sha256)
     connection.last_sync_status = "success"
-    connection.last_synced_at = queued_at
-    connection.updated_at = queued_at
+    connection.last_synced_at = synced_at
+    connection.updated_at = synced_at
     create_source_reference_events(session, source_document=document, event_type="source_updated", old_source_version_id=latest.id if latest else None, new_source_version_id=version.id)
     add_audit(session, actor_user_id=None, action="data_source.sync.success", resource_type="data_sync_run", resource_id=run.id, result="success", request_id=None, summary={"data_connection_id": str(connection.id), "document_id": str(document.id), "document_version_id": str(version.id), "fingerprint": identity.content_sha256})
     return run

@@ -34,7 +34,9 @@ test("counts persisted question-answer records as turns and blocks duplicate sub
 
   assert.doesNotMatch(documentChat, /conversationEntries\.length \* 2/);
   assert.doesNotMatch(projectChat, /conversation\.entries\.length \* 2/);
-  assert.match(documentChat, /entry\.recordId && !entry\.loading && !entry\.error/);
+  // CHG-293 history cards use Backend persisted turns, never transient draft entries.
+  assert.match(documentChat, /histories\.map\(\(item\)/);
+  assert.match(documentChat, /count: item\.message_count/);
   assert.match(projectChat, /entry\.recordId && !entry\.loading && !entry\.error/);
   assert.match(documentChat, /\|\| queryBusy/);
   assert.match(projectChat, /\|\| queryBusy/);

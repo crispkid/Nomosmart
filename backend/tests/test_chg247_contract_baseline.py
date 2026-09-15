@@ -55,6 +55,8 @@ def test_perm_005_capability_vocabulary_is_fixed_and_deny_by_default() -> None:
         "can_view_graph",
         "can_submit_review",
         "can_manage_lifecycle",
+        "can_archive_project",
+        "can_retry_archive_cleanup",
     )
     assert len(PROJECT_CAPABILITY_KEYS) == len(ProjectCapability)
     assert empty_project_capabilities() == {key: False for key in PROJECT_CAPABILITY_KEYS}

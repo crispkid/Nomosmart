@@ -79,7 +79,43 @@ class SecretFileSettingsSource(PydanticBaseSettingsSource):
         return values
 
 
-class Settings(BaseSettings):
+class MigrationTargetSettings(BaseSettings):
+    """Release target shared with Frontend init; no database credentials."""
+
+    model_config = SettingsConfigDict(case_sensitive=False, extra="ignore")
+    migration_required_version: str = Field(default="", max_length=80, pattern=r"^$|^[0-9]+(?:[._][0-9]+)*$")
+    migration_required_checksum: int | None = Field(default=None, ge=-(2**31), le=2**31 - 1)
+    migration_check_timeout_seconds: int = Field(default=10, ge=1, le=60)
+
+    @field_validator("migration_required_checksum", mode="before")
+    @classmethod
+    def validate_migration_checksum(cls, value: Any) -> int | None:
+        if value is None or value == "":
+            return None  # The runtime gate rejects missing contracts.
+        if type(value) is int:
+            return value
+        if isinstance(value, str):
+            unsigned = value[1:] if value.startswith("-") else value
+            if unsigned and unsigned.isascii() and unsigned.isdecimal():
+                return int(value)
+        raise ValueError("Migration checksum must be a signed 32-bit integer")
+
+    @classmethod
+    def settings_customise_sources(
+        cls, settings_cls: type[BaseSettings], init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource, dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        return (init_settings, env_settings, dotenv_settings, SecretFileSettingsSource(settings_cls), file_secret_settings)
+
+
+class MigrationProbeSettings(MigrationTargetSettings):
+    """Read-only database probe; no unrelated application credentials."""
+
+    database_url: SecretStr
+
+
+class Settings(MigrationProbeSettings):
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
@@ -203,23 +239,6 @@ class Settings(BaseSettings):
     kubernetes_secret_mount_root: str = "/var/run/nomosmart-secrets"
     compose_secret_mount_root: str = "/run/secrets"
     runtime_secret_allowed_refs: str = ""
-
-    @classmethod
-    def settings_customise_sources(
-        cls,
-        settings_cls: type[BaseSettings],
-        init_settings: PydanticBaseSettingsSource,
-        env_settings: PydanticBaseSettingsSource,
-        dotenv_settings: PydanticBaseSettingsSource,
-        file_secret_settings: PydanticBaseSettingsSource,
-    ) -> tuple[PydanticBaseSettingsSource, ...]:
-        return (
-            init_settings,
-            env_settings,
-            dotenv_settings,
-            SecretFileSettingsSource(settings_cls),
-            file_secret_settings,
-        )
 
     @field_validator("app_encryption_key")
     @classmethod

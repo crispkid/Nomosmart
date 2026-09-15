@@ -1,0 +1,44 @@
+{
+  "date": "2026-09-13",
+  "change": "CHG-291 R1",
+  "status": "PASS",
+  "run": "/private/tmp/v049-backup-plain-ma9flk8v",
+  "tests": {"passed": 55, "failed": 0, "errors": 0, "human_gpg": "NOT RUN; 1 deselected"},
+  "coverage": {
+    "covered_statements": 829, "statements": 1022,
+    "covered_branches": 134, "branches": 166,
+    "statement_percent": 81.11545988258317,
+    "branch_percent": 80.72289156626506,
+    "combined_percent": 81.06060606060606,
+    "excluded_lines": 0
+  },
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "b96989109f2d196b5a044c5bd4f79b5de26836389e7b6fda1d377a9a6851d248",
+    "backend/tests/test_chg291_v049_live_backup.py": "b28588d22fffb1019ffb641a774685f937e4b77da32f7497765809fdf800a14e"
+  },
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "reports": {
+    "qualified.json": "ef0864c1b03e2dd0f4b59600d84f0a48227fa3818fe36ce542de24f8c6f39947",
+    "tests.xml": "c40a0476974221960e400a2f59862534328c2eb408abb5eb1f23254f421ed9ed",
+    "coverage.json": "6cf70c5c71f124a36bfe047feb879b3da786b48301fd13e7edced431332b60ff",
+    "coverage-combined.json": "515375bd6c06adbcf835e1dbe92fbcfe1bd3588bb388e44c06a6a50e4ec00c17",
+    "cleanup.json": "7b9f4d68f17ae51534015f1eec71d525f347ea85c526846e8ec1292f7fab2ced",
+    "readonly-result.json": "6ebc1b9bac6252747a599c3c6707639f8487f7d72bf75ae161d0d82e69723c4d"
+  },
+  "source_readonly": {
+    "status": "PASS", "exit_code": 0,
+    "context": "docker-desktop", "namespace": "nomosmart", "revision": 36,
+    "pod_uid": "83e48efc-56e4-4cda-81da-e9117acb9ef6",
+    "database": "nomosmart", "flyway_latest": ["048", 1657807790, true],
+    "v049_rows": 0, "failed_migrations": 0, "projects": 1, "owners": 1, "members": 3,
+    "secret_representation": "PartialObjectMetadataList; no full-object fallback",
+    "current_data_export": false, "provider_calls": 0, "mutations": false
+  },
+  "synthetic_cleanup": "PASS; exact owned containers removed and Docker inventory unchanged",
+  "retained_earlier_runs": [
+    {"suffix": "2bqhpniw", "passed": 54, "status": "FAIL; readonly coverage file permissions masked earlier HTTP error"},
+    {"suffix": "ajwzjozv", "passed": 54, "status": "FAIL; metadata_only_http_406 from singular Accept type for list"},
+    {"suffix": "uaih9jxp", "passed": 54, "status": "FAIL; readonly PASS but branch 79.51807228915662%"}
+  ],
+  "scope": "Backup tool qualification only; not whole-product coverage or deployment acceptance"
+}

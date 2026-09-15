@@ -1,0 +1,190 @@
+{
+  "change": "CHG-291 R4",
+  "date": "2026-09-13",
+  "artifact_directory": "/private/tmp/v049-backup-plain-r4-rdz0MHgj",
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "ceefb6c0de67a80684fc571a9815087fc02a46e838b877f47abd654ec2fb454f",
+    "backend/tests/test_chg291_v049_live_backup.py": "b6db9ea71de78c53e30f0aa1d11ed7cf65e9cb9756a6116ef2699c256d851269"
+  },
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "pytest": {
+    "exit_code": 0,
+    "passed": 133,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "human_gpg_deselected": 1,
+    "new_r4_cases": 39,
+    "original_t15": "PASS"
+  },
+  "coverage": {
+    "pytest_only": {
+      "covered_lines": 1098,
+      "num_statements": 1383,
+      "percent_covered": 79.49843260188088,
+      "percent_covered_display": "79",
+      "missing_lines": 285,
+      "excluded_lines": 0,
+      "percent_statements_covered": 79.39262472885032,
+      "percent_statements_covered_display": "79",
+      "num_branches": 212,
+      "num_partial_branches": 14,
+      "covered_branches": 170,
+      "missing_branches": 42,
+      "percent_branches_covered": 80.18867924528301,
+      "percent_branches_covered_display": "80"
+    },
+    "combined_real_tests_and_report_validation": {
+      "covered_lines": 1110,
+      "num_statements": 1383,
+      "percent_covered": 80.31347962382445,
+      "percent_covered_display": "80",
+      "missing_lines": 273,
+      "excluded_lines": 0,
+      "percent_statements_covered": 80.26030368763557,
+      "percent_statements_covered_display": "80",
+      "num_branches": 212,
+      "num_partial_branches": 15,
+      "covered_branches": 171,
+      "missing_branches": 41,
+      "percent_branches_covered": 80.66037735849056,
+      "percent_branches_covered_display": "81"
+    },
+    "r4_profile_and_integration": {
+      "covered_lines": 149,
+      "num_statements": 150,
+      "covered_branches": 22,
+      "num_branches": 24,
+      "statements_percent": 99.33333333333333,
+      "branches_percent": 91.66666666666667
+    },
+    "exclusions_added": 0,
+    "thresholds_unchanged": true
+  },
+  "original_t15": {
+    "catalog_status": "EQUAL",
+    "changed_objects": 0,
+    "equal_categories": {
+      "properties": true,
+      "roles": true,
+      "schema": true,
+      "tables": true,
+      "sequences": true,
+      "large_objects": true
+    },
+    "schema_text_differences": 0,
+    "prior_r3_owner_differences": 43,
+    "prior_r3_acl_differences": 41
+  },
+  "cleanup": {
+    "baseline_equal": true,
+    "owned_containers_remaining": 0,
+    "sources": {
+      "backend/scripts/chg291_v049_live_backup.py": "ceefb6c0de67a80684fc571a9815087fc02a46e838b877f47abd654ec2fb454f",
+      "backend/tests/test_chg291_v049_live_backup.py": "b6db9ea71de78c53e30f0aa1d11ed7cf65e9cb9756a6116ef2699c256d851269"
+    },
+    "kubernetes_access": false,
+    "live_database_access": false,
+    "provider_calls": 0
+  },
+  "reports": {
+    ".coverage.combined": {
+      "sha256": "80edb060ac703bc6720e345ec3e95b78a89c2820bb22f9e22d04beed60ff7bbb",
+      "bytes": 114688
+    },
+    ".coverage.report-validation": {
+      "sha256": "066b9e2ee7325a6566568a1fa1fd4a50b776efb77172f9a6e4ebd92201a4be11",
+      "bytes": 69632
+    },
+    ".coverage.tests": {
+      "sha256": "e6b163e733f25183029db80fbd01f6ffce0d2cb3a5df236a5857e0d39fa08a89",
+      "bytes": 114688
+    },
+    "cleanup.json": {
+      "sha256": "7098bdcfed1074ec4ea4549c2a470b1da47e3e78325b191f6a5828e39475e1f5",
+      "bytes": 299
+    },
+    "coverage-combined.json": {
+      "sha256": "c24be98f8ab56bc78390f40cf98c507b5240d313d02e60b3c5e7d8b0c1fa6502",
+      "bytes": 101753
+    },
+    "coverage.json": {
+      "sha256": "ac5ffa20c2c4c58a97381e295001623ebd4ff9aacdf5e8fdf69f83464c60eefb",
+      "bytes": 101760
+    },
+    "extension_owner_6562aa37/cleanup.json": {
+      "sha256": "61ca8f96d82491a1d1eb56ff0458a52c354e53fbca73ab987296523e4d6f9833",
+      "bytes": 397
+    },
+    "extension_owner_6562aa37/comparison-diagnostic.json": {
+      "sha256": "b684681d39a35fec726e353273c0dd3767f34da277e83096ba9ee015d5d74600",
+      "bytes": 225
+    },
+    "extension_owner_6562aa37/object-comparison.json": {
+      "sha256": "08c2ea26f99b4885bcdaca1eb0440eb6e36747075b253af62e5831ced518d1ad",
+      "bytes": 262
+    },
+    "extension_owner_6562aa37/restore-preparation-514b3fdcaca1687f.json": {
+      "sha256": "3bcf523695913935b550b046729040105cc03477b9e079a6068db89b4ee2e816",
+      "bytes": 343
+    },
+    "final-inventory-validation.json": {
+      "sha256": "f06d8db5ace9a20bf865a1ab7a716b321a00c3c6aec74b4e8351ec629d43faa4",
+      "bytes": 408
+    },
+    "r4_default_575a5992/restore-preparation-c7ad5664705d23b8.json": {
+      "sha256": "f68543a6deb639ad7cba87f4ef35bd7b581d795adc80adbdbb738a4a663d333b",
+      "bytes": 344
+    },
+    "r4_default_575a5992/restore_de18e6ff/restore-proof.json": {
+      "sha256": "add493ba8f68a607e0e2b24d2a053938180acddcaf0fb2bbb8e1fbfc2a478f32",
+      "bytes": 1006
+    },
+    "r4_default_f6471601/restore-preparation-1ba1f3426209165a.json": {
+      "sha256": "fade64d2a35865aa6df56dbbd5b9137d9c10c3c6598cbbae6cb9fd4533ff17ef",
+      "bytes": 344
+    },
+    "r4_default_f6471601/restore_162ffbaa/restore-proof.json": {
+      "sha256": "81d842f6ff2df8d612b0fa351e10ec89dc4a3509ba77b9d9d2a28942816ce07d",
+      "bytes": 1006
+    },
+    "r4_interrupt_048b497a/cleanup.json": {
+      "sha256": "44ab20c00d6ae447d7cf7ab326c7874e7c7a20746b566f44f4abb65966c272d8",
+      "bytes": 399
+    },
+    "report-guard-validation.json": {
+      "sha256": "79cc9592715dd587f24543e667180740c2a931fcde0b215e54d72615b09e4f6d",
+      "bytes": 919
+    },
+    "tests.xml": {
+      "sha256": "2e934e0d49217370cc53b80254f9db6346bd69e2e9be75d7acb8a10c140c4754",
+      "bytes": 14333
+    },
+    "verify-report-guards.py": {
+      "sha256": "65e8e09d92b53458f7e0699134816952f7cc04cb39f02283961e59dc5782bafb",
+      "bytes": 1940
+    }
+  },
+  "qualification": {
+    "whole_tool_coverage_gate": "PASS",
+    "qualified_json_created": false,
+    "current_readonly_qualification": "NOT RUN",
+    "retained_real_backup": "UNCHANGED / NOT QUALIFIED",
+    "deployment": "NOT RUN",
+    "application_release_acceptance": "NOT CLOSED"
+  },
+  "earlier_iterations": [
+    {
+      "directory": "/private/tmp/v049-backup-plain-r4-cQDJuAnN",
+      "result": "Original T15 narrow 1 PASS before subsequent source changes"
+    },
+    {
+      "directory": "/private/tmp/v049-backup-plain-r4-fD1JVAEj",
+      "result": "34 PASS / 4 FAIL; fixed actual pgcrypto version and initializer-name support, corrected genuine initial ACL setup; reports retained"
+    },
+    {
+      "directory": "/private/tmp/v049-backup-plain-r4-uiRBHbIL",
+      "result": "Focused 41 PASS before final one-container/post-restore binding guards"
+    }
+  ]
+}

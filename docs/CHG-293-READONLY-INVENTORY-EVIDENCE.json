@@ -1,0 +1,473 @@
+{
+  "change": "CHG-293",
+  "spec": "10.50 / CHAT-COMPAT-001 / PROJECT-014",
+  "scope": "Bounded metadata-only PostgreSQL and runtime read-only inventory; not build, dry-run, deployment or full preservation baseline",
+  "cluster": {
+    "context": "docker-desktop",
+    "namespace": "nomosmart",
+    "release": "nomosmart-local",
+    "revision_before": 36,
+    "revision_after": 36,
+    "status": "deployed",
+    "backend_image": "nomosmart/backend:0.1.0-chg292",
+    "backend_image_id": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+    "frontend_image": "nomosmart/frontend:0.1.0-chg292",
+    "frontend_image_id": "sha256:82df26d3807ebc3904826135ae61f10aaf3a6a2a6a5464d2d822638a7935bbd9",
+    "migration_image": "nomosmart/migrations:0.1.0-chg288",
+    "schema_contract": "forward-v047",
+    "backend_pod": "nomosmart-local-backend-84d697f6b6-mzqgj",
+    "backend_pod_uid": "f2af07b3-2deb-4cda-bd8a-c496caf5fd97",
+    "running_pods": 15,
+    "all_running_pods_ready": true,
+    "application_pod_restarts": 0,
+    "restart_counts_stable_between_reads": true
+  },
+  "health": {
+    "tls_verification": true,
+    "checks": [
+      {
+        "path": "/login",
+        "status": 200,
+        "seconds": 5.082962
+      },
+      {
+        "path": "/api/backend/health",
+        "status": 200,
+        "seconds": 5.055829
+      },
+      {
+        "path": "/api/backend/ready",
+        "status": 200,
+        "seconds": 5.163041
+      }
+    ],
+    "limitation": "Single host GET pass, not availability/SLO certification; latency component not diagnosed"
+  },
+  "source_sha256": {
+    "backend/app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+    "backend/app/security/project_roles.py": "53c88e8cd954d215b569f79296486d8d9e2db8e741956756a13c1094acc3ac81",
+    "backend/app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+    "backend/app/api/routes/serving.py": "0460c652e6815715cf86d56fe82b16ddf5e335c1883c07d0a192051a66a3adeb"
+  },
+  "diagnostic": {
+    "path": "/tmp/chg293-readonly.rl5RIj/inventory.py",
+    "sha256": "671eaaa5ea03751b9908d3785b27e92a8d867e58d364e37aad0777f846976d33",
+    "row_limit": 10000,
+    "imports": [
+      "sqlalchemy",
+      "app.core.config.get_settings"
+    ],
+    "transaction_end": "rollback",
+    "sensitive_output": false,
+    "app_entrypoint_imported": false,
+    "provider_calls": false
+  },
+  "pre": {
+    "captured_at_utc": "2026-09-09T18:36:41.249623+00:00",
+    "chat_metadata_sha256": "0512c71a287c2a0283e7abc4a9c6187526efa73dca55e9868751ee5103e601fc",
+    "chunk_columns": [
+      {
+        "column_name": "display_markdown",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "heading_path",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "superseded_by_id",
+        "data_type": "uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "chunk_constraints": [
+      {
+        "conname": "chunks_superseded_by_id_fkey",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (superseded_by_id) REFERENCES chunks(id)"
+      },
+      {
+        "conname": "ck_chunks_heading_path_array",
+        "convalidated": true,
+        "definition": "CHECK (((heading_path IS NULL) OR (jsonb_typeof(heading_path) = 'array'::text)))"
+      }
+    ],
+    "conversations": [
+      {
+        "conversation_id": "66841360-3f5f-4c2a-90ef-84c1578272ca",
+        "creator_active": true,
+        "creator_exists": true,
+        "creator_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd",
+        "creator_is_current_member": true,
+        "creator_name_available": true,
+        "exclusion_reasons": [],
+        "identity_valid_under_chg293": true,
+        "project_ids": [
+          "9e1d3e43-8069-4965-84d1-f5890880b3d4"
+        ],
+        "related_version_warnings": [],
+        "scope_modes": [
+          "document_staging"
+        ],
+        "selected_version_ids": [
+          "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+        ],
+        "turns": 4
+      },
+      {
+        "conversation_id": "a910917f-8886-4ab7-a89a-06dc6c5ecac6",
+        "creator_active": true,
+        "creator_exists": true,
+        "creator_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd",
+        "creator_is_current_member": true,
+        "creator_name_available": true,
+        "exclusion_reasons": [],
+        "identity_valid_under_chg293": true,
+        "project_ids": [
+          "9e1d3e43-8069-4965-84d1-f5890880b3d4"
+        ],
+        "related_version_warnings": [
+          "deleted_document"
+        ],
+        "scope_modes": [
+          "document_staging"
+        ],
+        "selected_version_ids": [
+          "98050420-1be2-401c-9209-53ab271681b8"
+        ],
+        "turns": 7
+      }
+    ],
+    "counts": {
+      "active_manifests": 0,
+      "chat_records": 11,
+      "project_member_rows": 3,
+      "project_owner_rows": 1,
+      "projects": 1,
+      "public_api_request_logs": 0,
+      "usage_events": 84,
+      "users": 8,
+      "versions": 3
+    },
+    "database_safeguards": {
+      "isolation": "repeatable read",
+      "lock_timeout": "1s",
+      "read_only": "on",
+      "statement_timeout": "10s"
+    },
+    "heading_path_counts": {
+      "arrays": 11,
+      "chunks": 38,
+      "json_null": 0,
+      "sql_null": 27
+    },
+    "metadata_hashes": {
+      "chats": "0512c71a287c2a0283e7abc4a9c6187526efa73dca55e9868751ee5103e601fc",
+      "effective_grants": "ef47cb2e4b79ca54f7b5ed7f60122614973da5ed6eb83f351396505bdc3996f8",
+      "members": "cbfb0c19ca5b90679209019c32760fd3e2c25f465059fd4f375e6fed5e6a0990",
+      "owners": "60dc34c710dce51148027ee85fad41a9a2dabdacea4ebf61c03f8e136c03d2d9",
+      "projects": "236010b09ee819523328dada7fd8ea2c66b341739385b95afa602e5f7f64f603",
+      "users_flags": "7581af2ce034c6f28ed7603e6528848da1c5335ad1bb838852ef1eee0fa6bc02",
+      "versions": "6be34f0d197693d878269d81a86e7dfe60b12d41d71f7573a308e36a3beaf47e"
+    },
+    "migration": {
+      "failures": 0,
+      "max_rank": 48,
+      "max_version": 48,
+      "rows": 48,
+      "v049_rows": 0
+    },
+    "mode": "read_only_metadata_inventory",
+    "outbox_status_counts": [
+      {
+        "count": 34,
+        "status": "dispatched"
+      }
+    ],
+    "project_roles": [
+      {
+        "archive_execute": false,
+        "canonical_role": "editor",
+        "editor_with_archive_execute": false,
+        "governance_owner": false,
+        "is_user02": true,
+        "member_roles": [
+          "editor",
+          "viewer"
+        ],
+        "menu_view": true,
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "unknown_role": false,
+        "user_active": true,
+        "user_id": "b38d3df7-ae45-4585-a2f1-207e34b9731f"
+      },
+      {
+        "archive_execute": true,
+        "canonical_role": "owner",
+        "editor_with_archive_execute": false,
+        "governance_owner": true,
+        "is_user02": false,
+        "member_roles": [
+          "owner"
+        ],
+        "menu_view": true,
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "unknown_role": false,
+        "user_active": true,
+        "user_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd"
+      }
+    ],
+    "summary": {
+      "conversations": 2,
+      "editor_archive_execute_pairs": 0,
+      "excluded_reasons": {},
+      "inactive_creators": 0,
+      "member_role_overlaps": 1,
+      "missing_creator_names": 0,
+      "missing_creators": 0,
+      "user02_matches": 1,
+      "valid_conversations": 2
+    },
+    "versions_metadata": [
+      {
+        "document_deleted": true,
+        "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+        "document_status": "deleted",
+        "id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "failed"
+      },
+      {
+        "document_deleted": true,
+        "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+        "document_status": "deleted",
+        "id": "98050420-1be2-401c-9209-53ab271681b8",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "submission_ready"
+      },
+      {
+        "document_deleted": false,
+        "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+        "document_status": "inactive",
+        "id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "submission_ready"
+      }
+    ]
+  },
+  "post": {
+    "captured_at_utc": "2026-09-09T18:37:30.239571+00:00",
+    "chat_metadata_sha256": "0512c71a287c2a0283e7abc4a9c6187526efa73dca55e9868751ee5103e601fc",
+    "chunk_columns": [
+      {
+        "column_name": "display_markdown",
+        "data_type": "text",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "heading_path",
+        "data_type": "jsonb",
+        "is_nullable": "YES"
+      },
+      {
+        "column_name": "superseded_by_id",
+        "data_type": "uuid",
+        "is_nullable": "YES"
+      }
+    ],
+    "chunk_constraints": [
+      {
+        "conname": "chunks_superseded_by_id_fkey",
+        "convalidated": true,
+        "definition": "FOREIGN KEY (superseded_by_id) REFERENCES chunks(id)"
+      },
+      {
+        "conname": "ck_chunks_heading_path_array",
+        "convalidated": true,
+        "definition": "CHECK (((heading_path IS NULL) OR (jsonb_typeof(heading_path) = 'array'::text)))"
+      }
+    ],
+    "conversations": [
+      {
+        "conversation_id": "66841360-3f5f-4c2a-90ef-84c1578272ca",
+        "creator_active": true,
+        "creator_exists": true,
+        "creator_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd",
+        "creator_is_current_member": true,
+        "creator_name_available": true,
+        "exclusion_reasons": [],
+        "identity_valid_under_chg293": true,
+        "project_ids": [
+          "9e1d3e43-8069-4965-84d1-f5890880b3d4"
+        ],
+        "related_version_warnings": [],
+        "scope_modes": [
+          "document_staging"
+        ],
+        "selected_version_ids": [
+          "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+        ],
+        "turns": 4
+      },
+      {
+        "conversation_id": "a910917f-8886-4ab7-a89a-06dc6c5ecac6",
+        "creator_active": true,
+        "creator_exists": true,
+        "creator_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd",
+        "creator_is_current_member": true,
+        "creator_name_available": true,
+        "exclusion_reasons": [],
+        "identity_valid_under_chg293": true,
+        "project_ids": [
+          "9e1d3e43-8069-4965-84d1-f5890880b3d4"
+        ],
+        "related_version_warnings": [
+          "deleted_document"
+        ],
+        "scope_modes": [
+          "document_staging"
+        ],
+        "selected_version_ids": [
+          "98050420-1be2-401c-9209-53ab271681b8"
+        ],
+        "turns": 7
+      }
+    ],
+    "counts": {
+      "active_manifests": 0,
+      "chat_records": 11,
+      "project_member_rows": 3,
+      "project_owner_rows": 1,
+      "projects": 1,
+      "public_api_request_logs": 0,
+      "usage_events": 84,
+      "users": 8,
+      "versions": 3
+    },
+    "database_safeguards": {
+      "isolation": "repeatable read",
+      "lock_timeout": "1s",
+      "read_only": "on",
+      "statement_timeout": "10s"
+    },
+    "heading_path_counts": {
+      "arrays": 11,
+      "chunks": 38,
+      "json_null": 0,
+      "sql_null": 27
+    },
+    "metadata_hashes": {
+      "chats": "0512c71a287c2a0283e7abc4a9c6187526efa73dca55e9868751ee5103e601fc",
+      "effective_grants": "ef47cb2e4b79ca54f7b5ed7f60122614973da5ed6eb83f351396505bdc3996f8",
+      "members": "cbfb0c19ca5b90679209019c32760fd3e2c25f465059fd4f375e6fed5e6a0990",
+      "owners": "60dc34c710dce51148027ee85fad41a9a2dabdacea4ebf61c03f8e136c03d2d9",
+      "projects": "236010b09ee819523328dada7fd8ea2c66b341739385b95afa602e5f7f64f603",
+      "users_flags": "7581af2ce034c6f28ed7603e6528848da1c5335ad1bb838852ef1eee0fa6bc02",
+      "versions": "6be34f0d197693d878269d81a86e7dfe60b12d41d71f7573a308e36a3beaf47e"
+    },
+    "migration": {
+      "failures": 0,
+      "max_rank": 48,
+      "max_version": 48,
+      "rows": 48,
+      "v049_rows": 0
+    },
+    "mode": "read_only_metadata_inventory",
+    "outbox_status_counts": [
+      {
+        "count": 34,
+        "status": "dispatched"
+      }
+    ],
+    "project_roles": [
+      {
+        "archive_execute": false,
+        "canonical_role": "editor",
+        "editor_with_archive_execute": false,
+        "governance_owner": false,
+        "is_user02": true,
+        "member_roles": [
+          "editor",
+          "viewer"
+        ],
+        "menu_view": true,
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "unknown_role": false,
+        "user_active": true,
+        "user_id": "b38d3df7-ae45-4585-a2f1-207e34b9731f"
+      },
+      {
+        "archive_execute": true,
+        "canonical_role": "owner",
+        "editor_with_archive_execute": false,
+        "governance_owner": true,
+        "is_user02": false,
+        "member_roles": [
+          "owner"
+        ],
+        "menu_view": true,
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "unknown_role": false,
+        "user_active": true,
+        "user_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd"
+      }
+    ],
+    "summary": {
+      "conversations": 2,
+      "editor_archive_execute_pairs": 0,
+      "excluded_reasons": {},
+      "inactive_creators": 0,
+      "member_role_overlaps": 1,
+      "missing_creator_names": 0,
+      "missing_creators": 0,
+      "user02_matches": 1,
+      "valid_conversations": 2
+    },
+    "versions_metadata": [
+      {
+        "document_deleted": true,
+        "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+        "document_status": "deleted",
+        "id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "failed"
+      },
+      {
+        "document_deleted": true,
+        "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+        "document_status": "deleted",
+        "id": "98050420-1be2-401c-9209-53ab271681b8",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "submission_ready"
+      },
+      {
+        "document_deleted": false,
+        "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+        "document_status": "inactive",
+        "id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "published_at": null,
+        "status": "submission_ready"
+      }
+    ]
+  },
+  "comparison": {
+    "counts_equal": true,
+    "metadata_hashes_equal": true,
+    "constraints_equal": true,
+    "migration_equal": true
+  },
+  "limitations": [
+    "No new application API/browser acceptance: deployed image remains CHG-292.",
+    "No Provider call or content/permission/index/graph mutation.",
+    "Metadata/count equality does not assert full contents/index/identity preservation; full deployment baseline remains separate.",
+    "Full frontend/backend 80% coverage and full-flow release gates remain open; no waiver inferred."
+  ]
+}

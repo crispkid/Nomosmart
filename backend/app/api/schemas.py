@@ -757,11 +757,13 @@ class ApprovalRequestResponse(ORMModel):
 class ApprovalTaskPage(BaseModel):
     items: list[ApprovalTaskResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ApprovalRequestPage(BaseModel):
     items: list[ApprovalRequestResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ApprovalPendingPublishResponse(BaseModel):
@@ -1087,13 +1089,21 @@ class ProjectChatConversationResponse(BaseModel):
     selected_document_version_ids: list[UUID]
     message_count: int
     updated_at: datetime
-    can_continue: bool = True
+    can_continue: bool = False
+    created_by_user_id: UUID | None = None
+    created_by_display_name: str | None = None
+    is_mine: bool = False
+    can_delete: bool = False
+    can_evaluate: bool = False
+    can_export: bool = False
+    read_only_reason: str | None = None
     records: list[ProjectChatRecordResponse] = Field(default_factory=list)
 
 
 class ProjectChatConversationPage(BaseModel):
     items: list[ProjectChatConversationResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ProjectChatConversationDeleteResponse(BaseModel):
@@ -1174,6 +1184,7 @@ class IntegrationClientCreateResponse(IntegrationClientResponse):
 class IntegrationClientPage(BaseModel):
     items: list[IntegrationClientResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class IntegrationClientUsageItem(BaseModel):
@@ -1333,11 +1344,13 @@ class ValidationRunResponse(BaseModel):
 class ValidationRunPage(BaseModel):
     items: list[ValidationRunResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ValidationRunItemPage(BaseModel):
     items: list[ValidationRunItemResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ValidationCancellationResponse(BaseModel):
@@ -1414,6 +1427,7 @@ class NotificationResponse(ORMModel):
 class NotificationPage(BaseModel):
     items: list[NotificationResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class NotificationCountResponse(BaseModel):
@@ -1632,6 +1646,7 @@ class IdentitySyncRunResponse(ORMModel):
 class IdentitySyncRunPage(BaseModel):
     items: list[IdentitySyncRunResponse]
     next_cursor: str | None = None
+    has_more: bool
 
 
 class ExternalGroupResponse(ORMModel):

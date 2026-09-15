@@ -30,19 +30,13 @@ def test_upload_goes_directly_to_canonical_storage_without_scanner_chain() -> No
 def test_project_graph_serving_uses_formal_five_node_model() -> None:
     serving = read("backend/app/api/routes/serving.py")
     graph = read("frontend/src/components/ProjectGraphPreview.tsx")
-    project_graph_source = serving
-
-    assert 'type="Project"' in project_graph_source
-    assert 'type="Document"' in project_graph_source
-    assert 'type="Chunk"' in project_graph_source
-    assert 'type="Tag"' in project_graph_source
-    assert 'type="DocumentVersion"' in project_graph_source
-    assert '"PROJECT_HAS_DOCUMENT"' in project_graph_source
-    assert '"DOCUMENT_HAS_VERSION"' in project_graph_source
-    assert '"VERSION_HAS_CHUNK"' in project_graph_source
-    assert '"CHUNK_HAS_TAG"' in project_graph_source
-    assert '"VERSION_HAS_TAG"' in project_graph_source
-    assert '"document_version_ids"' in project_graph_source
+    # CHG-292 moved the same five-node contract into the shared canonical
+    # projection. Live graph equality/isolation is tested by TagGraphTests.
+    from app.domain.graph_projection import LABELS, RELATIONS
+    assert LABELS == {"Project", "Document", "DocumentVersion", "Chunk", "Tag"}
+    assert RELATIONS == {"PROJECT_HAS_DOCUMENT", "DOCUMENT_HAS_VERSION", "VERSION_HAS_CHUNK", "CHUNK_HAS_TAG", "VERSION_HAS_TAG"}
+    assert "build_graph_projection(session, project, document, version)" in serving
+    assert '"document_version_ids"' in serving
     assert "def _uuid_or_none" in serving
     assert 'filter((node) => !node.type.toLowerCase().includes("version"))' in graph
     assert "projectDocumentSources" in graph

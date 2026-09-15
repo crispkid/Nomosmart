@@ -1,0 +1,113 @@
+{
+  "change": "CHG-294",
+  "date": "2026-09-10",
+  "stage": "A image preparation",
+  "request": "可以部署",
+  "effective_scope": "Existing Stage A prerequisites only; no exact-bound Stage B approval or risk waiver inferred",
+  "outcome": {
+    "build": "pass",
+    "functional_image_smoke": "pass",
+    "system_crypto": "3.5.8-r0 verified",
+    "node_bundled_crypto": "3.5.7; no dynamic system crypto linkage; scope review required",
+    "container_high_critical_gate": "pass",
+    "frontend_all_severity_scan": "zero findings reported",
+    "sbom": "pass",
+    "dry_run": "not attempted: promotion stopped for runtime review",
+    "render_sha256": null,
+    "deployed": false,
+    "release_gates_waived": false
+  },
+  "images": {
+    "frontend": {
+      "tag": "nomosmart/frontend:0.1.0-chg294",
+      "id": "sha256:5281abacf6c0ba6fc07c757325aebf9ba9b964ca2eb8ce4f68bd664c36683655",
+      "platform_manifest": "sha256:f1dbb690feb209f678df4cbfeac562692dcec69fa6008344428eb1c7c88a3b6f",
+      "config": "sha256:6ce1479aabb099900269c57d18eb27b39d2760618e2974861b20df6005cc38bb",
+      "architecture": "arm64",
+      "os": "linux",
+      "uid": 10001,
+      "build_id": "jjyhtjhie3xw5n6z488q6pl8r"
+    },
+    "backend": {
+      "tag": "nomosmart/backend:0.1.0-chg293",
+      "id": "sha256:7a367c11fc6a49825c57826714536832e81a27455130b652b7361d78bc2eec4d",
+      "source_files_compared": 113,
+      "all_packaged_source_matches": true,
+      "source_map_sha256": "ae4cd56967180c00cb7dad764ca2ce158594c315aeed74b69cbdbaafc5516d2e",
+      "rebuilt": false
+    },
+    "migration": {
+      "tag": "nomosmart/migrations:0.1.0-chg288",
+      "id": "sha256:bf9cb98e13bc396210a0a82bd785e602bde14ae4e240ca5f81fc9b9c0d4dafab",
+      "rebuilt": false
+    }
+  },
+  "source": {
+    "product_chart_fingerprint_before_after": "578ff4d192c59010a619f519d43156da1188c1fb215272f480ecdb018e2efa79",
+    "package_sha256": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404",
+    "lock_sha256": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+    "dockerfile_sha256": "e19e8fac0d245b2c92bf7714bba6e4da308048f77c85a460df0e6494f4d71086",
+    "product_changes_this_stage": false
+  },
+  "runtime": {
+    "node": "24.20.0",
+    "node_openssl": "3.5.7",
+    "node_system_crypto_dynamic_link": false,
+    "system_openssl": "3.5.8-r0",
+    "system_libssl3": "3.5.8-r0",
+    "system_libcrypto3": "3.5.8-r0",
+    "libc": "musl",
+    "next": "16.3.3",
+    "sharp": "0.35.4",
+    "libvips": "8.18.6",
+    "libheif": "1.23.2",
+    "native_png_jpeg": "16x12 real encode/resize/decode passed",
+    "login_http": 200,
+    "png_jpeg_http": {"status": 200, "mime": "image/webp", "width": 32, "height": 24},
+    "avif_http": {"status": 200, "mime": "image/avif", "width": 64, "height": 48, "original_bytes": true}
+  },
+  "security": {
+    "scanner": "Docker Scout v1.24.0",
+    "backend_high_critical": 0,
+    "frontend_high_critical": 0,
+    "frontend_all_severity_results": 0,
+    "suppression_or_vex": false,
+    "static_bundled_crypto_repaired_proven": false,
+    "application_exploitability_assessed": false,
+    "raw_directory": "/tmp/chg294-image.wyZJzX/security",
+    "artifacts": {
+      "backend.scout.sarif.json": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df",
+      "frontend.scout.sarif.json": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df",
+      "frontend.all-severities.sarif.json": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df",
+      "backend.spdx.json": "7e2436447a2974f5d01d758841161a54b29c06c3bb92d34af2596120fcb6a1b1",
+      "frontend.spdx.json": "d45cf64854d72c081b04345e7a6a87df840a2cb444357a86b23dd193ab201b65"
+    }
+  },
+  "verification_helpers": {
+    "/tmp/chg294-image.wyZJzX/check_backend.py": "df3c15cba770dedbf4c25a9985080ccf02d4c82c6124f2f3fac728ae8205d0c7",
+    "/tmp/chg294-image.wyZJzX/image-smoke.mjs": "0b2b668dba0a828d81e27819a18c7340c47e3104ec97ba4e183068428e485ad8"
+  },
+  "environment": {
+    "context": "docker-desktop",
+    "namespace": "nomosmart",
+    "release": "nomosmart-local",
+    "revision_before": 36,
+    "revision_after": 36,
+    "release_status_before_after": "deployed",
+    "app_deployment_generation_before_after": 32,
+    "app_deployments_ready_before_after": "4 x 1/1",
+    "live_images": "Backend/Frontend chg292",
+    "revision37_jobs_after": 0,
+    "full_protected_data_baseline_refreshed": false,
+    "helm_writes": 0,
+    "kubernetes_mutations": 0,
+    "application_data_writes": 0,
+    "provider_calls": 0,
+    "remaining_stage_smoke_containers": 0
+  },
+  "open_gates": [
+    "Bundled Node OpenSSL scope review; proposed Node 24.21.0 not approved/implemented",
+    "Full Frontend/Backend 80% coverage and full E2E remain incomplete",
+    "Fresh full protected baseline, two canonical hidden-Secret dry runs and exact Stage B approval not completed"
+  ]
+}

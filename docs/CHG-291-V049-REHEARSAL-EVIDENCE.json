@@ -1,0 +1,910 @@
+{
+  "change": "CHG-291 V049 isolated rehearsal",
+  "live_backup": false,
+  "live_migration": false,
+  "image_build": false,
+  "deployment": false,
+  "provider_call": false,
+  "run": "v49-a604e46bd6ef",
+  "raw_evidence": "/private/tmp/v049-rehearsal-zsuhk7a1/evidence.json",
+  "raw_evidence_sha256": "b1f6f89c9b28848c81ad94519b5cae31e8555037006ff790f57dd4ee72a64046",
+  "test_returncode": 0,
+  "cleanup_equal": true,
+  "source_preserved": true,
+  "preexisting_container_count": 14,
+  "baseline_sha256": "0bfcce70565c1bf14194f72fe3409459cb7b7b01fb2a5390222ec8353fdb716b",
+  "created_container_ids": {
+    "pg": "44b2887478df4cfb8a2095d2e444f2014a45a5b594f363cd886002c97ffb6f47",
+    "flyway": "8975123f8eb318c8e6d3287bbe891e3e2ca999181dc96a7feaa4d7b40d1b6cd8",
+    "kc": "4bb6e0abfd9f7afc53e9715add805f463a6ff7c1b4ec16ac6b22f2f4da40826a",
+    "api-deployed-48": "cbad06b54c438968bad4607dd47f96ca9fa7239192bb15eb853f77b1c4f27b11",
+    "api-deployed-49": "a2bf3d65dcb02e740671f3da262b311f37fff1d1aed0ff2f02e1985c213482bb",
+    "api-current-48": "659659786faf41232a0ab1ddb990c24bdb16087e8ae7d7aa1caa7b168ab9cd5e",
+    "api-current-49": "9be2702b2c7bbac2453e95d87f76f0181864d5934769801f62bc196b85dfd91f",
+    "api-rollback-49": "63ab088bcccbdb4d06dcc8df873c075dd204ff7ff89fe8493a004415274c36a3"
+  },
+  "removed_volumes": [
+    "9937b4ef87c88c3593d07154b7c1393d975780ac3ea5eecfb2bbdcfbffdc96d7"
+  ],
+  "removed_network": "eea1f4e0b2cabaef9cf3dc075deb7414d1e92d007aa9ee2908e248113c27bb74",
+  "images": {
+    "pg": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+    "kc": "sha256:5912dc85fd5fdfb89e7a0bba9d9ffe0624fc385d2846e543a0114c3fb4fddc6a",
+    "flyway": "sha256:f3c8433401abf859ef9022584c8e6111684363ec490f737e749e9a4705ea32d0",
+    "backend": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1"
+  },
+  "tooling": {
+    "backend/scripts/chg291_v049_rehearsal.py": "819fa0fc59bbee770b8961ae7ec7303eb31d08fa75ab766f2ee6f05b046f6d7c",
+    "backend/tests/test_chg291_v049_live_rehearsal.py": "0ae4642f1a244c842e11edc2ef0d5f54a2f73b25e624c9ffa92c3edbb6669d5c",
+    "backend/tests/test_chg291_exclusive_project_member_role.py": "c3717598ebfa52a1106db4b46e038b34a08b64e532d62f5abd91817e1183d9eb"
+  },
+  "sources": {
+    "backend/app/__init__.py": "bf24c9ffd0883098066bdeee2f0ba96e24c914545db428f9451beddb926540f3",
+    "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+    "backend/app/api/router.py": "f8928641f097b2589522f4433488da89a6c2a74261570d8567b2ef74d6608325",
+    "backend/app/api/routes/__init__.py": "54fdbe4dbd01a28f6966964cd382c2c7eb06acd9bc1bf2714a0390b172d3fae1",
+    "backend/app/api/routes/approvals.py": "5198c8692996e5688e4c43e56ab3c68dfeac5096b54c1e23b1cb2fa7a6da28ba",
+    "backend/app/api/routes/auth.py": "6193431eae2e96b0e88157b694147b971bec66662ed12503d3bee2b8b7ad820c",
+    "backend/app/api/routes/compatibility.py": "a8475b15033f704e2b7304f4fb04eed663b52d02b1d8727d15ee81cf79795d2d",
+    "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+    "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+    "backend/app/api/routes/health.py": "42f1c2c9f673fb658e507f8c239f8819caff40832ea585c7345f3afac6cc064c",
+    "backend/app/api/routes/identity.py": "57a7d2e82261b6c7148df271ae453f7096c9da03d72dcd482df49de0ea85a7d2",
+    "backend/app/api/routes/identity_settings.py": "853e613f44ff5073891d941b0f5b3fea3f264636dcc2197e2c1b91004302d06b",
+    "backend/app/api/routes/integration_clients.py": "dc64c24813f8d2c83694712372662103e0c2889af088b40ca3ac7d06627f0050",
+    "backend/app/api/routes/models.py": "cb58ce865dab2a7bee19dc755e05d3da5bd9563f4db69a41ac5e9bffe8bc18f0",
+    "backend/app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+    "backend/app/api/routes/public_api.py": "4e1c60da52dd295e65e5c22fce2ba2500a7318deba5d3549f808401af6c4a2a0",
+    "backend/app/api/routes/references.py": "f47776954f89d01f11d0bbb857460d2fb3d897f6b1d218de8b9106c08eda03d7",
+    "backend/app/api/routes/reports.py": "b45ccba3f4df7deae5b7b974247272948e27d798e50c4ad9b0e9a9ce6a5e8c91",
+    "backend/app/api/routes/roles.py": "fc7f53cdb2124d1ae8434051786aed99deb8e060d0ae97fc10ad93eb7c8c558a",
+    "backend/app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+    "backend/app/api/routes/system.py": "ea4748c7080aa84dfc7082fce5f24213e3480ad9d96adcb65226137cc26f2b45",
+    "backend/app/api/routes/system_prompts.py": "840dcda9f4dc9b107d0eb3a0bd5852e0bc47eb7f9a032663f381413b6edf2fb9",
+    "backend/app/api/routes/users.py": "903c4255394d2aa52b13a8ab23dd3ccd93febcf32870f879e8d72b173bb07dd9",
+    "backend/app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+    "backend/app/beat_leader.py": "9d48c1fe9521249f3706ff64d41d5f2c87660a16efaa13e79ac6556ff3b6246a",
+    "backend/app/core/__init__.py": "5c3c1f860582075a58bc7fabee6112095c27422567df01fdc1bd43c2231a99c4",
+    "backend/app/core/config.py": "9b9d16870f883c6b0fd48e34b30182958d726ed05b4338c0e40f1b2c0d0157d9",
+    "backend/app/core/contracts.py": "9500be915618d30916544b405cd093ca8076ddb7616bf08cef244bd7246a8f5a",
+    "backend/app/core/cursor.py": "a7f728567f5390f227971597fcdf94081131ad74f96fc0ca4d799110fa8aa3e8",
+    "backend/app/core/encryption.py": "069d33c95f35fee0b1e1e57276e2b11ad4c3b13a6a9d5c3cf72672441e65a9df",
+    "backend/app/core/errors.py": "be6f511d9ab8d7dc713ea07b9126f4fb26af16fec7a7c18bf42711e74088318f",
+    "backend/app/core/idempotency.py": "8c295ff1d41811618e13f178c7c9c719e4ffa405d621e4e5b811967d21c1d661",
+    "backend/app/core/logging.py": "287a34565c74b3721516b590e68a9e6f30f87af8e10d5a0edb714044164d392d",
+    "backend/app/core/middleware.py": "78299ecf2cfb19e30be9022830f4462e55fbf99f02a806ade6db12bfc7fac5af",
+    "backend/app/db/__init__.py": "72e3dd8e53ac1c659e0d99d2a5e7ce959a66032e776058e8da583b2309a542ac",
+    "backend/app/db/base.py": "12205beafbee930528e14ee8439dba3fc6272c995e98dab39f87187c73a89b87",
+    "backend/app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+    "backend/app/db/session.py": "10014b225fcfd25bd32732f425502e27b3a182cbdd3967f728d5623484378a72",
+    "backend/app/deployment/__init__.py": "e6782840e1003ec2ebe393b165005d81911a926686562d3b21942fc31aabe99e",
+    "backend/app/deployment/bootstrap.py": "91631afb448f5420716068119386ff70a70a97a56ab6594da90695606f4805b0",
+    "backend/app/deployment/directory_reconcile.py": "16c3c32bef0f86b6d36a8bb898e00ad690017e1040354629043d3af379f2b60f",
+    "backend/app/deployment/onboarding_status.py": "acf4e77847e5193c8a5ce74be348bc0fe0fdf4521a751174bc2767a81f4036e4",
+    "backend/app/deployment/storage_bootstrap.py": "7ff3f06ac13bffb9faee6929f1ccea386807cbc01e9a2315156d2594ca2346df",
+    "backend/app/domain/__init__.py": "937190c22a092dcf603508680cd24c4e48b16b868d1c327a367bfb3c4d28962b",
+    "backend/app/domain/ai_provider.py": "716368167529506c4dc01b7d1e4eeb78f17fce95553441aed8fbaef1fa735ffe",
+    "backend/app/domain/chat_citations.py": "68d225e408685893dbc37ae00c15a39afb09db5f9d6c00b88b3333e47562107d",
+    "backend/app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+    "backend/app/domain/chat_retrieval.py": "b58d8e9bee1ffb1722f4dd8b7a14b37629d59feb6d8f4a7b01ba4474f2da4727",
+    "backend/app/domain/chunk_artifacts.py": "6c15b2a2abb540a08f5b97934f5e6dc6d3421020a3841617ac93553bdb0b9580",
+    "backend/app/domain/chunk_deletion.py": "e6bb6d6680b51046005bf06ce394f5e8c967c3a3caca0e6855a635523125b981",
+    "backend/app/domain/chunk_representations.py": "2c3c75be26527c41596fa65884163bb39179c6f23370cda737bd58d16131833c",
+    "backend/app/domain/connection_evidence.py": "d57e37a8e48f10e45be6a4d4f299551a458aeb37c8259fc50dbc491a21e6ffc4",
+    "backend/app/domain/connection_probes.py": "281c9cd149b323c81b6b64c0c19e97a3784f080d0663ac4c416883a0f9ea040f",
+    "backend/app/domain/data_sync.py": "97736775b44bfb9a5c264fc975cc1e4db0a8c0547a27dd5c4655d3e02d0e4a7c",
+    "backend/app/domain/directory_filters.py": "0a320ecdd6090e26fdbad4452b473ea0bb5a76febd5c9923ea16f8601f073784",
+    "backend/app/domain/document_imports.py": "e86fb903e1e5d52d63c7a1ffa37a2b99b033c1dbea1a2b451efa830f30c78df1",
+    "backend/app/domain/document_layout.py": "e23e68b038ecc1d05094218e2aa4a9799989007e5d40ced42be96d8b28c91177",
+    "backend/app/domain/docx_security.py": "9bdd4ea33bbb0e89cadeb0d61c036bfe44ad09ba0ba250560d748a8e9f116880",
+    "backend/app/domain/embeddings.py": "90023f9da12b89d5f076cb3f2156f082ae8e232cceee3d36cf2535aadf239643",
+    "backend/app/domain/extraction_pipeline.py": "83d53e7918071aa84472f8b9da8da18a5ffabb2a235aad9803a57b57f9e1bce2",
+    "backend/app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+    "backend/app/domain/graph_reconciliation.py": "2705673920a8c82f291c2f42fce9a7d1ac6803b1f539675a9de92f5191b28005",
+    "backend/app/domain/graph_sync_jobs.py": "992026dfc5c2cef79c2291e3cae975ebdcec1172bf0fb77cef9474b94d73b83f",
+    "backend/app/domain/identity_settings.py": "8235be967fbab0330df6eb90e9cda4f3a45a02c69e73a08e82711da605f7ce81",
+    "backend/app/domain/integration_api_keys.py": "17567e9701e9d6b6ab127e30deb25728beb68e03e101538f3a737886cc538eb6",
+    "backend/app/domain/markdown_artifacts.py": "6f9fa6128d2cf69bffe81ebedf7f31459d4d8911b5744c9589100f065dbe7871",
+    "backend/app/domain/markdown_structure.py": "bff8b7f84f3bc4e44cf7b7952c307f2a07e294839ebc972611c39736992a0743",
+    "backend/app/domain/model_usage.py": "b5fdf64a68fa60f7fa280607b40fd4f8815997600a73aff4c3c1d3b50a1ed15a",
+    "backend/app/domain/notifications.py": "1402651e5d187d8a9f57715178d61130369a85328a299e38223648b41e03892c",
+    "backend/app/domain/office_parser.py": "73984b4ac55ca95f185c440e2f4f554e14a45c40a70936613cc4cf9576eda22e",
+    "backend/app/domain/oidc_reauth.py": "434fd6472b98983432001ad32eb6a00ffd38dae1faa011c7f2827389e53a6ef4",
+    "backend/app/domain/operations.py": "8ed806943062f56c07885cd6ef5cb42e427d5811f905ed5446b9e21509724efa",
+    "backend/app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+    "backend/app/domain/project_archival.py": "61eff47b568bb911da5e2fd4e1f952fc1a3739b494ea7914bebf60a71d908217",
+    "backend/app/domain/project_members.py": "4928ebc559e5914788af92b0c45ce3f35a21acacf3e7893d52fe25b31585f4ba",
+    "backend/app/domain/public_api_controls.py": "232aef5783596b4bd6bc7116edcb8dd3c3349c509ef0c5e86589269639fc2bfa",
+    "backend/app/domain/public_api_retention.py": "d18a0e4df342c9de779140fb6ad1539af4375e44a26a2f55e3a094b6d8743d07",
+    "backend/app/domain/reference_events.py": "e8ca48ecf912a83936d8558cd38c09aefb2a4b7af605cd82984b40637c6443a2",
+    "backend/app/domain/report_policy.py": "2e9d0e2b72c3d77bbf5120cc4d4b098e0454b270dca7916af95a0efcf519254a",
+    "backend/app/domain/retrieval_evaluation.py": "b9c9337b2c8fb92116fad0fead88356ae09838fc04472499bf0790fecb87195d",
+    "backend/app/domain/retrieval_text.py": "c2663dc02a7eacf0a5428920a6145d7f577b490757599f92875f8cf83e02b07e",
+    "backend/app/domain/review_publish.py": "25978e4f12409ba5e0a46ece672a40a976c55480dd5e19cff42ede9932c637b3",
+    "backend/app/domain/search.py": "9d09c58a7cd80634cb1f9d5519ea281605023ae5a293594637795958fecda699",
+    "backend/app/domain/structure_chunking.py": "1a164684120a3d22f920904315ae602b282c013fcf9535e7f26151b0675d44d1",
+    "backend/app/domain/submission_evidence.py": "91282cde6bf292c49122e08c24f532af88525758da6d792f67e91dde16c5cbb0",
+    "backend/app/domain/system_parameters.py": "38c9c09f2326c6479a4708163be9e9c0cf861dcbc23ef6cd653e1c3d5cf7aae6",
+    "backend/app/domain/system_prompts.py": "adc68f35adbbee57192cc52ecdc40ca877532881acb1c19e0ed211d4b0af1f93",
+    "backend/app/domain/tokenization.py": "c077b94071e1d700e5d45aef0a2e6a9f89bcf1bc40b04aa398fb560a30944d14",
+    "backend/app/domain/uploads.py": "8a81ab695101e04178e575b4f9b467b9256861e86fbc4012e53822e7e080d956",
+    "backend/app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+    "backend/app/integrations/__init__.py": "4611b22e5b452990f133e94508b15e3ad43ab20f170a20c04fdd071d6f3c03f3",
+    "backend/app/integrations/health.py": "10919e136ce46e089532772cfc2ff06d91212d6a8ed402ed74dd910cb01a3045",
+    "backend/app/integrations/keycloak.py": "ada778fb22f5558756fc239304b893758cc84fce4b2a127068b0d2e0fed1514d",
+    "backend/app/integrations/redis_ha.py": "35fded0f161837b11eb2c7dc16c9d7abc05403d3992ae93513297fa6fbcde633",
+    "backend/app/integrations/remote_sources.py": "338c6ae58c299e7f9bdb60b9f79d8234446d864cbaa18de1cf8d162da418c3a5",
+    "backend/app/integrations/s3_storage.py": "dc5abaaa3364e47a6bf319927b7bd84511c3e6ad8d7fd552ff5ced2bbe24b605",
+    "backend/app/main.py": "8d89cab98290235f626fb2932c91a67252160a994a42a7cc32969724c826a4ff",
+    "backend/app/security/__init__.py": "a3ca65cd67f6ced0b16165a381c7992beee22fdcb7dd7fd91cebf9bae78d0718",
+    "backend/app/security/auth.py": "0e7f837646a871589aa8e887edbb329b151d65fded2a71408595027f65fa8aae",
+    "backend/app/security/context.py": "5d62f5c8f02032e278d9be3f5eee87e94cfaf934bc1d4bba8f4e4c3ded5ad578",
+    "backend/app/security/permissions.py": "a134b6a3357d6b752e8149d8d7af2b82d91a824dd9dfd58fe2a480f66aed9c4e",
+    "backend/app/security/project_roles.py": "53c88e8cd954d215b569f79296486d8d9e2db8e741956756a13c1094acc3ac81",
+    "backend/app/security/secrets.py": "d341c343fc464bbf450e0bf3170eae4ff3015ee0b3d5b4c5186060d7b731e041",
+    "backend/app/services/__init__.py": "ac74225afed0c30c874dafb9fa708dfeab2d64ebe9b488a345e7e3119a6092fa",
+    "backend/app/services/audit.py": "1f1f319a6df5dc7f93f709bd2b8d304aa10e5edb8150b3b3c5407a4e08fef505",
+    "backend/app/services/identity_sync.py": "72eee9998996649fe3ef133c3f633eaa341c71cdf09077fbe255a3cfa116e019",
+    "backend/app/services/identity_sync_jobs.py": "9fedee17f43aacbc748b86df924867770a79021da5aae378dace4175a54cb46d",
+    "backend/app/services/logout.py": "b5069cac7923b2b7a62e6c38d007d3b97f53b195aa9e34c5cf81fde8f9bb2b02",
+    "backend/app/services/role_memberships.py": "5b52e399ff90e8af0a12faf0b90bad133dc30753d6e4d8b91338158b135a5cd7",
+    "backend/app/worker.py": "c782f61bea838c7e7fd7e211cf4ad8b6bb4dbe33ead9c4ac5df9cce435324e37",
+    "sql/migrations/V001__initial_schema.sql": "a089a1a84ea44f7eabf6ebe91a3a4505945563d091b2d086c33bd3df6f9da650",
+    "sql/migrations/V002__identity_projects_permissions.sql": "cf20ec4054d578e26a4a37df5b16990466ec18f200df1b4c198428d085ef84de",
+    "sql/migrations/V003__seed_role_permissions.sql": "c726962b09b6a0831279676f311ec9db58aac97367d7bfe12815f8c17cb65d08",
+    "sql/migrations/V004__revoked_auth_tokens.sql": "f78657ff8b83be18570d9673be2a6b5cbb12f38a33fdb8b2ff5d1d6702a583ed",
+    "sql/migrations/V005__project_ocr_default.sql": "b5623f2eccee8c7023b643cb46e7401cb1f9fc025f55674a8e793d6d4ada0b87",
+    "sql/migrations/V006__session_expired_form_drafts.sql": "8b4a9a21efa300cc6d296e4c90414975312a09e6908fbbfb2b5e791e42ea419e",
+    "sql/migrations/V007__milestone_7_1_serving_permissions.sql": "500e5b84380e6406598590414165ba7b2a48f1c46dfe818973fe294f8aaf7946",
+    "sql/migrations/V008__system_initialization.sql": "961f3c1ffed41c9645aa1eecfee1529e789ec7fd26af853d797c31a282360bca",
+    "sql/migrations/V009__system_prompts.sql": "d9421960b28c985ecfc44ad5900d5b715a22948c8d677101c5aa7b84d59c6d80",
+    "sql/migrations/V010__manual_chunking_and_tags.sql": "bf5fe73eae464cff88a74e5b679ead60b724c78be0dcac38fd9dfeef20bd9a0b",
+    "sql/migrations/V011__llm_chunk_tag_default.sql": "5f9da32f9f3cbb4d7f17140ad9b5f548cf24c824d81e64435685367a758126f3",
+    "sql/migrations/V012__owner_editor_submit_review_permission.sql": "623001214f143ed3520b29f8e5690da0390ae85b155f2be2419fcf7393ee38a1",
+    "sql/migrations/V013__sync_review_pipeline_steps.sql": "21413f2ba362a4666918328bc712c3b1fd8743ec5c068aaeb7a1fa255c50d051",
+    "sql/migrations/V014__repair_completed_approval_tasks.sql": "e065bf32ea958f07cf503aff9e56dd0b2d265870fcc16becb762efde56928da2",
+    "sql/migrations/V015__chat_conversation_soft_delete.sql": "9eeb9ba73f9c13db98e9b27bb3383b3d32592b12330c4b7495e6f62cde71e93c",
+    "sql/migrations/V016__chat_record_scope_mode.sql": "cff1f7ec3f871db292eade5423b071603741c7762cf5d14a3be29028c657dd94",
+    "sql/migrations/V017__first_level_menu_permissions.sql": "c7b1696cab2f9312b1d13ba8bb432c9684f5716b276d0300b4f1d9c0b7b042e9",
+    "sql/migrations/V018__validation_run_item_metadata.sql": "aa45b24c977755aac09e8d5f6932bd920fc4d8ae63cc6675f59c0890ea5c3dfc",
+    "sql/migrations/V019__public_api_integration_clients.sql": "92bf1ade33eaf5f615a1660de638bab50d23256933e2aff39c0df66762e99f33",
+    "sql/migrations/V020__oidc_reauthentication_flows.sql": "c8d6b5497b6ba73bb461e35b35a3b1827137e6134dadc4053813788622f8ac6b",
+    "sql/migrations/V021__secure_async_ingestion.sql": "901a9c52880ce292e5c37abe33a35b74a91c1325a7cabc65912685c0b6e71737",
+    "sql/migrations/V022__connection_test_evidence.sql": "6c9d122edf869dba7a41264f85938ea456f0e9c893fe25b16d9d26c183856fdb",
+    "sql/migrations/V023__public_api_runtime_controls.sql": "da58f861126437d10424f7b4cb2471953be3f4fed682072d79beeadf6cc7afba",
+    "sql/migrations/V024__initialization_last_known_good.sql": "82acc67a3254dae86a80e2b1bea37a03638bb22d98c719661b39142e2359dc10",
+    "sql/migrations/V025__ai_model_usage_events.sql": "bc038df613bc9ea57e5d7629a6db3d12403272240e994ce04a5468b4d71c13d8",
+    "sql/migrations/V026__deployment_bootstrap_evidence.sql": "0715cf16b9784b94dd5ad478271b939cee399bac933c7c0444ac80c4336cd7a3",
+    "sql/migrations/V027__local_roles_ldap_group_mapping.sql": "075c554fa0a9c1102264f23497dfaa86f1aee0171bbae5b34f26d046ed48df04",
+    "sql/migrations/V028__identity_settings_truth_and_sync_recovery.sql": "357af3a51174843b20575281f22a6c0f71c4c62fce1446e52f9951fe60001a1d",
+    "sql/migrations/V029__ai_model_soft_delete.sql": "ecb45c14300a4baafdf2b39158a5e523739f8b999c31ac47da283f50018669d1",
+    "sql/migrations/V030__local_role_lifecycle.sql": "9b37bd5726851ab01f28210bbf1c2c4c50c1d091ab0073b45d94d666f670f754",
+    "sql/migrations/V031__project_archive_lifecycle.sql": "56591c557e54d1232d5a2836e46a861956a7853fd55bf533196409831da0df74",
+    "sql/migrations/V032__project_archive_execute_permission.sql": "8de16af84eb82de9ebba9bd28de02232af348e19a6b5aa54a5bd452d357fd2cc",
+    "sql/migrations/V033__graph_sync_durable_attempts.sql": "0dc5dab2c8c3ffcdcea24d040070e52ff0ccc977b1371b31130368226e2849d0",
+    "sql/migrations/V034__chunk_edit_lineage.sql": "2a6a6842d3d1b3773582173e8db34ce372c53d66f9880f9cd7edb94cd3718981",
+    "sql/migrations/V035__durable_notification_events.sql": "7820f673bbee6584303f1ade9f9cd8c9a52ccc573b6b66bf7854b248c134180a",
+    "sql/migrations/V036__project_work_generation_fence.sql": "94f722d61248a3fad43f7598f8b843e0799a5eb882d63d85665ae008c808379f",
+    "sql/migrations/V037__immutable_approval_evidence.sql": "7e9102df394d4345fd34e3ef00698cbfda319f797dd30d2efb7c0f7463d13c0d",
+    "sql/migrations/V038__report_model_permission.sql": "9ef0b5e3797dcfd9f5ee8b21365f484f7abaa8de3883fd48b4d56a8883c49ec7",
+    "sql/migrations/V039__approval_workspace_priority_indexes.sql": "73c7f0902e745c14a58ae082da3f7c5ea1d3a3b77e712d23f36667a0aad4f209",
+    "sql/migrations/V040__validation_item_attempt_lineage.sql": "4c535d556d89d7cbf1aad3ad7978efabe6937d4610d6e7d83f0a657f3042eaed",
+    "sql/migrations/V041__validation_execution_manifest.sql": "066825e9d6e1e838ef43c53d98e317c781ce8f776924cde3539a85d767725687",
+    "sql/migrations/V042__cloudnativepg_application_privileges.sql": "522f07f9f75c1af5a98b07c6dfa7ef63503af77ef94268010dcb28584601ee28",
+    "sql/migrations/V043__keycloak_cascaded_identity_sync.sql": "21e24864378172e070f60a48bcefc155ee677fa6c58ab7e4ce164b35575136c5",
+    "sql/migrations/V044__keycloak_boolean_ignored_sync_result.sql": "ef9cd2ca575bc095441cb7e33633b5dd2e1ccdf444f2e38989c2e45e7ec8c9eb",
+    "sql/migrations/V045__structured_person_names.sql": "f33820f6c58d54a54d607d1694fb2a1c15b0df2998ffafbf1cbf3397d9090097",
+    "sql/migrations/V046__structure_aware_retrieval_chunks.sql": "263f579123ab58fe17dcd357b1d7ba6f146c61c08ba31bf1db2b028aa67151f0",
+    "sql/migrations/V047__markdown_display_and_retrieval_only_embedding.sql": "9f62d569f6f8db0c6cf2eaf03679ba8fc4826ae01236beb2f007e9ea0a52ea21",
+    "sql/migrations/V048__project_member_candidate_search_and_owner_protection.sql": "71f2b8140ad0b7c510a108d93e9e93fd6ad9ebe9c9b5a3b639aa6a3daf755d8f",
+    "sql/migrations/V049__exclusive_project_member_role.sql": "b8d256be49ff99c2c157ec8f95bf96f5ac2846aae450637f895747bb298f9f96"
+  },
+  "operations": [
+    {
+      "operation": "flyway migrate",
+      "database": "v49_base",
+      "target": 48,
+      "returncode": 0,
+      "seconds": 6.134,
+      "lock_timeout": false
+    },
+    {
+      "operation": "pg_dump -Fc",
+      "database": "v49_base",
+      "bytes": 269328,
+      "sha256": "1a726c10104652634adf405ef2057e2fed14583d7c789c2e855b52afccb62e5f",
+      "seconds": 0.099
+    },
+    {
+      "case": "V49-R01",
+      "postgres_version": "18.4",
+      "sql_sha256": "b8d256be49ff99c2c157ec8f95bf96f5ac2846aae450637f895747bb298f9f96"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_exact",
+      "seconds": 0.244
+    },
+    {
+      "operation": "pg_dump -Fc",
+      "database": "v49_exact",
+      "bytes": 270264,
+      "sha256": "2cfe3a6beefc49d8c3f1a5e3dd19308d0454d48bd9f974d27b6b1c0fcd7e8210",
+      "seconds": 0.092
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_restore_before",
+      "seconds": 0.237
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_exact",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.195,
+      "lock_timeout": false
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_exact",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.187,
+      "lock_timeout": false
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_restore_after_upgrade",
+      "seconds": 0.238
+    },
+    {
+      "case": "V49-R02/R05/R06/R09",
+      "before_digest": "847fcc804576958000cb682b0ca988fd02dccc8969cdb8549ff16b1d0cef971c",
+      "after_digest": "8cca7e72d6c9a81853568869d009287451bdf9ec6da094033c53e7f17e400ec6",
+      "restored_digest": "847fcc804576958000cb682b0ca988fd02dccc8969cdb8549ff16b1d0cef971c",
+      "removed_membership_count": 1,
+      "owner_unchanged": true,
+      "unrelated_data_unchanged": true,
+      "source_tables": 62
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_matrix_3a891b3d",
+      "seconds": 0.228
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_3a891b3d",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.113,
+      "lock_timeout": false
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_3a891b3d",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.123,
+      "lock_timeout": false
+    },
+    {
+      "case": "V49-R03/R05",
+      "roles": [
+        "owner",
+        "editor",
+        "viewer"
+      ],
+      "owner_side": "both",
+      "archived": false,
+      "retained": "owner"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_matrix_a5263c66",
+      "seconds": 0.236
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_a5263c66",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.121,
+      "lock_timeout": false
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_a5263c66",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.201,
+      "lock_timeout": false
+    },
+    {
+      "case": "V49-R03/R05",
+      "roles": [
+        "editor",
+        "viewer"
+      ],
+      "owner_side": "governance",
+      "archived": false,
+      "retained": "editor"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_matrix_ad492ae7",
+      "seconds": 0.228
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_ad492ae7",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.089,
+      "lock_timeout": false
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_ad492ae7",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.151,
+      "lock_timeout": false
+    },
+    {
+      "case": "V49-R03/R05",
+      "roles": [
+        "viewer"
+      ],
+      "owner_side": "membership",
+      "archived": false,
+      "retained": "viewer"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_matrix_4821e682",
+      "seconds": 0.244
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_4821e682",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.076,
+      "lock_timeout": false
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_matrix_4821e682",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.163,
+      "lock_timeout": false
+    },
+    {
+      "case": "V49-R03/R05",
+      "roles": [
+        "editor",
+        "viewer"
+      ],
+      "owner_side": "both",
+      "archived": true,
+      "retained": "editor"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_ownerless",
+      "seconds": 0.229
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_ownerless",
+      "target": 49,
+      "returncode": 1,
+      "seconds": 1.533,
+      "lock_timeout": false
+    },
+    {
+      "case": "V49-R04",
+      "unchanged_digest": "b63ed2473a9396bc18770078c91c40cd3438f7c0492f91f8d8b9f7648847ff52",
+      "flyway_failure_history_rows": 0
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_locked",
+      "seconds": 0.233
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_locked",
+      "target": 49,
+      "returncode": 1,
+      "seconds": 2.962,
+      "lock_timeout": true
+    },
+    {
+      "case": "V49-R08",
+      "timeout_rollback_digest": "a2cda4585c2b7e649a6bad967deb00693d9e958c027262e26c15524158a3c555"
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_sql_rerun",
+      "seconds": 0.23
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_sql_rerun",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.196,
+      "lock_timeout": false
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_api_deployed_48",
+      "seconds": 0.23
+    },
+    {
+      "operation": "real SQL/OIDC API pytest",
+      "database": "v49_api_deployed_48",
+      "source": "deployed",
+      "image": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "returncode": 0,
+      "seconds": 8.994
+    },
+    {
+      "case": "V49-R07/R09",
+      "source": "deployed",
+      "schema_version": 48
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_api_deployed_49",
+      "seconds": 0.243
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_api_deployed_49",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.105,
+      "lock_timeout": false
+    },
+    {
+      "operation": "real SQL/OIDC API pytest",
+      "database": "v49_api_deployed_49",
+      "source": "deployed",
+      "image": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "returncode": 0,
+      "seconds": 7.168
+    },
+    {
+      "case": "V49-R07/R09",
+      "source": "deployed",
+      "schema_version": 49
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_api_current_48",
+      "seconds": 0.233
+    },
+    {
+      "operation": "real SQL/OIDC API pytest",
+      "database": "v49_api_current_48",
+      "source": "current",
+      "image": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "returncode": 0,
+      "seconds": 6.884
+    },
+    {
+      "case": "V49-R07/R09",
+      "source": "current",
+      "schema_version": 48
+    },
+    {
+      "operation": "pg_restore",
+      "database": "v49_api_current_49",
+      "seconds": 0.234
+    },
+    {
+      "operation": "flyway migrate",
+      "database": "v49_api_current_49",
+      "target": 49,
+      "returncode": 0,
+      "seconds": 6.21,
+      "lock_timeout": false
+    },
+    {
+      "operation": "real SQL/OIDC API pytest",
+      "database": "v49_api_current_49",
+      "source": "current",
+      "image": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "returncode": 0,
+      "seconds": 6.774
+    },
+    {
+      "operation": "real SQL/OIDC API pytest",
+      "database": "v49_api_current_49",
+      "source": "deployed",
+      "image": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "returncode": 0,
+      "seconds": 6.812
+    },
+    {
+      "case": "V49-R07/R09",
+      "source": "current",
+      "schema_version": 49
+    }
+  ],
+  "xml": [
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/current-48.xml",
+      "sha256": "452b3b4366bc451a890fb9d4cc87aabbc61b63f8009e4ee21d709c90b5563c23",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "22",
+          "time": "6.246",
+          "timestamp": "2026-09-12T11:57:11.397288+00:00",
+          "hostname": "659659786faf"
+        }
+      ],
+      "test_names": [
+        "test_api_single_replace_and_owner_parity",
+        "test_api_legacy_read_keeps_storage_unchanged",
+        "test_real_sql_role_policies_and_scope",
+        "test_api_invalid_cardinality_atomic[roles0]",
+        "test_api_invalid_cardinality_atomic[roles1]",
+        "test_api_invalid_cardinality_atomic[roles2]",
+        "test_api_invalid_cardinality_atomic[roles3]",
+        "test_api_stale_and_denied_actor",
+        "test_api_only_and_self_owner_protected",
+        "test_api_concurrent_changes_one_success",
+        "test_chg291_role_validator_accepts_exactly_one_project_role",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles0]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles1]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles2]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles3]",
+        "test_chg291_role_validator_rejects_unknown_role",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles0-viewer]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles1-editor]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles2-owner]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles3-None]",
+        "test_chg291_model_declares_one_member_row_per_project_user",
+        "test_chg291_v049_normalizes_roles_and_adds_database_guard"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/current-49.xml",
+      "sha256": "700cf5e1bfae741e7e814820b36193ed90b1586e16659a2b4fd0a63d1cf9c599",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "22",
+          "time": "6.128",
+          "timestamp": "2026-09-12T11:57:25.513959+00:00",
+          "hostname": "9be2702b2c7b"
+        }
+      ],
+      "test_names": [
+        "test_api_single_replace_and_owner_parity",
+        "test_api_legacy_read_keeps_storage_unchanged",
+        "test_real_sql_role_policies_and_scope",
+        "test_api_invalid_cardinality_atomic[roles0]",
+        "test_api_invalid_cardinality_atomic[roles1]",
+        "test_api_invalid_cardinality_atomic[roles2]",
+        "test_api_invalid_cardinality_atomic[roles3]",
+        "test_api_stale_and_denied_actor",
+        "test_api_only_and_self_owner_protected",
+        "test_api_concurrent_changes_one_success",
+        "test_chg291_role_validator_accepts_exactly_one_project_role",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles0]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles1]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles2]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles3]",
+        "test_chg291_role_validator_rejects_unknown_role",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles0-viewer]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles1-editor]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles2-owner]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles3-None]",
+        "test_chg291_model_declares_one_member_row_per_project_user",
+        "test_chg291_v049_normalizes_roles_and_adds_database_guard"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/deployed-48.xml",
+      "sha256": "d1fb3d566d64aa4f53d7e96d0e5ddd968e6bbfea6450fe00244cbcab4a693a3e",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "22",
+          "time": "8.349",
+          "timestamp": "2026-09-12T11:56:47.212258+00:00",
+          "hostname": "cbad06b54c43"
+        }
+      ],
+      "test_names": [
+        "test_api_single_replace_and_owner_parity",
+        "test_api_legacy_read_keeps_storage_unchanged",
+        "test_real_sql_role_policies_and_scope",
+        "test_api_invalid_cardinality_atomic[roles0]",
+        "test_api_invalid_cardinality_atomic[roles1]",
+        "test_api_invalid_cardinality_atomic[roles2]",
+        "test_api_invalid_cardinality_atomic[roles3]",
+        "test_api_stale_and_denied_actor",
+        "test_api_only_and_self_owner_protected",
+        "test_api_concurrent_changes_one_success",
+        "test_chg291_role_validator_accepts_exactly_one_project_role",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles0]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles1]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles2]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles3]",
+        "test_chg291_role_validator_rejects_unknown_role",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles0-viewer]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles1-editor]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles2-owner]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles3-None]",
+        "test_chg291_model_declares_one_member_row_per_project_user",
+        "test_chg291_v049_normalizes_roles_and_adds_database_guard"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/deployed-49.xml",
+      "sha256": "3aa0fdba54c18c32dcc9a81f951594a06016891e185eca2570e8549e879b9d7d",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "22",
+          "time": "6.504",
+          "timestamp": "2026-09-12T11:57:03.328679+00:00",
+          "hostname": "a2bf3d65dcb0"
+        }
+      ],
+      "test_names": [
+        "test_api_single_replace_and_owner_parity",
+        "test_api_legacy_read_keeps_storage_unchanged",
+        "test_real_sql_role_policies_and_scope",
+        "test_api_invalid_cardinality_atomic[roles0]",
+        "test_api_invalid_cardinality_atomic[roles1]",
+        "test_api_invalid_cardinality_atomic[roles2]",
+        "test_api_invalid_cardinality_atomic[roles3]",
+        "test_api_stale_and_denied_actor",
+        "test_api_only_and_self_owner_protected",
+        "test_api_concurrent_changes_one_success",
+        "test_chg291_role_validator_accepts_exactly_one_project_role",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles0]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles1]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles2]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles3]",
+        "test_chg291_role_validator_rejects_unknown_role",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles0-viewer]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles1-editor]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles2-owner]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles3-None]",
+        "test_chg291_model_declares_one_member_row_per_project_user",
+        "test_chg291_v049_normalizes_roles_and_adds_database_guard"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/migration-tests.xml",
+      "sha256": "bba460418d249336d05ca55020fa7bf2ba0651f3e1b4c5bde98e6006dc7e1f1d",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "13",
+          "time": "165.796",
+          "timestamp": "2026-09-12T19:54:53.555345+08:00",
+          "hostname": "Peters-Mac.local"
+        }
+      ],
+      "test_names": [
+        "test_01_isolation_and_original_v048",
+        "test_02_exact_change_and_actual_restore",
+        "test_03_role_owner_and_archived_matrix[roles0-both-False-owner]",
+        "test_03_role_owner_and_archived_matrix[roles1-governance-False-editor]",
+        "test_03_role_owner_and_archived_matrix[roles2-membership-False-viewer]",
+        "test_03_role_owner_and_archived_matrix[roles3-both-True-editor]",
+        "test_04_ownerless_failure_no_partial_changes",
+        "test_05_lock_timeout_is_atomic",
+        "test_06_sql_idempotence_separate_from_flyway",
+        "test_07_authentic_api_compatibility[deployed-48]",
+        "test_07_authentic_api_compatibility[deployed-49]",
+        "test_07_authentic_api_compatibility[current-48]",
+        "test_07_authentic_api_compatibility[current-49]"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/rollback-49.xml",
+      "sha256": "e7069e3645f84abecfdab6a72744984ddb8415c37dbf27f7474cfdd9be445977",
+      "suites": [
+        {
+          "name": "pytest",
+          "errors": "0",
+          "failures": "0",
+          "skipped": "0",
+          "tests": "22",
+          "time": "6.170",
+          "timestamp": "2026-09-12T11:57:32.657053+00:00",
+          "hostname": "63ab088bcccb"
+        }
+      ],
+      "test_names": [
+        "test_api_single_replace_and_owner_parity",
+        "test_api_legacy_read_keeps_storage_unchanged",
+        "test_real_sql_role_policies_and_scope",
+        "test_api_invalid_cardinality_atomic[roles0]",
+        "test_api_invalid_cardinality_atomic[roles1]",
+        "test_api_invalid_cardinality_atomic[roles2]",
+        "test_api_invalid_cardinality_atomic[roles3]",
+        "test_api_stale_and_denied_actor",
+        "test_api_only_and_self_owner_protected",
+        "test_api_concurrent_changes_one_success",
+        "test_chg291_role_validator_accepts_exactly_one_project_role",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles0]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles1]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles2]",
+        "test_chg291_role_validator_rejects_non_single_cardinality[roles3]",
+        "test_chg291_role_validator_rejects_unknown_role",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles0-viewer]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles1-editor]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles2-owner]",
+        "test_chg291_legacy_role_projection_uses_migration_precedence[roles3-None]",
+        "test_chg291_model_declares_one_member_row_per_project_user",
+        "test_chg291_v049_normalizes_roles_and_adds_database_guard"
+      ]
+    }
+  ],
+  "coverage": [
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/current-48-coverage.json",
+      "sha256": "d0ec8338fd04569f76cb665863a53d5254848163a6bdf3c6229f5085b01d5bbe",
+      "totals": {
+        "covered_lines": 26,
+        "num_statements": 26,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 4,
+        "num_partial_branches": 0,
+        "covered_branches": 4,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "files": [
+        "app/security/project_roles.py"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/current-49-coverage.json",
+      "sha256": "21fbcc0ec8a2519a655882b4d40cc5eecff05ed0a145dc837a005416ccda48ff",
+      "totals": {
+        "covered_lines": 26,
+        "num_statements": 26,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 4,
+        "num_partial_branches": 0,
+        "covered_branches": 4,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "files": [
+        "app/security/project_roles.py"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/deployed-48-coverage.json",
+      "sha256": "f3828307c20df4385753ed7eb9dc4d232bd5039b2ff214c70f736b51aa31fe99",
+      "totals": {
+        "covered_lines": 26,
+        "num_statements": 26,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 4,
+        "num_partial_branches": 0,
+        "covered_branches": 4,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "files": [
+        "app/security/project_roles.py"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/deployed-49-coverage.json",
+      "sha256": "618af1aff96225c82c03ae6d974d7c5d7a8480e0aea6c013e1abc28628e025a4",
+      "totals": {
+        "covered_lines": 26,
+        "num_statements": 26,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 4,
+        "num_partial_branches": 0,
+        "covered_branches": 4,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "files": [
+        "app/security/project_roles.py"
+      ]
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-zsuhk7a1/rollback-49-coverage.json",
+      "sha256": "18078947a25f6265550d7a0bdb5da9c779aef83c9ca4fd4af643b358b1340551",
+      "totals": {
+        "covered_lines": 26,
+        "num_statements": 26,
+        "percent_covered": 100,
+        "percent_covered_display": "100",
+        "missing_lines": 0,
+        "excluded_lines": 0,
+        "percent_statements_covered": 100,
+        "percent_statements_covered_display": "100",
+        "num_branches": 4,
+        "num_partial_branches": 0,
+        "covered_branches": 4,
+        "missing_branches": 0,
+        "percent_branches_covered": 100,
+        "percent_branches_covered_display": "100"
+      },
+      "files": [
+        "app/security/project_roles.py"
+      ]
+    }
+  ],
+  "earlier_rounds": [
+    {
+      "artifact": "/private/tmp/v049-rehearsal-ufia6cgy/evidence.json",
+      "sha256": "a056496376b445e8833a364c2d40eb23b543ddbf037a745cd6169233d962b6b7",
+      "cleanup_equal": true,
+      "test_returncode": 1
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-vknj6gbj/evidence.json",
+      "sha256": "7f8b9e7809eefbc3f817025b829827511e1025804f55d41ead9519fdd30e0a2b",
+      "cleanup_equal": true,
+      "test_returncode": 1
+    },
+    {
+      "artifact": "/private/tmp/v049-rehearsal-kvl5304p/evidence.json",
+      "sha256": "b5d2f81157c393d86ed6d2d904fe4ae604a43f49e978cc4324a9a3744edb93d0",
+      "cleanup_equal": true,
+      "test_returncode": 0
+    }
+  ]
+}

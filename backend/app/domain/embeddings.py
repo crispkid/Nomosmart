@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import ssl
 import urllib.error
 import urllib.request
@@ -122,6 +123,33 @@ def load_canonical_embeddings(session: Session, *, project: Project, version: Do
     if build is None:
         raise AppError("canonical_embedding_build_required", "A completed canonical embedding build is required before indexing", status_code=409)
     return _load_embedding_batch(session, model, version, chunks, build, texts=texts)
+
+
+def load_published_embeddings(
+    session: Session, *, project: Project, version: DocumentVersion,
+    chunks: list[Chunk], build: EmbeddingBuild,
+) -> EmbeddingBatch:
+    """Read only the selected published build; never select a newer staged build.
+
+    A switch must not bind a model/profile or upgrade provisional retrieval hashes
+    as a side effect of checking readiness. The caller holds the governance fence.
+    """
+    if (build.status != "published" or build.project_id != project.id
+            or build.document_id != version.document_id or build.document_version_id != version.id
+            or version.project_id != project.id or build.embedding_profile_id != version.embedding_profile_id
+            or not chunks or any(chunk.status != "active" or chunk.project_id != project.id
+                or chunk.document_id != version.document_id or chunk.document_version_id != version.id for chunk in chunks)):
+        raise AppError("canonical_embedding_build_invalid", "Published build scope is invalid", status_code=409)
+    profile = session.get(EmbeddingProfile, build.embedding_profile_id)
+    if profile is None:
+        raise AppError("canonical_embedding_build_invalid", "Published build profile is invalid", status_code=409)
+    texts = [resolve_index_retrieval_text(chunk, profile=profile) for chunk in chunks]
+    model = session.get(AIModel, build.model_id) if build.model_id else None
+    if (profile is None or model is None or profile.model_id != model.id
+            or version.embedding_model_id != model.id or profile.model_version != model_name(model)
+            or build.vector_dimension != profile.vector_dimension or profile.vector_dimension <= 0):
+        raise AppError("canonical_embedding_build_invalid", "Published build profile is invalid", status_code=409)
+    return _load_embedding_batch(session, model, version, chunks, build, texts=texts, bind_version=False)
 
 
 def embed_query(
@@ -287,7 +315,7 @@ def _persist_embedding_build(
     return build
 
 
-def _load_embedding_batch(session: Session, model: AIModel, version: DocumentVersion, chunks: list[Chunk], build: EmbeddingBuild, *, texts: list[str] | None = None) -> EmbeddingBatch:
+def _load_embedding_batch(session: Session, model: AIModel, version: DocumentVersion, chunks: list[Chunk], build: EmbeddingBuild, *, texts: list[str] | None = None, bind_version: bool = True) -> EmbeddingBatch:
     profile = session.get(EmbeddingProfile, build.embedding_profile_id)
     if profile is None or build.model_id != model.id or build.vector_dimension != profile.vector_dimension:
         raise AppError("canonical_embedding_build_invalid", "Canonical embedding build metadata is invalid", status_code=409)
@@ -301,14 +329,18 @@ def _load_embedding_batch(session: Session, model: AIModel, version: DocumentVer
         raise AppError("canonical_embedding_build_invalid", "Canonical embedding vector count is invalid", status_code=409)
     vectors: list[list[float]] = []
     for row, chunk in zip(rows, ordered_chunks, strict=True):
-        if row.chunk_id != chunk.id or row.chunk_index != chunk.chunk_index or len(row.vector) != profile.vector_dimension:
+        if (row.chunk_id != chunk.id or row.chunk_index != chunk.chunk_index
+                or not isinstance(row.vector, list) or len(row.vector) != profile.vector_dimension
+                or any(isinstance(value, bool) or not isinstance(value, (int, float))
+                    or not math.isfinite(value) for value in row.vector)):
             raise AppError("canonical_embedding_build_invalid", "Canonical embedding vector mapping is invalid", status_code=409)
         checksum = hashlib.sha256(json.dumps(row.vector, separators=(",", ":")).encode("utf-8")).hexdigest()
         if checksum != row.vector_checksum:
             raise AppError("canonical_embedding_build_invalid", "Canonical embedding vector checksum is invalid", status_code=409)
         vectors.append([float(value) for value in row.vector])
-    version.embedding_model_id = model.id
-    version.embedding_profile_id = profile.id
+    if bind_version:
+        version.embedding_model_id = model.id
+        version.embedding_profile_id = profile.id
     return EmbeddingBatch(model=model, profile=profile, vectors=vectors, usage=build.usage or {}, build=build, adapter_source="canonical-embedding-build")
 
 

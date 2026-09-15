@@ -32,6 +32,23 @@ from app.security.secrets import validate_runtime_secret_reference
 router = APIRouter(prefix="/projects/{project_id}/data-sources", tags=["data-sources"])
 
 
+def _lock_enqueue_project(session: Session, project_id: UUID) -> Project:
+    """Fence new work against archival after scope/role authorization.
+
+    Acquire the parent first and refresh cached state after any lock wait. The
+    lock is held through the run/outbox commit, including duplicate-run checks.
+    """
+    project = session.scalar(
+        select(Project).where(Project.id == project_id).with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if project is None:
+        raise AppError("project_not_found", "Project was not found", status_code=404)
+    if project.status != "active":
+        raise AppError("project_archived", "Archived projects cannot synchronize data sources", status_code=409)
+    return project
+
+
 @router.post("/validate-connection", response_model=DataSourceConnectionTestResponse)
 def validate_data_source_connection(
     project_id: UUID,
@@ -118,6 +135,7 @@ def create_data_source(
     project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required for data source creation")
     _validate_data_source_payload(payload, settings=request.app.state.settings)
+    project = _lock_enqueue_project(session, project.id)
     now = datetime.now(UTC)
     document_id = uuid4()
     version_id = uuid4()
@@ -162,7 +180,6 @@ def create_data_source(
         id=version_id,
         project_id=project.id,
         document_id=document.id,
-        project_generation=project.work_generation,
         version_major=1,
         extraction_revision=0,
         version_label="v1.0",
@@ -181,6 +198,7 @@ def create_data_source(
         id=uuid4(),
         data_connection_id=connection.id,
         document_id=document.id,
+        project_generation=project.work_generation,
         trigger_type="initial",
         status="queued",
         remote_metadata={"service_type": payload.service_type, "remote_uri": remote_uri, "schedule_mode": payload.schedule_mode},
@@ -188,7 +206,9 @@ def create_data_source(
         retry_count=0,
         created_at=now,
     )
-    session.add_all([connection, document, version])
+    session.add_all([connection, document])
+    session.flush()
+    session.add(version)
     session.flush()
     session.add(sync_run)
     session.add(OutboxEvent(topic="data_source.sync.requested", aggregate_type="data_sync_run", aggregate_id=sync_run.id, project_id=project.id, project_generation=project.work_generation, payload={"run_id": str(sync_run.id), "project_id": str(project.id), "project_generation": project.work_generation, "data_connection_id": str(connection.id)}, status="pending", attempts=0, available_at=now, created_at=now))
@@ -213,8 +233,9 @@ def queue_data_source_sync(
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> DataSyncRun:
-    _project = _get_scoped_project(session, project_id, context)
+    project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project_id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to sync data sources")
+    project = _lock_enqueue_project(session, project.id)
     connection = session.get(DataConnection, data_source_id)
     if connection is None or connection.project_id != project_id:
         raise AppError("data_source_not_found", "Data source was not found", status_code=404)

@@ -1,0 +1,773 @@
+{
+  "change": "CHG-292",
+  "scope_sha256": "1b849edbdabc1aeac3cd7f7f16c60bdd0a7ab3274d4e6fa84cb065843981219f",
+  "revision": 36,
+  "acceptance": "bounded existing-session authenticated read-only browser/API",
+  "browser": "User-owned Chrome NomoSmart tab; observed Chu Peter; no token/cookie/password extraction",
+  "formal": {
+    "request_id": "43927.221",
+    "path": "/api/backend/projects/9e1d3e43-8069-4965-84d1-f5890880b3d4/graph?node_limit=120",
+    "status": 200,
+    "nodes": 0,
+    "edges": 0,
+    "ui_status": "目前沒有可 serving 的 active published graph",
+    "ui_placeholder_project_nodes": 1,
+    "active_manifests": 0,
+    "published_versions": 0
+  },
+  "preview": {
+    "request_id": "43927.231",
+    "path": "/api/backend/projects/9e1d3e43-8069-4965-84d1-f5890880b3d4/documents/70691d4d-8111-4425-ab64-5e3237e06421/versions/ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65/graph?node_limit=500",
+    "status": 200,
+    "nodes": 73,
+    "edges": 74,
+    "truncated": false,
+    "node_types": {
+      "Chunk": 11,
+      "Document": 1,
+      "DocumentVersion": 1,
+      "Project": 1,
+      "Tag": 59
+    },
+    "edge_types": {
+      "CHUNK_HAS_TAG": 53,
+      "DOCUMENT_HAS_VERSION": 1,
+      "PROJECT_HAS_DOCUMENT": 1,
+      "VERSION_HAS_CHUNK": 11,
+      "VERSION_HAS_TAG": 8
+    },
+    "ui_chunks": 11,
+    "ui_distinct_tags": 59,
+    "all_edges_resolve": true,
+    "unique_node_ids": true,
+    "all_tag_ids_uuid_based": true,
+    "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65",
+    "source": "PostgreSQL canonical unpublished preview (source route verified; not a formal Neo4j sync)",
+    "sample_shared_tag": {
+      "id": "b723a77d-19c1-490e-9091-8e0a7766bc89",
+      "chunk_ids": [
+        "95f0acef-b10a-540a-9344-cbcf07016f6f",
+        "d7520a86-b46c-50aa-8a9c-6d2a30af621f"
+      ],
+      "ui_relation_count": 2,
+      "tag_to_chunk_navigation": true,
+      "chunk_number": 8,
+      "raw_display_markdown_visible": true
+    }
+  },
+  "canonical_inventory_reference": {
+    "observed_at": "2026-09-09T15:12:10.255051+00:00",
+    "source_binding": {
+      "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+      "project_generation": 1,
+      "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+      "revision": 1,
+      "source_digest": "a4778ab13645d5960d5491256f0c89ca49996b0d3fec40718c1b60d9c3715810",
+      "tag_revision": 0,
+      "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+    },
+    "node_edge_counts_match": true,
+    "note": "Count/type comparison against prior real-service canonical inventory, not a fresh all-identity checksum comparison."
+  },
+  "pre": {
+    "observed_at": "2026-09-09T15:34:03.202196+00:00",
+    "mode": "read_only",
+    "transaction": [
+      {
+        "isolation": "repeatable read",
+        "read_only": "on"
+      }
+    ],
+    "postgres_tables_sha256": "83ade9ffbb56ee4c4ecdfa58c82b227b9315bce3fc269b2f99809fb6b1d78b16",
+    "business_tables_sha256": "0cc504fd6d68ed2c68e1dff6f7af99aea194dcab0749498a4f4390bcacca1e88",
+    "neo4j_metadata_sha256": "430dfbd5d005a5172e5633acc9bcdd8089b6523c84afd1c57d6af0b9ae138dc7",
+    "opensearch_sha256": "136a8f44c4ff6c5fd98fea7ee6150b5516dbb16bc543f49417f55a4d688d450e",
+    "structural_schema_sha256": "1774c3ef8c14a0bd520fc7f24311845d188c2b57f2e879b251e1c4e069453494",
+    "constraints_sha256": "9a1b050d001f785237e7965621d43728748720b0b502f330aa303c4ad6eca53a",
+    "tables": {
+      "active_version_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "ai_model_usage_events": {
+        "full_rows_md5": "dd47a710e1cf9abdeb79e712b0df9fe1",
+        "rows": 84
+      },
+      "ai_models": {
+        "full_rows_md5": "5a07e4cbb2a06a58ec85a42d138f845d",
+        "rows": 5
+      },
+      "approval_evidence_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_requests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_tasks": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "audit_logs": {
+        "full_rows_md5": "3739fbede52f368732bccd727ba14570",
+        "rows": 346
+      },
+      "chat_feedback_events": {
+        "full_rows_md5": "c0d7dfd40a95052370b451688f687660",
+        "rows": 2
+      },
+      "chat_records": {
+        "full_rows_md5": "4f30ad8212e7014d2a3d74d62c5a8809",
+        "rows": 11
+      },
+      "chunk_tags": {
+        "full_rows_md5": "179b3bd22ab7204a7a26b50f8edb2727",
+        "rows": 164
+      },
+      "chunks": {
+        "full_rows_md5": "710cdca87f41d578c1b4ee0f40bbdd30",
+        "rows": 38
+      },
+      "data_connections": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "data_sync_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "deployment_bootstrap_evidence": {
+        "full_rows_md5": "e0c388360e25e67f97a49b3e27c20947",
+        "rows": 29
+      },
+      "document_reference_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_references": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_version_tags": {
+        "full_rows_md5": "e7b42dfa48d7b7eadce6da0e3bb7ea6a",
+        "rows": 16
+      },
+      "document_versions": {
+        "full_rows_md5": "a1becb286596aa23dbbc7314b88879bb",
+        "rows": 3
+      },
+      "documents": {
+        "full_rows_md5": "bf95cfc558006e0bb218ab89c9917181",
+        "rows": 3
+      },
+      "embedding_build_vectors": {
+        "full_rows_md5": "767e853bbef2d1cafbd471e685214cee",
+        "rows": 113
+      },
+      "embedding_builds": {
+        "full_rows_md5": "1b10ecf89e8853b2b1240c3eff9f2222",
+        "rows": 5
+      },
+      "embedding_profiles": {
+        "full_rows_md5": "7bbb11eee2ca82ac7e84c28f0c636d94",
+        "rows": 2
+      },
+      "external_group_role_mappings": {
+        "full_rows_md5": "f2b6fe0fcba84b9cc87e47d77ae77b2f",
+        "rows": 1
+      },
+      "external_group_users": {
+        "full_rows_md5": "649adb9ce59a682dd78a1b559be95db6",
+        "rows": 10
+      },
+      "external_groups": {
+        "full_rows_md5": "420983d06e0672aeef226fed487820a7",
+        "rows": 8
+      },
+      "file_scan_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "graph_sync_jobs": {
+        "full_rows_md5": "2abdbc5d4a142505020c2bfdd58ab9d5",
+        "rows": 3
+      },
+      "idempotency_keys": {
+        "full_rows_md5": "56ebd70af955ecd65d741b92265d44b1",
+        "rows": 6
+      },
+      "identity_reauth_flows": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_settings": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_sync_provider_results": {
+        "full_rows_md5": "0ab734012eeffa6d447935810b2a308b",
+        "rows": 27
+      },
+      "identity_sync_runs": {
+        "full_rows_md5": "f96ddb9008a96a5923b6eaa912e10acb",
+        "rows": 127
+      },
+      "identity_unlock_grants": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_client_project_scopes": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_clients": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notification_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notifications": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "outbox_events": {
+        "full_rows_md5": "727879390feb87f0373bf2d4c1d18acf",
+        "rows": 33
+      },
+      "pipeline_run_steps": {
+        "full_rows_md5": "0ad2f85b649fc3a9e244839022bf8dd7",
+        "rows": 48
+      },
+      "pipeline_runs": {
+        "full_rows_md5": "e16976681e59f12a6dfc5daf30182c47",
+        "rows": 3
+      },
+      "project_archive_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "project_members": {
+        "full_rows_md5": "15678e13086bbaffa13ceb03e4008bfb",
+        "rows": 3
+      },
+      "project_owners": {
+        "full_rows_md5": "13caa5eaa68ffc2e69b277b4c74105db",
+        "rows": 1
+      },
+      "projects": {
+        "full_rows_md5": "fcc4d75dd6894b70b6a2fbd26c2215cc",
+        "rows": 1
+      },
+      "public_api_request_logs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "review_records": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "revoked_auth_tokens": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "role_permissions": {
+        "full_rows_md5": "ace69722219251ac1e9397a3473fe91f",
+        "rows": 33
+      },
+      "role_users": {
+        "full_rows_md5": "a75a9fa1a908717bdadde2e2b7da58a0",
+        "rows": 3
+      },
+      "roles": {
+        "full_rows_md5": "5533387584b66511a25bb42477238585",
+        "rows": 2
+      },
+      "session_expired_form_drafts": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "system_parameters": {
+        "full_rows_md5": "cbdc85b4dbcaaab4322bc419a63bfc88",
+        "rows": 4
+      },
+      "system_prompt_versions": {
+        "full_rows_md5": "9eb96e305eca0f98c64a3cc680c21cad",
+        "rows": 3
+      },
+      "system_prompts": {
+        "full_rows_md5": "e08b91843440dfb5d760abd9abe4b002",
+        "rows": 3
+      },
+      "tags": {
+        "full_rows_md5": "938b8519f76c8cf32b783fa13eb68f1c",
+        "rows": 115
+      },
+      "users": {
+        "full_rows_md5": "6757c23617ca30de9559b12377510720",
+        "rows": 8
+      },
+      "validation_questions": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_run_items": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      }
+    },
+    "key_counts": [
+      {
+        "active_chunks": 37,
+        "active_groups": 8,
+        "active_users": 8,
+        "distinct_project_members": 2,
+        "documents": 3,
+        "projects": 1,
+        "published_versions": 0,
+        "undeleted_models": 4,
+        "versions": 3
+      }
+    ],
+    "neo4j": {
+      "constraints": [],
+      "edges": [
+        {
+          "count": 107,
+          "relation": "CHUNK_HAS_TAG"
+        },
+        {
+          "count": 1,
+          "relation": "DOCUMENT_HAS_VERSION"
+        },
+        {
+          "count": 1,
+          "relation": "PROJECT_HAS_DOCUMENT"
+        },
+        {
+          "count": 26,
+          "relation": "VERSION_HAS_CHUNK"
+        },
+        {
+          "count": 8,
+          "relation": "VERSION_HAS_TAG"
+        }
+      ],
+      "indexes": [
+        {
+          "entityType": "NODE",
+          "labelsOrTypes": null,
+          "name": "index_343aff4e",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        },
+        {
+          "entityType": "RELATIONSHIP",
+          "labelsOrTypes": null,
+          "name": "index_f7700477",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        }
+      ],
+      "nodes": [
+        {
+          "count": 26,
+          "labels": [
+            "Chunk"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Document"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "DocumentVersion"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Project"
+          ]
+        },
+        {
+          "count": 81,
+          "labels": [
+            "Tag"
+          ]
+        }
+      ]
+    }
+  },
+  "post": {
+    "observed_at": "2026-09-09T16:00:34.000851+00:00",
+    "mode": "read_only",
+    "transaction": [
+      {
+        "isolation": "repeatable read",
+        "read_only": "on"
+      }
+    ],
+    "postgres_tables_sha256": "83ade9ffbb56ee4c4ecdfa58c82b227b9315bce3fc269b2f99809fb6b1d78b16",
+    "business_tables_sha256": "0cc504fd6d68ed2c68e1dff6f7af99aea194dcab0749498a4f4390bcacca1e88",
+    "neo4j_metadata_sha256": "430dfbd5d005a5172e5633acc9bcdd8089b6523c84afd1c57d6af0b9ae138dc7",
+    "opensearch_sha256": "136a8f44c4ff6c5fd98fea7ee6150b5516dbb16bc543f49417f55a4d688d450e",
+    "structural_schema_sha256": "1774c3ef8c14a0bd520fc7f24311845d188c2b57f2e879b251e1c4e069453494",
+    "constraints_sha256": "9a1b050d001f785237e7965621d43728748720b0b502f330aa303c4ad6eca53a",
+    "tables": {
+      "active_version_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "ai_model_usage_events": {
+        "full_rows_md5": "dd47a710e1cf9abdeb79e712b0df9fe1",
+        "rows": 84
+      },
+      "ai_models": {
+        "full_rows_md5": "5a07e4cbb2a06a58ec85a42d138f845d",
+        "rows": 5
+      },
+      "approval_evidence_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_requests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_tasks": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "audit_logs": {
+        "full_rows_md5": "3739fbede52f368732bccd727ba14570",
+        "rows": 346
+      },
+      "chat_feedback_events": {
+        "full_rows_md5": "c0d7dfd40a95052370b451688f687660",
+        "rows": 2
+      },
+      "chat_records": {
+        "full_rows_md5": "4f30ad8212e7014d2a3d74d62c5a8809",
+        "rows": 11
+      },
+      "chunk_tags": {
+        "full_rows_md5": "179b3bd22ab7204a7a26b50f8edb2727",
+        "rows": 164
+      },
+      "chunks": {
+        "full_rows_md5": "710cdca87f41d578c1b4ee0f40bbdd30",
+        "rows": 38
+      },
+      "data_connections": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "data_sync_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "deployment_bootstrap_evidence": {
+        "full_rows_md5": "e0c388360e25e67f97a49b3e27c20947",
+        "rows": 29
+      },
+      "document_reference_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_references": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_version_tags": {
+        "full_rows_md5": "e7b42dfa48d7b7eadce6da0e3bb7ea6a",
+        "rows": 16
+      },
+      "document_versions": {
+        "full_rows_md5": "a1becb286596aa23dbbc7314b88879bb",
+        "rows": 3
+      },
+      "documents": {
+        "full_rows_md5": "bf95cfc558006e0bb218ab89c9917181",
+        "rows": 3
+      },
+      "embedding_build_vectors": {
+        "full_rows_md5": "767e853bbef2d1cafbd471e685214cee",
+        "rows": 113
+      },
+      "embedding_builds": {
+        "full_rows_md5": "1b10ecf89e8853b2b1240c3eff9f2222",
+        "rows": 5
+      },
+      "embedding_profiles": {
+        "full_rows_md5": "7bbb11eee2ca82ac7e84c28f0c636d94",
+        "rows": 2
+      },
+      "external_group_role_mappings": {
+        "full_rows_md5": "f2b6fe0fcba84b9cc87e47d77ae77b2f",
+        "rows": 1
+      },
+      "external_group_users": {
+        "full_rows_md5": "649adb9ce59a682dd78a1b559be95db6",
+        "rows": 10
+      },
+      "external_groups": {
+        "full_rows_md5": "420983d06e0672aeef226fed487820a7",
+        "rows": 8
+      },
+      "file_scan_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "graph_sync_jobs": {
+        "full_rows_md5": "2abdbc5d4a142505020c2bfdd58ab9d5",
+        "rows": 3
+      },
+      "idempotency_keys": {
+        "full_rows_md5": "56ebd70af955ecd65d741b92265d44b1",
+        "rows": 6
+      },
+      "identity_reauth_flows": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_settings": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_sync_provider_results": {
+        "full_rows_md5": "0ab734012eeffa6d447935810b2a308b",
+        "rows": 27
+      },
+      "identity_sync_runs": {
+        "full_rows_md5": "f96ddb9008a96a5923b6eaa912e10acb",
+        "rows": 127
+      },
+      "identity_unlock_grants": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_client_project_scopes": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_clients": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notification_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notifications": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "outbox_events": {
+        "full_rows_md5": "727879390feb87f0373bf2d4c1d18acf",
+        "rows": 33
+      },
+      "pipeline_run_steps": {
+        "full_rows_md5": "0ad2f85b649fc3a9e244839022bf8dd7",
+        "rows": 48
+      },
+      "pipeline_runs": {
+        "full_rows_md5": "e16976681e59f12a6dfc5daf30182c47",
+        "rows": 3
+      },
+      "project_archive_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "project_members": {
+        "full_rows_md5": "15678e13086bbaffa13ceb03e4008bfb",
+        "rows": 3
+      },
+      "project_owners": {
+        "full_rows_md5": "13caa5eaa68ffc2e69b277b4c74105db",
+        "rows": 1
+      },
+      "projects": {
+        "full_rows_md5": "fcc4d75dd6894b70b6a2fbd26c2215cc",
+        "rows": 1
+      },
+      "public_api_request_logs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "review_records": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "revoked_auth_tokens": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "role_permissions": {
+        "full_rows_md5": "ace69722219251ac1e9397a3473fe91f",
+        "rows": 33
+      },
+      "role_users": {
+        "full_rows_md5": "a75a9fa1a908717bdadde2e2b7da58a0",
+        "rows": 3
+      },
+      "roles": {
+        "full_rows_md5": "5533387584b66511a25bb42477238585",
+        "rows": 2
+      },
+      "session_expired_form_drafts": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "system_parameters": {
+        "full_rows_md5": "cbdc85b4dbcaaab4322bc419a63bfc88",
+        "rows": 4
+      },
+      "system_prompt_versions": {
+        "full_rows_md5": "9eb96e305eca0f98c64a3cc680c21cad",
+        "rows": 3
+      },
+      "system_prompts": {
+        "full_rows_md5": "e08b91843440dfb5d760abd9abe4b002",
+        "rows": 3
+      },
+      "tags": {
+        "full_rows_md5": "938b8519f76c8cf32b783fa13eb68f1c",
+        "rows": 115
+      },
+      "users": {
+        "full_rows_md5": "6757c23617ca30de9559b12377510720",
+        "rows": 8
+      },
+      "validation_questions": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_run_items": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      }
+    },
+    "key_counts": [
+      {
+        "active_chunks": 37,
+        "active_groups": 8,
+        "active_users": 8,
+        "distinct_project_members": 2,
+        "documents": 3,
+        "projects": 1,
+        "published_versions": 0,
+        "undeleted_models": 4,
+        "versions": 3
+      }
+    ],
+    "neo4j": {
+      "constraints": [],
+      "edges": [
+        {
+          "count": 107,
+          "relation": "CHUNK_HAS_TAG"
+        },
+        {
+          "count": 1,
+          "relation": "DOCUMENT_HAS_VERSION"
+        },
+        {
+          "count": 1,
+          "relation": "PROJECT_HAS_DOCUMENT"
+        },
+        {
+          "count": 26,
+          "relation": "VERSION_HAS_CHUNK"
+        },
+        {
+          "count": 8,
+          "relation": "VERSION_HAS_TAG"
+        }
+      ],
+      "indexes": [
+        {
+          "entityType": "NODE",
+          "labelsOrTypes": null,
+          "name": "index_343aff4e",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        },
+        {
+          "entityType": "RELATIONSHIP",
+          "labelsOrTypes": null,
+          "name": "index_f7700477",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        }
+      ],
+      "nodes": [
+        {
+          "count": 26,
+          "labels": [
+            "Chunk"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Document"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "DocumentVersion"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Project"
+          ]
+        },
+        {
+          "count": 81,
+          "labels": [
+            "Tag"
+          ]
+        }
+      ]
+    }
+  },
+  "comparison": {
+    "all_59_postgres_tables_identical": true,
+    "postgres_identical": true,
+    "business_identical": true,
+    "neo4j_identical": true,
+    "opensearch_identical": true
+  },
+  "excluded": [
+    "published-flow mutation/acceptance",
+    "graph repair",
+    "V049",
+    "Provider calls",
+    "reembedding/reindex/manifest switch",
+    "permission mutation",
+    "full test suite/coverage/release certification"
+  ],
+  "tool_issue": "One native browser-control call took about 1400 seconds; no service-outage inference. Switched to supported browser DOM controls; host readiness then 200 in 0.216s."
+}

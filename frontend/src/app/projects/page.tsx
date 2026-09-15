@@ -39,7 +39,6 @@ export default function ProjectsPage() {
   const { apiFetch, can } = useAuth();
   const canView = can("Menu", "KnowledgeProjects", "view");
   const canCreate = can("Menu", "KnowledgeProjects", "create");
-  const canExecuteArchive = can("Project", "ProjectArchive", "execute");
   const canManageModels = can("Menu", "SystemManagement", "view");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
@@ -237,6 +236,7 @@ export default function ProjectsPage() {
   }
 
   async function openArchive(project: ProjectResponse) {
+    if (!project.capabilities.can_archive_project) return;
     setArchiveTarget(project);
     setArchiveImpact(null);
     setArchiveConfirmation("");
@@ -278,6 +278,7 @@ export default function ProjectsPage() {
   }
 
   async function retryArchiveCleanup(project: ProjectResponse) {
+    if (!project.capabilities.can_retry_archive_cleanup) return;
     setRetryingArchiveId(project.id);
     setError(null);
     try {
@@ -331,7 +332,7 @@ export default function ProjectsPage() {
 
   function projectAuthorityLabel(project: ProjectResponse) {
     if (project.is_owner) return t("projectsAuthorityOwner");
-    if (canExecuteArchive) return t("projectsAuthorityArchivePermission");
+    if (project.capabilities.can_archive_project || project.capabilities.can_retry_archive_cleanup) return t("projectsAuthorityArchivePermission");
     if (project.current_user_project_roles.includes("editor")) return t("projectsAuthorityEditor");
     return t("projectsAuthorityViewer");
   }
@@ -381,7 +382,7 @@ export default function ProjectsPage() {
           <div className="project-grid">
             {projects.map((project) => (
               <article className={`project-card project-card-large${project.status === "archived" ? " archived" : ""}`} key={project.id}>
-                <header className="project-card-header"><span className="project-icon"><FolderKanban size={21} /></span><div><h3>{project.name}</h3><small>{format("projectsLastActivity", { time: projectActivity(project) })}</small></div><span className={`project-authority-badge${project.is_owner ? " owner" : canExecuteArchive ? " execute" : ""}`}>{projectAuthorityLabel(project)}</span></header>
+<header className="project-card-header"><span className="project-icon"><FolderKanban size={21} /></span><div><h3>{project.name}</h3><small>{format("projectsLastActivity", { time: projectActivity(project) })}</small></div><span className={`project-authority-badge${project.is_owner ? " owner" : (project.capabilities.can_archive_project || project.capabilities.can_retry_archive_cleanup) ? " execute" : ""}`}>{projectAuthorityLabel(project)}</span></header>
                 <p className="project-card-description">{project.description || t("projectsNoDescription")}</p>
                 <dl className="project-card-metrics">
                   <div><dt><Files size={16} />{t("projectsDocumentCount")}</dt><dd>{project.document_count}</dd></div>
@@ -391,9 +392,9 @@ export default function ProjectsPage() {
                 <footer className="project-card-footer">
                   <div className="project-card-status"><StatusBadge status={project.status} />{project.status === "archived" ? <small>{t(`projectsArchiveCleanup_${project.archive_cleanup_status || "queued"}`)}</small> : projectModelCount(project) === 3 ? <small><CheckCircle2 size={14} />{t("projectsModelsReady")}</small> : <small>{t("projectsModelsIncomplete")}</small>}</div>
                   <div className="project-card-actions">
-                    {project.status === "active" && (project.is_owner || canExecuteArchive) ? <button className="project-archive-action" onClick={() => void openArchive(project)} type="button"><Archive size={15} />{t("projectsArchiveAction")}</button> : null}
+                    {project.status === "active" && project.capabilities.can_archive_project ? <button className="project-archive-action" onClick={() => void openArchive(project)} type="button"><Archive size={15} />{t("projectsArchiveAction")}</button> : null}
                     {project.status === "active" ? <Link className="project-enter-action" href={`/project/${project.id}/import`}>{t("projectsOpenProject")}<ArrowRight size={16} /></Link> : <span className="archived-project-lock"><Archive size={15} />{t("projectsArchivedUnavailable")}</span>}
-                    {project.status === "archived" && (project.is_owner || canExecuteArchive) && project.archive_cleanup_status === "failed" ? <button className="project-retry-action" disabled={retryingArchiveId === project.id} onClick={() => void retryArchiveCleanup(project)} type="button">{retryingArchiveId === project.id ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}{t("projectsArchiveCleanupRetry")}</button> : null}
+                    {project.status === "archived" && project.capabilities.can_retry_archive_cleanup && project.archive_cleanup_status === "failed" ? <button className="project-retry-action" disabled={retryingArchiveId === project.id} onClick={() => void retryArchiveCleanup(project)} type="button">{retryingArchiveId === project.id ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}{t("projectsArchiveCleanupRetry")}</button> : null}
                   </div>
                 </footer>
               </article>

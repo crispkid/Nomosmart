@@ -1,0 +1,349 @@
+{
+  "change": "CHG-293",
+  "stage": "A - image build / smoke / server dry-run",
+  "date": "2026-09-10",
+  "approval": {
+    "response": "核准",
+    "scope": "CHG-293 Backend and Frontend build, isolated smoke, available security/SBOM and revision 37 hidden-Secret server dry-run only; preserve Migration; no actual deployment/data mutation/Provider"
+  },
+  "outcome": {
+    "build": "pass",
+    "smoke": "pass",
+    "dry_run": "pass",
+    "sbom": "pass",
+    "container_security": "failed",
+    "deployable": false,
+    "release_gates_waived": false
+  },
+  "source": {
+    "head": "bbaf03850fd83892327c9e47cf3e9f8da7dbc5f3",
+    "dirty_approved_chg293_changes": true,
+    "tree_fingerprint_before": "578ff4d192c59010a619f519d43156da1188c1fb215272f480ecdb018e2efa79",
+    "tree_fingerprint_after": "578ff4d192c59010a619f519d43156da1188c1fb215272f480ecdb018e2efa79",
+    "fingerprint_command": "rg --files --hidden backend/app frontend/src frontend/public deploy/helm/nomosmart -g '!**/__pycache__/**' -g '!**/*.pyc' | LC_ALL=C sort | xargs shasum -a 256 | shasum -a 256",
+    "source_hashes_in_backend_image": {
+      "app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+      "app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+      "app/api/routes/serving.py": "0460c652e6815715cf86d56fe82b16ddf5e335c1883c07d0a192051a66a3adeb",
+      "app/api/routes/documents.py": "66cb882c46dbe487f77a85d0cdadcb5889b0b1212cfcc2d7aacd45fd5c13cdb5",
+      "app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+      "app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+      "app/api/schemas.py": "4fd5dcd77bc41cf60efb20b4aaceb711a6de3292bf00eae2185d17ff1b34727f",
+      "app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+      "app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+      "app/domain/graph_reconciliation.py": "67d21dccd30ab455d08f074d0045d094f5cbb831ec1714c994438191cd17b2af"
+    }
+  },
+  "images": {
+    "backend": {
+      "tag": "nomosmart/backend:0.1.0-chg293",
+      "id": "sha256:7a367c11fc6a49825c57826714536832e81a27455130b652b7361d78bc2eec4d",
+      "architecture": "arm64",
+      "user": "nomosmart"
+    },
+    "frontend": {
+      "tag": "nomosmart/frontend:0.1.0-chg293",
+      "id": "sha256:500a02af6d9e318e944a23774bbb432d9cb77d2eb331882860ecf3b3eb712a80",
+      "architecture": "arm64",
+      "user": "nomosmart"
+    },
+    "migration": {
+      "tag": "nomosmart/migrations:0.1.0-chg288",
+      "id": "sha256:bf9cb98e13bc396210a0a82bd785e602bde14ae4e240ca5f81fc9b9c0d4dafab",
+      "rebuilt": false
+    }
+  },
+  "build": {
+    "backend_exit": 0,
+    "frontend_exit": 0,
+    "backend_build_id": "1lw7bfueqthkbwzrvpsy566o0",
+    "frontend_build_id": "t4ng1ljlftjs72uvgn1iij06g",
+    "backend_base": "ubuntu:24.04@sha256:224a1869083a311ef3f13648a154ba79832fbef6364d31493642ca03082da254",
+    "frontend_base": "node:24-alpine@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf",
+    "dockerfiles_locks_changed": false
+  },
+  "smoke": {
+    "backend": {
+      "status": "pass",
+      "uid": 10001,
+      "network": "none",
+      "source_hashes": {
+        "app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+        "app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+        "app/api/routes/serving.py": "0460c652e6815715cf86d56fe82b16ddf5e335c1883c07d0a192051a66a3adeb",
+        "app/api/routes/documents.py": "66cb882c46dbe487f77a85d0cdadcb5889b0b1212cfcc2d7aacd45fd5c13cdb5",
+        "app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+        "app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+        "app/api/schemas.py": "4fd5dcd77bc41cf60efb20b4aaceb711a6de3292bf00eae2185d17ff1b34727f",
+        "app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+        "app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+        "app/domain/graph_reconciliation.py": "67d21dccd30ab455d08f074d0045d094f5cbb831ec1714c994438191cd17b2af"
+      },
+      "liveness_http": 200,
+      "chat_and_graph_routes_present": true,
+      "author_capability_contract_present": true,
+      "heading_path_none_as_null": true,
+      "readiness_tested": false,
+      "database_provider_calls": 0
+    },
+    "frontend": {
+      "status": "pass",
+      "uid": 10001,
+      "network": "none",
+      "compiled_chg293_markers": 6,
+      "js_files_scanned": 211,
+      "login_http": 200,
+      "authenticated_browser_tested": false
+    },
+    "container_label": "nomosmart.change=CHG-293-stageA",
+    "remaining_containers": 0,
+    "host_ports": 0,
+    "live_config_mounts": 0,
+    "readonly_rootfs": true
+  },
+  "dry_run": {
+    "after": {
+      "deployment_specs_sha256": "7b4dd9596010e46567b4b37409ed9f5cfbd30e43e6098f7b21e521fc417fad91",
+      "revision": 36,
+      "revision37_jobs": 0,
+      "values_sha256": "5a9b73395ced6bf62da8d9d04bc0155590fc66fbdf0aa57ea3dc53750e980ccd"
+    },
+    "before": {
+      "deployment_specs_sha256": "7b4dd9596010e46567b4b37409ed9f5cfbd30e43e6098f7b21e521fc417fad91",
+      "revision": 36,
+      "revision37_jobs": 0,
+      "values_sha256": "5a9b73395ced6bf62da8d9d04bc0155590fc66fbdf0aa57ea3dc53750e980ccd"
+    },
+    "renders": [
+      {
+        "app_image_references": {
+          "nomosmart/backend:0.1.0-chg293": 8,
+          "nomosmart/frontend:0.1.0-chg293": 1,
+          "nomosmart/migrations:0.1.0-chg288": 1
+        },
+        "bootstrap_release": "nomosmart-local-37",
+        "canonical_bytes": 96181,
+        "jobs": [
+          "nomosmart-local-bootstrap-37",
+          "nomosmart-local-migration-37"
+        ],
+        "kinds": {
+          "ConfigMap": 3,
+          "Deployment": 6,
+          "Ingress": 2,
+          "Job": 2,
+          "NetworkPolicy": 10,
+          "PodDisruptionBudget": 3,
+          "Service": 10,
+          "ServiceAccount": 1,
+          "StatefulSet": 5
+        },
+        "normalized_nonsecret_manifest_parity": true,
+        "render_sha256": "709e19e1a8865e991406456871fb0ef19d8f45740fb9eac0eb55032ba5c5ab87",
+        "revision": 37,
+        "run": 1,
+        "secret_body_hidden": true,
+        "secret_manifest_objects": 0
+      },
+      {
+        "app_image_references": {
+          "nomosmart/backend:0.1.0-chg293": 8,
+          "nomosmart/frontend:0.1.0-chg293": 1,
+          "nomosmart/migrations:0.1.0-chg288": 1
+        },
+        "bootstrap_release": "nomosmart-local-37",
+        "canonical_bytes": 96181,
+        "jobs": [
+          "nomosmart-local-bootstrap-37",
+          "nomosmart-local-migration-37"
+        ],
+        "kinds": {
+          "ConfigMap": 3,
+          "Deployment": 6,
+          "Ingress": 2,
+          "Job": 2,
+          "NetworkPolicy": 10,
+          "PodDisruptionBudget": 3,
+          "Service": 10,
+          "ServiceAccount": 1,
+          "StatefulSet": 5
+        },
+        "normalized_nonsecret_manifest_parity": true,
+        "render_sha256": "709e19e1a8865e991406456871fb0ef19d8f45740fb9eac0eb55032ba5c5ab87",
+        "revision": 37,
+        "run": 2,
+        "secret_body_hidden": true,
+        "secret_manifest_objects": 0
+      }
+    ],
+    "status": "pass"
+  },
+  "security": {
+    "tool": "Docker Scout v1.24.0",
+    "harness": "security:containers",
+    "harness_exit": 2,
+    "severity_filter": [
+      "CRITICAL",
+      "HIGH"
+    ],
+    "backend_findings": 0,
+    "frontend": {
+      "severity_counts": [
+        {
+          "severity": "CRITICAL",
+          "count": 4
+        },
+        {
+          "severity": "HIGH",
+          "count": 8
+        }
+      ],
+      "findings": [
+        {
+          "id": "CVE-2026-14456",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-14457",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-18798",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-54874",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-63072",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-63075",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "CVE-2026-63076",
+          "severity": "HIGH",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "GHSA-rgj7-g3m4-5g8c",
+          "severity": "HIGH",
+          "fixed_version": "0.35.4",
+          "purls": [
+            "pkg:npm/sharp@0.35.3"
+          ]
+        },
+        {
+          "id": "CVE-2026-75604",
+          "severity": "CRITICAL",
+          "fixed_version": "16.3.3",
+          "purls": [
+            "pkg:npm/next@16.2.12"
+          ]
+        },
+        {
+          "id": "CVE-2026-75803",
+          "severity": "CRITICAL",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        },
+        {
+          "id": "GHSA-2xp9-vwfh-vxw4",
+          "severity": "CRITICAL",
+          "fixed_version": "16.3.3",
+          "purls": [
+            "pkg:npm/next@16.2.12"
+          ]
+        },
+        {
+          "id": "CVE-2026-63073",
+          "severity": "CRITICAL",
+          "fixed_version": "3.5.8-r0",
+          "purls": [
+            "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+          ]
+        }
+      ]
+    },
+    "sbom_harness_exit": 0,
+    "indexed_packages": {
+      "backend": 340,
+      "frontend": 347
+    },
+    "artifacts": [
+      {
+        "file": "/tmp/chg293-build.5fYxc2/security/backend.scout.sarif.json",
+        "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+      },
+      {
+        "file": "/tmp/chg293-build.5fYxc2/security/frontend.scout.sarif.json",
+        "sha256": "50e65ebbf2f0795697f415507570cd72d435f15d9b81bd8c7b3272d168c82eeb"
+      },
+      {
+        "file": "/tmp/chg293-build.5fYxc2/security/backend.spdx.json",
+        "sha256": "8453fa965fd0444059a88ccc5eb7b8978dcc6fbf45165d4c9221956817049b0e"
+      },
+      {
+        "file": "/tmp/chg293-build.5fYxc2/security/frontend.spdx.json",
+        "sha256": "3d2a224acc2352de93aac5a141a55da7b1b5c80f49b83291604f1734a36c3def"
+      }
+    ],
+    "note": "These are scanner classifications, not exploitability/incident confirmation. Fixed versions are scanner suggestions pending maintainer-advisory/compatibility review; no dependency update or waiver performed."
+  },
+  "verification": {
+    "spec_doctor": "pass",
+    "spec_trace": "pass - 6 mappings",
+    "plan_approved": "pass",
+    "test_plan": "pass",
+    "docker_config": "pass",
+    "helm_lint": "pass",
+    "deploy_config_policy": "pass",
+    "git_diff_check": "pass",
+    "full_coverage": "not passed - historical gaps retained",
+    "full_e2e": "not passed"
+  },
+  "restrictions": {
+    "helm_write": false,
+    "kubernetes_mutation": false,
+    "jobs_created": 0,
+    "live_sql": false,
+    "application_data_mutation": false,
+    "role_membership_mutation": false,
+    "provider_call": false,
+    "image_push": false,
+    "bootstrap_run": false
+  },
+  "next": "Stop before actual deployment; present Frontend security remediation scope for approval and preserve existing full coverage/E2E and deployment-baseline gates."
+}
