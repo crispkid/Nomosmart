@@ -1,0 +1,846 @@
+{
+  "schema_version": 1,
+  "final_harness": {
+    "spec:doctor": "PASS",
+    "spec:trace": "PASS_34_MAPPINGS",
+    "plan:doctor": "PASS",
+    "plan:approved": "PASS",
+    "test:plan": "PASS",
+    "backend:syntax": "PASS",
+    "helm:lint": "PASS",
+    "deploy:config-policy": "PASS",
+    "compose_all_profiles_config_no_env_resolution": "PASS",
+    "git_diff_check": "PASS"
+  },
+  "scope": "CHG-301 R2 Delivery And Installation Dependency Security",
+  "status": "PARTIAL_BLOCKED_PRODUCT_UPGRADES_AND_FRESH_AUDIT_CONSENT",
+  "plan_sha256": "3db7c0c206f3303f8458aaad7a64c23f7b67d54036daececdf86ce381e52eadc",
+  "started_at": "2026-09-16T15:44:36.946345+00:00",
+  "deadline": "2026-09-16T21:44:36.946345+00:00",
+  "source_file_count": 331,
+  "scout_version": "\n      ⢀⢀⢀             ⣀⣀⡤⣔⢖⣖⢽⢝\n   ⡠⡢⡣⡣⡣⡣⡣⡣⡢⡀    ⢀⣠⢴⡲⣫⡺⣜⢞⢮⡳⡵⡹⡅\n  ⡜⡜⡜⡜⡜⡜⠜⠈⠈        ⠁⠙⠮⣺⡪⡯⣺⡪⡯⣺ \n ⢘⢜⢜⢜⢜⠜               ⠈⠪⡳⡵⣹⡪⠇ \n ⠨⡪⡪⡪⠂    ⢀⡤⣖⢽⡹⣝⡝⣖⢤⡀    ⠘⢝⢮⡚       _____                 _   \n  ⠱⡱⠁    ⡴⡫⣞⢮⡳⣝⢮⡺⣪⡳⣝⢦    ⠘⡵⠁      / ____| Docker        | |  \n   ⠁    ⣸⢝⣕⢗⡵⣝⢮⡳⣝⢮⡺⣪⡳⣣    ⠁      | (___   ___ ___  _   _| |_ \n        ⣗⣝⢮⡳⣝⢮⡳⣝⢮⡳⣝⢮⢮⡳            \\___ \\ / __/ _ \\| | | | __|\n   ⢀    ⢱⡳⡵⣹⡪⡳⣝⢮⡳⣝⢮⡳⡣⡏    ⡀       ____) | (_| (_) | |_| | |_ \n  ⢀⢾⠄    ⠫⣞⢮⡺⣝⢮⡳⣝⢮⡳⣝⠝    ⢠⢣⢂     |_____/ \\___\\___/ \\__,_|\\__|\n  ⡼⣕⢗⡄    ⠈⠓⠝⢮⡳⣝⠮⠳⠙     ⢠⢢⢣⢣  \n ⢰⡫⡮⡳⣝⢦⡀              ⢀⢔⢕⢕⢕⢕⠅ \n ⡯⣎⢯⡺⣪⡳⣝⢖⣄⣀        ⡀⡠⡢⡣⡣⡣⡣⡣⡃  \n⢸⢝⢮⡳⣝⢮⡺⣪⡳⠕⠗⠉⠁    ⠘⠜⡜⡜⡜⡜⡜⡜⠜⠈   \n⡯⡳⠳⠝⠊⠓⠉             ⠈⠈⠈⠈      \n\n\n\nversion: v1.24.0 (go1.26.3 - darwin/arm64)\ngit commit: b1c9331b2166aef7ec690aa16fd655b8798ea4c6\n",
+  "tools": {
+    "docker": {
+      "path": "/usr/local/bin/docker",
+      "sha256": "75b26e5794924745fc9879c9d5ce92e6389f01aff494a36bca7b44c770ce3894"
+    },
+    "helm": {
+      "path": "/opt/homebrew/bin/helm",
+      "sha256": "0d044e17bf811a23966a04f83edb1756bdd415b327444494077e139b3d47c938"
+    },
+    "gh": {
+      "path": "/opt/homebrew/bin/gh",
+      "sha256": "02d2d4a85241c6a8c0b77ebb1ec76fc723caf7fb128e00915b306b968847cba1"
+    }
+  },
+  "pr_before": {
+    "baseRefName": "main",
+    "headRefName": "fix/compose-method1-installer",
+    "headRefOid": "c261a494283835af57c0e0678afc7ee7e2c0dcc8",
+    "isDraft": false,
+    "mergeStateStatus": "CLEAN",
+    "number": 1,
+    "state": "OPEN",
+    "statusCheckRollup": [],
+    "title": "Fix/compose method1 installer",
+    "url": "https://github.com/crispkid/Nomosmart/pull/1"
+  },
+  "main_before": "5f1a0a2505dee9c85ee621bd2c8680b92d397a45",
+  "closure_status": "DECLARATIONS_AND_EXAMPLE_ROUTES_CHECKED_FINAL_ARTIFACTS_AND_BUILD_INPUTS_PENDING",
+  "declared_use_count": 49,
+  "rendered_use_count": 144,
+  "official_manifests": [
+    {
+      "name": "cnpg",
+      "url": "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.30.0/releases/cnpg-1.30.0.yaml",
+      "sha256": "f8bede43fe4ee0d478c2355b204a36876b2ae4faac60f2a9452280b293da3b88",
+      "rendered_sha256": "5ca16440ae140e323466d66e5c156cd937b13bada6bc9ccd687853bc35315f64",
+      "image": "ghcr.io/cloudnative-pg/cloudnative-pg@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb",
+      "sidecar": null
+    },
+    {
+      "name": "barman",
+      "url": "https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.13.0/manifest.yaml",
+      "sha256": "d2e71e7b06822448f1a421f05781846cfdb9cc621e7ef32eef5e20c5133213b0",
+      "rendered_sha256": "dbb6d82026d6bc7a511f2f25b4e347194d7316b6c8a453b9302bf9d1042aa2ed",
+      "image": "ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:71589dbac582333442812b07b31f7ea4d00324a8358aac7ca507dabf9f4b6c96",
+      "sidecar": "ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar@sha256:990361af3319f9e23aafa0f6d7981f99bf1f69b4e6a85cf1bc7d71d6f09bb288"
+    }
+  ],
+  "scans": [
+    {
+      "name": "nginx",
+      "target": {
+        "name": "nginx",
+        "declared": "docker.io/library/nginx:1.27.5-alpine",
+        "scan_reference": "registry://docker.io/library/nginx@sha256:63ffc0d1f14e4082b832c6a42e606e9a0384a526f16ddd720af7c1f018f2f7c4",
+        "manifest_digest": "sha256:63ffc0d1f14e4082b832c6a42e606e9a0384a526f16ddd720af7c1f018f2f7c4",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/nginx.sarif.json",
+          "sha256": "02a49043c6c3d03bb9d2eb10318a6dae59b4cbaa30490c85a703c604a24a4fb0"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/nginx.spdx.json",
+          "sha256": "7b5fc3baff3aa5648f1346d1593997f3b503442adaed7fd2942a739365ec249f"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 13,
+        "LOW": 18,
+        "MEDIUM": 55,
+        "HIGH": 43,
+        "CRITICAL": 12
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "redis",
+      "target": {
+        "name": "redis",
+        "declared": "docker.io/library/redis:7.4.2-alpine",
+        "scan_reference": "registry://docker.io/library/redis@sha256:90cac51530a49aaa42eaf65712e84005677a0c44191e721e2de756927031fb9d",
+        "manifest_digest": "sha256:90cac51530a49aaa42eaf65712e84005677a0c44191e721e2de756927031fb9d",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/redis.sarif.json",
+          "sha256": "7c254ba2959f7fed80310a432c9e9bd9f305b436af07ea7a75b2950993eedfc6"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/redis.spdx.json",
+          "sha256": "0c2e6def50e19ca23611731ff3f670df122d57da5a8997c1f5c6038cdd5bb374"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 2,
+        "LOW": 7,
+        "MEDIUM": 55,
+        "HIGH": 66,
+        "CRITICAL": 7
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "socat",
+      "target": {
+        "name": "socat",
+        "declared": "docker.io/alpine/socat:1.8.0.1",
+        "scan_reference": "registry://docker.io/alpine/socat@sha256:5cde10f44b0cd2dc229066a27cefaa09a1f64878e6acf0598367b11b884c1083",
+        "manifest_digest": "sha256:5cde10f44b0cd2dc229066a27cefaa09a1f64878e6acf0598367b11b884c1083",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/socat.sarif.json",
+          "sha256": "f77c1c8b48bdcd066ae6f2be3742e69352f7dfb8e1e8cd408011e157030b0721"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/socat.spdx.json",
+          "sha256": "074f625f6c228314063c30f5265ce58119e11993f50c8d13df764f82ea6544c6"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 1,
+        "LOW": 3,
+        "MEDIUM": 11,
+        "HIGH": 11,
+        "CRITICAL": 1
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "operator_image",
+      "target": {
+        "name": "operator_image",
+        "declared": "ghcr.io/cloudnative-pg/cloudnative-pg@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb",
+        "scan_reference": "registry://ghcr.io/cloudnative-pg/cloudnative-pg@sha256:6c7926147fd23a053dea6605d61c013d43bfd411be3532e7500ef2d2b68bb98c",
+        "manifest_digest": "sha256:6c7926147fd23a053dea6605d61c013d43bfd411be3532e7500ef2d2b68bb98c",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/operator_image.sarif.json",
+          "sha256": "4f5385a63913f69e00debe9388ff32be1d3445d7479baeb8cfc52f5591304018"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/operator_image.spdx.json",
+          "sha256": "845bb6d4aa9acee85aa19e833b03a5d8a0ba3d024b245fe270631f0f94ed3719"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 3,
+        "MEDIUM": 3,
+        "HIGH": 8,
+        "CRITICAL": 1
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "plugin_image",
+      "target": {
+        "name": "plugin_image",
+        "declared": "ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:71589dbac582333442812b07b31f7ea4d00324a8358aac7ca507dabf9f4b6c96",
+        "scan_reference": "registry://ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:de612e3ad8633a198b91ffbea53848407424155daf2183d656490d843a83b100",
+        "manifest_digest": "sha256:de612e3ad8633a198b91ffbea53848407424155daf2183d656490d843a83b100",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/plugin_image.sarif.json",
+          "sha256": "3d56f81897e453e5de8333dd6129ed6e999fcf0733b3141a6ff2ab155dd128a8"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/plugin_image.spdx.json",
+          "sha256": "c3634bf4289c93defa45ea130a079f33dad7ccee78bbd1d0f3a2f007b31b1599"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 3,
+        "LOW": 3,
+        "MEDIUM": 20,
+        "HIGH": 14,
+        "CRITICAL": 1
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "sidecar_image",
+      "target": {
+        "name": "sidecar_image",
+        "declared": "ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar@sha256:990361af3319f9e23aafa0f6d7981f99bf1f69b4e6a85cf1bc7d71d6f09bb288",
+        "scan_reference": "registry://ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar@sha256:f53e168e341661cd76334215ead9dfd69f06117685d3232206192cf25218da71",
+        "manifest_digest": "sha256:f53e168e341661cd76334215ead9dfd69f06117685d3232206192cf25218da71",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/sidecar_image.sarif.json",
+          "sha256": "37a56aa4ed8871ea2808772be9adec1ba5952ba02fa14bd96a7a330aeeb0fd05"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/sidecar_image.spdx.json",
+          "sha256": "e79ba637d5891a3105ce2861e621ec7631557569c1a756416f1d6928fb652e95"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 3,
+        "MEDIUM": 15,
+        "HIGH": 14,
+        "CRITICAL": 1
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "cnpg-postgresql",
+      "target": {
+        "name": "cnpg-postgresql",
+        "declared": "ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1",
+        "scan_reference": "registry://ghcr.io/cloudnative-pg/postgresql@sha256:81bac24ad229186fde0777e2dba180f56817423c8fad5039e3ccdc2ce1f7ab2b",
+        "manifest_digest": "sha256:81bac24ad229186fde0777e2dba180f56817423c8fad5039e3ccdc2ce1f7ab2b",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/cnpg-postgresql.sarif.json",
+          "sha256": "98976345d123f658da546fe2da4c42c3021de003aea6ab99563eb8d97936f017"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/cnpg-postgresql.spdx.json",
+          "sha256": "0cab767c692a181e11a90632b13ffa74fc989d679ee16c406e495b87dffd24ef"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 5,
+        "LOW": 57,
+        "MEDIUM": 14,
+        "HIGH": 15,
+        "CRITICAL": 6
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "migration",
+      "target": {
+        "name": "migration",
+        "declared": "nomosmart/migrations:chg301-test",
+        "scan_reference": "local://sha256:7e065b8eea47d323a20543984db4b020da9b43caad7c082fdbd3425907ad7d19",
+        "identity": {
+          "id": "sha256:7e065b8eea47d323a20543984db4b020da9b43caad7c082fdbd3425907ad7d19",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/migrations@sha256:7e065b8eea47d323a20543984db4b020da9b43caad7c082fdbd3425907ad7d19"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/migration.sarif.json",
+          "sha256": "b1846e21dd0a2c865976f822d5c3a1aa6169f30719c53aa497b41af67f6e1db2"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/migration.spdx.json",
+          "sha256": "0e1ae890c633e66b466f5e220d776b8a01a701f36f9c54654e53dda50ac487a3"
+        }
+      },
+      "counts": {
+        "LOW": 1,
+        "MEDIUM": 23,
+        "HIGH": 23,
+        "CRITICAL": 3
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "postgresql",
+      "target": {
+        "name": "postgresql",
+        "declared": "nomosmart/postgresql:chg301-test",
+        "scan_reference": "local://sha256:0b3904c4ff039d23e2d0437b091107c708c6116e5616874ae0130b6da260a525",
+        "identity": {
+          "id": "sha256:0b3904c4ff039d23e2d0437b091107c708c6116e5616874ae0130b6da260a525",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/postgresql@sha256:0b3904c4ff039d23e2d0437b091107c708c6116e5616874ae0130b6da260a525"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/postgresql.sarif.json",
+          "sha256": "286ded2667d372885c711cb91a99e3beed6357199eda666ab3b3a10f031cad8e"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/postgresql.spdx.json",
+          "sha256": "cac31cc539b9248ccba1d7a7abc17501f300d826bf94637e46458c577edffe3a"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 4,
+        "LOW": 7,
+        "MEDIUM": 26,
+        "HIGH": 40,
+        "CRITICAL": 6
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "rustfs",
+      "target": {
+        "name": "rustfs",
+        "declared": "nomosmart/rustfs:chg301-test",
+        "scan_reference": "local://sha256:e9ab1a1b9c8e47ff8481ff52611025c8d23a0eaaa643a29ec9020fa7bc761755",
+        "identity": {
+          "id": "sha256:e9ab1a1b9c8e47ff8481ff52611025c8d23a0eaaa643a29ec9020fa7bc761755",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/rustfs@sha256:e9ab1a1b9c8e47ff8481ff52611025c8d23a0eaaa643a29ec9020fa7bc761755"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/rustfs.sarif.json",
+          "sha256": "b0104969f4bfc846fc3b9c2bbf9432c7d45a1e199757350cc2eec1af0ae048f1"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/rustfs.spdx.json",
+          "sha256": "bf59d854a432ceb26a928d06ae3af2da90f50fe1317829c943bf708c2228ab5e"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 2,
+        "LOW": 1,
+        "MEDIUM": 3,
+        "HIGH": 14,
+        "CRITICAL": 4
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "frontend",
+      "target": {
+        "name": "frontend",
+        "declared": "nomosmart/frontend:0.1.0-chg299-v049",
+        "scan_reference": "local://sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f",
+        "identity": {
+          "id": "sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/frontend@sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/frontend.sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/frontend.spdx.json",
+          "sha256": "564cebb1a70ba59c39cb1825e029b72bd085e331727aa5fcf0e731ddf4712573"
+        }
+      },
+      "counts": {},
+      "status": "NO_RAW_HIGH_CRITICAL",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "backend",
+      "target": {
+        "name": "backend",
+        "declared": "nomosmart/backend:0.1.0-chg300",
+        "scan_reference": "local://sha256:21283c4f28bb05cc444c416b8020ddd34719235ba56b8c64d51b42a786392ef2",
+        "identity": {
+          "id": "sha256:21283c4f28bb05cc444c416b8020ddd34719235ba56b8c64d51b42a786392ef2",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/backend@sha256:21283c4f28bb05cc444c416b8020ddd34719235ba56b8c64d51b42a786392ef2"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/backend.sarif.json",
+          "sha256": "e2b908cedd1e860322f14e84d5c44903d490a6cf22596f16fa1577598e6578fa"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/backend.spdx.json",
+          "sha256": "82ee01f41cac51e6238b98e5eaee560668dbd8411dc3b3efd2231706578e03ff"
+        }
+      },
+      "counts": {
+        "LOW": 9,
+        "MEDIUM": 58
+      },
+      "status": "NO_RAW_HIGH_CRITICAL",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "keycloak",
+      "target": {
+        "name": "keycloak",
+        "declared": "nomosmart/keycloak:26.0.8",
+        "scan_reference": "local://sha256:5912dc85fd5fdfb89e7a0bba9d9ffe0624fc385d2846e543a0114c3fb4fddc6a",
+        "identity": {
+          "id": "sha256:5912dc85fd5fdfb89e7a0bba9d9ffe0624fc385d2846e543a0114c3fb4fddc6a",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/keycloak@sha256:5912dc85fd5fdfb89e7a0bba9d9ffe0624fc385d2846e543a0114c3fb4fddc6a"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/keycloak.sarif.json",
+          "sha256": "3c2d5fb933de6bc62e4bcdba8d63dd5bb217356e844c480e610d690d26c16f65"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/keycloak.spdx.json",
+          "sha256": "2e7fc28abb0e1a052c4006c58645b854ce254f20b0149b2c3d9d5b9239d62273"
+        }
+      },
+      "counts": {
+        "LOW": 23,
+        "MEDIUM": 100,
+        "HIGH": 61,
+        "CRITICAL": 4
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "neo4j",
+      "target": {
+        "name": "neo4j",
+        "declared": "docker.io/library/neo4j:5.26.4-community",
+        "scan_reference": "registry://docker.io/library/neo4j@sha256:e610cfa9add006c2e4841c403a29b53785246a1c8fc5e43692df5d055a12fd35",
+        "manifest_digest": "sha256:e610cfa9add006c2e4841c403a29b53785246a1c8fc5e43692df5d055a12fd35",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/neo4j.sarif.json",
+          "sha256": "2f765c1a86b21308711623e5c11bdb4fdd534798e68608c3ea8676e38a8032bb"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/neo4j.spdx.json",
+          "sha256": "dae12b00c23354c320d33bc8fd4c6c7401ac617fabf3ecc89ec50a6f74d8d01f"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 2,
+        "LOW": 6,
+        "MEDIUM": 36,
+        "HIGH": 24,
+        "CRITICAL": 1
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "opensearch-compose",
+      "target": {
+        "name": "opensearch-compose",
+        "declared": "docker.io/opensearchproject/opensearch:2.19.1",
+        "scan_reference": "registry://docker.io/opensearchproject/opensearch@sha256:a270ae3fadaed7b93ecbc4d1ae6538b51d77ff4528bc3517115583849430fdf4",
+        "manifest_digest": "sha256:a270ae3fadaed7b93ecbc4d1ae6538b51d77ff4528bc3517115583849430fdf4",
+        "source_bound": true,
+        "qualification": "DECLARED_THIRD_PARTY_ARM64"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/opensearch-compose.sarif.json",
+          "sha256": "b2de7037d1f8748d0c3c945d73b372dbaba378b6a58f02d39713c9a9d2015251"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/opensearch-compose.spdx.json",
+          "sha256": "90781303480a3d258fc298a33b2be77d1cca82ce720c9bf1e9166c59f35f0997"
+        }
+      },
+      "counts": {
+        "LOW": 12,
+        "MEDIUM": 126,
+        "HIGH": 155,
+        "CRITICAL": 2
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    },
+    {
+      "name": "opensearch-helm",
+      "target": {
+        "name": "opensearch-helm",
+        "declared": "nomosmart/opensearch:2.19.6-repository-s3",
+        "scan_reference": "local://sha256:f524546c5259efe3ca4ff18dee0ec76357b89761754f3a97cdac92384caea2be",
+        "identity": {
+          "id": "sha256:f524546c5259efe3ca4ff18dee0ec76357b89761754f3a97cdac92384caea2be",
+          "os": "linux",
+          "architecture": "arm64",
+          "digests": [
+            "nomosmart/opensearch@sha256:f524546c5259efe3ca4ff18dee0ec76357b89761754f3a97cdac92384caea2be"
+          ]
+        },
+        "source_bound": false,
+        "qualification": "EXISTING_CANDIDATE_SOURCE_BINDING_PENDING"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/opensearch-helm.sarif.json",
+          "sha256": "f30301ab618c7abe588b3945021c339b0b2e082478df8467186453a4a0a868e6"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/opensearch-helm.spdx.json",
+          "sha256": "170802d9e195b5dbcf2fef205363ea9029a6e22975599dbeeda42a2186309ba1"
+        }
+      },
+      "counts": {
+        "MEDIUM": 42,
+        "HIGH": 51,
+        "CRITICAL": 2
+      },
+      "status": "FINDINGS_REQUIRE_REVIEW",
+      "not_source_or_release_acceptance": true
+    }
+  ],
+  "local_audit": {
+    "historical_path": "/private/tmp/chg301-r2-security-0utu1kq_/result.json",
+    "historical_sha256": "bd648f6c323e238b84faf886e1c29a1f09bb2c3278d224275825899f7485786a",
+    "historical_finished_at": "2026-09-15T11:45:50.444583+00:00",
+    "same_source_files": 140,
+    "historical_dependency_checks": {
+      "npm-production": {
+        "status": "PASS",
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 174,
+          "dev": 464,
+          "optional": 96,
+          "peer": 10,
+          "peerOptional": 0,
+          "total": 677
+        },
+        "findings": {}
+      },
+      "npm-full": {
+        "status": "PASS",
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "dependencies": {
+          "prod": 174,
+          "dev": 464,
+          "optional": 96,
+          "peer": 10,
+          "peerOptional": 0,
+          "total": 677
+        },
+        "findings": {}
+      },
+      "pip-production": {
+        "status": "PASS",
+        "dependencies": 54,
+        "findings": [],
+        "requirements_sha256": "09ede8e581601fba4cf1c384bf88f3b9e25e2f8ab0a28a360d251f2f6340b778",
+        "severity_note": "pip-audit does not classify severity; any finding requires review"
+      },
+      "pip-full": {
+        "status": "PASS",
+        "dependencies": 60,
+        "findings": [],
+        "requirements_sha256": "4f848b12a71873e45384ffcd1be897f453099ad8dbd5ad5872c0e7f09a49b337",
+        "severity_note": "pip-audit does not classify severity; any finding requires review"
+      }
+    },
+    "fresh_online_audit": "BLOCKED_PERMISSION_DEPENDENCY_METADATA_EGRESS_REQUIRES_EXPLICIT_CONSENT",
+    "bandit_version": "bandit 1.9.4\n  python version = 3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]",
+    "bandit_path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/local-bandit.json",
+    "bandit_sha256": "6513f65edb5aedb71be2596501f4b5741c3ef41f80eae995745538a8770f8330",
+    "bandit_counts": {
+      "LOW": 90,
+      "MEDIUM": 32,
+      "HIGH": 3
+    },
+    "assessment": {
+      "status": "ACCEPTED_RISK",
+      "approval_id": "CHG301-R2-FTP-20260915",
+      "accepted_findings": [
+        {
+          "code": "3 # DSYNC-001/NET-002 explicitly retain operator-selected plaintext FTP.\n4 import ftplib  # nosec B402\n5 import ipaddress\n",
+          "col_offset": 0,
+          "end_col_offset": 13,
+          "filename": "backend/app/integrations/remote_sources.py",
+          "issue_confidence": "HIGH",
+          "issue_cwe": {
+            "id": 319,
+            "link": "https://cwe.mitre.org/data/definitions/319.html"
+          },
+          "issue_severity": "HIGH",
+          "issue_text": "A FTP-related module is being imported.  FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+          "line_number": 4,
+          "line_range": [
+            4
+          ],
+          "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b402-import-ftplib",
+          "test_id": "B402",
+          "test_name": "blacklist"
+        },
+        {
+          "code": "85             # DSYNC-001 explicitly defines this plaintext FTP transport option.\n86             with ftplib.FTP() as client:  # nosec B321\n87                 client.connect(host=host, port=port, timeout=timeout_seconds)\n",
+          "col_offset": 17,
+          "end_col_offset": 29,
+          "filename": "backend/app/integrations/remote_sources.py",
+          "issue_confidence": "HIGH",
+          "issue_cwe": {
+            "id": 319,
+            "link": "https://cwe.mitre.org/data/definitions/319.html"
+          },
+          "issue_severity": "HIGH",
+          "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+          "line_number": 86,
+          "line_range": [
+            86
+          ],
+          "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b321-ftplib",
+          "test_id": "B321",
+          "test_name": "blacklist"
+        },
+        {
+          "code": "110             # DSYNC-001 explicitly defines this plaintext FTP transport option.\n111             with ftplib.FTP() as client:  # nosec B321\n112                 client.connect(host=host, port=port, timeout=timeout_seconds)\n",
+          "col_offset": 17,
+          "end_col_offset": 29,
+          "filename": "backend/app/integrations/remote_sources.py",
+          "issue_confidence": "HIGH",
+          "issue_cwe": {
+            "id": 319,
+            "link": "https://cwe.mitre.org/data/definitions/319.html"
+          },
+          "issue_severity": "HIGH",
+          "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+          "line_number": 111,
+          "line_range": [
+            111
+          ],
+          "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b321-ftplib",
+          "test_id": "B321",
+          "test_name": "blacklist"
+        }
+      ],
+      "unaccepted_high_critical": []
+    },
+    "not_release_acceptance": true
+  },
+  "host": {
+    "pressure": "The system has 137438953472 (8388608 pages with a page size of 16384).\nSystem-wide memory free percentage: 96%\n",
+    "total_ram": 137438953472,
+    "cpus": 18,
+    "load": [
+      4.46240234375,
+      3.533203125,
+      2.51171875
+    ]
+  },
+  "vm_build_gate": "AVAILABLE_MEMORY_AND_ENFORCED_LIMITS_NOT_VERIFIED",
+  "historical_artifact_bytes": 4264923136,
+  "baseline_unchanged": true,
+  "source_unchanged": true,
+  "runtime_mutations": 0,
+  "pr_writes": 0,
+  "failures": [
+    {
+      "phase": "local_audit",
+      "error": "[Errno 1] Operation not permitted: '/bin/ps'",
+      "type": "PermissionError"
+    }
+  ],
+  "run": {
+    "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6",
+    "manifest_sha256": "c765eb1d0c49cc896b240a741181c464430649afd9b5460e11e2773a6ee3feb7"
+  },
+  "summary": {
+    "scanned_images": 16,
+    "images_with_raw_high_critical": 14,
+    "high_image_advisory_rows": 539,
+    "critical_image_advisory_rows": 51,
+    "unique_high_critical_advisory_ids": 325,
+    "medium_rows": 587,
+    "low_rows": 147,
+    "unspecified_rows": 38,
+    "runtime_exploitability_assessed": false,
+    "new_product_fixes": 0,
+    "new_waivers": 0
+  },
+  "scope_overlap": {
+    "known_test_image_id_matches": [],
+    "checked_existing_containers": 14,
+    "common_advisory_ids": [
+      "CVE-2026-11822",
+      "CVE-2026-11824",
+      "CVE-2026-12087",
+      "CVE-2026-13221",
+      "CVE-2026-25679",
+      "CVE-2026-32280",
+      "CVE-2026-32281",
+      "CVE-2026-32283",
+      "CVE-2026-33811",
+      "CVE-2026-33814",
+      "CVE-2026-33818",
+      "CVE-2026-39820",
+      "CVE-2026-39821",
+      "CVE-2026-39836",
+      "CVE-2026-42496",
+      "CVE-2026-42497",
+      "CVE-2026-42499",
+      "CVE-2026-42504",
+      "CVE-2026-46600",
+      "CVE-2026-48959",
+      "CVE-2026-48962",
+      "CVE-2026-5450",
+      "CVE-2026-54874",
+      "CVE-2026-56853",
+      "CVE-2026-56859",
+      "CVE-2026-56862",
+      "CVE-2026-57432",
+      "CVE-2026-5928",
+      "CVE-2026-63072",
+      "CVE-2026-63076",
+      "CVE-2026-75803",
+      "CVE-2026-8376",
+      "CVE-2026-84304",
+      "CVE-2026-84445",
+      "CVE-2026-85091",
+      "CVE-2026-86145",
+      "CVE-2026-89161",
+      "GHSA-hrxh-6v49-42gf"
+    ],
+    "interpretation": "No known deferred test-image ID in existing Docker container inventory. Shared CVE/GHSA IDs remain unresolved in formal artifacts."
+  },
+  "tests": {
+    "cases": 272,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "seconds": 13.91,
+    "junit": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/regression.xml",
+    "sha256": "8c58e9e3493299944e80a8e62e15bee6f0d5ff3f4af0d1bf27158596e0cff64b",
+    "level": "Real retained artifacts/offline rendering and pure policy; not runtime acceptance or application coverage."
+  },
+  "implementation": {
+    "backend/scripts/chg301_r2_delivery.py": "19281d34a6f3d749998eebe17db4c8cd8af64f9c02585726845fbc2ed9cd0382",
+    "backend/tests/test_chg301_r2_delivery.py": "3002cdee57cf25f7760644dd43bdae232d8949f947fd89b363c7941d7bb1ede3",
+    "backend/tests/test_chg301_r2_high_risk.py": "f249b7f8cfc592c536b218ad793a9d49214d9cfdb6a9e666412480924300143a"
+  },
+  "hygiene": {
+    "tool": "existing nomosmart_release.cli.source_hygiene",
+    "tracked_files": 732,
+    "content_scanned_files": 732,
+    "status": "PASS_TRACKED_SCOPE_ONLY",
+    "limits": "Not a universal secret scan; ignored/untracked files and actual release archive not covered."
+  },
+  "runner_bandit": {
+    "path": "/private/tmp/chg301-r2-delivery-c0j_1wn6/analysis/runner-bandit.json",
+    "high": 0,
+    "medium": 0,
+    "low": 2,
+    "errors": 0
+  },
+  "remaining": [
+    "Product dependency/base/runtime upgrades need consolidated human approval; findings remain unresolved, not all confirmed exploitable.",
+    "Fresh npm/PyPI audit blocked by auto-review pending explicit public dependency metadata egress consent. Historical 140-file same-source audits are not fresh database results.",
+    "Seven existing local images have incomplete current-source/final-release binding; example private-registry digest not obtained or equated to local OpenSearch.",
+    "Build-stage closure and non-arm64 candidates not scanned. No new native binary release artifact created.",
+    "Full coverage, Kubernetes/E2E and unused test infrastructure remain deferred, not passed.",
+    "PR unchanged: no commit/push/merge or deployment; no Provider or live data mutation."
+  ]
+}

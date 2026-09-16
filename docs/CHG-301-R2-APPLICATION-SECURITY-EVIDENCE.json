@@ -1,0 +1,1204 @@
+{
+  "change": "CHG-301 R2 CMPAPP-001..004",
+  "generated_at": "2026-09-16T18:57:26.800248+00:00",
+  "status": "APPLICATION_CHECKPOINT_ELIGIBLE_FOR_PR",
+  "blockers": [],
+  "manifest": {
+    "path": "/private/tmp/chg301-r2-application-4khzxbyc/manifest.json",
+    "sha256": "25a94a133fbe9fcc30e54f43bef04d0766fa0f48a089a9dbe3c400caffbacf79"
+  },
+  "plan_sha256": "7150b1486e366b8fe81e47bdf81792038739410bf8505c639e22b9079412a6e0",
+  "started_at": "2026-09-16T18:22:29.052462+00:00",
+  "deadline": "2026-09-17T00:22:29.052462+00:00",
+  "artifacts": [
+    {
+      "name": "backend-builder-arm64-qualification",
+      "component": "backend",
+      "stage": "builder",
+      "platform": "linux/arm64",
+      "id": "sha256:5f60a5425ec84bcfa493de96cc07f9f303b504221960abc9eef0e6752833af7c",
+      "tag": "nomosmart/backend:chg301-r2-application-4khzxbyc-builder-arm64-q",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0047/result.json",
+      "qualification": true,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification/scan.json",
+        "sha256": "410a540d5317fc52be0b4d494fa68c01d2d56d16dcc2b774f966447055695b74",
+        "counts": {
+          "UNSPECIFIED": 5,
+          "LOW": 3,
+          "MEDIUM": 44
+        }
+      },
+      "eligible_current_artifact": false
+    },
+    {
+      "name": "backend-builder-arm64-qualification-attempt2",
+      "component": "backend",
+      "stage": "builder",
+      "platform": "linux/arm64",
+      "id": "sha256:41dd10cb76748e357b40e9d3b2d21bfee3bbad41a56b5f9524da0dc17dddc7df",
+      "tag": "nomosmart/backend:chg301-r2-application-4khzxbyc-builder-arm64-q-a2",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification-attempt2",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0107/result.json",
+      "qualification": true,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification-attempt2/scan.json",
+        "sha256": "f86431490d7dba41a86ecd8abb638d918bf083b8a8ae5e08663dede4180126a5",
+        "counts": {
+          "UNSPECIFIED": 5,
+          "LOW": 3,
+          "MEDIUM": 44
+        }
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification-attempt2/cli/result.json",
+        "sha256": "2ac5883dd9fcb2b1ea745649b330ab2b1dc088407b15ef0f252df6352c81315a",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification-attempt2/sarif.json",
+          "sha256": "54e7273ec5f91b819207c9e7bd12dd3c0f17467c467ad3283e77122960987673"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-arm64-qualification-attempt2/spdx.json",
+          "sha256": "a7dc4fd49376f732d42d4a8d64da4fc8dfb76e68e1ab151f9b8cf94a654d2b56"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 5,
+        "LOW": 3,
+        "MEDIUM": 44
+      },
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "backend-builder-amd64-qualification",
+      "component": "backend",
+      "stage": "builder",
+      "platform": "linux/amd64",
+      "id": "sha256:376cb7173e911a27e10f826ced4199b65b72de2607782e04ffb185df6a40ec34",
+      "tag": "nomosmart/backend:chg301-r2-application-4khzxbyc-builder-amd64-q-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-amd64-qualification",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0177/result.json",
+      "qualification": true,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-amd64-qualification/scan.json",
+        "sha256": "fbf835525dc09102749176805dd929d1d1f211887eb89f77d59d967118cb1968",
+        "counts": {
+          "UNSPECIFIED": 5,
+          "LOW": 3,
+          "MEDIUM": 44
+        }
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-amd64-qualification/cli/result.json",
+        "sha256": "2657549aa688765e4eb44793feb1c5d856cfa5f6eff5ab1c55ad9bd41f092e86",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-amd64-qualification/sarif.json",
+          "sha256": "558cc436e977bdfaf2be2f3d1323fde7650381830d0c62ece4cbe1d32f1000a6"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-builder-amd64-qualification/spdx.json",
+          "sha256": "9d24406251638c506b54df5d36a46d49a01cfd3ca431b3fc2479e772c5a01b8d"
+        }
+      },
+      "counts": {
+        "UNSPECIFIED": 5,
+        "LOW": 3,
+        "MEDIUM": 44
+      },
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "backend-runner-arm64",
+      "component": "backend",
+      "stage": "runner",
+      "platform": "linux/arm64",
+      "id": "sha256:ae32027385122628b4cbbe611e2b8dc2caa1187881508d96d1c37db2a73f5603",
+      "tag": "nomosmart/backend:chg301-r2-application-4khzxbyc-runner-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0247/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-arm64/scan.json",
+        "sha256": "4d4c6d9aa349c5a2f1b2d310d07c363e23e75d3a0175179a3ac25711964c02ba",
+        "counts": {
+          "LOW": 9,
+          "MEDIUM": 50
+        }
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-arm64/cli/result.json",
+        "sha256": "49fee6fc581afa6f0629701acf80048295efa27e582d7b70909c4603d3c25bf4",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-arm64/sarif.json",
+          "sha256": "742af7aac9055d7189eca87519bd101fe627a8da934abde37f84440120b46769"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-arm64/spdx.json",
+          "sha256": "73d8b927674910eec302f890664482c5481e5f7af88eb5fea4a9f5b83d5c91b4"
+        }
+      },
+      "counts": {
+        "LOW": 9,
+        "MEDIUM": 50
+      },
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "backend-runner-amd64",
+      "component": "backend",
+      "stage": "runner",
+      "platform": "linux/amd64",
+      "id": "sha256:53afe599a6212d386584a6a4940fef2d93f4b1448525bccfc14903cc93a8ce1d",
+      "tag": "nomosmart/backend:chg301-r2-application-4khzxbyc-runner-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0317/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-amd64/scan.json",
+        "sha256": "a646f69e675169b3d58e76597960c607552290c2127c66242e936923521ae2d5",
+        "counts": {
+          "LOW": 9,
+          "MEDIUM": 50
+        }
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-amd64/cli/result.json",
+        "sha256": "df020e2373757b0656efdebc1edc4ef5c5005cd76cd8c318b8aa473d23d9c35f",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-amd64/sarif.json",
+          "sha256": "e82f4877357b1cd3638baf497f155998d7fb02648ca9ecffc7ac05dc577d3067"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/backend-runner-amd64/spdx.json",
+          "sha256": "0912fd4e3629181c232f9f4fe3c73a388243cf075a358480581b79fcd11b5ac9"
+        }
+      },
+      "counts": {
+        "LOW": 9,
+        "MEDIUM": 50
+      },
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-base-arm64",
+      "component": "frontend",
+      "stage": "base",
+      "platform": "linux/arm64",
+      "id": "sha256:bc88bcc933c1d767dda9a630717a8de49e34743f18e2d935b1d4881de722faf3",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-base-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0388/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-arm64/scan.json",
+        "sha256": "9c94ac80e082aba0e45a6790f2d7bb604e04178c7670d8abfbaaff1792880135",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-arm64/cli/result.json",
+        "sha256": "cf52c7099cc43cdd9c42f8ad08f4f680d019c8eee6ec1e1b6dffd8ed94ad1293",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-arm64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-arm64/spdx.json",
+          "sha256": "33783d9b790e558ac729f7aac471760c984ce3c6b57faafec8ccc778bd089fae"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-deps-arm64",
+      "component": "frontend",
+      "stage": "deps",
+      "platform": "linux/arm64",
+      "id": "sha256:eab70488be6f80bbe2e82ec03a0bd0faf6ede709f9c18b1afce0c6818090a077",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-deps-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0459/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-arm64/scan.json",
+        "sha256": "2d2c6c66ca13f9d04b26aad3586c0530130b5ef5c08d935ecdf4bf524de9245a",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-arm64/cli/result.json",
+        "sha256": "896578b342e821a7446d8140da815281549b313f9cf7c472845f73e661897557",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-arm64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-arm64/spdx.json",
+          "sha256": "b62bdafd51c15dd70f64489d3e871bbfe625931bc3a8ffbbb1cab4c973e77283"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-builder-arm64",
+      "component": "frontend",
+      "stage": "builder",
+      "platform": "linux/arm64",
+      "id": "sha256:f119bfe35a3fca71200a8cc8b96b3ac7cb6f5819f1c36599c2487d9f57baac70",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-builder-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0530/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-arm64/scan.json",
+        "sha256": "8f8f6d27dc1bf6989ebcbd26581c8f89845f645970789ed9d7fd806f59ab0e1a",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-arm64/cli/result.json",
+        "sha256": "5fa61e56a49965c863d4ffd2becc4bd9df60ab42688c8ae15f8cc33096888963",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-arm64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-arm64/spdx.json",
+          "sha256": "0c273d141686575da445d1098603bd116e9d02a2c58f4c9b51ca09c61f16a764"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-prod-deps-arm64",
+      "component": "frontend",
+      "stage": "prod-deps",
+      "platform": "linux/arm64",
+      "id": "sha256:c0f64aea8484720d24cd31a9e67bc8d9a329456c2c09e2ee8f98077e0092e451",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-prod-deps-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0601/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-arm64/scan.json",
+        "sha256": "e65a5f2dbfcd83157650fe9de0574691642399edf82e541f2a5264ca94ed1aee",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-arm64/cli/result.json",
+        "sha256": "4f8f1f0f64c294212721a5ca6347b0906fee0cd05f0dd59b9882a6e82128c814",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-arm64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-arm64/spdx.json",
+          "sha256": "91f770ccf838007f9a7170e4c6f50259759ea9498a305549acf2c872b6bde4f3"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-runner-arm64",
+      "component": "frontend",
+      "stage": "runner",
+      "platform": "linux/arm64",
+      "id": "sha256:ceb723992c3f48869ef6fb276931ae4c817af71174302dc38881b4906fac05fa",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-runner-arm64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-arm64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0672/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-arm64/scan.json",
+        "sha256": "c9ed859d2fa5b2909ee8caff082309a1d374d1c0c72ccd21411669f40c4dcdc1",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-arm64/cli/result.json",
+        "sha256": "19f555fcf9873ae31aa812b7dbfc7864fba0706e079e8070bf0257257c933fcb",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-arm64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-arm64/spdx.json",
+          "sha256": "00f59a76ca5d6ebac5822fd08996d8501f5ac5f04e9f70345634cf29964b107b"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-base-amd64",
+      "component": "frontend",
+      "stage": "base",
+      "platform": "linux/amd64",
+      "id": "sha256:2a3524500790454c2ee1a96e33a3917fd708660abf1d2011ce003de0d85d0f65",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-base-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0743/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-amd64/scan.json",
+        "sha256": "faf300463af7c036ed3476bb1513af437c8047751429d2719d018c06c07d3052",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-amd64/cli/result.json",
+        "sha256": "163528a207f5df472002fc067e6e1b986eed4ac1441456554ac5daffb717bbb7",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-amd64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-base-amd64/spdx.json",
+          "sha256": "a620d87d6e910cfbabc1b571cd0ead3090802eaf01671d5ff872ddce34712fca"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-deps-amd64",
+      "component": "frontend",
+      "stage": "deps",
+      "platform": "linux/amd64",
+      "id": "sha256:014979e4b6447d48549971e1179f8d90a1052799d326a450565de24a46b6fd63",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-deps-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0814/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-amd64/scan.json",
+        "sha256": "525c2df6f314b21c74aaa773c0a1842828b4b0f050f087a2623d67be2ecb5a6b",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-amd64/cli/result.json",
+        "sha256": "0e6c304a93e43c046eb6191cfa9df37f8122355d48d7968092c01b8d1c6d0986",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-amd64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-deps-amd64/spdx.json",
+          "sha256": "dd0661c64fe4e831beb0b77f2e8221f27faafbd95dbb979de45831f1ca7861f0"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-builder-amd64",
+      "component": "frontend",
+      "stage": "builder",
+      "platform": "linux/amd64",
+      "id": "sha256:966f47d86ba5ae2157fdec3d073f080800f81eeaab2be447d319f16618ea907a",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-builder-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0885/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-amd64/scan.json",
+        "sha256": "1f2a123926aa9a993d19d6a8ec67065c89540a8588a29eae606ab660a6ec38f2",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-amd64/cli/result.json",
+        "sha256": "79dba305888d8d920bdccbb75bf2962d821913a66ebd87e334ffbefb9c0d17ba",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-amd64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-builder-amd64/spdx.json",
+          "sha256": "8f25994f00acd4e484bd7506d173646cf9762d3f0bd4566d89a47ac902cbedb6"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-prod-deps-amd64",
+      "component": "frontend",
+      "stage": "prod-deps",
+      "platform": "linux/amd64",
+      "id": "sha256:9f4f647465fde41468775839c12fb5e550819fe2dfc18e2c8ca6f3755baed5f3",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-prod-deps-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/0956/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-amd64/scan.json",
+        "sha256": "522f3a6dfdcd232ae8c184ebafe6a53e27337729d15676d9a7ece8cf7afdbbe0",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-amd64/cli/result.json",
+        "sha256": "120c302725b249eb8f8f06c47da59184d7d4efd7a39512fe369d405900285918",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-amd64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-prod-deps-amd64/spdx.json",
+          "sha256": "5c39ef7a3f8e3b195e2f09b1f1e010b52873eca59f9da31a8b41a0349a216a83"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    },
+    {
+      "name": "frontend-runner-amd64",
+      "component": "frontend",
+      "stage": "runner",
+      "platform": "linux/amd64",
+      "id": "sha256:f4f00cc3f568a3f69cf9eb4ac5858c12d85e6f552a5be5f9e52e34e56d50679a",
+      "tag": "nomosmart/frontend:chg301-r2-application-4khzxbyc-runner-amd64-a1",
+      "work": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-amd64",
+      "build_command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/1027/result.json",
+      "qualification": false,
+      "scan": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-amd64/scan.json",
+        "sha256": "a7f07705fc7cec870f52cb1f26a012e267ed59c46809924d4be04f4165e3357c",
+        "counts": {}
+      },
+      "cli": {
+        "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-amd64/cli/result.json",
+        "sha256": "ae28caa957461550601f5c580b7edd6b02fedd40d64f5182af5e48e16e1792a0",
+        "status": "PASS"
+      },
+      "reports": {
+        "cves": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-amd64/sarif.json",
+          "sha256": "d5792a5052fb157aaf686dec92fd7a5a2d83f524c846c9c4032fc13e820a44df"
+        },
+        "sbom": {
+          "path": "/private/tmp/chg301-r2-application-4khzxbyc/frontend-runner-amd64/spdx.json",
+          "sha256": "bad279b89cdb4083232e7ea2883da21ad344b500545926b741eb3afc6c06d69e"
+        }
+      },
+      "counts": {},
+      "eligible_current_artifact": true
+    }
+  ],
+  "qualified_platform_stage_count": 14,
+  "source_changes": {
+    "backend/Dockerfile": {
+      "before": "8144fd883cce3fc2e6c8beb33f8b6de19edeaf7e322e0fea761689e138d066c0",
+      "after": "e8ec9108796157fdfa8bbcd426f95afc1528097979af28608783651b6624991c"
+    }
+  },
+  "source_sha256": {
+    "backend/Dockerfile": "e8ec9108796157fdfa8bbcd426f95afc1528097979af28608783651b6624991c",
+    "backend/app/__init__.py": "bf24c9ffd0883098066bdeee2f0ba96e24c914545db428f9451beddb926540f3",
+    "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+    "backend/app/api/router.py": "f8928641f097b2589522f4433488da89a6c2a74261570d8567b2ef74d6608325",
+    "backend/app/api/routes/__init__.py": "54fdbe4dbd01a28f6966964cd382c2c7eb06acd9bc1bf2714a0390b172d3fae1",
+    "backend/app/api/routes/approvals.py": "5198c8692996e5688e4c43e56ab3c68dfeac5096b54c1e23b1cb2fa7a6da28ba",
+    "backend/app/api/routes/auth.py": "6193431eae2e96b0e88157b694147b971bec66662ed12503d3bee2b8b7ad820c",
+    "backend/app/api/routes/compatibility.py": "a8475b15033f704e2b7304f4fb04eed663b52d02b1d8727d15ee81cf79795d2d",
+    "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+    "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+    "backend/app/api/routes/health.py": "42f1c2c9f673fb658e507f8c239f8819caff40832ea585c7345f3afac6cc064c",
+    "backend/app/api/routes/identity.py": "57a7d2e82261b6c7148df271ae453f7096c9da03d72dcd482df49de0ea85a7d2",
+    "backend/app/api/routes/identity_settings.py": "853e613f44ff5073891d941b0f5b3fea3f264636dcc2197e2c1b91004302d06b",
+    "backend/app/api/routes/integration_clients.py": "dc64c24813f8d2c83694712372662103e0c2889af088b40ca3ac7d06627f0050",
+    "backend/app/api/routes/models.py": "cb58ce865dab2a7bee19dc755e05d3da5bd9563f4db69a41ac5e9bffe8bc18f0",
+    "backend/app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+    "backend/app/api/routes/public_api.py": "4e1c60da52dd295e65e5c22fce2ba2500a7318deba5d3549f808401af6c4a2a0",
+    "backend/app/api/routes/references.py": "f47776954f89d01f11d0bbb857460d2fb3d897f6b1d218de8b9106c08eda03d7",
+    "backend/app/api/routes/reports.py": "b45ccba3f4df7deae5b7b974247272948e27d798e50c4ad9b0e9a9ce6a5e8c91",
+    "backend/app/api/routes/roles.py": "fc7f53cdb2124d1ae8434051786aed99deb8e060d0ae97fc10ad93eb7c8c558a",
+    "backend/app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+    "backend/app/api/routes/system.py": "ea4748c7080aa84dfc7082fce5f24213e3480ad9d96adcb65226137cc26f2b45",
+    "backend/app/api/routes/system_prompts.py": "840dcda9f4dc9b107d0eb3a0bd5852e0bc47eb7f9a032663f381413b6edf2fb9",
+    "backend/app/api/routes/users.py": "903c4255394d2aa52b13a8ab23dd3ccd93febcf32870f879e8d72b173bb07dd9",
+    "backend/app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+    "backend/app/beat_leader.py": "9d48c1fe9521249f3706ff64d41d5f2c87660a16efaa13e79ac6556ff3b6246a",
+    "backend/app/core/__init__.py": "5c3c1f860582075a58bc7fabee6112095c27422567df01fdc1bd43c2231a99c4",
+    "backend/app/core/config.py": "d93d852bc28e98aed1155e58b982ff1ae17ccf948a2574e9dd6ba85753050386",
+    "backend/app/core/contracts.py": "9500be915618d30916544b405cd093ca8076ddb7616bf08cef244bd7246a8f5a",
+    "backend/app/core/cursor.py": "a7f728567f5390f227971597fcdf94081131ad74f96fc0ca4d799110fa8aa3e8",
+    "backend/app/core/encryption.py": "069d33c95f35fee0b1e1e57276e2b11ad4c3b13a6a9d5c3cf72672441e65a9df",
+    "backend/app/core/errors.py": "be6f511d9ab8d7dc713ea07b9126f4fb26af16fec7a7c18bf42711e74088318f",
+    "backend/app/core/idempotency.py": "8c295ff1d41811618e13f178c7c9c719e4ffa405d621e4e5b811967d21c1d661",
+    "backend/app/core/logging.py": "287a34565c74b3721516b590e68a9e6f30f87af8e10d5a0edb714044164d392d",
+    "backend/app/core/middleware.py": "78299ecf2cfb19e30be9022830f4462e55fbf99f02a806ade6db12bfc7fac5af",
+    "backend/app/db/__init__.py": "72e3dd8e53ac1c659e0d99d2a5e7ce959a66032e776058e8da583b2309a542ac",
+    "backend/app/db/base.py": "12205beafbee930528e14ee8439dba3fc6272c995e98dab39f87187c73a89b87",
+    "backend/app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+    "backend/app/db/session.py": "10014b225fcfd25bd32732f425502e27b3a182cbdd3967f728d5623484378a72",
+    "backend/app/deployment/__init__.py": "e6782840e1003ec2ebe393b165005d81911a926686562d3b21942fc31aabe99e",
+    "backend/app/deployment/bootstrap.py": "0d3198bd38356b0e9d827c4109c4b62a106abd84282ddf97d33a3412cb903056",
+    "backend/app/deployment/directory_reconcile.py": "16c3c32bef0f86b6d36a8bb898e00ad690017e1040354629043d3af379f2b60f",
+    "backend/app/deployment/migration_gate.py": "1e77de108c6d4dbc3e46c95ab1b4a50fbc121558804704e1f75a61ee0d3a9cdb",
+    "backend/app/deployment/onboarding_status.py": "acf4e77847e5193c8a5ce74be348bc0fe0fdf4521a751174bc2767a81f4036e4",
+    "backend/app/deployment/storage_bootstrap.py": "7ff3f06ac13bffb9faee6929f1ccea386807cbc01e9a2315156d2594ca2346df",
+    "backend/app/domain/__init__.py": "937190c22a092dcf603508680cd24c4e48b16b868d1c327a367bfb3c4d28962b",
+    "backend/app/domain/ai_provider.py": "716368167529506c4dc01b7d1e4eeb78f17fce95553441aed8fbaef1fa735ffe",
+    "backend/app/domain/chat_citations.py": "68d225e408685893dbc37ae00c15a39afb09db5f9d6c00b88b3333e47562107d",
+    "backend/app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+    "backend/app/domain/chat_retrieval.py": "b58d8e9bee1ffb1722f4dd8b7a14b37629d59feb6d8f4a7b01ba4474f2da4727",
+    "backend/app/domain/chunk_artifacts.py": "6c15b2a2abb540a08f5b97934f5e6dc6d3421020a3841617ac93553bdb0b9580",
+    "backend/app/domain/chunk_deletion.py": "e6bb6d6680b51046005bf06ce394f5e8c967c3a3caca0e6855a635523125b981",
+    "backend/app/domain/chunk_representations.py": "2c3c75be26527c41596fa65884163bb39179c6f23370cda737bd58d16131833c",
+    "backend/app/domain/connection_evidence.py": "d57e37a8e48f10e45be6a4d4f299551a458aeb37c8259fc50dbc491a21e6ffc4",
+    "backend/app/domain/connection_probes.py": "281c9cd149b323c81b6b64c0c19e97a3784f080d0663ac4c416883a0f9ea040f",
+    "backend/app/domain/data_sync.py": "97736775b44bfb9a5c264fc975cc1e4db0a8c0547a27dd5c4655d3e02d0e4a7c",
+    "backend/app/domain/directory_filters.py": "0a320ecdd6090e26fdbad4452b473ea0bb5a76febd5c9923ea16f8601f073784",
+    "backend/app/domain/document_imports.py": "e86fb903e1e5d52d63c7a1ffa37a2b99b033c1dbea1a2b451efa830f30c78df1",
+    "backend/app/domain/document_layout.py": "e23e68b038ecc1d05094218e2aa4a9799989007e5d40ced42be96d8b28c91177",
+    "backend/app/domain/docx_security.py": "9bdd4ea33bbb0e89cadeb0d61c036bfe44ad09ba0ba250560d748a8e9f116880",
+    "backend/app/domain/embeddings.py": "90023f9da12b89d5f076cb3f2156f082ae8e232cceee3d36cf2535aadf239643",
+    "backend/app/domain/extraction_pipeline.py": "83d53e7918071aa84472f8b9da8da18a5ffabb2a235aad9803a57b57f9e1bce2",
+    "backend/app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+    "backend/app/domain/graph_reconciliation.py": "2705673920a8c82f291c2f42fce9a7d1ac6803b1f539675a9de92f5191b28005",
+    "backend/app/domain/graph_sync_jobs.py": "992026dfc5c2cef79c2291e3cae975ebdcec1172bf0fb77cef9474b94d73b83f",
+    "backend/app/domain/identity_settings.py": "8235be967fbab0330df6eb90e9cda4f3a45a02c69e73a08e82711da605f7ce81",
+    "backend/app/domain/integration_api_keys.py": "17567e9701e9d6b6ab127e30deb25728beb68e03e101538f3a737886cc538eb6",
+    "backend/app/domain/markdown_artifacts.py": "6f9fa6128d2cf69bffe81ebedf7f31459d4d8911b5744c9589100f065dbe7871",
+    "backend/app/domain/markdown_structure.py": "bff8b7f84f3bc4e44cf7b7952c307f2a07e294839ebc972611c39736992a0743",
+    "backend/app/domain/model_usage.py": "b5fdf64a68fa60f7fa280607b40fd4f8815997600a73aff4c3c1d3b50a1ed15a",
+    "backend/app/domain/notifications.py": "1402651e5d187d8a9f57715178d61130369a85328a299e38223648b41e03892c",
+    "backend/app/domain/office_parser.py": "73984b4ac55ca95f185c440e2f4f554e14a45c40a70936613cc4cf9576eda22e",
+    "backend/app/domain/oidc_reauth.py": "434fd6472b98983432001ad32eb6a00ffd38dae1faa011c7f2827389e53a6ef4",
+    "backend/app/domain/operations.py": "8ed806943062f56c07885cd6ef5cb42e427d5811f905ed5446b9e21509724efa",
+    "backend/app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+    "backend/app/domain/project_archival.py": "61eff47b568bb911da5e2fd4e1f952fc1a3739b494ea7914bebf60a71d908217",
+    "backend/app/domain/project_members.py": "4928ebc559e5914788af92b0c45ce3f35a21acacf3e7893d52fe25b31585f4ba",
+    "backend/app/domain/public_api_controls.py": "232aef5783596b4bd6bc7116edcb8dd3c3349c509ef0c5e86589269639fc2bfa",
+    "backend/app/domain/public_api_retention.py": "d18a0e4df342c9de779140fb6ad1539af4375e44a26a2f55e3a094b6d8743d07",
+    "backend/app/domain/reference_events.py": "e8ca48ecf912a83936d8558cd38c09aefb2a4b7af605cd82984b40637c6443a2",
+    "backend/app/domain/report_policy.py": "2e9d0e2b72c3d77bbf5120cc4d4b098e0454b270dca7916af95a0efcf519254a",
+    "backend/app/domain/retrieval_evaluation.py": "b9c9337b2c8fb92116fad0fead88356ae09838fc04472499bf0790fecb87195d",
+    "backend/app/domain/retrieval_text.py": "c2663dc02a7eacf0a5428920a6145d7f577b490757599f92875f8cf83e02b07e",
+    "backend/app/domain/review_publish.py": "25978e4f12409ba5e0a46ece672a40a976c55480dd5e19cff42ede9932c637b3",
+    "backend/app/domain/search.py": "9d09c58a7cd80634cb1f9d5519ea281605023ae5a293594637795958fecda699",
+    "backend/app/domain/structure_chunking.py": "1a164684120a3d22f920904315ae602b282c013fcf9535e7f26151b0675d44d1",
+    "backend/app/domain/submission_evidence.py": "91282cde6bf292c49122e08c24f532af88525758da6d792f67e91dde16c5cbb0",
+    "backend/app/domain/system_parameters.py": "38c9c09f2326c6479a4708163be9e9c0cf861dcbc23ef6cd653e1c3d5cf7aae6",
+    "backend/app/domain/system_prompts.py": "adc68f35adbbee57192cc52ecdc40ca877532881acb1c19e0ed211d4b0af1f93",
+    "backend/app/domain/tokenization.py": "c077b94071e1d700e5d45aef0a2e6a9f89bcf1bc40b04aa398fb560a30944d14",
+    "backend/app/domain/uploads.py": "8a81ab695101e04178e575b4f9b467b9256861e86fbc4012e53822e7e080d956",
+    "backend/app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+    "backend/app/integrations/__init__.py": "4611b22e5b452990f133e94508b15e3ad43ab20f170a20c04fdd071d6f3c03f3",
+    "backend/app/integrations/health.py": "10919e136ce46e089532772cfc2ff06d91212d6a8ed402ed74dd910cb01a3045",
+    "backend/app/integrations/keycloak.py": "ada778fb22f5558756fc239304b893758cc84fce4b2a127068b0d2e0fed1514d",
+    "backend/app/integrations/redis_ha.py": "35fded0f161837b11eb2c7dc16c9d7abc05403d3992ae93513297fa6fbcde633",
+    "backend/app/integrations/remote_sources.py": "338c6ae58c299e7f9bdb60b9f79d8234446d864cbaa18de1cf8d162da418c3a5",
+    "backend/app/integrations/s3_storage.py": "dc5abaaa3364e47a6bf319927b7bd84511c3e6ad8d7fd552ff5ced2bbe24b605",
+    "backend/app/main.py": "8d89cab98290235f626fb2932c91a67252160a994a42a7cc32969724c826a4ff",
+    "backend/app/security/__init__.py": "a3ca65cd67f6ced0b16165a381c7992beee22fdcb7dd7fd91cebf9bae78d0718",
+    "backend/app/security/auth.py": "0e7f837646a871589aa8e887edbb329b151d65fded2a71408595027f65fa8aae",
+    "backend/app/security/context.py": "5d62f5c8f02032e278d9be3f5eee87e94cfaf934bc1d4bba8f4e4c3ded5ad578",
+    "backend/app/security/permissions.py": "a134b6a3357d6b752e8149d8d7af2b82d91a824dd9dfd58fe2a480f66aed9c4e",
+    "backend/app/security/project_roles.py": "53c88e8cd954d215b569f79296486d8d9e2db8e741956756a13c1094acc3ac81",
+    "backend/app/security/secrets.py": "d341c343fc464bbf450e0bf3170eae4ff3015ee0b3d5b4c5186060d7b731e041",
+    "backend/app/services/__init__.py": "ac74225afed0c30c874dafb9fa708dfeab2d64ebe9b488a345e7e3119a6092fa",
+    "backend/app/services/audit.py": "1f1f319a6df5dc7f93f709bd2b8d304aa10e5edb8150b3b3c5407a4e08fef505",
+    "backend/app/services/identity_sync.py": "72eee9998996649fe3ef133c3f633eaa341c71cdf09077fbe255a3cfa116e019",
+    "backend/app/services/identity_sync_jobs.py": "9fedee17f43aacbc748b86df924867770a79021da5aae378dace4175a54cb46d",
+    "backend/app/services/logout.py": "b5069cac7923b2b7a62e6c38d007d3b97f53b195aa9e34c5cf81fde8f9bb2b02",
+    "backend/app/services/role_memberships.py": "5b52e399ff90e8af0a12faf0b90bad133dc30753d6e4d8b91338158b135a5cd7",
+    "backend/app/worker.py": "c782f61bea838c7e7fd7e211cf4ad8b6bb4dbe33ead9c4ac5df9cce435324e37",
+    "backend/pyproject.toml": "1fbf60bf958a7056b5ddcad02750b069681d9d11be4fa9b9350db1c5679aefeb",
+    "backend/uv.lock": "75bd849993d8ac77b4c75bc8c9e4dd60dfb7bb891b59f6a3b89c3ebdcff4c449",
+    "deploy/docker/compose-secret-entrypoint.sh": "236ed90a923b8d1770cd0abd765f01ef2f83369c02baedd3974ffe6f30894eb1",
+    "deploy/docker/ldap-test/docker-compose.yml": "c0c6d3816d5a8cb188b8604361b0e226383fdc51263cb00f691108518511f33a",
+    "deploy/docker/ldap-test/reconcile_keycloak.py": "f0ddbfb8ca1b8ec2062b94734e055bf0b2ecc50241e2fbe01eaa105bfee27391",
+    "deploy/docker/ldap-test/seed/10-nomosmart-seed.sh": "40b1fd944a107cc3c02e63a3cf6ddc4df6fa4e4a34e99f52edbdac720c622712",
+    "deploy/docker/ldap-test/seed/20-chg265-directory-data.sh": "d0744faa60e148f389a5421c3c4d85f8c2458cf02410ed589baef8821ea0d707",
+    "deploy/docker/nginx.conf.template": "cb5b8c93a058514e12a7b996118028efac40e6a4a805a2943cc826c4d22685cb",
+    "deploy/docker/postgresql-init.sh": "10e792a6de3860504954fa71f85bb1889f212e0ec685365c8fac7ed9d4d070fd",
+    "deploy/docker/secret-env-entrypoint.sh": "7f2689288c068e5c4619867e025d6e63b45c8df420377753aed22516bf14cce7",
+    "deploy/helm/nomosmart/Chart.yaml": "371e5da41950a11f4511cebf4a333cc20ed09ba45e71be0ba034b3641fbb9c93",
+    "deploy/helm/nomosmart/cluster_preflight.py": "bd9b3bdce71ee389209a41b82d74d9fc93530fbabda5b3a648c9f811e7b32131",
+    "deploy/helm/nomosmart/templates/application-ha-policy.yaml": "13167b7452c6fe3eabe75eff2a5011f8bea2e2f128d1af69e9f8ff47423dc0b3",
+    "deploy/helm/nomosmart/templates/backend-deployment.yaml": "baa50b51269c5baade480898b8eea8ac9cfba74917fc9b99ce5b8ad0fea7138c",
+    "deploy/helm/nomosmart/templates/beat-deployment.yaml": "bd85fec91f8ee46c3f8c0445f05a8ec9f1f1742a8117ad2de63384e13c40580d",
+    "deploy/helm/nomosmart/templates/beat-standalone-deployment.yaml": "83b17b6efabd76680b5ec83fc703b7e06f3b6863192a75c7923d6bd47ab38c6f",
+    "deploy/helm/nomosmart/templates/bootstrap-job.yaml": "184dcadf293c530df70fdac408c96de952fe7ad56d0d8e5aa951838b93237777",
+    "deploy/helm/nomosmart/templates/capacity-plan-configmap.yaml": "dac1d073b243236450fdf249b7c153bfda807762d3b11b0b38db9291f8f0a19e",
+    "deploy/helm/nomosmart/templates/compatibility-configmap.yaml": "4787b7a5abc17dda3e92b70a7749a52992327ba9f6f9854f0efd17b6ba9795f3",
+    "deploy/helm/nomosmart/templates/configmap.yaml": "6b9ce293ddd6b1e266ff2f794284159744fb1202935626bac68da628d924c24f",
+    "deploy/helm/nomosmart/templates/finalize-job.yaml": "780b2be4e8c59dd36d31a221c525e5f7b075d2c82936b4bd2188e17b883cdddc",
+    "deploy/helm/nomosmart/templates/frontend-deployment.yaml": "4095cc8d2eb83b576f43750bfab471cf8756da8383b0e03d9e495af1438c4cd6",
+    "deploy/helm/nomosmart/templates/ingress.yaml": "aa2ed901587ce5f65719356845a6a28384b84c630f3a9fdc2b844f1b23efc60f",
+    "deploy/helm/nomosmart/templates/keycloak.yaml": "f156a5567d7c0a3ed8e8ea046537963c4156b360676aaaa49d2a6ca75564585e",
+    "deploy/helm/nomosmart/templates/migration-job.yaml": "a2e7f22377dd8145bea4ddb9c14299f06aa4074627141281fdfa0cf15fde69a4",
+    "deploy/helm/nomosmart/templates/neo4j.yaml": "b890c0ad26c676d5151b6e76d5d429bb766569bcc038405f84abe16bad097b0d",
+    "deploy/helm/nomosmart/templates/networkpolicy.yaml": "b47347ee89cf61c7f2efbb4311bde9cb8205c53ed2ff70aa6011dae0e1cf7301",
+    "deploy/helm/nomosmart/templates/opensearch.yaml": "0e13dc033a68c318b50437f1bd7d45db8d0d2d254092fcdf4c6f602d1535a038",
+    "deploy/helm/nomosmart/templates/postgresql-backup-bucket-job.yaml": "97b18ff575c651f95cc81c8fcd8cb049e07a815e3fe681b8027912816feb41be",
+    "deploy/helm/nomosmart/templates/postgresql-standalone.yaml": "825c3a83b74528046b7518a4f4eb077fe263e34871e325e5d187cf4677813d2a",
+    "deploy/helm/nomosmart/templates/postgresql.yaml": "ef68dbe77ff24623860c25bd0da7d740dafa9e4bf7e85238af7fe4c85cb315eb",
+    "deploy/helm/nomosmart/templates/profile-policy.yaml": "3876f5b96f2bf67e7fa91f8a3ee27abb9166fd611791e5ec3d1bab3732077609",
+    "deploy/helm/nomosmart/templates/redis-standalone.yaml": "f4a0bb3d650894e8459ffd04e30747caa5f991bd95d8068fe2846ee884513b5c",
+    "deploy/helm/nomosmart/templates/redis.yaml": "dd6ea82eda43755e2c73a92c097e5f57084e0237c8f2fd2b7e796fbba65ce0f0",
+    "deploy/helm/nomosmart/templates/rustfs-standalone.yaml": "7ad8c92ccc9bab8a7e019e4091db2a06bf1944d4b858f69a111b30a96e181621",
+    "deploy/helm/nomosmart/templates/rustfs.yaml": "ef72c3370ab097129d576589f12b5e514677c07bb0c7035d42bb9a20408d619f",
+    "deploy/helm/nomosmart/templates/secret.yaml": "651b5ee43ba057ff455f86d86c2a8bf2b4a767bd9d2e9a578ade4faf7bcb0015",
+    "deploy/helm/nomosmart/templates/serviceaccount.yaml": "bed35c3d2be61688885b60d7feabde5631480bea7bf2fd85a71d93b5179978fc",
+    "deploy/helm/nomosmart/templates/services.yaml": "ee349fe454da618c5359e18f8507916d7870ca6114a1e9d76b055ca1f9ec7d24",
+    "deploy/helm/nomosmart/templates/worker-deployment.yaml": "ba6c2bf44d39323792a55dcd942d1f9e05297adc4367f42f74ef13b5a971f618",
+    "deploy/helm/nomosmart/values-bundled.example.yaml": "66df11bb30359b709c589ba88f8228e51ea7c8904362d5d6325d74a3cd68b6d6",
+    "deploy/helm/nomosmart/values-dev.yaml": "14b018aa43e41086f32421b1a216b3e2800803c3f9acf793d6a5000de9103d99",
+    "deploy/helm/nomosmart/values-docker-desktop.yaml": "96964388b870ed2f7d4f7a77be9199f58b71d896a381596dcd14e6fd17342cfb",
+    "deploy/helm/nomosmart/values-external-services.example.yaml": "f51fced07fb9e3d3e9aed65098591a207b4b1a27c8fb3c284c2ad69de0e3af0e",
+    "deploy/helm/nomosmart/values-prod.yaml": "196c06744e4747b58ccb4c66421a34520d094b1862a03bd8793292daf7e94b82",
+    "deploy/helm/nomosmart/values.schema.json": "58cc0cb37752865ad68fd577f56154831f3b5c0567f6a8fc4053a5cad7c8ccdc",
+    "deploy/helm/nomosmart/values.yaml": "548fb3af5cf95cca08064036bd4bef3f5e18efc91f9544a452f10e1accfce545",
+    "deploy/installer/nomosmart-install": "021049335728fb8577a7a42494092265d379fd672effbe5b0c1e8a59104e4b03",
+    "deploy/installer/nomosmart-install.example.toml": "390e0d124003e54869437eee1e3eda7ecce3338507c086842da906fce3cbccac",
+    "deploy/installer/nomosmart-install.external-services.example.toml": "607eaf36480cd10ae0f55c1d986cffda16de130b7160b4251b4cc5a40c90750f",
+    "deploy/installer/nomosmart-install.openldap.example.toml": "76fea286095b5596c946fa26a59bdf0ae776e1bec1547029c44b4ee33c014789",
+    "deploy/installer/nomosmart-one-click": "594143cff5cba2cdc5f0b7b6b5148499a4691a86a1edf1e33b845b8b88605728",
+    "deploy/installer/nomosmart_installer/__init__.py": "cf6deed6feb9d000b8fc94b70a2f59e0a5ed1230c094d43f994f8f318edeb6d1",
+    "deploy/installer/nomosmart_installer/barman_cloud.py": "0c5cc61dfee824b67fd447e131b9cd648114b74d3ec24ab53015fa6329281096",
+    "deploy/installer/nomosmart_installer/capacity.py": "3f233ec94801ed7b0f2fc9c7ed81e54f062199d3338372b1f33566830ea12942",
+    "deploy/installer/nomosmart_installer/cli.py": "1765433e9863e57e1a0f7caf292632ff440d909c249dbb8546ea4decf7966c17",
+    "deploy/installer/nomosmart_installer/cloudnativepg.py": "8b9a50a3f18654d6f80d2b919e36c9d43ba5866d9f4037b11640d0a880479722",
+    "deploy/installer/nomosmart_installer/config.py": "f7aedd687f48989e738b02bb55f8c48f0aed15eb098999e7c69c9e082cdfdb66",
+    "deploy/installer/nomosmart_installer/core.py": "4c50c792daa007dc122a50e8d51b5293eafaaec27822dd60ce41bd1efbbe682f",
+    "deploy/installer/nomosmart_installer/diagnostics.py": "1d813be97a525c979d00e90911e4b3501542d4f87313af46344db1349716502a",
+    "deploy/installer/nomosmart_installer/directory.py": "32aaa2b3fb0020b854413e38d069f517fdfed482d864a90405a5fd8296fc6874",
+    "deploy/installer/nomosmart_installer/factory.py": "277f6c86fa319bc0bb7b9cbc0251db5e933d45d75c573b11b676b7184d2786d4",
+    "deploy/installer/nomosmart_installer/helm.py": "ef68891044da5eb12f43664481ae39c489412c26ad9d298a34ae5e62e0eb99f0",
+    "deploy/installer/nomosmart_installer/kube.py": "210e35c0a0b38af12aa269f329edf59404ec55bff90baa0e87614ebf695231fb",
+    "deploy/installer/nomosmart_installer/orchestrator.py": "829ae1eee1bcf19dc6fdacdd5258524b5fccf7181c5c8023d5a5b430c0baf44d",
+    "deploy/installer/nomosmart_installer/package.py": "a6045e4bdc7d48c89b8a33ac813f150a2f5ac1c352a7fcaa584244b1acb5c7ac",
+    "deploy/installer/nomosmart_installer/preflight.py": "5b090b171b20bbc7f4b109cd16c25cbd5d9cb3bdd05fddac53dfb1ce10a455e6",
+    "deploy/installer/nomosmart_installer/release.py": "ea003f06ca5852e2c86fb85ae3a9443c5579a24395a0beb6119d308c5f005635",
+    "deploy/installer/nomosmart_installer/state.py": "d6b8b84a3f4a2242c934eba16f8db7ee55854917a42dde371dc344381dc643b7",
+    "deploy/installer/nomosmart_installer/tls_client.py": "698d4a437ba43c8d65f1c24b1dd4d9848b8642d57095fb1ee29a0c884243b01b",
+    "deploy/installer/nomosmart_installer/verify.py": "8507b7df2d438a1a026079f1044cccb687c046181e62e85bcbcc9fe74e5513ef",
+    "deploy/installer/postgresql-pitr-restore.example.yaml": "2cde92150e24bf74345aa704c8d42aa4ae3039da92e2253aa3954d8a52f8942f",
+    "deploy/keycloak/Dockerfile": "24c2dcc0e2defdfa6c525b98a55ba4bd5b7f4df934819fd607880af6b6462949",
+    "deploy/migrations/Dockerfile": "7e3333b6219b06e18c7cb616ae194905eca6b756a75223581ce7e94eb7d73013",
+    "deploy/opensearch/Dockerfile": "8f397f92e998c33b15aa78beae60684c99166075767db169c958b509c25664c5",
+    "deploy/package/generate-development-tls": "c3866eee3a08cea40573f3b7eb2ba742f5f8390de0298487f9c4431445d2b0c6",
+    "deploy/package/generate-opensearch-tls": "303db695d49bc06af1ad0d82f63469bf767e54798d845afab5506e64a8ee6204",
+    "deploy/package/generate_opensearch_tls.py": "200ad539d1e8b853eb324f66c66dd2645486a8d5fc4cc6910b3256beab5c1371",
+    "deploy/package/nomosmart-package": "9391081be6415251ebc8e3fbab4da9c8f806d4e6fc0f896c08708006e25daefd",
+    "deploy/package/nomosmart_package.py": "c453e9e1e97aacf7c0fe728cebb8c80fb73a8ed8e6f9d0bf6652b4e686aaa0de",
+    "deploy/postgresql/Dockerfile": "ce0ed5401c2801e8789245e5369d541a52f5128602c737997a3e321c06329335",
+    "deploy/postgresql/Dockerfile.dockerignore": "833bd59c4c6495da6117bec3d2692ae92eaa2b0ff4b11fa567c0ed3c40b81e66",
+    "deploy/release/nomosmart-release": "9ff67ace5b5f60c5f3088e322b24dc602067751d975ca1e8a7614cf6977a2cb0",
+    "deploy/release/nomosmart_release/__init__.py": "85af5c107c9a287da80d3e30f74e7d0e5d3b4bc6e0e98b89aa2cb67a05076c56",
+    "deploy/release/nomosmart_release/cli.py": "48d70faed568baed011aa46926412e9ebcaf09bc90979df453dbbfffa8b20bf4",
+    "deploy/release/nomosmart_release/contract.py": "d90b14df19264068723e3663402721553065edc1c2d8759064636b9bfcd7533f",
+    "deploy/release/release-manifest.schema.json": "20d73654703c16c9852a369446733e064a97f86226d1991f1bc486fdd0a545b7",
+    "deploy/rustfs/Dockerfile": "005aa4686730b0da3d8e13ae4d11863d9cedeb7502408df57ffbcb16c4478501",
+    "deploy/rustfs/Dockerfile.dockerignore": "9b6b153cf33a2feeec2d934284cde19bc5142ac3ecd95ada31240dc1f043ca0a",
+    "docker-compose.yml": "8480e9ddc9902d1ab623c3a34d89ca0f11da14ec4f8f15479be30e96a5e03848",
+    "frontend/Dockerfile": "89a8091e823aaf6104fe5664acee45962b96278fd7de9167c9d0e8208781e8d5",
+    "frontend/package-lock.json": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+    "frontend/package.json": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404",
+    "frontend/src/app/access-denied/page.tsx": "935ad50ae644a45278dc632e2ff059873d22750f4eb675708b2f4f27e881ec34",
+    "frontend/src/app/api-docs/page.tsx": "c9b7fde8f8ca2bc5740a3d5fe2b379493ff27edc9090ecb2ba715c5b0efde443",
+    "frontend/src/app/api/auth/callback-error/route.ts": "897afec7d62b8e277f0ae5531cff21cbb853c1069cfcdb9cba6a50e740871a83",
+    "frontend/src/app/api/auth/continue/route.ts": "9e587964262d54763a03c8534094f7b56929efb131f45cba289a7fc334e4dae8",
+    "frontend/src/app/api/auth/exchange/route.ts": "b2dc18a0965f650237c4d9dc6dc3c337c53068d2606ed7147520229f8607023d",
+    "frontend/src/app/api/auth/login-recovery/route.ts": "2f439e31596e6d19b6487f14dcb4db0846210b140d18ca30fda160de320ccc2a",
+    "frontend/src/app/api/auth/logout/route.ts": "726d7c0a0246d677d74feb4181deaafeed0a7f96c916f5b0846eabc35c808c55",
+    "frontend/src/app/api/auth/refresh/route.ts": "2ab5eadb227a5451134e86b9fd864e991a325e96c440e5afd28d948b5a73b792",
+    "frontend/src/app/api/auth/start/route.ts": "c44178c855139d3507aa9e903cdbf823089bcdd49f3c7ca065f7348a01c9d1b3",
+    "frontend/src/app/api/backend/[...path]/route.ts": "cee7ac760e5fdd19b5fe7e843231068cafe98e0aa7935de198d3734585be924b",
+    "frontend/src/app/approve/[approvalTaskId]/page.tsx": "80fdba53ea94034b2545ce93c670d4962c89c41686e7cfed5c01d8d81808316e",
+    "frontend/src/app/approve/page.tsx": "9e1f35ca17816c9bee1ab4417adb3c2c66d21294697a822bc555b255c895aa8b",
+    "frontend/src/app/auth/callback/page.tsx": "883a8d912926a0ee483972dc868f7442adcb8219fbcaebd54be800de6a3e9482",
+    "frontend/src/app/auth/identity-reauth/page.tsx": "eac3cc99859ef1102d2b579eff7c660853e458b241b7f2c5f5dfb5a02d750761",
+    "frontend/src/app/layout.tsx": "22e345353c8e4a9b46225b773d711cf51a211c287584b4b123d975ce0d0c606c",
+    "frontend/src/app/login/page.tsx": "db33b9bf975dde92db3d7619f92851c9268f8d098cac588e262e3c3a7d6c136c",
+    "frontend/src/app/page.tsx": "ed3568872ad2ba2c6ea8dc77efb10354232e43ec2015c3fbe91916e5a8a526cd",
+    "frontend/src/app/project/[id]/import/page.tsx": "e2ff564a984694b47660f46d6c2ae323c5ab3d2c5d8181d0cae89a4e17c645d9",
+    "frontend/src/app/project/[id]/knowledge/[knowledgeId]/chat-test/page.tsx": "91061283a5a18198859e37c1ed16be993aabfd5abd7ba077c68f9241a72272ba",
+    "frontend/src/app/project/[id]/knowledge/[knowledgeId]/page.tsx": "c2c969f511ff14adece28c157382b1a1c205207a09e350d3c4ea389ee3586fb1",
+    "frontend/src/app/project/[id]/knowledge/[knowledgeId]/submit-review/page.tsx": "c07cc7809367541d35342a641b5b5c797d42e260eb27b962ac5e62cfe5f27dbd",
+    "frontend/src/app/projects/page.tsx": "17aa222125ed85bbe500611105f0a47166b7183c9b2aa75a619b22694d4ce1ae",
+    "frontend/src/app/reports/page.tsx": "b34e92bb701a42f8df84f650792dfff822ca1f52686cbcc1bf0e2fc742d72268",
+    "frontend/src/app/system/page.tsx": "7898e255a04cced8b2c41d31e314b7a76584137d40a7b9f70ce8b4a6a4e04d2e",
+    "frontend/src/components/AIModelCompatibilityFields.tsx": "f10f69e182f070bd0be2cb43a0cd37c50258dc5b5a265b2818b5a9c4181991ec",
+    "frontend/src/components/AIModelInventoryFields.ts": "1195b2b2810521039b3496733ce88e22529a61aad1f36a5ce50176b0ea74760c",
+    "frontend/src/components/AppShell.tsx": "bd81e620ee382a988b367ea586260d0a5d771ea887373c22ccc8673e87374d69",
+    "frontend/src/components/ApplicationAccessDenied.tsx": "95098a3d21a6798bb7df9d7dd1fc26f638f34828f54089a62ab33ca6fdbe22b7",
+    "frontend/src/components/ApprovalEvidenceViewer.tsx": "fca45a37a1952a9d34aaec9df3736426dd9e183f383b20572db2780373a30057",
+    "frontend/src/components/AuthProvider.tsx": "fecb468ae1b25d5617464d045174b59a959ec2a4b7d1d2e0d7c1e9c6c9a424ff",
+    "frontend/src/components/CanonicalMarkdownSource.tsx": "ebf8ae6247db7baa959e92bdf8307d6ac84b3b0126d0063634ccad9dc02fb77b",
+    "frontend/src/components/ChatHistoryAuthor.tsx": "d34fcd0603b6258b10b6d443e9ccebe6384750284826e6bc14e35ee6def56944",
+    "frontend/src/components/ChatResponseEvidence.tsx": "dd7bf918a5d6686f5d77c30f16c0f6c0d0c97fafb1140333a0cf574f81db542f",
+    "frontend/src/components/ChatWaitingIndicator.tsx": "aa0b6c0ce17f63ff9f3239c350680534e581e410ebc035f2439d8bbc45ebe5e8",
+    "frontend/src/components/ChunkMarkdownView.tsx": "6fd1930469111d34979c64e87d4c6803e4d413acc23c1ef53bce9f36657176c4",
+    "frontend/src/components/DocumentGraphPreview.tsx": "2c77f9d0a1fba6b804040ba3050afb3471c86b35563d44dc2231a80a39844379",
+    "frontend/src/components/DocumentLayoutViewer.tsx": "ac5b1354bfef98c254d3f9b9b171369df2de5013c1c024048696645633c24b69",
+    "frontend/src/components/GraphExplorer.tsx": "20b6abd2c3e769701b87b84f9e0e0e76101272868d4d101134a6b54a67c6dc86",
+    "frontend/src/components/KnowledgeSourceModals.tsx": "5af08f7ab936e40c015c8a1b09c7306b8eb443aba99e70d2ed79f872f1c66f0a",
+    "frontend/src/components/LoginSessionRedirect.tsx": "8636afc4d1688bb7198d5c58b397c90693c7e60bb1267a0e1295ec0a47042058",
+    "frontend/src/components/OidcCallback.tsx": "98bc7d9e381fe9d449c2ed33dac9080170f688e45b3aec5c94e2720d8038bf7e",
+    "frontend/src/components/PipelineList.tsx": "48e1a94ec7742ea1a80494bf3279446228b18289728a7d6b267da2a249653d84",
+    "frontend/src/components/ProjectChatTest.tsx": "67f3be8bb1e0719fbe2733bfc45ca73167d963543e2ca872bb4fc778b1963c09",
+    "frontend/src/components/ProjectGraphPreview.tsx": "4b101d9fdb1a4fa99c31817507963af3b70616dbc1673f35b50a20807da2ecd8",
+    "frontend/src/components/ProjectMemberAutocomplete.tsx": "158a3961bc782b5eae30153978754e19b514fb1761100187327044034aaf7a08",
+    "frontend/src/components/ProjectMemberRoleSelector.tsx": "4840a6bcc8e49d78740b5d09269b4b79a77ef3cb11d7dde7d533a0e58ee188d8",
+    "frontend/src/components/ProjectReferenceModal.tsx": "222fc1dfff6162f81c70789c396d88d4a094ad2a315f9a8286355cbb66da48ab",
+    "frontend/src/components/ReportChart.tsx": "de029dc710ba7796de00bc45451640903f30f11a31f4d1267d76ab79cc45694d",
+    "frontend/src/components/SafeMarkdown.tsx": "24dcc6cab2eee2447128e4e5c8388faee848401bacfc4d0cd267b5bfc949df1f",
+    "frontend/src/components/SystemManagementWorkspace.tsx": "b954ad84a2339b47a9f710f93adaef5aa51afe06534572016fcd72775ba6da79",
+    "frontend/src/components/VersionGraphPreview.tsx": "91f0bd35b815d19fd4c45c102dfd3c874c7f1b37351c8d55a634a316f8b57a5e",
+    "frontend/src/i18n/locales/en.json": "af88c4afb892f39d7016a16fff5b1594e2cb4ce7da24deed97edaf6d66077322",
+    "frontend/src/i18n/locales/zh.json": "bf0bedf36461668a0b4d2d449c45961a45b643a06dc0a7c78bb0ef9f9a6f8bd7",
+    "frontend/src/i18n/visibleTextAllowlist.mjs": "bbcf214ea8a6ccf4a03fcf35796ebfbbba9bf5e7fb00b04250a371fa580ffc47",
+    "frontend/src/lib/api.ts": "bff0e7d72ea0c09ee42498665103764eb1570527328e4d436c73b4d129d23442",
+    "frontend/src/lib/approvalDetail.ts": "c470a84c7c502a8473f09fb472ca994a7f8b3f8ce83ee3a92670387d73793ad0",
+    "frontend/src/lib/authState.ts": "91eae4012a52763f5a59459486db75a5e001892520d97f28a93485de21f3d91e",
+    "frontend/src/lib/chatConversationAccess.ts": "e83a611eef0aad797ae3e1207d1eada6173bebcf2133ade4813329f65dc6f098",
+    "frontend/src/lib/documentGraph.ts": "5e78ed86006e209c746692976aeb5de96682b8281ed6fda7273c07b25e872926",
+    "frontend/src/lib/evidenceSelection.ts": "e4ad19cdcc04f006843ce16592192c12b65aac72e98a8712b0194f8655eb29df",
+    "frontend/src/lib/homeMetrics.ts": "c1b2071e3d9abc7a1b9e6a6de4444b40f18be7b854ac22e2a674157b8aee3001",
+    "frontend/src/lib/i18n.ts": "aaa9ff721c4278e3bbe16e3bab3d7b8026ad666039d3cb143ce67b2dc229c5b3",
+    "frontend/src/lib/i18nClient.ts": "2b61e9dd592ceccd8f1b10c6c97ee4c56db4c2efc98f10d5aa570d0065d2d6c1",
+    "frontend/src/lib/knowledgeImport.ts": "10d160057f1a5bbab0e8bc8fc49ab6da65d4e01984cc6bf6253b13dc0008d50b",
+    "frontend/src/lib/markdownSourceMapping.ts": "4cc3ca801a846219ed7f541dbcb2b23c93bab16a33aab2707a8c157d9d2c0a25",
+    "frontend/src/lib/oidc.ts": "0a21692ee38f84a6cda12b2181dc009d8e07db1d26f0656808344bf244038830",
+    "frontend/src/lib/operationalMessages.ts": "0c650d143e8c1c6ccc591356609099fc9d61790eab279f934333dac0a7ca6452",
+    "frontend/src/lib/personName.ts": "1fa9c25f3627746874802ed12b2df40333cbf6750bd53121542ad0c148b31d6b",
+    "frontend/src/lib/projectPermissions.ts": "b8665ec2da42248824bdd86b52ea1817d96dc0fd61b25a6055d1ee8970f9f167",
+    "frontend/src/lib/reportExport.ts": "ebfb43800ffbb38d3c8705479302c6e339e2578c407cce53fefe91b376038b78",
+    "frontend/src/lib/reportFormatting.ts": "2adb4230ea0cc834f59e0d12e8ac260c4020e811e8522dfafc43372156eca97b",
+    "frontend/src/lib/runtimeConfig.ts": "17477f4ea740a9f8976da630ced3665e738da562c4e026fd7e7a2a25841bb13e",
+    "frontend/src/lib/sessionDrafts.ts": "4096d2b686a2ef82bf85c5da26a602e72643a8f49b820f3ca911f32e9f0f7429",
+    "frontend/src/lib/systemManagement.ts": "17c2ba11c39f9f2a2a3c8aa8f8693b8f39a266f7d16deb2b4e380549c9e37e40",
+    "frontend/src/lib/systemRouteState.ts": "3a2dfd8dada604ae48341f91269f8008db6f2903cb272f984a8db4dd7ee77b45",
+    "frontend/src/lib/useDebouncedProjectMemberCandidateSearch.ts": "5745201fa9ab48870374ffc5cc5d8c3fdfd080c14f3fdcff3473e26b3eba0e60",
+    "frontend/src/lib/versionGraphEvidence.ts": "ca5535f98c4384a150b87d53ca4180ac2f769ba062fd464b3c0059f8a3092c89",
+    "sql/migrations/V001__initial_schema.sql": "a089a1a84ea44f7eabf6ebe91a3a4505945563d091b2d086c33bd3df6f9da650",
+    "sql/migrations/V002__identity_projects_permissions.sql": "cf20ec4054d578e26a4a37df5b16990466ec18f200df1b4c198428d085ef84de",
+    "sql/migrations/V003__seed_role_permissions.sql": "c726962b09b6a0831279676f311ec9db58aac97367d7bfe12815f8c17cb65d08",
+    "sql/migrations/V004__revoked_auth_tokens.sql": "f78657ff8b83be18570d9673be2a6b5cbb12f38a33fdb8b2ff5d1d6702a583ed",
+    "sql/migrations/V005__project_ocr_default.sql": "b5623f2eccee8c7023b643cb46e7401cb1f9fc025f55674a8e793d6d4ada0b87",
+    "sql/migrations/V006__session_expired_form_drafts.sql": "8b4a9a21efa300cc6d296e4c90414975312a09e6908fbbfb2b5e791e42ea419e",
+    "sql/migrations/V007__milestone_7_1_serving_permissions.sql": "500e5b84380e6406598590414165ba7b2a48f1c46dfe818973fe294f8aaf7946",
+    "sql/migrations/V008__system_initialization.sql": "961f3c1ffed41c9645aa1eecfee1529e789ec7fd26af853d797c31a282360bca",
+    "sql/migrations/V009__system_prompts.sql": "d9421960b28c985ecfc44ad5900d5b715a22948c8d677101c5aa7b84d59c6d80",
+    "sql/migrations/V010__manual_chunking_and_tags.sql": "bf5fe73eae464cff88a74e5b679ead60b724c78be0dcac38fd9dfeef20bd9a0b",
+    "sql/migrations/V011__llm_chunk_tag_default.sql": "5f9da32f9f3cbb4d7f17140ad9b5f548cf24c824d81e64435685367a758126f3",
+    "sql/migrations/V012__owner_editor_submit_review_permission.sql": "623001214f143ed3520b29f8e5690da0390ae85b155f2be2419fcf7393ee38a1",
+    "sql/migrations/V013__sync_review_pipeline_steps.sql": "21413f2ba362a4666918328bc712c3b1fd8743ec5c068aaeb7a1fa255c50d051",
+    "sql/migrations/V014__repair_completed_approval_tasks.sql": "e065bf32ea958f07cf503aff9e56dd0b2d265870fcc16becb762efde56928da2",
+    "sql/migrations/V015__chat_conversation_soft_delete.sql": "9eeb9ba73f9c13db98e9b27bb3383b3d32592b12330c4b7495e6f62cde71e93c",
+    "sql/migrations/V016__chat_record_scope_mode.sql": "cff1f7ec3f871db292eade5423b071603741c7762cf5d14a3be29028c657dd94",
+    "sql/migrations/V017__first_level_menu_permissions.sql": "c7b1696cab2f9312b1d13ba8bb432c9684f5716b276d0300b4f1d9c0b7b042e9",
+    "sql/migrations/V018__validation_run_item_metadata.sql": "aa45b24c977755aac09e8d5f6932bd920fc4d8ae63cc6675f59c0890ea5c3dfc",
+    "sql/migrations/V019__public_api_integration_clients.sql": "92bf1ade33eaf5f615a1660de638bab50d23256933e2aff39c0df66762e99f33",
+    "sql/migrations/V020__oidc_reauthentication_flows.sql": "c8d6b5497b6ba73bb461e35b35a3b1827137e6134dadc4053813788622f8ac6b",
+    "sql/migrations/V021__secure_async_ingestion.sql": "901a9c52880ce292e5c37abe33a35b74a91c1325a7cabc65912685c0b6e71737",
+    "sql/migrations/V022__connection_test_evidence.sql": "6c9d122edf869dba7a41264f85938ea456f0e9c893fe25b16d9d26c183856fdb",
+    "sql/migrations/V023__public_api_runtime_controls.sql": "da58f861126437d10424f7b4cb2471953be3f4fed682072d79beeadf6cc7afba",
+    "sql/migrations/V024__initialization_last_known_good.sql": "82acc67a3254dae86a80e2b1bea37a03638bb22d98c719661b39142e2359dc10",
+    "sql/migrations/V025__ai_model_usage_events.sql": "bc038df613bc9ea57e5d7629a6db3d12403272240e994ce04a5468b4d71c13d8",
+    "sql/migrations/V026__deployment_bootstrap_evidence.sql": "0715cf16b9784b94dd5ad478271b939cee399bac933c7c0444ac80c4336cd7a3",
+    "sql/migrations/V027__local_roles_ldap_group_mapping.sql": "075c554fa0a9c1102264f23497dfaa86f1aee0171bbae5b34f26d046ed48df04",
+    "sql/migrations/V028__identity_settings_truth_and_sync_recovery.sql": "357af3a51174843b20575281f22a6c0f71c4c62fce1446e52f9951fe60001a1d",
+    "sql/migrations/V029__ai_model_soft_delete.sql": "ecb45c14300a4baafdf2b39158a5e523739f8b999c31ac47da283f50018669d1",
+    "sql/migrations/V030__local_role_lifecycle.sql": "9b37bd5726851ab01f28210bbf1c2c4c50c1d091ab0073b45d94d666f670f754",
+    "sql/migrations/V031__project_archive_lifecycle.sql": "56591c557e54d1232d5a2836e46a861956a7853fd55bf533196409831da0df74",
+    "sql/migrations/V032__project_archive_execute_permission.sql": "8de16af84eb82de9ebba9bd28de02232af348e19a6b5aa54a5bd452d357fd2cc",
+    "sql/migrations/V033__graph_sync_durable_attempts.sql": "0dc5dab2c8c3ffcdcea24d040070e52ff0ccc977b1371b31130368226e2849d0",
+    "sql/migrations/V034__chunk_edit_lineage.sql": "2a6a6842d3d1b3773582173e8db34ce372c53d66f9880f9cd7edb94cd3718981",
+    "sql/migrations/V035__durable_notification_events.sql": "7820f673bbee6584303f1ade9f9cd8c9a52ccc573b6b66bf7854b248c134180a",
+    "sql/migrations/V036__project_work_generation_fence.sql": "94f722d61248a3fad43f7598f8b843e0799a5eb882d63d85665ae008c808379f",
+    "sql/migrations/V037__immutable_approval_evidence.sql": "7e9102df394d4345fd34e3ef00698cbfda319f797dd30d2efb7c0f7463d13c0d",
+    "sql/migrations/V038__report_model_permission.sql": "9ef0b5e3797dcfd9f5ee8b21365f484f7abaa8de3883fd48b4d56a8883c49ec7",
+    "sql/migrations/V039__approval_workspace_priority_indexes.sql": "73c7f0902e745c14a58ae082da3f7c5ea1d3a3b77e712d23f36667a0aad4f209",
+    "sql/migrations/V040__validation_item_attempt_lineage.sql": "4c535d556d89d7cbf1aad3ad7978efabe6937d4610d6e7d83f0a657f3042eaed",
+    "sql/migrations/V041__validation_execution_manifest.sql": "066825e9d6e1e838ef43c53d98e317c781ce8f776924cde3539a85d767725687",
+    "sql/migrations/V042__cloudnativepg_application_privileges.sql": "522f07f9f75c1af5a98b07c6dfa7ef63503af77ef94268010dcb28584601ee28",
+    "sql/migrations/V043__keycloak_cascaded_identity_sync.sql": "21e24864378172e070f60a48bcefc155ee677fa6c58ab7e4ce164b35575136c5",
+    "sql/migrations/V044__keycloak_boolean_ignored_sync_result.sql": "ef9cd2ca575bc095441cb7e33633b5dd2e1ccdf444f2e38989c2e45e7ec8c9eb",
+    "sql/migrations/V045__structured_person_names.sql": "f33820f6c58d54a54d607d1694fb2a1c15b0df2998ffafbf1cbf3397d9090097",
+    "sql/migrations/V046__structure_aware_retrieval_chunks.sql": "263f579123ab58fe17dcd357b1d7ba6f146c61c08ba31bf1db2b028aa67151f0",
+    "sql/migrations/V047__markdown_display_and_retrieval_only_embedding.sql": "9f62d569f6f8db0c6cf2eaf03679ba8fc4826ae01236beb2f007e9ea0a52ea21",
+    "sql/migrations/V048__project_member_candidate_search_and_owner_protection.sql": "71f2b8140ad0b7c510a108d93e9e93fd6ad9ebe9c9b5a3b639aa6a3daf755d8f",
+    "sql/migrations/V049__exclusive_project_member_role.sql": "b8d256be49ff99c2c157ec8f95bf96f5ac2846aae450637f895747bb298f9f96"
+  },
+  "source_audit": {
+    "dependency_audit": {
+      "mode": "HISTORICAL_SAME_SOURCE_REUSE_NOT_NEW_ONLINE_AUDIT",
+      "path": "/private/tmp/chg301-r2-security-gu0ylzpx/result.json",
+      "sha256": "e917b6bc35ce1960070251df0f6c18b02126bc85cef5376419596d535299aaf3",
+      "finished_at": "2026-09-16T16:18:46.968552+00:00",
+      "source_sha256": {
+        "backend/app/__init__.py": "bf24c9ffd0883098066bdeee2f0ba96e24c914545db428f9451beddb926540f3",
+        "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+        "backend/app/api/router.py": "f8928641f097b2589522f4433488da89a6c2a74261570d8567b2ef74d6608325",
+        "backend/app/api/routes/__init__.py": "54fdbe4dbd01a28f6966964cd382c2c7eb06acd9bc1bf2714a0390b172d3fae1",
+        "backend/app/api/routes/approvals.py": "5198c8692996e5688e4c43e56ab3c68dfeac5096b54c1e23b1cb2fa7a6da28ba",
+        "backend/app/api/routes/auth.py": "6193431eae2e96b0e88157b694147b971bec66662ed12503d3bee2b8b7ad820c",
+        "backend/app/api/routes/compatibility.py": "a8475b15033f704e2b7304f4fb04eed663b52d02b1d8727d15ee81cf79795d2d",
+        "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+        "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+        "backend/app/api/routes/health.py": "42f1c2c9f673fb658e507f8c239f8819caff40832ea585c7345f3afac6cc064c",
+        "backend/app/api/routes/identity.py": "57a7d2e82261b6c7148df271ae453f7096c9da03d72dcd482df49de0ea85a7d2",
+        "backend/app/api/routes/identity_settings.py": "853e613f44ff5073891d941b0f5b3fea3f264636dcc2197e2c1b91004302d06b",
+        "backend/app/api/routes/integration_clients.py": "dc64c24813f8d2c83694712372662103e0c2889af088b40ca3ac7d06627f0050",
+        "backend/app/api/routes/models.py": "cb58ce865dab2a7bee19dc755e05d3da5bd9563f4db69a41ac5e9bffe8bc18f0",
+        "backend/app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+        "backend/app/api/routes/public_api.py": "4e1c60da52dd295e65e5c22fce2ba2500a7318deba5d3549f808401af6c4a2a0",
+        "backend/app/api/routes/references.py": "f47776954f89d01f11d0bbb857460d2fb3d897f6b1d218de8b9106c08eda03d7",
+        "backend/app/api/routes/reports.py": "b45ccba3f4df7deae5b7b974247272948e27d798e50c4ad9b0e9a9ce6a5e8c91",
+        "backend/app/api/routes/roles.py": "fc7f53cdb2124d1ae8434051786aed99deb8e060d0ae97fc10ad93eb7c8c558a",
+        "backend/app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+        "backend/app/api/routes/system.py": "ea4748c7080aa84dfc7082fce5f24213e3480ad9d96adcb65226137cc26f2b45",
+        "backend/app/api/routes/system_prompts.py": "840dcda9f4dc9b107d0eb3a0bd5852e0bc47eb7f9a032663f381413b6edf2fb9",
+        "backend/app/api/routes/users.py": "903c4255394d2aa52b13a8ab23dd3ccd93febcf32870f879e8d72b173bb07dd9",
+        "backend/app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+        "backend/app/beat_leader.py": "9d48c1fe9521249f3706ff64d41d5f2c87660a16efaa13e79ac6556ff3b6246a",
+        "backend/app/core/__init__.py": "5c3c1f860582075a58bc7fabee6112095c27422567df01fdc1bd43c2231a99c4",
+        "backend/app/core/config.py": "d93d852bc28e98aed1155e58b982ff1ae17ccf948a2574e9dd6ba85753050386",
+        "backend/app/core/contracts.py": "9500be915618d30916544b405cd093ca8076ddb7616bf08cef244bd7246a8f5a",
+        "backend/app/core/cursor.py": "a7f728567f5390f227971597fcdf94081131ad74f96fc0ca4d799110fa8aa3e8",
+        "backend/app/core/encryption.py": "069d33c95f35fee0b1e1e57276e2b11ad4c3b13a6a9d5c3cf72672441e65a9df",
+        "backend/app/core/errors.py": "be6f511d9ab8d7dc713ea07b9126f4fb26af16fec7a7c18bf42711e74088318f",
+        "backend/app/core/idempotency.py": "8c295ff1d41811618e13f178c7c9c719e4ffa405d621e4e5b811967d21c1d661",
+        "backend/app/core/logging.py": "287a34565c74b3721516b590e68a9e6f30f87af8e10d5a0edb714044164d392d",
+        "backend/app/core/middleware.py": "78299ecf2cfb19e30be9022830f4462e55fbf99f02a806ade6db12bfc7fac5af",
+        "backend/app/db/__init__.py": "72e3dd8e53ac1c659e0d99d2a5e7ce959a66032e776058e8da583b2309a542ac",
+        "backend/app/db/base.py": "12205beafbee930528e14ee8439dba3fc6272c995e98dab39f87187c73a89b87",
+        "backend/app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+        "backend/app/db/session.py": "10014b225fcfd25bd32732f425502e27b3a182cbdd3967f728d5623484378a72",
+        "backend/app/deployment/__init__.py": "e6782840e1003ec2ebe393b165005d81911a926686562d3b21942fc31aabe99e",
+        "backend/app/deployment/bootstrap.py": "0d3198bd38356b0e9d827c4109c4b62a106abd84282ddf97d33a3412cb903056",
+        "backend/app/deployment/directory_reconcile.py": "16c3c32bef0f86b6d36a8bb898e00ad690017e1040354629043d3af379f2b60f",
+        "backend/app/deployment/migration_gate.py": "1e77de108c6d4dbc3e46c95ab1b4a50fbc121558804704e1f75a61ee0d3a9cdb",
+        "backend/app/deployment/onboarding_status.py": "acf4e77847e5193c8a5ce74be348bc0fe0fdf4521a751174bc2767a81f4036e4",
+        "backend/app/deployment/storage_bootstrap.py": "7ff3f06ac13bffb9faee6929f1ccea386807cbc01e9a2315156d2594ca2346df",
+        "backend/app/domain/__init__.py": "937190c22a092dcf603508680cd24c4e48b16b868d1c327a367bfb3c4d28962b",
+        "backend/app/domain/ai_provider.py": "716368167529506c4dc01b7d1e4eeb78f17fce95553441aed8fbaef1fa735ffe",
+        "backend/app/domain/chat_citations.py": "68d225e408685893dbc37ae00c15a39afb09db5f9d6c00b88b3333e47562107d",
+        "backend/app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+        "backend/app/domain/chat_retrieval.py": "b58d8e9bee1ffb1722f4dd8b7a14b37629d59feb6d8f4a7b01ba4474f2da4727",
+        "backend/app/domain/chunk_artifacts.py": "6c15b2a2abb540a08f5b97934f5e6dc6d3421020a3841617ac93553bdb0b9580",
+        "backend/app/domain/chunk_deletion.py": "e6bb6d6680b51046005bf06ce394f5e8c967c3a3caca0e6855a635523125b981",
+        "backend/app/domain/chunk_representations.py": "2c3c75be26527c41596fa65884163bb39179c6f23370cda737bd58d16131833c",
+        "backend/app/domain/connection_evidence.py": "d57e37a8e48f10e45be6a4d4f299551a458aeb37c8259fc50dbc491a21e6ffc4",
+        "backend/app/domain/connection_probes.py": "281c9cd149b323c81b6b64c0c19e97a3784f080d0663ac4c416883a0f9ea040f",
+        "backend/app/domain/data_sync.py": "97736775b44bfb9a5c264fc975cc1e4db0a8c0547a27dd5c4655d3e02d0e4a7c",
+        "backend/app/domain/directory_filters.py": "0a320ecdd6090e26fdbad4452b473ea0bb5a76febd5c9923ea16f8601f073784",
+        "backend/app/domain/document_imports.py": "e86fb903e1e5d52d63c7a1ffa37a2b99b033c1dbea1a2b451efa830f30c78df1",
+        "backend/app/domain/document_layout.py": "e23e68b038ecc1d05094218e2aa4a9799989007e5d40ced42be96d8b28c91177",
+        "backend/app/domain/docx_security.py": "9bdd4ea33bbb0e89cadeb0d61c036bfe44ad09ba0ba250560d748a8e9f116880",
+        "backend/app/domain/embeddings.py": "90023f9da12b89d5f076cb3f2156f082ae8e232cceee3d36cf2535aadf239643",
+        "backend/app/domain/extraction_pipeline.py": "83d53e7918071aa84472f8b9da8da18a5ffabb2a235aad9803a57b57f9e1bce2",
+        "backend/app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+        "backend/app/domain/graph_reconciliation.py": "2705673920a8c82f291c2f42fce9a7d1ac6803b1f539675a9de92f5191b28005",
+        "backend/app/domain/graph_sync_jobs.py": "992026dfc5c2cef79c2291e3cae975ebdcec1172bf0fb77cef9474b94d73b83f",
+        "backend/app/domain/identity_settings.py": "8235be967fbab0330df6eb90e9cda4f3a45a02c69e73a08e82711da605f7ce81",
+        "backend/app/domain/integration_api_keys.py": "17567e9701e9d6b6ab127e30deb25728beb68e03e101538f3a737886cc538eb6",
+        "backend/app/domain/markdown_artifacts.py": "6f9fa6128d2cf69bffe81ebedf7f31459d4d8911b5744c9589100f065dbe7871",
+        "backend/app/domain/markdown_structure.py": "bff8b7f84f3bc4e44cf7b7952c307f2a07e294839ebc972611c39736992a0743",
+        "backend/app/domain/model_usage.py": "b5fdf64a68fa60f7fa280607b40fd4f8815997600a73aff4c3c1d3b50a1ed15a",
+        "backend/app/domain/notifications.py": "1402651e5d187d8a9f57715178d61130369a85328a299e38223648b41e03892c",
+        "backend/app/domain/office_parser.py": "73984b4ac55ca95f185c440e2f4f554e14a45c40a70936613cc4cf9576eda22e",
+        "backend/app/domain/oidc_reauth.py": "434fd6472b98983432001ad32eb6a00ffd38dae1faa011c7f2827389e53a6ef4",
+        "backend/app/domain/operations.py": "8ed806943062f56c07885cd6ef5cb42e427d5811f905ed5446b9e21509724efa",
+        "backend/app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+        "backend/app/domain/project_archival.py": "61eff47b568bb911da5e2fd4e1f952fc1a3739b494ea7914bebf60a71d908217",
+        "backend/app/domain/project_members.py": "4928ebc559e5914788af92b0c45ce3f35a21acacf3e7893d52fe25b31585f4ba",
+        "backend/app/domain/public_api_controls.py": "232aef5783596b4bd6bc7116edcb8dd3c3349c509ef0c5e86589269639fc2bfa",
+        "backend/app/domain/public_api_retention.py": "d18a0e4df342c9de779140fb6ad1539af4375e44a26a2f55e3a094b6d8743d07",
+        "backend/app/domain/reference_events.py": "e8ca48ecf912a83936d8558cd38c09aefb2a4b7af605cd82984b40637c6443a2",
+        "backend/app/domain/report_policy.py": "2e9d0e2b72c3d77bbf5120cc4d4b098e0454b270dca7916af95a0efcf519254a",
+        "backend/app/domain/retrieval_evaluation.py": "b9c9337b2c8fb92116fad0fead88356ae09838fc04472499bf0790fecb87195d",
+        "backend/app/domain/retrieval_text.py": "c2663dc02a7eacf0a5428920a6145d7f577b490757599f92875f8cf83e02b07e",
+        "backend/app/domain/review_publish.py": "25978e4f12409ba5e0a46ece672a40a976c55480dd5e19cff42ede9932c637b3",
+        "backend/app/domain/search.py": "9d09c58a7cd80634cb1f9d5519ea281605023ae5a293594637795958fecda699",
+        "backend/app/domain/structure_chunking.py": "1a164684120a3d22f920904315ae602b282c013fcf9535e7f26151b0675d44d1",
+        "backend/app/domain/submission_evidence.py": "91282cde6bf292c49122e08c24f532af88525758da6d792f67e91dde16c5cbb0",
+        "backend/app/domain/system_parameters.py": "38c9c09f2326c6479a4708163be9e9c0cf861dcbc23ef6cd653e1c3d5cf7aae6",
+        "backend/app/domain/system_prompts.py": "adc68f35adbbee57192cc52ecdc40ca877532881acb1c19e0ed211d4b0af1f93",
+        "backend/app/domain/tokenization.py": "c077b94071e1d700e5d45aef0a2e6a9f89bcf1bc40b04aa398fb560a30944d14",
+        "backend/app/domain/uploads.py": "8a81ab695101e04178e575b4f9b467b9256861e86fbc4012e53822e7e080d956",
+        "backend/app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+        "backend/app/integrations/__init__.py": "4611b22e5b452990f133e94508b15e3ad43ab20f170a20c04fdd071d6f3c03f3",
+        "backend/app/integrations/health.py": "10919e136ce46e089532772cfc2ff06d91212d6a8ed402ed74dd910cb01a3045",
+        "backend/app/integrations/keycloak.py": "ada778fb22f5558756fc239304b893758cc84fce4b2a127068b0d2e0fed1514d",
+        "backend/app/integrations/redis_ha.py": "35fded0f161837b11eb2c7dc16c9d7abc05403d3992ae93513297fa6fbcde633",
+        "backend/app/integrations/remote_sources.py": "338c6ae58c299e7f9bdb60b9f79d8234446d864cbaa18de1cf8d162da418c3a5",
+        "backend/app/integrations/s3_storage.py": "dc5abaaa3364e47a6bf319927b7bd84511c3e6ad8d7fd552ff5ced2bbe24b605",
+        "backend/app/main.py": "8d89cab98290235f626fb2932c91a67252160a994a42a7cc32969724c826a4ff",
+        "backend/app/security/__init__.py": "a3ca65cd67f6ced0b16165a381c7992beee22fdcb7dd7fd91cebf9bae78d0718",
+        "backend/app/security/auth.py": "0e7f837646a871589aa8e887edbb329b151d65fded2a71408595027f65fa8aae",
+        "backend/app/security/context.py": "5d62f5c8f02032e278d9be3f5eee87e94cfaf934bc1d4bba8f4e4c3ded5ad578",
+        "backend/app/security/permissions.py": "a134b6a3357d6b752e8149d8d7af2b82d91a824dd9dfd58fe2a480f66aed9c4e",
+        "backend/app/security/project_roles.py": "53c88e8cd954d215b569f79296486d8d9e2db8e741956756a13c1094acc3ac81",
+        "backend/app/security/secrets.py": "d341c343fc464bbf450e0bf3170eae4ff3015ee0b3d5b4c5186060d7b731e041",
+        "backend/app/services/__init__.py": "ac74225afed0c30c874dafb9fa708dfeab2d64ebe9b488a345e7e3119a6092fa",
+        "backend/app/services/audit.py": "1f1f319a6df5dc7f93f709bd2b8d304aa10e5edb8150b3b3c5407a4e08fef505",
+        "backend/app/services/identity_sync.py": "72eee9998996649fe3ef133c3f633eaa341c71cdf09077fbe255a3cfa116e019",
+        "backend/app/services/identity_sync_jobs.py": "9fedee17f43aacbc748b86df924867770a79021da5aae378dace4175a54cb46d",
+        "backend/app/services/logout.py": "b5069cac7923b2b7a62e6c38d007d3b97f53b195aa9e34c5cf81fde8f9bb2b02",
+        "backend/app/services/role_memberships.py": "5b52e399ff90e8af0a12faf0b90bad133dc30753d6e4d8b91338158b135a5cd7",
+        "backend/app/worker.py": "c782f61bea838c7e7fd7e211cf4ad8b6bb4dbe33ead9c4ac5df9cce435324e37",
+        "backend/pyproject.toml": "1fbf60bf958a7056b5ddcad02750b069681d9d11be4fa9b9350db1c5679aefeb",
+        "backend/uv.lock": "75bd849993d8ac77b4c75bc8c9e4dd60dfb7bb891b59f6a3b89c3ebdcff4c449",
+        "docs/CHG-301-R2-FTP-RISK-ACCEPTANCE.json": "e0ef6fb654acc49093f5c3cbc50f3449f527fd3e135d66cda6a7f1e5a6b969e5",
+        "frontend/package-lock.json": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+        "frontend/package.json": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404"
+      },
+      "checks": {
+        "npm-production": {
+          "status": "PASS",
+          "counts": {
+            "info": 0,
+            "low": 0,
+            "moderate": 0,
+            "high": 0,
+            "critical": 0,
+            "total": 0
+          },
+          "dependencies": {
+            "prod": 174,
+            "dev": 464,
+            "optional": 96,
+            "peer": 10,
+            "peerOptional": 0,
+            "total": 677
+          },
+          "findings": {}
+        },
+        "npm-full": {
+          "status": "PASS",
+          "counts": {
+            "info": 0,
+            "low": 0,
+            "moderate": 0,
+            "high": 0,
+            "critical": 0,
+            "total": 0
+          },
+          "dependencies": {
+            "prod": 174,
+            "dev": 464,
+            "optional": 96,
+            "peer": 10,
+            "peerOptional": 0,
+            "total": 677
+          },
+          "findings": {}
+        },
+        "pip-production": {
+          "status": "PASS",
+          "dependencies": 54,
+          "findings": [],
+          "requirements_sha256": "0c08b500937e2fb9a04325d4f8270d6e9e8635bd6b0c0a9504fcb2d073dba4bb",
+          "severity_note": "pip-audit does not classify severity; any finding requires review"
+        },
+        "pip-full": {
+          "status": "PASS",
+          "dependencies": 60,
+          "findings": [],
+          "requirements_sha256": "b450e49f4bc6dbebb4f3185ef9bc45de46f4bd79aa8582b4616506f9f906b178",
+          "severity_note": "pip-audit does not classify severity; any finding requires review"
+        }
+      },
+      "reports": {
+        "npm-production": {
+          "path": "/private/tmp/chg301-r2-security-gu0ylzpx/npm-production.json",
+          "sha256": "6e9d9e5b2313ef523a23483fe8d4d0749fd5b0c7f45d9d4f9fff24f3b45ff4e8"
+        },
+        "npm-full": {
+          "path": "/private/tmp/chg301-r2-security-gu0ylzpx/npm-full.json",
+          "sha256": "6e9d9e5b2313ef523a23483fe8d4d0749fd5b0c7f45d9d4f9fff24f3b45ff4e8"
+        },
+        "pip-production": {
+          "path": "/private/tmp/chg301-r2-security-gu0ylzpx/pip-production.json",
+          "sha256": "9d888a4611c670de2c8fb52ddebc7b6e9577c07bcac189337be5dee65587cb06"
+        },
+        "pip-full": {
+          "path": "/private/tmp/chg301-r2-security-gu0ylzpx/pip-full.json",
+          "sha256": "57feb9a210898632e56f86c5916472f79351d2df6aef1977073c55a2db226c4c"
+        }
+      }
+    },
+    "backend_sast": {
+      "path": "/private/tmp/chg301-r2-application-4khzxbyc/app-audit-attempt2/bandit.json",
+      "sha256": "8069e0896be0a9ec42ac0a0bb9bd1282625e1dc480939c910bd8010dce3aaf4b",
+      "assessment": {
+        "status": "ACCEPTED_RISK",
+        "approval_id": "CHG301-R2-FTP-20260915",
+        "accepted_findings": [
+          {
+            "code": "3 # DSYNC-001/NET-002 explicitly retain operator-selected plaintext FTP.\n4 import ftplib  # nosec B402\n5 import ipaddress\n",
+            "col_offset": 0,
+            "end_col_offset": 13,
+            "filename": "backend/app/integrations/remote_sources.py",
+            "issue_confidence": "HIGH",
+            "issue_cwe": {
+              "id": 319,
+              "link": "https://cwe.mitre.org/data/definitions/319.html"
+            },
+            "issue_severity": "HIGH",
+            "issue_text": "A FTP-related module is being imported.  FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+            "line_number": 4,
+            "line_range": [
+              4
+            ],
+            "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_imports.html#b402-import-ftplib",
+            "test_id": "B402",
+            "test_name": "blacklist"
+          },
+          {
+            "code": "85             # DSYNC-001 explicitly defines this plaintext FTP transport option.\n86             with ftplib.FTP() as client:  # nosec B321\n87                 client.connect(host=host, port=port, timeout=timeout_seconds)\n",
+            "col_offset": 17,
+            "end_col_offset": 29,
+            "filename": "backend/app/integrations/remote_sources.py",
+            "issue_confidence": "HIGH",
+            "issue_cwe": {
+              "id": 319,
+              "link": "https://cwe.mitre.org/data/definitions/319.html"
+            },
+            "issue_severity": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+            "line_number": 86,
+            "line_range": [
+              86
+            ],
+            "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b321-ftplib",
+            "test_id": "B321",
+            "test_name": "blacklist"
+          },
+          {
+            "code": "110             # DSYNC-001 explicitly defines this plaintext FTP transport option.\n111             with ftplib.FTP() as client:  # nosec B321\n112                 client.connect(host=host, port=port, timeout=timeout_seconds)\n",
+            "col_offset": 17,
+            "end_col_offset": 29,
+            "filename": "backend/app/integrations/remote_sources.py",
+            "issue_confidence": "HIGH",
+            "issue_cwe": {
+              "id": 319,
+              "link": "https://cwe.mitre.org/data/definitions/319.html"
+            },
+            "issue_severity": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol.",
+            "line_number": 111,
+            "line_range": [
+              111
+            ],
+            "more_info": "https://bandit.readthedocs.io/en/1.9.4/blacklists/blacklist_calls.html#b321-ftplib",
+            "test_id": "B321",
+            "test_name": "blacklist"
+          }
+        ],
+        "unaccepted_high_critical": []
+      },
+      "counts": {
+        "LOW": 27,
+        "MEDIUM": 23,
+        "HIGH": 3
+      }
+    },
+    "tool_sast": {
+      "path": "/private/tmp/chg301-r2-application-4khzxbyc/app-audit-attempt2/tool-bandit.json",
+      "sha256": "a8911a597fbf4d32e130cf24b9de614dce0bdbd0a6153dfec61aa96191a2ba33",
+      "high_count": 0,
+      "source_sha256": {
+        "backend/scripts/chg301_r2_application_audit.py": "81befb186f8dced4d10d4cd5edf6a14a271bdd7079f0d05c145b912b9df79a23",
+        "backend/scripts/chg301_r2_application_cleanup.py": "f40b801935b8fca3941e03b4345d4454f3b7eab2f9d1a87f2d1e3acb48221a59",
+        "backend/scripts/chg301_r2_application_guard.py": "483e1df985a35ea14088d81f793c6bd38e3e3e90276262530ff07122c9940767",
+        "backend/scripts/chg301_r2_application_matrix.py": "3c864dc3f825c1f091b1e6ae31bf14d9f607864c402cdfe7e1ccfc0c76497e2e",
+        "backend/scripts/chg301_r2_application_report.py": "b810f380aaf5e843f504540b3c0e2ea087c92e2dbea739dd55f41b3196a8fef4",
+        "backend/scripts/chg301_r2_application_run.py": "93264f7e8712b535fb58c6979e5e9c30818e2e8c1f21665d6642b730b5cd9f23",
+        "backend/scripts/chg301_r2_application_verify.py": "403fbcab8b538c3ebc3557e1b726bb2a5907add558a7e464e6ac0897e71e385b"
+      }
+    },
+    "not_full_frontend_security_or_runtime_acceptance": true
+  },
+  "tests": [
+    {
+      "path": "/private/tmp/chg301-r2-application-4khzxbyc/verification-attempt2/regression.xml",
+      "sha256": "5ed3ee80b8ef85c5162c43db0e22bda4e1c3b4dbfb9c3012b6cb56986c97837c",
+      "tests": 344,
+      "failures": 0,
+      "skipped": 0
+    },
+    {
+      "path": "/private/tmp/chg301-r2-application-4khzxbyc/verification-attempt2/deployment-contract.xml",
+      "sha256": "b4a3218d8227bd0f403d5ea56666b03316402eb75c7abbb102daa3a96eba1579",
+      "tests": 10,
+      "failures": 0,
+      "skipped": 0
+    }
+  ],
+  "frontend_verification": {
+    "exit_code": 0,
+    "command": "/private/tmp/chg301-r2-application-4khzxbyc/commands/1269/result.json",
+    "image_id": "sha256:f119bfe35a3fca71200a8cc8b96b3ac7cb6f5819f1c36599c2487d9f57baac70"
+  },
+  "cleanup": {
+    "path": "/private/tmp/chg301-r2-application-4khzxbyc/cleanup/result.json",
+    "sha256": "9c7625e49e9bcaf13d2c6c5ecf68166e432916406469e55e5e7b79a1078c7683",
+    "removed_images": 27,
+    "baseline_restored": true
+  },
+  "resources": {
+    "peak_process_tree_rss_bytes": 2805514240,
+    "command_count": 1808,
+    "manifest_bytes": 491484
+  },
+  "tools_sha256": {
+    "backend/scripts/chg301_r2_application_audit.py": "81befb186f8dced4d10d4cd5edf6a14a271bdd7079f0d05c145b912b9df79a23",
+    "backend/scripts/chg301_r2_application_cleanup.py": "f40b801935b8fca3941e03b4345d4454f3b7eab2f9d1a87f2d1e3acb48221a59",
+    "backend/scripts/chg301_r2_application_guard.py": "483e1df985a35ea14088d81f793c6bd38e3e3e90276262530ff07122c9940767",
+    "backend/scripts/chg301_r2_application_matrix.py": "3c864dc3f825c1f091b1e6ae31bf14d9f607864c402cdfe7e1ccfc0c76497e2e",
+    "backend/scripts/chg301_r2_application_report.py": "b810f380aaf5e843f504540b3c0e2ea087c92e2dbea739dd55f41b3196a8fef4",
+    "backend/scripts/chg301_r2_application_run.py": "93264f7e8712b535fb58c6979e5e9c30818e2e8c1f21665d6642b730b5cd9f23",
+    "backend/scripts/chg301_r2_application_verify.py": "403fbcab8b538c3ebc3557e1b726bb2a5907add558a7e464e6ac0897e71e385b"
+  },
+  "peripheral_status": "DEFERRED_PERIPHERAL_BY_USER",
+  "coverage_e2e_kubernetes": "DEFERRED_NOT_RELEASE_PASS",
+  "new_risk_acceptances": 0,
+  "deployment_writes": 0,
+  "provider_calls": 0,
+  "pr_write_status": "NOT_YET_UPDATED_REQUIRES_FRESH_REMOTE_AND_SOURCE_HYGIENE_CHECK"
+}

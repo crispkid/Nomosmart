@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+from contextlib import contextmanager, nullcontext
 import hashlib
 import io
 import json
@@ -110,6 +111,9 @@ from app.db.models import (  # noqa: E402
 )
 from app.db.session import get_session_factory  # noqa: E402
 from app.domain import ai_provider, chunk_artifacts, data_sync, embeddings, extraction_pipeline, identity_settings, review_publish, validation_runner  # noqa: E402
+from app.domain.project_members import users_with_knowledge_project_view, validate_project_member_candidates  # noqa: E402
+from app.domain.chunk_representations import build_manual_chunk_representation  # noqa: E402
+from app.domain.chat_citations import citation_persistence_payload  # noqa: E402
 from app.domain.data_sync import compute_next_run_at, execute_data_source_sync, queue_due_scheduled_data_syncs  # noqa: E402
 from app.domain.review_publish import LiveNeo4jGraphSyncAdapter, LiveOpenSearchPublishedAdapter  # noqa: E402
 from app.integrations.keycloak import KeycloakAdminClient  # noqa: E402
@@ -192,6 +196,88 @@ def _assert_ok(response, expected_status: int = 200) -> dict:
 
 def _sha256(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def _page_items(response) -> list[dict]:
+    """Assert the cursor contract instead of treating its envelope as a list."""
+    page = _assert_ok(response)
+    assert isinstance(page, dict) and isinstance(page["items"], list)
+    assert isinstance(page["has_more"], bool)
+    assert bool(page["next_cursor"]) == page["has_more"]
+    return page["items"]
+
+
+@contextmanager
+def _temporary_model_report_view(role_id: str):
+    from app.security.permissions import REPORT_MODULE, REPORT_MODEL_REPORT
+    with get_session_factory()() as session:
+        grant = RolePermission(role_id=UUID(role_id), module_name=REPORT_MODULE,
+            function_name=REPORT_MODEL_REPORT, can_view=True)
+        session.add(grant); session.commit(); grant_id = grant.id
+    try:
+        yield
+    finally:
+        with get_session_factory().begin() as session:
+            session.execute(delete(RolePermission).where(RolePermission.id == grant_id))
+
+
+def _canonical_chunk_input(chunk: Chunk, document: Document) -> None:
+    """Actual parser/normalizer input only; does NOT create a build or vector."""
+    representation = build_manual_chunk_representation(
+        raw_markdown=chunk.markdown_content, document_title=document.title)
+    chunk.content = representation.display_text
+    chunk.display_markdown = representation.display_markdown
+    chunk.retrieval_text = representation.retrieval_text
+    chunk.heading_path = list(representation.heading_path)
+    chunk.heading_level = representation.heading_level
+    chunk.stable_chunk_key = representation.stable_chunk_key
+    chunk.embedding_content_hash = representation.embedding_content_hash
+    chunk.content_hash = representation.content_hash
+    chunk.token_count = representation.token_count
+    chunk.chunk_strategy = {**(chunk.chunk_strategy or {}), **representation.processing_metadata}
+
+
+def _synchronize_stored_graph_input(data: dict) -> None:
+    """Real Neo4j projection of stored SQL input; NOT ingestion/publish acceptance."""
+    from app.domain.graph_projection import build_graph_projection
+    from app.domain.graph_reconciliation import Neo4jProjectionStore
+    with get_session_factory()() as session:
+        project = session.get(Project, UUID(data["project_id"]))
+        document = session.get(Document, UUID(data["document_id"]))
+        version = session.get(DocumentVersion, UUID(data["version_id"]))
+        assert project is not None and document is not None and version is not None
+        version.published_at = datetime.now(UTC)  # Stored publication metadata input.
+        session.flush()
+        chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id)))
+        result = LiveNeo4jGraphSyncAdapter(get_settings()).sync_active_version(
+            session=session, project_id=project.id, document=document, version=version, chunks=chunks)
+        projection = build_graph_projection(session, project, document, version)
+        assert Neo4jProjectionStore(get_settings()).read(projection).matches(projection)
+        assert result.node_count == len(projection.graph["nodes"])
+        assert result.edge_count == len(projection.graph["edges"])
+        session.commit()
+
+
+@contextmanager
+def _isolated_keycloak_user(settings):
+    """Exact newly created real identity, confined to the explicitly test realm."""
+    realm = settings.oidc_issuer_url.rstrip("/").split("/")[-1]
+    assert realm == os.environ.get("CHG295_ISOLATED_REALM"), "BLOCKED: explicit disposable realm required"
+    base = settings.keycloak_admin_api_url.rstrip("/") + "/admin/realms/" + realm
+    auth = {"Authorization": "Bearer " + _service_token()}
+    username = TEST_PREFIX + "-snapshot-" + uuid4().hex
+    with httpx.Client(timeout=20) as http:
+        response = http.post(base + "/users", headers=auth,
+            json={"username": username, "enabled": True, "email": username + "@example.test"})
+        response.raise_for_status()
+        identity = response.headers["location"].rstrip("/").split("/")[-1]
+        UUID(identity)
+        try:
+            yield identity
+        finally:
+            response = http.delete(base + "/users/" + identity,
+                headers={"Authorization": "Bearer " + _service_token()})
+            response.raise_for_status()
 
 
 def _completed_pipeline_steps(run_id, *, version_id: UUID | None = None, markdown: str | None = None):
@@ -1072,13 +1158,21 @@ def test_live_system_reports_and_session_drafts(live_client) -> None:
         "alert_metrics",
     ]
     for topic in report_topics:
-        summary = _assert_ok(client.get(f"/api/v1/reports/summary?topic={topic}&limit=20", headers=headers))
-        assert summary["topic"] == topic
-        assert summary["scope"] == "system"
-        assert summary["columns"]
-        csv_response = client.get(f"/api/v1/reports/export.csv?topic={topic}&locale=zh&limit=20", headers=headers)
-        assert csv_response.status_code == 200
-        assert csv_response.content.startswith(b"\xef\xbb\xbf")
+        if topic == "model_usage_metrics":
+            for endpoint in ("summary", "export.csv"):
+                denied = client.get(f"/api/v1/reports/{endpoint}?topic={topic}", headers=headers)
+                assert denied.status_code == 403
+                assert denied.json()["code"] == "report_model_permission_required"
+        with _temporary_model_report_view(_role_id) if topic == "model_usage_metrics" else nullcontext():
+            summary = _assert_ok(client.get(f"/api/v1/reports/summary?topic={topic}&limit=20", headers=headers))
+            assert summary["topic"] == topic
+            assert summary["scope"] == "system"
+            assert summary["columns"]
+            csv_response = client.get(f"/api/v1/reports/export.csv?topic={topic}&locale=zh&limit=20", headers=headers)
+            assert csv_response.status_code == 200
+            assert csv_response.content.startswith(b"\xef\xbb\xbf")
+        if topic == "model_usage_metrics":
+            assert client.get(f"/api/v1/reports/summary?topic={topic}", headers=headers).status_code == 403
     dated = _assert_ok(client.get("/api/v1/reports/summary?topic=project_ranking&date_from=2026-01-01T00:00:00Z&date_to=2026-12-31T23:59:59Z&limit=10", headers=headers))
     assert dated["date_from"].startswith("2026-01-01")
     bad_range = client.get("/api/v1/reports/summary?topic=project_ranking&date_from=2026-12-31T00:00:00Z&date_to=2026-01-01T00:00:00Z", headers=headers)
@@ -1232,34 +1326,46 @@ def test_live_seeded_document_knowledge_serving_chat_and_notifications(live_clie
     )
     assert manual_denied.status_code == 409
     assert manual_denied.json()["code"] == "document_version_not_editable"
-    latest_chunk_id = chunk_id
+    published_base = f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}"
+    for path in (f"chunks/{chunk_id}/tags", "tags"):
+        denied = client.post(f"{published_base}/{path}", headers=headers, json={"tag_text": "must-not-write"})
+        assert denied.status_code == 409
+        assert denied.json()["code"] == "published_tag_revision_required"
+        auto_denied = client.post(f"{published_base}/{path}/auto", headers=headers, json={"max_tags": 3})
+        assert auto_denied.status_code == 409
+        assert auto_denied.json()["code"] == "published_tag_revision_required"
+    candidate_base = f"/api/v1/projects/{project_id}/documents/{data['review_document_id']}/versions/{data['review_version_id']}"
+    with get_session_factory()() as session:
+        latest_chunk_id = str(session.scalar(select(Chunk.id).where(Chunk.document_version_id == UUID(data["review_version_id"]))))
 
     tagged_chunk = _assert_ok(
         client.post(
-            f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/chunks/{latest_chunk_id}/tags",
+            f"{candidate_base}/chunks/{latest_chunk_id}/tags",
             headers=headers,
             json={"tag_text": f"{TEST_PREFIX}-manual-chunk-tag"},
         )
     )
     new_chunk_tag = next(tag for chunk in tagged_chunk["chunks"] if chunk["id"] == latest_chunk_id for tag in chunk["tag_details"] if tag["tag_text"] == f"{TEST_PREFIX}-manual-chunk-tag")
-    after_chunk_tag_delete = _assert_ok(client.delete(f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/chunks/{latest_chunk_id}/tags/{new_chunk_tag['tag_id']}", headers=headers))
+    after_chunk_tag_delete = _assert_ok(client.delete(f"{candidate_base}/chunks/{latest_chunk_id}/tags/{new_chunk_tag['tag_id']}", headers=headers))
     assert all(tag["tag_id"] != new_chunk_tag["tag_id"] for chunk in after_chunk_tag_delete["chunks"] for tag in chunk["tag_details"])
 
-    tagged_document = _assert_ok(client.post(f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/tags", headers=headers, json={"tag_text": f"{TEST_PREFIX}-manual-document-tag"}))
+    tagged_document = _assert_ok(client.post(f"{candidate_base}/tags", headers=headers, json={"tag_text": f"{TEST_PREFIX}-manual-document-tag"}))
     new_document_tag = next(tag for tag in tagged_document["document_tags"] if tag["tag_text"] == f"{TEST_PREFIX}-manual-document-tag")
-    after_document_tag_delete = _assert_ok(client.delete(f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/tags/{new_document_tag['tag_id']}", headers=headers))
+    after_document_tag_delete = _assert_ok(client.delete(f"{candidate_base}/tags/{new_document_tag['tag_id']}", headers=headers))
     assert all(tag["tag_id"] != new_document_tag["tag_id"] for tag in after_document_tag_delete["document_tags"])
-    assert client.post(f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/chunks/{latest_chunk_id}/tags/auto", headers=headers, json={"max_tags": 3}).status_code in {200, 409, 502, 503}
-    assert client.post(f"/api/v1/projects/{project_id}/documents/{document_id}/versions/{version_id}/tags/auto", headers=headers, json={"max_tags": 3}).status_code in {200, 409, 502, 503}
 
     inactive_impact = _assert_ok(client.get(f"/api/v1/projects/{project_id}/documents/{document_id}/lifecycle-impact?status=inactive", headers=headers))
     assert inactive_impact["requested_status"] == "inactive"
-    document_lock = after_document_tag_delete["document"]["lock_version"]
+    document_lock = knowledge["document"]["lock_version"]
     inactive_document = _assert_ok(client.patch(f"/api/v1/projects/{project_id}/documents/{document_id}/lifecycle", headers=headers, json={"status": "inactive", "lock_version": document_lock, "impact_confirmed": True, "reason": "live coverage"}))
     assert inactive_document["status"] == "inactive"
     active_document = _assert_ok(client.patch(f"/api/v1/projects/{project_id}/documents/{document_id}/lifecycle", headers=headers, json={"status": "active", "lock_version": inactive_document["lock_version"], "impact_confirmed": True, "reason": "live coverage"}))
     assert active_document["status"] == "active"
 
+    serving = _assert_ok(client.get(f"/api/v1/projects/{project_id}/serving-status", headers=headers))
+    assert serving["readiness"] == "partial"
+    assert serving["graph_ready_count"] == 0
+    _synchronize_stored_graph_input(data)
     serving = _assert_ok(client.get(f"/api/v1/projects/{project_id}/serving-status", headers=headers))
     assert serving["readiness"] == "ready"
     assert serving["active_document_count"] >= 1
@@ -1291,28 +1397,30 @@ def test_live_seeded_document_knowledge_serving_chat_and_notifications(live_clie
     neighbors = _assert_ok(client.get(f"/api/v1/projects/{project_id}/graph/neighbors?node_id={neighbor_seed_node_id}&node_limit=40", headers=headers))
     assert isinstance(neighbors["nodes"], list)
 
-    conversations = _assert_ok(client.get(f"/api/v1/projects/{project_id}/chat/conversations", headers=headers))
+    conversations = _page_items(client.get(f"/api/v1/projects/{project_id}/chat/conversations?scope_mode=published", headers=headers))
     assert any(item["id"] == data["conversation_id"] for item in conversations)
-    conversation = _assert_ok(client.get(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}", headers=headers))
+    conversation = _assert_ok(client.get(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}?scope_mode=published", headers=headers))
     assert conversation["records"][0]["id"] == data["chat_record_id"]
     feedback_required = client.post(f"/api/v1/projects/{project_id}/chat/records/{data['chat_record_id']}/feedback", headers=headers, json={"evaluation": "needs_revision"})
     assert feedback_required.status_code == 422
     feedback = _assert_ok(client.post(f"/api/v1/projects/{project_id}/chat/records/{data['chat_record_id']}/feedback", headers=headers, json={"evaluation": "needs_revision", "revision_suggestion": "Add more detail."}))
     assert feedback["evaluation"] == "needs_revision"
-    deleted = _assert_ok(client.delete(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}", headers=headers))
+    deleted = _assert_ok(client.delete(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}?scope_mode=published", headers=headers))
     assert deleted["deleted_count"] == 1
-    assert client.delete(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}", headers=headers).status_code == 409
+    already_deleted = client.delete(f"/api/v1/projects/{project_id}/chat/conversations/{data['conversation_id']}?scope_mode=published", headers=headers)
+    assert already_deleted.status_code == 404
+    assert already_deleted.json()["code"] == "conversation_not_found"
     assert client.get(f"/api/v1/projects/{project_id}/chat/conversations?scope_mode=document_staging", headers=headers).status_code == 422
-    assert client.post(f"/api/v1/projects/{project_id}/chat/query", headers=headers, json={"question": "invalid scope", "document_version_ids": [str(uuid4())]}).status_code == 403
+    assert client.post(f"/api/v1/projects/{project_id}/chat/query", headers=headers, json={"scope_mode": "published", "question": "invalid scope", "document_version_ids": [str(uuid4())]}).status_code == 403
     staging_history = client.get(f"/api/v1/projects/{project_id}/chat/conversations?scope_mode=document_staging&document_version_id={version_id}", headers=headers)
-    assert staging_history.status_code == 409
-    assert staging_history.json()["code"] == "chunk_artifacts_not_ready"
+    assert any(item["id"] == data["staging_conversation_id"] for item in _page_items(staging_history))
     staging_answer = client.post(
         f"/api/v1/projects/{project_id}/chat/query",
         headers=headers,
         json={"scope_mode": "document_staging", "question": "zzzzzzzzzz unmatched live coverage term", "document_version_ids": [version_id]},
     )
-    assert staging_answer.status_code in {200, 409}
+    assert staging_answer.status_code == 409
+    assert staging_answer.json()["code"] == "chunk_artifacts_not_ready"
 
     validation = _assert_ok(
         client.post(
@@ -1331,7 +1439,7 @@ def test_live_seeded_document_knowledge_serving_chat_and_notifications(live_clie
     assert fetched_validation["total_count"] == 1
     assert client.post(f"/api/v1/projects/{project_id}/chat/validation-runs/{validation['id']}/retry-failed", headers=headers).status_code == 409
 
-    notifications = _assert_ok(client.get("/api/v1/notifications", headers=headers))
+    notifications = _page_items(client.get("/api/v1/notifications", headers=headers))
     assert any(item["id"] == data["notification_id"] for item in notifications)
     unread = _assert_ok(client.get("/api/v1/notifications/unread-count", headers=headers))
     assert unread["unread_count"] >= 1
@@ -1514,6 +1622,9 @@ def test_live_seeded_reference_and_approval_workflows(live_client) -> None:
     detached = _assert_ok(client.post(f"/api/v1/document-references/{data['reference_id']}/detach", headers=headers))
     assert detached["status"] == "detached"
 
+    from chg298_live_preparation import candidate
+    genuine = candidate(project_id, user_id)
+    data["review_document_id"], data["review_version_id"] = genuine["document_id"], genuine["version_id"]
     submission_evidence = _assert_ok(client.get(f"/api/v1/projects/{project_id}/documents/{data['review_document_id']}/versions/{data['review_version_id']}/submission-evidence", headers=headers))
     approval = _assert_ok(client.post(f"/api/v1/projects/{project_id}/documents/{data['review_document_id']}/versions/{data['review_version_id']}/submit-review", headers={**headers, "Idempotency-Key": f"{TEST_PREFIX}-submit-review"}, json={"owner_user_id": user_id, "evidence_revision": submission_evidence["evidence_revision"], "lock_version": submission_evidence["lock_version"]}), 201)
     assert approval["status"] == "pending_manager_review"
@@ -1544,80 +1655,8 @@ def test_live_seeded_reference_and_approval_workflows(live_client) -> None:
     assert fetched_request["status"] == "approved"
 
 
-def test_live_external_services_and_domain_adapters(live_client) -> None:
-    _client, _headers, user_id, _role_id = live_client
-    settings = get_settings()
-    session_factory = get_session_factory()
-
-    realm = settings.oidc_issuer_url.rstrip("/").split("/")[-1]
-    keycloak = KeycloakAdminClient(
-        base_url=settings.keycloak_admin_api_url,
-        realm=realm,
-        client_id=settings.keycloak_sync_client_id,
-        client_secret=settings.keycloak_sync_client_secret.get_secret_value(),
-        timeout_seconds=10,
-    )
-    snapshot = keycloak.snapshot(page_size=50)
-    assert len(snapshot.users) >= 1
-    normalized_users, normalized_groups = normalize_snapshot(snapshot)
-    assert len(normalized_users) == len(snapshot.users)
-    assert len(normalized_groups) == len(snapshot.groups)
-    assert keycloak.break_glass_status(f"{TEST_PREFIX}-missing-user").detail_code == "user_missing"
-
-    with session_factory() as session:
-        run = IdentitySyncRun(source="keycloak", status="failed", trigger_type="manual", started_at=datetime.now(UTC), attempt=1)
-        session.add(run)
-        session.flush()
-        reconciled = reconcile_snapshot(session, run, snapshot, acquire_lock=False)
-        assert reconciled.status == "succeeded"
-        assert reconciled.users_created + reconciled.users_updated >= 1
-        session.rollback()
-
-    with session_factory() as session:
-        run = IdentitySyncRun(source="keycloak", status="running", trigger_type="deployment", started_at=datetime.now(UTC), attempt=1)
-        session.add(run)
-        session.flush()
-        with pytest.raises(AppError) as ldap_break_glass:
-            reconcile_snapshot(session, run, snapshot, ldap_group_path="/ldap", break_glass_username="peter", acquire_lock=False)
-        assert ldap_break_glass.value.code == "break_glass_membership_unavailable"
-        session.rollback()
-
-    data = _seed_live_document_workspace(session_factory, user_id)
-    project_id = UUID(data["project_id"])
-    document_id = UUID(data["document_id"])
-    version_id = UUID(data["version_id"])
-
-    with session_factory() as session:
-        project = session.get(Project, project_id)
-        document = session.get(Document, document_id)
-        version = session.get(DocumentVersion, version_id)
-        assert project is not None and document is not None and version is not None
-        chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id).order_by(Chunk.chunk_index)))
-        profile = session.get(EmbeddingProfile, version.embedding_profile_id)
-        assert chunks and profile is not None
-
-        published_adapter = LiveOpenSearchPublishedAdapter(settings)
-        vectors = [[0.1, 0.2, 0.3] for _chunk in chunks]
-        published = published_adapter.write_published_chunks(project_id=project.id, document=document, version=version, chunks=chunks, vectors=vectors, profile=profile)
-        assert len(published.document_ids) == len(chunks)
-        version.extraction_artifact_uri = f"opensearch://{published.index_name}"
-        published_adapter.delete_staging_documents(version=version)
-
-        # CHG-292: formal synchronization requires a published canonical scope
-        # and verifies the real complete graph, including Tag assignments.
-        from app.domain.graph_projection import build_graph_projection
-        from app.domain.graph_reconciliation import Neo4jProjectionStore
-        document.status = "active"
-        version.status = "active"
-        version.published_at = datetime.now(UTC)
-        session.flush()
-        graph_result = LiveNeo4jGraphSyncAdapter(settings).sync_active_version(session=session, project_id=project.id, document=document, version=version, chunks=chunks)
-        projection = build_graph_projection(session, project, document, version)
-        assert Neo4jProjectionStore(settings).read(projection).matches(projection)
-        assert graph_result.node_count == len(projection.graph["nodes"])
-        assert graph_result.edge_count == len(projection.graph["edges"])
-        session.rollback()
-
+def _assert_live_s3_sync_contract(settings, session_factory, project_id, user_id):
+    """Original case #4 S3 assertions; independently runnable without paid publication."""
     storage = S3ObjectStorage(settings)
     storage.ensure_bucket(settings.s3_bucket)
     remote_dir = f"{TEST_PREFIX}/{uuid4().hex}"
@@ -1699,6 +1738,85 @@ def test_live_external_services_and_domain_adapters(live_client) -> None:
         assert any(item.data_connection_id == connection.id for item in queued)
         assert any(item.status == "queued" and item.trigger_type == "scheduled" for item in queued)
         session.rollback()
+
+
+def test_live_external_services_and_domain_adapters(live_client) -> None:
+    _client, _headers, user_id, _role_id = live_client
+    settings = get_settings()
+    session_factory = get_session_factory()
+
+    realm = settings.oidc_issuer_url.rstrip("/").split("/")[-1]
+    keycloak = KeycloakAdminClient(
+        base_url=settings.keycloak_admin_api_url,
+        realm=realm,
+        client_id=settings.keycloak_sync_client_id,
+        client_secret=settings.keycloak_sync_client_secret.get_secret_value(),
+        timeout_seconds=10,
+    )
+    with _isolated_keycloak_user(settings) as created_identity:
+        snapshot = keycloak.snapshot(page_size=50)
+        assert any(str(user["id"]) == created_identity for user in snapshot.users)
+    normalized_users, normalized_groups = normalize_snapshot(snapshot)
+    assert len(normalized_users) == len(snapshot.users)
+    assert len(normalized_groups) == len(snapshot.groups)
+    assert keycloak.break_glass_status(f"{TEST_PREFIX}-missing-user").detail_code == "user_missing"
+
+    with session_factory() as session:
+        run = IdentitySyncRun(source="keycloak", status="failed", trigger_type="manual", started_at=datetime.now(UTC), attempt=1)
+        session.add(run)
+        session.flush()
+        reconciled = reconcile_snapshot(session, run, snapshot, acquire_lock=False)
+        assert reconciled.status == "succeeded"
+        assert reconciled.users_created + reconciled.users_updated >= 1
+        session.rollback()
+
+    with session_factory() as session:
+        run = IdentitySyncRun(source="keycloak", status="running", trigger_type="deployment", started_at=datetime.now(UTC), attempt=1)
+        session.add(run)
+        session.flush()
+        with pytest.raises(AppError) as ldap_break_glass:
+            reconcile_snapshot(session, run, snapshot, ldap_group_path="/ldap", break_glass_username="peter", acquire_lock=False)
+        assert ldap_break_glass.value.code == "break_glass_membership_unavailable"
+        session.rollback()
+
+    data = _seed_live_document_workspace(session_factory, user_id)
+    from chg298_live_preparation import candidate, approve_and_publish
+    genuine = candidate(data["project_id"], user_id)
+    approve_and_publish(_client, _headers, user_id, genuine)
+    project_id = UUID(genuine["project_id"])
+    document_id = UUID(genuine["document_id"])
+    version_id = UUID(genuine["version_id"])
+
+    with session_factory() as session:
+        project = session.get(Project, project_id)
+        document = session.get(Document, document_id)
+        version = session.get(DocumentVersion, version_id)
+        assert project is not None and document is not None and version is not None
+        chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id).order_by(Chunk.chunk_index)))
+        profile = session.get(EmbeddingProfile, version.embedding_profile_id)
+        assert chunks and profile is not None
+
+        published_adapter = LiveOpenSearchPublishedAdapter(settings)
+        # Reuse genuine persisted model evidence; do not normalize again after
+        # embedding or replace the staging URI with a published index URI.
+        canonical = embeddings.load_canonical_embeddings(session, project=project, version=version, chunks=chunks)
+        published = published_adapter.write_published_chunks(project_id=project.id, document=document, version=version, chunks=chunks, vectors=canonical.vectors, profile=canonical.profile)
+        assert len(published.document_ids) == len(chunks)
+        published_adapter.delete_staging_documents(version=version)
+
+        # CHG-292: formal synchronization requires a published canonical scope
+        # and verifies the real complete graph, including Tag assignments.
+        from app.domain.graph_projection import build_graph_projection
+        from app.domain.graph_reconciliation import Neo4jProjectionStore
+        assert document.status == "active" and version.status == "active" and version.published_at
+        graph_result = LiveNeo4jGraphSyncAdapter(settings).sync_active_version(session=session, project_id=project.id, document=document, version=version, chunks=chunks)
+        projection = build_graph_projection(session, project, document, version)
+        assert Neo4jProjectionStore(settings).read(projection).matches(projection)
+        assert graph_result.node_count == len(projection.graph["nodes"])
+        assert graph_result.edge_count == len(projection.graph["edges"])
+        session.rollback()
+
+    _assert_live_s3_sync_contract(settings, session_factory, project_id, user_id)
 
     assert compute_next_run_at("*/15 * * * *", "Asia/Taipei", after=datetime(2026, 7, 10, 1, 0, tzinfo=UTC)).tzinfo is not None
     with pytest.raises(AppError) as cron_error:
@@ -1806,7 +1924,7 @@ def test_live_integration_adapter_embedding_and_switch_edges(live_client) -> Non
     secret_ref_model = AIModel(id=uuid4(), name=f"{TEST_PREFIX}-secret-ref-embedding", model_type="Embedding", provider="custom", endpoint="http://127.0.0.1:65535/v1", is_active=True, api_key_secret_ref="secret/embedding", config={"model_name": "secret-ref"})
     with pytest.raises(AppError) as secret_ref_error:
         embeddings._embedding_auth_headers(secret_ref_model, settings)
-    assert secret_ref_error.value.code == "embedding_adapter_secret_ref_unresolved"
+    assert secret_ref_error.value.code == "runtime_secret_reference_invalid"
     assert embeddings.openai_embeddings_url("http://host/v1/chat/completions") == "http://host/v1/embeddings"
     assert embeddings._timeout({"timeout_seconds": "9999"}, default=60) == 300
     assert embeddings._verify_tls({"verify_tls": "no"}) is False
@@ -1828,7 +1946,7 @@ def test_live_integration_adapter_embedding_and_switch_edges(live_client) -> Non
         chunks[0].markdown_content = "   "
         with pytest.raises(AppError) as blank_chunk:
             embeddings.embed_chunks(session, project=project, version=version, chunks=[chunks[0]], settings=settings)
-        assert blank_chunk.value.code == "embedding_text_required"
+        assert blank_chunk.value.code == "retrieval_reprocessing_required"
         chunks[0].content = original_text
         chunks[0].markdown_content = original_text
         with pytest.raises(AppError) as blank_query:
@@ -1896,6 +2014,23 @@ def test_live_integration_adapter_embedding_and_switch_edges(live_client) -> Non
         with pytest.raises(AppError) as switch_reason:
             review_publish.switch_active_version(session=session, actor_user_id=UUID(user_id), document=document, version=switch_version, lock_version=switch_version.lock_version, impact_confirmed=True, audit_reason=" ", request_id=f"{TEST_PREFIX}-blank-switch")
         assert switch_reason.value.code == "switch_reason_required"
+        # RAG-EMBED-001: even previously published legacy input must not cause
+        # a new manifest switch. All writes in this test transaction roll back.
+        with pytest.raises(AppError) as legacy_switch:
+            review_publish.switch_active_version(session=session, actor_user_id=UUID(user_id), document=document, version=switch_version, lock_version=switch_version.lock_version, impact_confirmed=True, audit_reason="legacy must be rejected", request_id=f"{TEST_PREFIX}-switch-legacy")
+        assert legacy_switch.value.code == "retrieval_reprocessing_required"
+        session.rollback()
+
+    # Genuine positive switching is separate from the stored legacy refusal.
+    from chg298_live_preparation import candidate, approve_and_publish
+    earlier = candidate(data["project_id"], user_id)
+    approve_and_publish(_client, _headers, user_id, earlier)
+    newer = candidate(data["project_id"], user_id, document_id=earlier["document_id"], major=2)
+    approve_and_publish(_client, _headers, user_id, newer)
+    with session_factory() as session:
+        document = session.get(Document, UUID(earlier["document_id"]))
+        switch_version = session.get(DocumentVersion, UUID(earlier["version_id"]))
+        assert switch_version.status == "inactive"
         manifest, graph_job = review_publish.switch_active_version(session=session, actor_user_id=UUID(user_id), document=document, version=switch_version, lock_version=switch_version.lock_version, impact_confirmed=True, audit_reason="live switch coverage", request_id=f"{TEST_PREFIX}-switch-success")
         assert manifest.document_version_id == switch_version.id
         assert graph_job.status == "queued"
@@ -2114,7 +2249,7 @@ def test_live_configuration_identity_worker_and_sync_edges(live_client) -> None:
     assert identity_validation["valid"] is True
     assert client.put("/api/v1/system/identity-settings", headers=headers, json=_valid_identity_candidate().model_dump(mode="json")).status_code == 423
 
-    sync_runs = _assert_ok(client.get("/api/v1/identity-sync/runs", headers=headers))
+    sync_runs = _page_items(client.get("/api/v1/identity-sync/runs", headers=headers))
     assert isinstance(sync_runs, list)
     queued = client.post("/api/v1/identity-sync/run", headers=headers)
     assert queued.status_code in {202, 409, 503}
@@ -2177,7 +2312,7 @@ def test_live_configuration_identity_worker_and_sync_edges(live_client) -> None:
         bearer_connection = DataConnection(project_id=project_id, service_type="HTTP_API", name=f"{TEST_PREFIX}-bearer", connection_metadata={"auth_mode": "bearer"}, credential_secret_ref="secret/backend/data-source", source_identity={"url": "http://127.0.0.1:65535/file.md", "file_name": "file.md"}, schedule_mode="once", timezone="Asia/Taipei", enabled=True, created_by=UUID(user_id))
         with pytest.raises(AppError) as credential_error:
             data_sync._http_headers(settings, bearer_connection)
-        assert credential_error.value.code == "credential_secret_ref_unavailable"
+        assert credential_error.value.code == "runtime_secret_reference_invalid"
         invalid_header_connection = DataConnection(project_id=project_id, service_type="HTTP_API", name=f"{TEST_PREFIX}-header", connection_metadata={"auth_mode": "api_key_header", "api_key_header_name": "Bad Header!"}, source_identity={"url": "http://127.0.0.1:65535/file.md", "file_name": "file.md"}, schedule_mode="once", timezone="Asia/Taipei", enabled=True, created_by=UUID(user_id))
         with pytest.raises(AppError) as header_error:
             data_sync._http_headers(settings, invalid_header_connection)
@@ -2186,8 +2321,15 @@ def test_live_configuration_identity_worker_and_sync_edges(live_client) -> None:
 
     worker.run_identity_sync(str(uuid4()))
     worker.run_data_source_sync(str(uuid4()))
-    with pytest.raises(AppError):
-        worker.run_project_chat_validation(str(uuid4()))
+    missing_run_id = uuid4()
+    # The queue consumer treats already-removed work as an idempotent no-op;
+    # direct domain execution still reports the exact missing-run error.
+    assert worker.run_project_chat_validation(str(missing_run_id)) is None
+    with session_factory() as session:
+        assert session.get(ValidationRun, missing_run_id) is None
+        with pytest.raises(AppError) as missing_run:
+            validation_runner.execute_validation_run(session, missing_run_id)
+        assert missing_run.value.code == "validation_run_not_found"
 
 
 def test_live_pipeline_execution_and_publish_edge_behaviors(live_client) -> None:
@@ -2243,20 +2385,32 @@ def test_live_pipeline_execution_and_publish_edge_behaviors(live_client) -> None
             review_publish.publish_version(session=session, actor_user_id=UUID(user_id), document=document, version=version, lock_version=version.lock_version + 1, request_id=f"{TEST_PREFIX}-publish-stale", search_adapter=LiveOpenSearchPublishedAdapter(settings), graph_adapter=LiveNeo4jGraphSyncAdapter(settings))
         assert stale_publish.value.code == "stale_document_version"
         version.status = "draft"
+        session.flush()
         with pytest.raises(AppError) as not_publishable:
             review_publish.publish_version(session=session, actor_user_id=UUID(user_id), document=document, version=version, lock_version=version.lock_version, request_id=f"{TEST_PREFIX}-publish-draft", search_adapter=LiveOpenSearchPublishedAdapter(settings), graph_adapter=LiveNeo4jGraphSyncAdapter(settings))
         assert not_publishable.value.code == "version_not_publishable"
         version.status = "approved"
         version.embedding_profile_id = None
+        session.flush()
         with pytest.raises(AppError) as missing_profile:
             review_publish.publish_version(session=session, actor_user_id=UUID(user_id), document=document, version=version, lock_version=version.lock_version, request_id=f"{TEST_PREFIX}-publish-profile", search_adapter=LiveOpenSearchPublishedAdapter(settings), graph_adapter=LiveNeo4jGraphSyncAdapter(settings))
         assert missing_profile.value.code == "embedding_profile_required"
         profile = session.scalar(select(EmbeddingProfile).where(EmbeddingProfile.model_id == version.embedding_model_id).limit(1))
         assert profile is not None
         version.embedding_profile_id = profile.id
+        session.flush()
+        # Legacy input is rejected before build lookup. Normalize through the
+        # real parser before checking the distinct missing-build guard; never
+        # manufacture vectors or a completed canonical build for this check.
+        with pytest.raises(AppError) as legacy_publish:
+            review_publish.publish_version(session=session, actor_user_id=UUID(user_id), document=document, version=version, lock_version=version.lock_version, request_id=f"{TEST_PREFIX}-publish-legacy", search_adapter=LiveOpenSearchPublishedAdapter(settings), graph_adapter=LiveNeo4jGraphSyncAdapter(settings))
+        assert legacy_publish.value.code == "retrieval_reprocessing_required"
+        for chunk in session.scalars(select(Chunk).where(Chunk.document_version_id == version.id)):
+            _canonical_chunk_input(chunk, document)
+        session.flush()
         with pytest.raises(AppError) as live_publish_error:
             review_publish.publish_version(session=session, actor_user_id=UUID(user_id), document=document, version=version, lock_version=version.lock_version, request_id=f"{TEST_PREFIX}-publish-live", search_adapter=LiveOpenSearchPublishedAdapter(settings), graph_adapter=LiveNeo4jGraphSyncAdapter(settings))
-        assert live_publish_error.value.code in {"canonical_embedding_build_required", "embedding_adapter_credential_required", "embedding_adapter_unavailable", "embedding_profile_mismatch"}
+        assert live_publish_error.value.code == "canonical_embedding_build_required"
         assert review_publish.published_index_name(settings.opensearch_index_prefix, profile.id).startswith(settings.opensearch_index_prefix)
         assert review_publish.chunk_checksum(list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id)))) != ""
         with pytest.raises(AppError) as missing_project:
@@ -2299,19 +2453,14 @@ def test_live_serving_and_document_response_helpers(live_client) -> None:
     vector_body = serving_routes._vector_query_body(project_id, [0.1, 0.2, 0.3], [str(version_id)], 5, "staging")
     assert vector_body["query"]["bool"]["must"][0]["knn"]["embedding_vector"]["k"] == 5
 
-    graph_nodes: dict[str, ProjectGraphNode] = {}
-    assert serving_routes._try_add_graph_node(graph_nodes, ProjectGraphNode(id="one", type="Project", label="One"), 1) is False
-    assert serving_routes._try_add_graph_node(graph_nodes, ProjectGraphNode(id="one", type="Project", label="One"), 1) is False
-    assert serving_routes._try_add_graph_node(graph_nodes, ProjectGraphNode(id="two", type="Document", label="Two"), 1) is True
-    graph_edges: list[ProjectGraphEdge] = []
-    edge_ids: set[str] = set()
-    edge = ProjectGraphEdge(id="one:two", source="one", target="two", type="upload")
-    serving_routes._append_graph_edge(graph_edges, edge_ids, edge)
-    serving_routes._append_graph_edge(graph_edges, edge_ids, edge)
-    assert len(graph_edges) == 1
-    assert serving_routes._filter_graph_edges(graph_edges, {"one": graph_nodes["one"]}) == []
-    assert serving_routes._source_anchor([{"anchor": "a1"}, {"source_anchor": "s1"}]) == "a1"
-    assert serving_routes._source_anchor(["bad", {"source_anchor": ""}]) is None
+    # CHG-275/283 citations carry complete source_mapping, not a private scalar
+    # anchor helper. Verify the actual response/persistence contract instead.
+    anchor_mapping = [{"anchor": "a1"}, {"source_anchor": "s1", "page": 3}]
+    anchor_citation = ProjectChatCitation(document_id=document_id, document_version_id=version_id,
+        chunk_id=chunk_id, title="Anchor", score=1, excerpt="Source", content_type="text",
+        source_mapping=anchor_mapping)
+    assert citation_persistence_payload(anchor_citation)["source_mapping"] == anchor_mapping
+    assert citation_persistence_payload(anchor_citation.model_copy(update={"source_mapping": []}))["source_mapping"] == []
 
     with session_factory() as session:
         project = session.get(Project, project_id)
@@ -2351,11 +2500,18 @@ def test_live_serving_and_document_response_helpers(live_client) -> None:
         active_ids = serving_routes._active_version_ids(session, project.id)
         assert version.id in active_ids
 
-        local_graph = serving_routes._read_authorized_postgres_graph(session, frozenset({project.id}), 80)
+        # Canonical authorized preview, not the removed private graph mutators.
+        # Stored scope is unpublished; this does not claim formal graph sync.
+        local_graph = serving_routes._read_neo4j_project_graph(project, {version.id}, 80, session=session, allow_preview=True)
         assert any(node.id == str(project.id) for node in local_graph.nodes)
         assert any(edge.source == str(project.id) for edge in local_graph.edges)
-        truncated_graph = serving_routes._read_authorized_postgres_graph(session, frozenset({project.id}), 1)
+        assert len({node.id for node in local_graph.nodes}) == len(local_graph.nodes)
+        assert len({(edge.source, edge.type, edge.target) for edge in local_graph.edges}) == len(local_graph.edges)
+        node_ids = {node.id for node in local_graph.nodes}
+        assert all(edge.source in node_ids and edge.target in node_ids for edge in local_graph.edges)
+        truncated_graph = serving_routes._read_neo4j_project_graph(project, {version.id}, 1, session=session, allow_preview=True)
         assert truncated_graph.truncated is True
+        assert len(truncated_graph.nodes) == 1 and truncated_graph.edges == []
         missing_neighbors = serving_routes._neighbor_graph(local_graph, "missing-node", 10)
         assert missing_neighbors.nodes == []
         neighbor_graph = serving_routes._neighbor_graph(local_graph, str(project.id), 1)
@@ -2373,6 +2529,9 @@ def test_live_serving_and_document_response_helpers(live_client) -> None:
         summaries = serving_routes._conversation_summaries(session, project.id, [conversation], include_records=True)
         assert summaries[0].records[0].id == conversation.id
         response = serving_routes._chat_record_response(conversation)
+        assert response.citations == []  # Unused stored candidates are not shown.
+        conversation.answer = f"{conversation.answer} [1]"
+        response = serving_routes._chat_record_response(conversation)
         assert response.citations[0].chunk_id == chunk.id
 
         validation_run = ValidationRun(project_id=project.id, uploaded_file_name="helper.csv", status="running", run_scope="project_chat", selected_document_ids=[str(version.id), "bad"], total_count=1, completed_count=0, failed_count=0, created_by=UUID(user_id), created_at=datetime.now(UTC))
@@ -2383,6 +2542,7 @@ def test_live_serving_and_document_response_helpers(live_client) -> None:
                 run_id=validation_run.id,
                 question="What does Alpha cover?",
                 expected_answer="GPU",
+                answer="Stored response serialization input [1]",
                 expected_keywords=["GPU"],
                 selected_document_ids=[str(version.id)],
                 reference_docs=[response.citations[0].model_dump(mode="json")],
@@ -2405,6 +2565,7 @@ def test_live_serving_and_document_response_helpers(live_client) -> None:
         markdownless_version = DocumentVersion(project_id=project.id, document_id=document.id, version_major=99, extraction_revision=0, version_label="v99.0", status="draft", chunk_strategy={}, lock_version=1)
         fallback_chunk = ApprovalChunkEvidence(
             id=uuid4(),
+            lineage_id=uuid4(),
             chunk_index=1,
             title="Fallback",
             content="Fallback content",
@@ -2554,7 +2715,7 @@ def test_live_extraction_ai_provider_and_publish_helper_edges(live_client) -> No
     assert missing_ollama_endpoint.value.code == "model_endpoint_required"
     with pytest.raises(AppError) as model_secret_ref:
         ai_provider._auth_headers(AIModel(id=uuid4(), name="m", model_type="Chat", provider="openai", api_key_secret_ref="secret/chat", config={"model_name": "m"}), settings)
-    assert model_secret_ref.value.code == "model_secret_ref_unresolved"
+    assert model_secret_ref.value.code == "runtime_secret_reference_invalid"
     with pytest.raises(AppError) as missing_name:
         ai_provider._model_name(AIModel(id=uuid4(), name="   ", model_type="Chat", provider="custom", config={}))
     assert missing_name.value.code == "model_name_required"
@@ -2640,7 +2801,7 @@ def test_live_extraction_ai_provider_and_publish_helper_edges(live_client) -> No
         assert extraction_pipeline._openai_auth_headers(encrypted_ocr, settings)["Authorization"] == "Bearer ocr-key"
         with pytest.raises(AppError) as secret_ref_ocr:
             extraction_pipeline._openai_auth_headers(AIModel(id=uuid4(), name="ocr", model_type="OCR", provider="openai", api_key_secret_ref="secret/ocr", config={"model_name": "ocr"}), settings)
-        assert secret_ref_ocr.value.code == "ocr_adapter_secret_ref_unresolved"
+        assert secret_ref_ocr.value.code == "runtime_secret_reference_invalid"
         with pytest.raises(AppError) as openai_embeddings_auth:
             extraction_pipeline._post_openai_embeddings(embedding_model, settings, ["Alpha"])
         assert openai_embeddings_auth.value.code == "embedding_adapter_credential_required"
@@ -2792,11 +2953,29 @@ def test_live_approval_project_and_data_source_route_edges(live_client) -> None:
     with session_factory() as session:
         session.add(bad_member)
         session.flush()
-        assert project_routes._users_with_knowledge_project_view(session, set()) == set()
-        assert UUID(user_id) in project_routes._users_with_knowledge_project_view(session, {UUID(user_id)})
+        assert users_with_knowledge_project_view(session, set()) == set()
+        assert UUID(user_id) in users_with_knowledge_project_view(session, {UUID(user_id)})
         with pytest.raises(AppError) as invalid_member:
-            project_routes._validate_project_member_candidates(session, {bad_member.id})
+            validate_project_member_candidates(session, {bad_member.id})
         assert invalid_member.value.code == "invalid_project_member"
+        bad_member.is_active = True
+        session.flush()
+        with pytest.raises(AppError) as no_view_permission:
+            validate_project_member_candidates(session, {bad_member.id})
+        assert no_view_permission.value.code == "invalid_project_member_permission"
+        arbitrary_role = Role(name=f"{TEST_PREFIX}-eligible-{uuid4().hex[:8]}", is_active=True, is_system=False)
+        session.add(arbitrary_role); session.flush()
+        eligible_view = RolePermission(role_id=arbitrary_role.id, module_name=MENU_MODULE,
+            function_name=MENU_KNOWLEDGE_PROJECTS, can_view=True)
+        session.add_all([eligible_view, RoleUser(role_id=arbitrary_role.id, user_id=bad_member.id, source="manual")])
+        session.flush()
+        validate_project_member_candidates(session, {bad_member.id})
+        assert bad_member.id in users_with_knowledge_project_view(session, {bad_member.id})
+        eligible_view.can_view = False
+        session.flush()
+        with pytest.raises(AppError) as revoked_view_permission:
+            validate_project_member_candidates(session, {bad_member.id})
+        assert revoked_view_permission.value.code == "invalid_project_member_permission"
         with pytest.raises(AppError) as invalid_model:
             project_routes._resolve_model(session, uuid4(), "Chat")
         assert invalid_model.value.code == "invalid_project_model"
@@ -2831,7 +3010,7 @@ def test_live_approval_project_and_data_source_route_edges(live_client) -> None:
         return DataSourceConnectionPayload(**values)
 
     valid_http = http_payload(headers={"X-Trace": "1"})
-    data_source_routes._validate_data_source_payload(valid_http)
+    data_source_routes._validate_data_source_payload(valid_http, settings=get_settings())
     assert data_source_routes._remote_uri(valid_http) == "https://example.test/edge.md"
     assert data_source_routes._connection_metadata(valid_http)["headers"] == {"X-Trace": "1"}
     assert data_source_routes._source_identity(valid_http, "https://example.test/edge.md", document_id)["url"] == "https://example.test/edge.md"
@@ -2849,7 +3028,7 @@ def test_live_approval_project_and_data_source_route_edges(live_client) -> None:
         (http_payload(schedule_mode="cron", cron_expression="bad"), "data_source_cron_invalid"),
     ):
         with pytest.raises(AppError) as payload_error:
-            data_source_routes._validate_data_source_payload(payload)
+            data_source_routes._validate_data_source_payload(payload, settings=get_settings())
         assert payload_error.value.code == expected_code
     s3_payload = DataSourceConnectionPayload(service_type="S3", name="s3", host="", port=443, username="access", credential="secret", bucket="bucket", remote_path="/incoming", file_name="edge.md")
     assert data_source_routes._remote_uri(s3_payload) == "s3://bucket/incoming/edge.md"
@@ -2918,17 +3097,17 @@ def test_live_approval_project_and_data_source_route_edges(live_client) -> None:
             approval_routes._scoped_task(session, uuid4(), context)
         assert missing_task.value.code == "approval_task_not_found"
 
-        assert approval_routes._begin_idempotent_operation(session=session, scope="edge-none", key=None, request_payload={}) == (None, None)
-        replay, record = approval_routes._begin_idempotent_operation(session=session, scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
+        assert approval_routes._begin_idempotent_operation(session=session, settings=get_settings(), scope="edge-none", key=None, request_payload={}) == (None, None)
+        replay, record = approval_routes._begin_idempotent_operation(session=session, settings=get_settings(), scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
         assert replay is None and record is not None
         with pytest.raises(AppError) as key_in_progress:
-            approval_routes._begin_idempotent_operation(session=session, scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
+            approval_routes._begin_idempotent_operation(session=session, settings=get_settings(), scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
         assert key_in_progress.value.code == "idempotency_key_in_progress"
         approval_routes._complete_idempotent_operation(record, {"status": "ok"})
-        replay, _existing = approval_routes._begin_idempotent_operation(session=session, scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
+        replay, _existing = approval_routes._begin_idempotent_operation(session=session, settings=get_settings(), scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 1})
         assert replay == {"status": "ok"}
         with pytest.raises(AppError):
-            approval_routes._begin_idempotent_operation(session=session, scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 2})
+            approval_routes._begin_idempotent_operation(session=session, settings=get_settings(), scope="edge", key=f"{TEST_PREFIX}-key", request_payload={"a": 2})
 
         chunks = approval_routes._approval_chunk_evidence(session, version.id)
         assert chunks
@@ -3491,8 +3670,8 @@ def test_live_compatibility_routes_execute_governed_workflows(live_client) -> No
             project_id=project_id,
             uploaded_file_name=f"{TEST_PREFIX}-compatibility.csv",
             status="running",
-            run_scope="published",
-            selected_document_ids=[str(document_id)],
+            run_scope="project_chat",
+            selected_document_ids=[str(version_id)],
             total_count=1,
             completed_count=0,
             failed_count=0,
@@ -3507,7 +3686,7 @@ def test_live_compatibility_routes_execute_governed_workflows(live_client) -> No
             question="Compatibility validation question",
             expected_answer="Compatibility answer",
             expected_keywords=["compatibility"],
-            selected_document_ids=[str(document_id)],
+            selected_document_ids=[str(version_id)],
             reference_docs=[],
             status="running",
             created_at=now,
@@ -3577,7 +3756,7 @@ def test_live_compatibility_routes_execute_governed_workflows(live_client) -> No
 
     versions = _assert_ok(client.get(f"/api/v1/documents/{document_id}/versions?limit=10", headers=headers))
     assert any(row["id"] == str(version_id) for row in versions)
-    pipelines = _assert_ok(client.get(f"/api/v1/pipeline-runs?project_id={project_id}&status=completed", headers=headers))
+    pipelines = _page_items(client.get(f"/api/v1/pipeline-runs?project_id={project_id}&status=completed", headers=headers))
     assert any(row["id"] == data["pipeline_id"] for row in pipelines)
     reviews = _assert_ok(client.get(f"/api/v1/review-records?project_id={project_id}&document_id={review_document_id}", headers=headers))
     assert any(row["id"] == str(review_id) for row in reviews)
@@ -3606,10 +3785,21 @@ def test_live_compatibility_routes_execute_governed_workflows(live_client) -> No
     cancelled_approval = _assert_ok(client.post(f"/api/v1/approval-requests/{approval_id}/cancel", headers=headers))
     assert cancelled_approval["status"] == "cancelled"
 
-    jobs = _assert_ok(client.get(f"/api/v1/graph-sync-jobs?project_id={project_id}&status=completed", headers=headers))
+    jobs = _page_items(client.get(f"/api/v1/graph-sync-jobs?project_id={project_id}&status=completed", headers=headers))
     assert any(row["id"] == str(graph_job_id) for row in jobs)
-    completed_retry = _assert_ok(client.post(f"/api/v1/graph-sync-jobs/{graph_job_id}/retry", headers=headers))
-    assert completed_retry["status"] == "completed"
+    # CHG-298: completed work is not retryable. Verify the existing contract,
+    # including absence of a new attempt/outbox, rather than weakening it.
+    with session_factory() as session:
+        before_jobs = set(session.scalars(select(GraphSyncJob.id).where(GraphSyncJob.project_id == project_id)))
+        before_events = set(session.scalars(select(OutboxEvent.id)))
+    completed_retry = client.post(f"/api/v1/graph-sync-jobs/{graph_job_id}/retry", headers=headers)
+    assert completed_retry.status_code == 409
+    assert completed_retry.json()["code"] == "graph_sync_retry_not_available"
+    with session_factory() as session:
+        assert session.get(GraphSyncJob, graph_job_id).status == "completed"
+        assert set(session.scalars(select(GraphSyncJob.id).where(GraphSyncJob.project_id == project_id))) == before_jobs
+        assert set(session.scalars(select(OutboxEvent.id))) == before_events
+    _synchronize_stored_graph_input(data)
     path = _assert_ok(
         client.get(
             f"/api/v1/projects/{project_id}/graph/paths?source_id={project_id}&target_id={document_id}&max_depth=3&node_limit=500",

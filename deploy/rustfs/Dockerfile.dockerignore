@@ -1,0 +1,8 @@
+# RustFS build context: never send generated credentials or operator state.
+**
+!rustfs
+!rustfs/Dockerfile
+!rustfs/Dockerfile.dockerignore
+!docker
+!docker/secret-env-entrypoint.sh
+!docker/compose-secret-entrypoint.sh

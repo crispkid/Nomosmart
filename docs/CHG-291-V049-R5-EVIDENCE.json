@@ -1,0 +1,58 @@
+{
+  "change": "CHG-291 R5",
+  "date": "2026-09-13",
+  "status": "PARTIAL_REQUIRES_DISCUSSION",
+  "artifact_directory": "/private/tmp/v049-backup-plain-r5-gc9vv6",
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "41913e710cf307f66be154d9d36d30fc41f0d8c67d137791ae45c8389eec5b42",
+    "backend/tests/test_chg291_v049_live_backup.py": "59b20dd4804a2be2ea4f847b7c0c7786f1d3aae1e1c9dfb20bf876e17dc71c30"
+  },
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "pytest": {
+    "exit_code": 1, "passed": 166, "failed": 2, "errors": 0, "skipped": 0,
+    "human_gpg_deselected": 1, "original_cases_passed": 133,
+    "new_r5_passed": 33, "new_r5_failed": 2,
+    "failures": ["test_r5_trusted_mixed_owner_fresh_roundtrip[False]", "test_r5_trusted_mixed_owner_fresh_roundtrip[True]"]
+  },
+  "coverage": {
+    "covered_statements": 1192, "statements": 1477, "statement_percent": 80.70412999322951,
+    "covered_branches": 174, "branches": 216, "branch_percent": 80.55555555555556,
+    "combined_percent": 80.685174246899, "excluded_lines": 0,
+    "source": "current pytest only; no old data or supplemental merge"
+  },
+  "remaining_failure": {
+    "classification": "extension_member_custom_comment_not_in_pg_dump",
+    "differences_per_failed_case": 1, "object_kind": "routine", "fields": ["comment"],
+    "six_categories_equal": true, "raw_schema_equal": true,
+    "ordinary_mixed_owner_baselines": "2 PASS", "original_t15": "PASS",
+    "installation_midtransaction_cancellation_test": "NOT COMPLETED"
+  },
+  "report_sha256": {
+    "tests.xml": "b0b7f4e851917745ed0a13bd3ad7c600beb6dd39f87a13201011fc7f76b6c94c",
+    "coverage.json": "f0bf8237a9e239ec3366f20f73891baa05f5f0a8ebb599eba9a24f7a345f54ae",
+    "coverage.xml": "931e4443b93f338e66656c58f99264ae8e074e419b25a271bc120a8e8c6c5961",
+    ".coverage.tests": "bae3afc1b981f87491b7b3f58893c2d52ba20bc311236a7c17b8f29d5a45a21b",
+    "cleanup.json": "012374314fadc4d9c497982173d08f301527458fd1f9e0708a846c6aa76abfc3",
+    "test-output.log": "4e80491e5e1356c99d8167f9b4ee79257540e0590acb29b5217c20524fdf62e8",
+    "audit-results.py": "8f89b99a05cdd5156412108bff8fec2d1251f11cb0a021f079a4a54cc4a5ef97"
+  },
+  "historical_r5_iterations": [
+    {
+      "directory": "/private/tmp/v049-backup-plain-r5-WiLC5J", "passed": 29, "failed": 3,
+      "reason": "metadata boolean serialization; repaired with to_json",
+      "tool_sha256": "3d446a524d6e567f0aab0a6ec678e29af695a199eb2ef722b43ff6357dce0374",
+      "test_sha256": "2399e86a83e0f7c08f5306a630170d8f8fb72f4efb8c4b51d7c66fb19b9c6c7f"
+    },
+    {
+      "directory": "/private/tmp/v049-backup-plain-r5-xySD5l", "passed": 0, "failed": 2,
+      "reason": "extension member comment mismatch, assertions retained",
+      "tool_sha256": "41913e710cf307f66be154d9d36d30fc41f0d8c67d137791ae45c8389eec5b42",
+      "test_sha256": "84c7cf51faa90cdd0618c3e0deb1f4e55e1035d0a6cc88b8206ae633beeb7c2d"
+    }
+  ],
+  "final_docker_baseline_equal": true, "remaining_owned_postgresql": 0,
+  "private_report_modes_verified": true,
+  "current_kubernetes_or_db_access": false, "retained_r2_archive_access": false,
+  "current_backup_export": false, "qualification": false, "v049_applied": false,
+  "deployment": false, "provider_calls": 0
+}

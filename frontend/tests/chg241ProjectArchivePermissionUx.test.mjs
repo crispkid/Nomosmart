@@ -35,7 +35,10 @@ test("CHG-241 project cards use live discovery and explicit archive actions", ()
   assert.match(page, /roles: roleFilters/);
   assert.match(page, /modelState: modelFilter === "all"/);
   assert.match(page, /projectSort/);
-  assert.match(page, /project\.is_owner \|\| canExecuteArchive/);
+  // CHG-293: Backend resolves the explicit Editor deny, not an OR-grant shortcut.
+  assert.match(page, /project\.capabilities\.can_archive_project/);
+  assert.match(page, /project\.capabilities\.can_retry_archive_cleanup/);
+  assert.doesNotMatch(page, /project\.is_owner \|\| canExecuteArchive/);
   assert.match(page, /className="project-archive-action"/);
   assert.match(api, /response\.headers\.get\("X-Total-Count"\)/);
   assert.match(css, /\.project-card-metrics/);

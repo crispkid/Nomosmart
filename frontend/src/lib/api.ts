@@ -224,6 +224,8 @@ export type ProjectCapabilities = {
   can_view_graph: boolean;
   can_submit_review: boolean;
   can_manage_lifecycle: boolean;
+  can_archive_project?: boolean;
+  can_retry_archive_cleanup?: boolean;
 };
 
 export type ProjectListOptions = {
@@ -285,7 +287,7 @@ export type IntegrationClientResponse = {
 };
 
 export type IntegrationClientCreateResponse = IntegrationClientResponse & { api_key: string };
-export type IntegrationClientPage = { items: IntegrationClientResponse[]; next_cursor: string | null };
+export type IntegrationClientPage = { items: IntegrationClientResponse[]; has_more: boolean; next_cursor: string | null };
 export type IntegrationClientPayload = {
   name: string;
   description?: string | null;
@@ -1020,11 +1022,18 @@ export type ProjectChatConversationResponse = {
   message_count: number;
   updated_at: string;
   can_continue: boolean;
+  created_by_user_id?: string | null;
+  created_by_display_name?: string | null;
+  is_mine?: boolean;
+  can_delete?: boolean;
+  can_evaluate?: boolean;
+  can_export?: boolean;
+  read_only_reason?: string | null;
   records: ProjectChatRecordResponse[];
 };
 export type ProjectChatConversationPage = {
   items: ProjectChatConversationResponse[];
-  next_cursor: string | null;
+  has_more: boolean; next_cursor: string | null;
 };
 export type ProjectChatConversationDeleteResponse = {
   conversation_id: string;
@@ -1350,10 +1359,10 @@ export async function submitDocumentVersionReview(apiFetch: ApiFetch, projectId:
   return apiJson<ApprovalRequestResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/submit-review`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(payload) });
 }
 export async function getApprovalSummary(apiFetch: ApiFetch) { return apiJson<ApprovalSummary>(apiFetch, "/approvals/summary"); }
-export async function listPendingApprovals(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; next_cursor: string | null }>(apiFetch, "/approvals/pending")).items; }
-export async function listApprovalHistory(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; next_cursor: string | null }>(apiFetch, "/approvals/history")).items; }
-export async function listRejectedApprovals(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; next_cursor: string | null }>(apiFetch, "/approvals/history?result=rejected")).items; }
-export async function listMyApprovalSubmissions(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalRequestResponse[]; next_cursor: string | null }>(apiFetch, "/approvals/my-submissions")).items; }
+export async function listPendingApprovals(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/approvals/pending")).items; }
+export async function listApprovalHistory(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/approvals/history")).items; }
+export async function listRejectedApprovals(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalTaskResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/approvals/history?result=rejected")).items; }
+export async function listMyApprovalSubmissions(apiFetch: ApiFetch) { return (await apiJson<{ items: ApprovalRequestResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/approvals/my-submissions")).items; }
 export async function listPendingPublishApprovals(apiFetch: ApiFetch) { return apiJson<ApprovalPendingPublishResponse[]>(apiFetch, "/approvals/pending-publish"); }
 export async function getApprovalTask(apiFetch: ApiFetch, approvalTaskId: string) { return apiJson<ApprovalTaskDetail>(apiFetch, `/approvals/${approvalTaskId}`); }
 export async function approveApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, payload: { lock_version: number; comment?: string | null }) {
@@ -1425,12 +1434,16 @@ export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, pa
   return apiJson<ProjectChatQueryResponse>(apiFetch, `/projects/${projectId}/chat/query`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
 export async function listProjectChatConversations(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string }) {
+  return (await listProjectChatConversationPage(apiFetch, projectId, options)).items;
+}
+export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string }) {
   const params = new URLSearchParams();
   params.set("scope_mode", options?.scope_mode ?? "published");
   if (options?.document_version_id) params.set("document_version_id", options.document_version_id);
+  if (options?.cursor) params.set("cursor", options.cursor);
   const query = params.toString();
   const page = await apiJson<ProjectChatConversationPage>(apiFetch, `/projects/${projectId}/chat/conversations${query ? `?${query}` : ""}`);
-  return page.items;
+  return page;
 }
 export async function getProjectChatConversation(apiFetch: ApiFetch, projectId: string, conversationId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string }) {
   const params = new URLSearchParams();
@@ -1504,7 +1517,7 @@ function reportQuery(params: ReportQueryParams & { locale?: string }) {
   if (params.usageStatus) query.set("usage_status", params.usageStatus);
   return query.toString();
 }
-export async function listNotifications(apiFetch: ApiFetch) { return (await apiJson<{ items: NotificationResponse[]; next_cursor: string | null }>(apiFetch, "/notifications")).items; }
+export async function listNotifications(apiFetch: ApiFetch) { return (await apiJson<{ items: NotificationResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/notifications")).items; }
 export async function getNotificationUnreadCount(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/unread-count"); }
 export async function markNotificationRead(apiFetch: ApiFetch, notificationId: string) { return apiJson<NotificationResponse>(apiFetch, `/notifications/${notificationId}/read`, { method: "POST" }); }
 export async function markAllNotificationsRead(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/read-all", { method: "POST" }); }
@@ -1577,5 +1590,5 @@ export async function lockIdentitySettings(apiFetch: ApiFetch) { return apiJson<
 export async function validateIdentitySettingsCandidate(apiFetch: ApiFetch, payload: IdentitySettingsCandidate) { return apiJson<{ valid: boolean; configuration: Record<string, unknown> }>(apiFetch, "/system/identity-settings/validate", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function activateIdentitySettings(apiFetch: ApiFetch, payload: IdentitySettingsCandidate) { return apiJson<IdentitySettingsResponse>(apiFetch, "/system/identity-settings", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function queueIdentitySync(apiFetch: ApiFetch) { return apiJson<IdentitySyncRunResponse>(apiFetch, "/identity-sync/run", { method: "POST" }); }
-export async function listIdentitySyncRuns(apiFetch: ApiFetch) { return (await apiJson<{ items: IdentitySyncRunResponse[]; next_cursor: string | null }>(apiFetch, "/identity-sync/runs")).items; }
+export async function listIdentitySyncRuns(apiFetch: ApiFetch) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs")).items; }
 export async function getIdentitySyncRun(apiFetch: ApiFetch, runId: string) { return apiJson<IdentitySyncRunResponse>(apiFetch, `/identity-sync/runs/${runId}`); }

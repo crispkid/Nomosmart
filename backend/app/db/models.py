@@ -901,7 +901,8 @@ class Chunk(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     content_type: Mapped[str] = mapped_column(String(32), nullable=False, default="text")
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     section_path: Mapped[str | None] = mapped_column(Text)
-    heading_path: Mapped[list | None] = mapped_column(JSONB)
+    # V046 permits SQL NULL or an array; JSON null is not an absent heading path.
+    heading_path: Mapped[list | None] = mapped_column(JSONB(none_as_null=True))
     heading_level: Mapped[int | None] = mapped_column(Integer)
     page_start: Mapped[int | None] = mapped_column(Integer)
     page_end: Mapped[int | None] = mapped_column(Integer)

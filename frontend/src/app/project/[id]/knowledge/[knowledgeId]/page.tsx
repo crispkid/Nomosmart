@@ -13,6 +13,7 @@ import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { SafeMarkdown } from "@/components/SafeMarkdown";
 import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getKnowledgeArtifactBlob, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type OriginalFileViewerMetadata, type PipelineRunDetail } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
+import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { chunkIdsForResolvedSourceAnchor, codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceAnchorsForChunks, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
 
@@ -377,7 +378,7 @@ export default function KnowledgePage() {
   const [tagError, setTagError] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeChunk | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
-  const [deleteError, setDeleteError] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const articleViewerRef = useRef<HTMLDivElement>(null);
   const chunkListRef = useRef<HTMLDivElement>(null);
   const skipNextSourceScrollRef = useRef(false);
@@ -659,14 +660,14 @@ export default function KnowledgePage() {
   async function confirmChunkDeletion() {
     if (!deleteTarget || !liveDetail?.manual_edit_enabled) return;
     setDeleteBusy(true);
-    setDeleteError(false);
+    setDeleteError(null);
     try {
       const refreshed = await deleteKnowledgeChunk(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, deleteTarget.id, liveDetail.version.lock_version);
       setLiveDetail(refreshed);
       setSelectedChunkIds((current) => current.includes(deleteTarget.id) ? refreshed.chunks[0]?.id ? [refreshed.chunks[0].id] : [] : current);
       setDeleteTarget(null);
-    } catch {
-      setDeleteError(true);
+    } catch (error) {
+      setDeleteError(operationalErrorMessage(error, t, format, "knowledgeDetailDeleteChunkFailed"));
     } finally {
       setDeleteBusy(false);
     }
@@ -853,7 +854,7 @@ export default function KnowledgePage() {
                         aria-label={format("knowledgeDetailDeleteChunkAria", { number: chunk.index })}
                         className="chunk-delete-button"
                         disabled={!liveDetail?.manual_edit_enabled || deleteBusy}
-                        onClick={(event) => { event.stopPropagation(); setDeleteError(false); setDeleteTarget(chunk); }}
+                        onClick={(event) => { event.stopPropagation(); setDeleteError(null); setDeleteTarget(chunk); }}
                         onKeyDown={(event) => event.stopPropagation()}
                         title={t("knowledgeDetailDeleteChunk")}
                         type="button"
@@ -894,7 +895,7 @@ export default function KnowledgePage() {
           <header><span className="danger-icon"><Trash2 size={20} /></span><div><small>{format("knowledgeDetailChunkLabel", { number: deleteTarget.index })}</small><h2 id="delete-chunk-title">{t("knowledgeDetailDeleteChunkTitle")}</h2></div><button aria-label={t("close")} className="modal-close-button" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button"><X size={18} /></button></header>
           <p>{t("knowledgeDetailDeleteChunkHelp")}</p>
           <blockquote>{deleteTarget.content.slice(0, 180)}{deleteTarget.content.length > 180 ? "..." : ""}</blockquote>
-          {deleteError ? <div className="error-summary" role="alert"><strong>{t("knowledgeDetailDeleteChunkFailed")}</strong></div> : null}
+          {deleteError ? <div className="error-summary" role="alert"><strong>{deleteError}</strong></div> : null}
           <footer><button className="action-button secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={deleteBusy} onClick={() => void confirmChunkDeletion()} type="button">{deleteBusy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}{t("knowledgeDetailConfirmDeleteChunk")}</button></footer>
         </section>
       </div> : null}

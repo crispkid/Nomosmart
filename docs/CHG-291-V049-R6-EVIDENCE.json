@@ -1,0 +1,214 @@
+{
+  "change": "CHG-291 R6",
+  "requirement": "V49-U011",
+  "status": "ISOLATED_VERIFICATION_PASS",
+  "gate4": {
+    "approved_by": "Peter",
+    "date": "2026-09-13",
+    "response": "Ok",
+    "scope": "docs/CHG-291-V049-R6-PLAN.md"
+  },
+  "run": "/private/tmp/v049-backup-plain-r6-y8GMvd",
+  "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+  "sources": {
+    "backend/scripts/chg291_v049_live_backup.py": "763548e8d0f910e3765540baff1fdd508cfdc0e496a831af76efb696db1529b3",
+    "backend/tests/test_chg291_v049_live_backup.py": "dc3c0253002c2efa1223a3bf4f3950e9e5f89cba7b21a17c28f666832ab9454f"
+  },
+  "tests": {
+    "passed": 212,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "human_gpg_deselected": 1,
+    "original_cases_passed": 168,
+    "new_r6_passed": 44
+  },
+  "suite": [
+    {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "212",
+      "time": "288.641",
+      "timestamp": "2026-09-13T17:20:55.137914+08:00",
+      "hostname": "Peters-Mac.local"
+    }
+  ],
+  "coverage": {
+    "covered_lines": 1350,
+    "num_statements": 1635,
+    "percent_covered": 82.56,
+    "percent_covered_display": "83",
+    "missing_lines": 285,
+    "excluded_lines": 0,
+    "percent_statements_covered": 82.56880733944953,
+    "percent_statements_covered_display": "83",
+    "num_branches": 240,
+    "num_partial_branches": 14,
+    "covered_branches": 198,
+    "missing_branches": 42,
+    "percent_branches_covered": 82.5,
+    "percent_branches_covered_display": "82"
+  },
+  "whole_tool_percent": {
+    "statements": 82.56880733944953,
+    "branches": 82.5,
+    "combined": 82.56
+  },
+  "reports": {
+    "tests.xml": {
+      "bytes": 22763,
+      "sha256": "4126a10aec2755fd9b3b1acfcbc5ad98045146fe39d3092a955b85115aa3184d"
+    },
+    "coverage.json": {
+      "bytes": 118490,
+      "sha256": "24adf719f241aa0ced813e8ce002d16ba1a1b103b960d4666b25e40a54a5d03d"
+    },
+    "coverage.xml": {
+      "bytes": 66883,
+      "sha256": "29f3d5c6a4cc06204141c7d665ccb27962afd27bc06247074d11294c8cca9efe"
+    },
+    ".coverage.tests": {
+      "bytes": 131072,
+      "sha256": "3dcbf3dbde6812e2611e554390b77efc2add2f3dd88846512361611e9bef848e"
+    },
+    "cleanup.json": {
+      "bytes": 299,
+      "sha256": "7ae395121404f1e163a84d7096431b92c02bd858a0654312a3112ab833cae9b5"
+    },
+    "test-output.log": {
+      "bytes": 2109,
+      "sha256": "7ed02db30b17910430b4570f1e1b02de27b89258b01e51bd4530c9cc14ab5d0a"
+    }
+  },
+  "comparisons": [
+    {
+      "relative_path": "r5_roundtrip_78dc06f3/schema-comparison-9dd0ccad860d0272.json",
+      "sha256": "67b1097f07b7a273fdb56e83fd848af4d86b44d6e8a26e39811c3bdd4c04951b",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r5_roundtrip_fc9993ae/schema-comparison-d418308c833227a5.json",
+      "sha256": "20c39f3d7c9a8f751df6fb7035569ec80654fe1177087a5ecfab47e160e2840c",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r5_baseline_7f188603/schema-comparison-2021efb95b572172.json",
+      "sha256": "6f4a53f1d63147f9beaa35c4c61bf0e9e38784b32e98efbc16886c2e8e0de026",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r5_baseline_9bebd147/schema-comparison-2d0b2ff5bd36516a.json",
+      "sha256": "2ec2d2edabd8009cb571447339b0c4df90c7e3824fb0ce29344cd03d1043e609",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r6_special_2691e580/schema-comparison-7feb29d3b8a3218e.json",
+      "sha256": "5ed6374deb1346434371b7a63483009364cbdb7c47464f18f9370fb1ebf6da34",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r6_special_2691e580/schema-comparison-86b5a2ce916c6bdf.json",
+      "sha256": "a1baad7e42941af6506cfe359ccf35800f2017e49d5df93e76bd1f3d01a9d3d9",
+      "catalog_status": "DIFFERENT",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r6_special_44cb1871/schema-comparison-4406e6eb9a857d37.json",
+      "sha256": "cb99f53066fa66beba100b52ad0378d6b489ebb27b5bf870d49c3c93829f9da9",
+      "catalog_status": "EQUAL",
+      "six_categories_equal": true
+    },
+    {
+      "relative_path": "r6_special_44cb1871/schema-comparison-cfa039aec3f1701b.json",
+      "sha256": "3fcb83282ee9ab0a5e87f50f1e0f2836aaa233ae66a177246f1a0f4e21b6b85e",
+      "catalog_status": "DIFFERENT",
+      "six_categories_equal": true
+    }
+  ],
+  "cancellations": [
+    {
+      "phase": "comments",
+      "relative_path": "r6_cancel_comments_88830b87/cancellation-evidence.json",
+      "sha256": "0acc4201e21cc26887ef17e8722d489ead3c47e7cad329152e1df2982e1781c3",
+      "rollback_verified": true
+    },
+    {
+      "phase": "install",
+      "relative_path": "r6_cancel_install_c8a326a4/cancellation-evidence.json",
+      "sha256": "e0fb5a619463b9aa597052dd944bd5a98283c9da53e260578e0c7dbc59f8a855",
+      "rollback_verified": true
+    }
+  ],
+  "final_docker_baseline_equal": true,
+  "remaining_owned_postgresql": 0,
+  "qualification": false,
+  "current_access": false,
+  "audit_source_sha256": "efa3bacef1f2d1a6c7022a96b44eb032f257f54cdbab69be9ac29d7a6d1a2794",
+  "audit_result_sha256": "6e015a5f177acf94000ab9a2ab349c15f26078a51f657c9147047e5010b0b4bf",
+  "iterations": [
+    {
+      "run": "/private/tmp/v049-backup-plain-r6-b2cLZ6",
+      "passed": 2,
+      "failed": 0,
+      "selected": "original R5 custom-comment pair",
+      "script_sha256": "26813c993ac00541d5c338e7d92a2f3672c2042f69f257aa31002a8435477de2",
+      "test_sha256": "9e92cc437f575206224d2690a9ab55035fbb01e53906fc27a58540e0051d9da2"
+    },
+    {
+      "run": "/private/tmp/v049-backup-plain-r6-SY02Jc",
+      "passed": 44,
+      "failed": 1,
+      "selected": "R6 plus shared cleanup",
+      "script_sha256": "763548e8d0f910e3765540baff1fdd508cfdc0e496a831af76efb696db1529b3",
+      "test_sha256": "b9e59b9484f396e3da4c9e5c602e1d5caa921afe56944846ca1f828fb82a9b5c",
+      "reason": "Single cancellation signal reached idle transaction gap; observer did not interrupt restore. Test repaired to observe active write transaction and repeat bounded cancellation on same PID."
+    },
+    {
+      "run": "/private/tmp/v049-backup-plain-r6-QOlYst",
+      "passed": 2,
+      "failed": 0,
+      "selected": "actual mid-install and mid-comment cancellation",
+      "sources": {
+        "backend/scripts/chg291_v049_live_backup.py": "763548e8d0f910e3765540baff1fdd508cfdc0e496a831af76efb696db1529b3",
+        "backend/tests/test_chg291_v049_live_backup.py": "dc3c0253002c2efa1223a3bf4f3950e9e5f89cba7b21a17c28f666832ab9454f"
+      }
+    },
+    {
+      "run": "/private/tmp/v049-backup-plain-r6-y8GMvd",
+      "passed": 212,
+      "failed": 0,
+      "selected": "full original plus R6 suite",
+      "sources": {
+        "backend/scripts/chg291_v049_live_backup.py": "763548e8d0f910e3765540baff1fdd508cfdc0e496a831af76efb696db1529b3",
+        "backend/tests/test_chg291_v049_live_backup.py": "dc3c0253002c2efa1223a3bf4f3950e9e5f89cba7b21a17c28f666832ab9454f"
+      }
+    }
+  ],
+  "operations": {
+    "current_database_access": false,
+    "kubernetes_access": false,
+    "retained_r2_archive_access": false,
+    "current_export": false,
+    "qualified_json_created": false,
+    "provider_calls": 0,
+    "image_build": false,
+    "image_pull": false,
+    "helm_write": false,
+    "migration_v049": false,
+    "deployment": false,
+    "isolated_test_containers_cleaned": true
+  },
+  "remaining": [
+    "Integrate verified explicit restore strategy into separately approved current-source qualification/backup path.",
+    "New current-source backup and complete isolated restore are not performed or qualified.",
+    "Whole-application acceptance/coverage and fresh protected deployment baseline/dry-run remain open.",
+    "V049 and actual deployment need precise new approval; historical R2 failed archive/consumed claim must not be reused."
+  ]
+}

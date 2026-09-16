@@ -254,13 +254,14 @@ def test_chg265_keycloak_sync_verifies_users_groups_attributes_and_no_roles() ->
 
 
 def test_chg265_runbook_documents_synthetic_directory_scope() -> None:
-    readme = read(STACK / "README.md")
+    # Markdown wrapping must not change the documented directory contract.
+    readme = " ".join(read(STACK / "README.md").split())
 
-    assert "七個\n  synthetic users" in readme
+    assert "七個 synthetic users" in readme
     assert "`uid=user01,ou=users,dc=nomosmart,dc=test` 至" in readme
     assert "`uid=user05,ou=users,dc=nomosmart,dc=test`" in readme
     assert "`HR` (user01/user02)" in readme
     assert "`IT` (user03/user05)" in readme
-    assert "`FIN`\n(user04)" in readme
+    assert "`FIN` (user04)" in readme
     assert "`nomosmart-admin` (user01)" in readme
-    assert "沒有 Keycloak 或\nNomoSmart role mapping" in readme
+    assert "沒有 Keycloak 或 NomoSmart role mapping" in readme

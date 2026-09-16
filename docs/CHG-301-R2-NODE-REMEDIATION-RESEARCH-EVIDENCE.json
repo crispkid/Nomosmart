@@ -1,0 +1,761 @@
+{
+  "change": "CHG-301 R2",
+  "status": "RESEARCH_COMPLETE_RUNTIME_BLOCKED",
+  "date": "2026-09-16 Asia/Taipei",
+  "authorization": {
+    "user_response": "同意",
+    "confirmed_scope": "Evaluate test node image update/remediation options; registry-only diagnostic comparison. Not build, dependency repair, node execution, deployment or vulnerability acceptance."
+  },
+  "specification": [
+    "10.58 CMPVERIFY-003",
+    "10.58 CMPVERIFY-004",
+    "10.58 CMPVERIFY-005",
+    "10.58 CMPVERIFY-006"
+  ],
+  "scanner": {
+    "name": "Docker Scout",
+    "version": "1.24.0",
+    "mode": "registry-only linux/arm64; all severities; no suppression",
+    "database_version": "not supplied / not independently verified"
+  },
+  "original": {
+    "scope": "Original R2 registry-only node candidate",
+    "tag": null,
+    "image": "docker.io/kindest/node:v1.36.1",
+    "index_digest": "sha256:3489c7674813ba5d8b1a9977baea8a6e553784dab7b84759d1014dbd78f7ebd5",
+    "arm64_digest": "sha256:8d85371a247dc0fddce0d585d3de1ce40f2ee43f97fc0d0b6ee37b158771109e",
+    "started_at": "2026-09-15T17:36:42.634322+00:00",
+    "finished_at": "2026-09-15T17:37:15.822177+00:00",
+    "kind_version": "kind v0.32.0 go1.26.3 darwin/arm64",
+    "assessment": {
+      "status": "BLOCKED_FINDINGS",
+      "unique_advisories": 230,
+      "unique_cves": 226,
+      "result_instances": 313,
+      "severity_counts": {
+        "UNSPECIFIED": 16,
+        "LOW": 80,
+        "MEDIUM": 59,
+        "HIGH": 57,
+        "CRITICAL": 18
+      },
+      "unaccepted_high_critical": 75,
+      "unclassified": 16
+    },
+    "protected_baseline_unchanged": true,
+    "sbom_packages_including_image": 530,
+    "raw_result_sha256": "2373b58f6ccc4676fe79fad1fbf97b1abb53a05fce715998be63930829a94313",
+    "blocked_unique_by_ecosystem": {
+      "deb": 48,
+      "golang": 43
+    }
+  },
+  "candidate": {
+    "scope": "Peter-approved read-only node update/remediation assessment",
+    "tag": "docker.io/kindest/node:v1.36.4",
+    "image": null,
+    "index_digest": "sha256:099e049362a1526b2db71494e1947aae99bd16290d7c895f2b7ea312e3cbfaed",
+    "arm64_digest": "sha256:10210eabcf5dc4b585756bbd3f7fbb60cc0a12a252f28aeba269d93e0070c025",
+    "started_at": "2026-09-15T17:46:56.042623+00:00",
+    "finished_at": "2026-09-15T17:47:28.361065+00:00",
+    "kind_version": null,
+    "assessment": {
+      "status": "BLOCKED_FINDINGS",
+      "unique_advisories": 151,
+      "unique_cves": 147,
+      "result_instances": 181,
+      "severity_counts": {
+        "UNSPECIFIED": 9,
+        "LOW": 65,
+        "MEDIUM": 27,
+        "HIGH": 40,
+        "CRITICAL": 10
+      },
+      "unaccepted_high_critical": 50,
+      "unclassified": 9
+    },
+    "findings": [
+      {
+        "id": "CVE-2026-41991",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/gzip@1.13-1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "1.13-1+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56852",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:golang/golang.org/x/text@0.28.0",
+          "pkg:golang/golang.org/x/text@0.35.0",
+          "pkg:golang/golang.org/x/text@0.38.0"
+        ],
+        "scanner_fixed_version": "0.39.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-57433",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-58050",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/libssh2@1.11.1-1%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "1.11.1-1+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-58051",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/libssh2@1.11.1-1%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "1.11.1-1+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-66034",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/libssh2@1.11.1-1%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "1.11.1-1+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-7017",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "GHSA-259r-337f-4rfw",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:golang/github.com/klauspost/compress@1.18.5"
+        ],
+        "scanner_fixed_version": "1.18.7",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNSPECIFIED",
+        "purls": [
+          "pkg:golang/golang.org/x/crypto@0.53.0"
+        ],
+        "scanner_fixed_version": "not fixed",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-84445",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/google.golang.org/grpc@1.76.0",
+          "pkg:golang/google.golang.org/grpc@1.79.3",
+          "pkg:golang/google.golang.org/grpc@1.80.0"
+        ],
+        "scanner_fixed_version": "1.82.2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63387",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-53489",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/containerd/containerd/v2@2.2.0"
+        ],
+        "scanner_fixed_version": "2.2.5",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-41567",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/docker/docker@28.5.2%2Bincompatible"
+        ],
+        "scanner_fixed_version": "not fixed",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-42306",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/docker/docker@28.5.2%2Bincompatible"
+        ],
+        "scanner_fixed_version": "not fixed",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-39883",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/go.opentelemetry.io/otel/sdk@1.40.0",
+          "pkg:golang/go.opentelemetry.io/otel/sdk@1.42.0"
+        ],
+        "scanner_fixed_version": "1.43.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-46680",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/containerd/containerd/v2@2.2.0"
+        ],
+        "scanner_fixed_version": "2.2.4",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-48962",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-89161",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/pcre2@10.46-1~deb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "10.46-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-33814",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.43.0",
+          "pkg:golang/golang.org/x/net@0.51.0"
+        ],
+        "scanner_fixed_version": "0.53.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-33818",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "1.26.6",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-42497",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-46600",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.43.0",
+          "pkg:golang/golang.org/x/net@0.51.0",
+          "pkg:golang/golang.org/x/net@0.55.0",
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "0.56.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-48959",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-54874",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/openssl@3.5.6-1~deb13u2?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.5.7-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56853",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "1.26.6",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56854",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/crypto@0.53.0"
+        ],
+        "scanner_fixed_version": "0.55.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56855",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/crypto@0.53.0"
+        ],
+        "scanner_fixed_version": "0.56.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56859",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "1.26.6",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56862",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "1.26.6",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56864",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/mod@0.33.0",
+          "pkg:golang/golang.org/x/mod@0.36.0"
+        ],
+        "scanner_fixed_version": "0.40.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-5928",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/glibc@2.41-12%2Bdeb13u3?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.41-12+deb13u4",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63072",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/openssl@3.5.6-1~deb13u2?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.5.7-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63076",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/openssl@3.5.6-1~deb13u2?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.5.7-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-78662",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/crypto@0.53.0"
+        ],
+        "scanner_fixed_version": "0.56.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-86145",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/pcre2@10.46-1~deb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "10.46-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-85091",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/zlib@1%3A1.3.dfsg%2Breally1.3.1-1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "not fixed",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-53492",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/containerd/containerd/v2@2.2.0"
+        ],
+        "scanner_fixed_version": "2.2.5",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-56865",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/golang.org/x/mod@0.33.0",
+          "pkg:golang/golang.org/x/mod@0.36.0"
+        ],
+        "scanner_fixed_version": "0.40.0",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-57432",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63388",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-11822",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/sqlite3@3.46.1-7%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.46.1-7+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-11824",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/sqlite3@3.46.1-7%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.46.1-7+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-53488",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/github.com/containerd/containerd/v2@2.2.0"
+        ],
+        "scanner_fixed_version": "2.2.5",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63383",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63384",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-66032",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:deb/debian/libssh2@1.11.1-1%2Bdeb13u1?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "1.11.1-1+deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-73500",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/go.etcd.io/etcd/client/pkg/v3@3.6.8"
+        ],
+        "scanner_fixed_version": "3.6.14",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-84304",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/google.golang.org/grpc@1.76.0",
+          "pkg:golang/google.golang.org/grpc@1.79.3",
+          "pkg:golang/google.golang.org/grpc@1.80.0"
+        ],
+        "scanner_fixed_version": "1.83.1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "GHSA-hrxh-6v49-42gf",
+        "severity": "HIGH",
+        "purls": [
+          "pkg:golang/google.golang.org/grpc@1.76.0",
+          "pkg:golang/google.golang.org/grpc@1.79.3",
+          "pkg:golang/google.golang.org/grpc@1.80.0"
+        ],
+        "scanner_fixed_version": "1.82.1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-12087",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-13221",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-33186",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:golang/google.golang.org/grpc@1.76.0"
+        ],
+        "scanner_fixed_version": "1.79.3",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-42496",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-75803",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/openssl@3.5.6-1~deb13u2?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "3.5.7-1~deb13u2",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63382",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-63385",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/libevent@2.1.12-stable-10?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.1.13-stable-1~deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-39821",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.43.0",
+          "pkg:golang/golang.org/x/net@0.51.0",
+          "pkg:golang/stdlib@1.26.5"
+        ],
+        "scanner_fixed_version": "1.26.6",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-5450",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/glibc@2.41-12%2Bdeb13u3?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "2.41-12+deb13u4",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      },
+      {
+        "id": "CVE-2026-8376",
+        "severity": "CRITICAL",
+        "purls": [
+          "pkg:deb/debian/perl@5.40.1-6?os_distro=trixie&os_name=debian&os_version=13"
+        ],
+        "scanner_fixed_version": "5.40.1-6+deb13u1",
+        "assessment": "INDETERMINATE_NOT_ACCEPTED"
+      }
+    ],
+    "protected_baseline_unchanged": true,
+    "sbom_packages_including_image": 534,
+    "kind_release": "v0.33.0",
+    "blocked_unique_by_ecosystem": {
+      "deb": 32,
+      "golang": 27
+    }
+  },
+  "delta": {
+    "no_longer_in_blocking_set": [
+      "CVE-2025-13151",
+      "CVE-2025-15661",
+      "CVE-2026-32316",
+      "CVE-2026-33811",
+      "CVE-2026-34180",
+      "CVE-2026-34182",
+      "CVE-2026-39820",
+      "CVE-2026-39822",
+      "CVE-2026-39829",
+      "CVE-2026-39830",
+      "CVE-2026-39831",
+      "CVE-2026-39832",
+      "CVE-2026-39833",
+      "CVE-2026-39834",
+      "CVE-2026-39836",
+      "CVE-2026-42499",
+      "CVE-2026-42504",
+      "CVE-2026-42505",
+      "CVE-2026-42508",
+      "CVE-2026-45445",
+      "CVE-2026-45447",
+      "CVE-2026-46595",
+      "CVE-2026-46597",
+      "CVE-2026-47770",
+      "CVE-2026-49839",
+      "CVE-2026-53613",
+      "CVE-2026-53615",
+      "CVE-2026-54679",
+      "CVE-2026-5773",
+      "CVE-2026-6276",
+      "CVE-2026-7383",
+      "CVE-2026-9076"
+    ],
+    "new_in_blocking_set": [],
+    "interpretation": "Changes in unique High/Critical/Unspecified scanner set only. Disappearance is not a verified fix, exploitability finding or blanket applicability approval."
+  },
+  "artifacts": {
+    "root": "/private/tmp/chg301-r2-node-research-pkn1sbr_",
+    "result.json": "b970fae7e895fa10e4ccd16e7f1bfb819657228426f99b1c23c2c3acd7f236d4",
+    "all-severity.sarif.json": "e8605ed6a1c54b8747628ae69f1fa0cda8bb71be360bc14378bc2b15caacf135",
+    "sbom.spdx.json": "9000da32e602edf5bb3d9b779822af55cfa7ee96442f433a3e06822e1c090571",
+    "index.json": "fdb1138919a47c31b2b32ca86718657ebebaf6e19d50695a644186080078e189"
+  },
+  "independent_advisory_check": {
+    "id": "GHSA-p7v4-vr35-mj6f",
+    "url": "https://github.com/containerd/containerd/security/advisories/GHSA-p7v4-vr35-mj6f",
+    "upstream_severity": "Critical",
+    "raw_sarif_id_present": false,
+    "observed_sbom_versions": [
+      "github.com/containerd/containerd/v2@2.2.0",
+      "github.com/containerd/containerd/v2@2.3.4"
+    ],
+    "upstream_fixed": [
+      "2.2.7",
+      "2.3.4"
+    ],
+    "status": "INDETERMINATE; verify CRI/checkpoint import path and effective configuration; upstream explicitly warns re-enabling restore retains vulnerability.",
+    "counting": "Supplemental applicability check, not added to raw scanner counts or declared exploitable."
+  },
+  "representative_locations": [
+    {
+      "package": "github.com/containerd/containerd/v2@2.2.0",
+      "paths": [
+        "/usr/local/bin/containerd-fuse-overlayfs-grpc"
+      ],
+      "advisory": "CVE-2026-53489",
+      "interpretation": "Do not confuse a compiled module in snapshotter with the main CRI daemon."
+    },
+    {
+      "package": "github.com/docker/docker@28.5.2+incompatible",
+      "paths": [
+        "/usr/local/bin/crictl"
+      ],
+      "advisory": "CVE-2026-41567",
+      "interpretation": "Module presence is not proof that dockerd server paths run; exact package/build proof missing."
+    },
+    {
+      "package": "go.etcd.io/etcd/client/pkg/v3@3.6.8",
+      "paths": [
+        "/usr/bin/kubeadm",
+        "/usr/bin/kubelet"
+      ],
+      "advisory": "CVE-2026-73500",
+      "interpretation": "Not evidence of the embedded etcd server image version."
+    }
+  ],
+  "limitations": [
+    "No candidate OCI rootfs extraction/binary symbol/source closure or exhaustive per-advisory applicability verification in this research.",
+    "Outer node SPDX does not prove inventory/scan completeness for nested preloaded control-plane image archives or CNI/application runtime images.",
+    "Scanner rule-level fixed-version/PURL associations may aggregate modules; not an approved package-specific repair lock.",
+    "No refreshed full-application tests/coverage/Kubernetes result; historical 134 guard PASS remains scoped to prior evidence.",
+    "Candidate tag/platform digest matched official release and registry before/after scan, but no node was installed.",
+    "Original hard batch deadline 2026-09-15T20:17:52.088462Z unchanged."
+  ],
+  "mutation_summary": {
+    "product_code_changes": 0,
+    "image_builds": 0,
+    "image_load_or_pull_to_docker": 0,
+    "node_executions": 0,
+    "kubernetes_operations": 0,
+    "provider_calls": 0,
+    "pr_writes": 0,
+    "waivers_applied": [],
+    "docker_baseline_unchanged": true
+  },
+  "recommendation": {
+    "scope": "Next: confirm same-minor official 1.36.4 as static analysis candidate and complete a consolidated inventory/applicability/repair-material list before any build.",
+    "not_authorized": [
+      "new kind binary installation/execution",
+      "node patch or build",
+      "Cilium install",
+      "node execution",
+      "new risk acceptance",
+      "current deployment/PR/provider changes"
+    ]
+  },
+  "sources": [
+    "https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0",
+    "https://raw.githubusercontent.com/cilium/cilium/v1.20.1/Documentation/network/kubernetes/compatibility.rst",
+    "https://raw.githubusercontent.com/kubernetes-sigs/kind/v0.33.0/images/base/Dockerfile",
+    "https://raw.githubusercontent.com/kubernetes-sigs/kind/v0.33.0/pkg/cluster/internal/providers/docker/provision.go",
+    "https://github.com/containerd/containerd/security/advisories/GHSA-p7v4-vr35-mj6f",
+    "https://github.com/containerd/containerd/security/advisories/GHSA-rgh6-rfwx-v388"
+  ]
+}

@@ -4,6 +4,7 @@ import { dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
+import { createRunManifestPath, runWithCleanup } from "./e2eRunLifecycle.mjs";
 
 const reportPath = fileURLToPath(new URL("../../test-results/e2e/summary.json", import.meta.url));
 const backendRoot = fileURLToPath(new URL("../../backend/", import.meta.url));
@@ -12,6 +13,7 @@ const defaultPython = fileURLToPath(new URL("../../backend/.venv/bin/python", im
 const macChromePath = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 const checks = [];
 const execFileAsync = promisify(execFile);
+let runManifest;
 
 function requiredEnv(name) {
   const value = process.env[name];
@@ -31,7 +33,9 @@ async function record(name, fn) {
       name,
       status: error?.code === "E2E_BLOCKED" ? "blocked" : "failed",
       duration_ms: Date.now() - startedAt,
-      error: error instanceof Error ? error.message : String(error)
+      error: error instanceof Error ? error.message : String(error),
+      ...(error?.primaryCode ? { primary_code: error.primaryCode } : {}),
+      ...(error?.cleanupErrors ? { cleanup_errors: error.cleanupErrors, manifest: runManifest } : {})
     });
   }
 }
@@ -98,10 +102,16 @@ if (frontendBaseUrl && backendBaseUrl && oidcIssuerUrl) {
 
 if (frontendBaseUrl && backendBaseUrl && oidcIssuerUrl && peterEmail && peterPassword && johnEmail && johnPassword) {
   await record("browser-backed peter/john governance and publish acceptance passes", async () => {
-    const fixture = await fixtureCommand("setup", "--peter-email", peterEmail, "--john-email", johnEmail);
-    const { chromium } = await import("@playwright/test");
-    const browser = await chromium.launch(browserLaunchOptions());
-    try {
+    runManifest = await createRunManifestPath();
+    let browser;
+    await runWithCleanup({
+      setup: async () => {
+        await fixtureCommand("init");
+        return fixtureCommand("setup", "--peter-email", peterEmail, "--john-email", johnEmail);
+      },
+      execute: async (fixture) => {
+      const { chromium } = await import("@playwright/test");
+      browser = await chromium.launch(browserLaunchOptions());
       const johnContext = await browser.newContext();
       const johnPage = await johnContext.newPage();
       await loginAs(johnPage, johnEmail, johnPassword);
@@ -167,23 +177,39 @@ if (frontendBaseUrl && backendBaseUrl && oidcIssuerUrl && peterEmail && peterPas
       if (Number(evidence.opensearch_documents) < 1) {
         throw new Error(`Live OpenSearch publication evidence is incomplete: ${JSON.stringify(evidence)}`);
       }
-    } finally {
-      await browser.close();
-      await fixtureCommand("cleanup", "--project-id", fixture.project_id);
-    }
+      },
+      close: async () => { if (browser) await browser.close(); },
+      cleanup: async () => {
+        if (existsSync(runManifest)) await fixtureCommand("cleanup");
+      }
+    });
   });
 }
 
 async function fixtureCommand(...args) {
   const python = process.env.E2E_PYTHON || defaultPython;
-  const { stdout } = await execFileAsync(python, [fixtureScript, ...args], {
-    cwd: backendRoot,
-    env: process.env,
-    maxBuffer: 1024 * 1024
-  });
+  let stdout;
+  let failed = false;
+  try {
+    ({ stdout } = await execFileAsync(python, [fixtureScript, ...args, "--manifest", runManifest], {
+      cwd: backendRoot, env: process.env, timeout: 120_000, killSignal: "SIGKILL", maxBuffer: 1024 * 1024
+    }));
+  } catch (error) {
+    stdout = error.stdout || ""; failed = true;
+  }
   const line = stdout.trim().split("\n").at(-1);
   if (!line) throw new Error(`Fixture command returned no output: ${args[0]}`);
-  return JSON.parse(line);
+  let result;
+  try { result = JSON.parse(line); }
+  catch { throw new Error("E2E helper returned invalid evidence"); }
+  if (failed || result.status === "failed" || result.status === "blocked") {
+    const error = new Error(result.code === "E2E_BLOCKED"
+      ? "Genuine generation and run-owned workflow receipts are required"
+      : "E2E helper failed; inspect the private run receipt");
+    error.code = result.code || "E2E_HELPER_FAILURE";
+    throw error;
+  }
+  return result;
 }
 
 async function pendingTask(projectId, stage) {

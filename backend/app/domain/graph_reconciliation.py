@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, neo4j_driver_options
 from app.core.errors import AppError
-from app.db.models import Document, DocumentVersion, Project
+from app.db.models import ActiveVersionManifest, ApprovalRequest, Chunk, Document, DocumentVersion, Project
 from app.domain.graph_projection import (GraphProjection, LABELS, PROJECTION_VERSION, RELATIONS, TAG_RELATIONS,
     build_graph_projection, canonical_graph, digest, edge_key, graph_difference)
 
@@ -229,3 +229,64 @@ def synchronize_graph(session: Session, settings: Settings, project_id, document
     if current.binding() != projection.binding():
         raise AppError("graph_source_changed", "Graph source changed during synchronization", status_code=409)
     return result
+
+
+def clear_zero_candidate_chunks(session: Session, settings: Settings, version: DocumentVersion) -> None:
+    """Separate from published tag repair; caller holds the version write lock.
+
+    Keep shared nodes and version/tag relationships. Only demonstrably owned
+    stale Chunk nodes/edges may be removed. Unknown edges fail before any write;
+    ordinary DELETE (never DETACH) also rejects a late unexpected relationship.
+    """
+    if (version.published_at is not None or version.status != "submission_ready"
+        or session.scalar(select(Chunk.id).where(Chunk.document_version_id == version.id, Chunk.status == "active").limit(1))
+        or session.scalar(select(ActiveVersionManifest.id).where(ActiveVersionManifest.document_version_id == version.id).limit(1))
+        or session.scalar(select(ApprovalRequest.id).where(ApprovalRequest.document_version_id == version.id).limit(1))):
+        raise conflict()
+    with Neo4jProjectionStore(settings).connection() as graph:
+        graph.execute_write(_clear_zero_candidate_chunks, str(version.project_id), str(version.document_id), str(version.id))
+
+
+def _clear_zero_candidate_chunks(tx, project_id: str, document_id: str, version_id: str) -> None:
+    versions = list(tx.run("MATCH (v {id:$vid}) RETURN labels(v) AS labels, properties(v) AS props", vid=version_id))
+    if len(versions) > 1 or any(set(row["labels"]) != {"DocumentVersion"}
+        or row["props"].get("project_id") not in (None, project_id)
+        or row["props"].get("document_id") not in (None, document_id) for row in versions):
+        raise conflict()
+    if tx.run("MATCH (d)-[:DOCUMENT_HAS_VERSION]->(v {id:$vid}) "
+              "WHERE d.id IS NULL OR d.id <> $did RETURN d LIMIT 1", vid=version_id, did=document_id).single():
+        raise conflict()
+    rows = list(tx.run("""
+        MATCH (c) WHERE c.document_version_id=$vid OR EXISTS {
+            MATCH (:DocumentVersion {id:$vid})-[:VERSION_HAS_CHUNK]->(c) }
+        RETURN elementId(c) AS key, labels(c) AS labels, properties(c) AS props
+        """, vid=version_id))
+    if not rows:
+        return
+    ids = [row["props"].get("id") for row in rows]
+    if None in ids or len(set(ids)) != len(ids) or any(set(row["labels"]) != {"Chunk"}
+        or row["props"].get("project_id") not in (None, project_id)
+        or row["props"].get("document_version_id") not in (None, version_id) for row in rows):
+        raise conflict()
+    keys = [row["key"] for row in rows]
+    edges = list(tx.run("""
+        MATCH (s)-[r]->(t) WHERE elementId(s) IN $keys OR elementId(t) IN $keys
+        RETURN elementId(r) AS key, type(r) AS kind, properties(r) AS props,
+               s.id AS source, t.id AS target, labels(t) AS target_labels,
+               t.project_id AS target_project
+        """, keys=keys))
+    parents = set()
+    for edge in edges:
+        structural = edge["kind"] == "VERSION_HAS_CHUNK" and edge["source"] == version_id and edge["target"] in ids
+        tag = (edge["kind"] == "CHUNK_HAS_TAG" and edge["source"] in ids
+               and set(edge["target_labels"]) == {"Tag"} and edge["target_project"] == project_id)
+        if not (structural or tag) or edge["props"].get("projection_owner") not in (None, PROJECTION_VERSION):
+            raise conflict()
+        if structural:
+            parents.add(edge["target"])
+    if any(row["props"]["id"] not in parents and (
+        row["props"].get("project_id") != project_id or row["props"].get("document_version_id") != version_id) for row in rows):
+        raise conflict()
+    tx.run("MATCH ()-[r]->() WHERE elementId(r) IN $keys DELETE r", keys=[edge["key"] for edge in edges]).consume()
+    tx.run("MATCH (c) WHERE elementId(c) IN $keys DELETE c", keys=keys).consume()
+    tx.run("MATCH (v:DocumentVersion {id:$vid}) REMOVE v.graph_source_digest", vid=version_id).consume()

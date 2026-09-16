@@ -20,6 +20,7 @@ from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project
+from app.domain.chat_conversations import conversation_identities, lock_conversation, require_conversation_identity, validate_visible_identity
 from app.api.schemas import (
     NotificationCountResponse,
     NotificationPage,
@@ -60,6 +61,7 @@ from app.domain.review_publish import published_index_name
 from app.domain.system_prompts import resolve_system_prompt
 from app.security.context import IdentityContext, get_identity_context
 from app.services.audit import add_audit
+from app.db.models import User
 
 
 router = APIRouter(tags=["serving"])
@@ -227,14 +229,20 @@ def _serving_manifest_chunk_count(session: Session, manifest: ActiveVersionManif
 @router.post("/projects/{project_id}/chat/query", response_model=ProjectChatQueryResponse)
 def query_project_chat(project_id: UUID, payload: ProjectChatQueryPayload, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ProjectChatQueryResponse:
     project = _get_scoped_project(session, project_id, context)
+    conversation_id = payload.conversation_id or uuid4()
+    if payload.scope_mode == "document_staging" and len(set(payload.document_version_ids or [])) != 1:
+        raise AppError("document_version_scope_required", "Document chat requires exactly one document version", status_code=422)
+    # Identity denial precedes even retrieval readiness resolution. An unavailable
+    # index must not disguise a foreign conversation ID as a new conversation.
+    require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
+        user_id=context.user_id, scope_mode=payload.scope_mode,
+        requested_ids=set(payload.document_version_ids) if payload.document_version_ids else None)
     if payload.scope_mode == "document_staging":
         manifest_ids: set[UUID] = set()
         requested_ids = _resolve_document_staging_scope(session, project.id, payload.document_version_ids)
     else:
         _manifests, manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, payload.document_version_ids)
-    conversation_id = payload.conversation_id or uuid4()
-    if payload.conversation_id:
-        _ensure_conversation_can_continue(session, project.id, payload.conversation_id, requested_ids, context.user_id, payload.scope_mode)
+    _ensure_conversation_can_continue(session, project.id, conversation_id, requested_ids, context.user_id, payload.scope_mode)
     started = perf_counter()
     asked_at = datetime.now(UTC)
     citations = (
@@ -340,7 +348,6 @@ def list_project_chat_conversations(
         raise AppError("conversation_scope_invalid", "Published conversation history does not accept a document staging version", status_code=422)
     filters = [
         ChatRecord.project_id == project.id,
-        ChatRecord.created_by == context.user_id,
         ChatRecord.scope_mode == scope_mode,
         ChatRecord.deleted_at.is_(None),
     ]
@@ -398,7 +405,7 @@ def list_project_chat_conversations(
         if conversation_ids
         else []
     )
-    summaries = {item.id: item for item in _conversation_summaries(session, project.id, records, include_records=True)}
+    summaries = {item.id: item for item in _conversation_summaries(session, project.id, records, user_id=context.user_id, include_records=True)}
     items = [summaries[conversation_id] for conversation_id in conversation_ids if conversation_id in summaries]
     next_cursor = None
     if has_more and identities:
@@ -412,7 +419,7 @@ def list_project_chat_conversations(
                 "conversation_id": str(last.conversation_id),
             },
         )
-    return ProjectChatConversationPage(items=items, next_cursor=next_cursor)
+    return ProjectChatConversationPage(items=items, next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/projects/{project_id}/chat/conversations/{conversation_id}", response_model=ProjectChatConversationResponse)
@@ -432,10 +439,15 @@ def get_project_chat_conversation(
         user_id=context.user_id,
         scope_mode=scope_mode,
         document_version_id=document_version_id,
+        shared_read=True,
     )
     if not records:
         raise AppError("conversation_not_found", "Conversation was not found", status_code=404)
-    return _conversation_summaries(session, project.id, records, include_records=True)[0]
+    summaries = _conversation_summaries(session, project.id, records, user_id=context.user_id, include_records=True)
+    if not summaries:
+        # A concurrent delete/identity conflict may invalidate the earlier read.
+        raise AppError("conversation_not_found", "Conversation was not found", status_code=404)
+    return summaries[0]
 
 
 @router.get("/projects/{project_id}/chat/conversations/{conversation_id}/export.csv", response_model=None)
@@ -567,6 +579,9 @@ def update_project_chat_feedback(project_id: UUID, record_id: UUID, payload: Pro
         raise AppError("chat_record_not_found", "Chat record was not found", status_code=404)
     if record.deleted_at is not None:
         raise AppError("chat_record_not_found", "Chat record was not found", status_code=404)
+    _authorized_conversation_records(session, project_id=project.id, conversation_id=record.conversation_id,
+        user_id=context.user_id, scope_mode=record.scope_mode,
+        document_version_id=record.document_version_id if record.scope_mode == "document_staging" else None)
     if payload.evaluation == "needs_revision" and not (payload.revision_suggestion or "").strip():
         raise AppError("revision_suggestion_required", "Revision suggestion is required", status_code=422)
     record.evaluation = payload.evaluation
@@ -771,7 +786,7 @@ def list_project_chat_validation_runs(
             namespace="validation-runs",
             payload={"filter": filter_hash, "created_at": last.created_at.isoformat(), "run_id": str(last.id)},
         )
-    return ValidationRunPage(items=[_validation_run_response(session, run) for run in runs], next_cursor=next_cursor)
+    return ValidationRunPage(items=[_validation_run_response(session, run) for run in runs], next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/projects/{project_id}/chat/validation-runs/{run_id}", response_model=ValidationRunResponse)
@@ -1076,7 +1091,7 @@ def list_validation_runs(
             namespace="validation-run-inventory",
             payload={"filter": filter_hash, "created_at": last.created_at.isoformat(), "id": str(last.id)},
         )
-    return ValidationRunPage(items=[_validation_run_metadata(run) for run in rows], next_cursor=next_cursor)
+    return ValidationRunPage(items=[_validation_run_metadata(run) for run in rows], next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/validation-runs/{run_id}/items", response_model=ValidationRunItemPage)
@@ -1153,7 +1168,7 @@ def list_validation_run_items(
             _validation_item_response(item, citations=citations)
             for item, citations in zip(rows, hydrated_groups, strict=True)
         ],
-        next_cursor=next_cursor,
+        next_cursor=next_cursor, has_more=has_more,
     )
 
 
@@ -1254,7 +1269,7 @@ def list_notifications(
             namespace="notifications",
             payload={"filter": filter_hash, "created_at": last.created_at.isoformat(), "id": str(last.id)},
         )
-    return NotificationPage(items=rows, next_cursor=next_cursor)
+    return NotificationPage(items=rows, next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/notifications/unread-count", response_model=NotificationCountResponse)
@@ -1341,11 +1356,26 @@ def _resolve_document_staging_scope(session: Session, project_id: UUID, document
     requested_ids = set(document_version_ids or [])
     if not requested_ids:
         raise AppError("retrieval_scope_required", "Document staging retrieval requires an explicit document version scope", status_code=422)
-    versions = list(session.scalars(select(DocumentVersion).where(DocumentVersion.id.in_(requested_ids))))
+    # Parent locks must precede the shared Version fence. Otherwise evidence's
+    # parent FKs can wait on a writer that is itself waiting for this Version.
+    # KEY SHARE parents allow concurrent readers; Version SHARE protects JSON
+    # citations through evidence commit. Lock multi-document scopes in ID order.
+    project = session.scalar(select(Project).where(Project.id == project_id)
+        .with_for_update(read=True, key_share=True).execution_options(populate_existing=True))
+    if project is None or project.status != "active":
+        raise AppError("project_archived", "Archived projects cannot serve staging retrieval", status_code=409)
+    scope = list(session.execute(select(DocumentVersion.id, DocumentVersion.document_id, DocumentVersion.project_id)
+        .where(DocumentVersion.id.in_(requested_ids))))
+    if {row.id for row in scope} != requested_ids or any(row.project_id != project_id for row in scope):
+        raise AppError("retrieval_scope_denied", "Retrieval scope must be document versions in this project", status_code=403)
+    document_ids = {row.document_id for row in scope}
+    documents = list(session.scalars(select(Document).where(Document.id.in_(document_ids))
+        .order_by(Document.id).with_for_update(read=True, key_share=True).execution_options(populate_existing=True)))
+    versions = list(session.scalars(select(DocumentVersion).where(DocumentVersion.id.in_(requested_ids))
+        .order_by(DocumentVersion.id).with_for_update(read=True).execution_options(populate_existing=True)))
     if {version.id for version in versions} != requested_ids or any(version.project_id != project_id for version in versions):
         raise AppError("retrieval_scope_denied", "Retrieval scope must be document versions in this project", status_code=403)
-    documents = list(session.scalars(select(Document).where(Document.id.in_({version.document_id for version in versions}))))
-    if {document.id for document in documents} != {version.document_id for version in versions} or any(document.project_id != project_id or document.is_deleted for document in documents):
+    if {document.id for document in documents} != {version.document_id for version in versions} or any(document.project_id != project_id or document.is_deleted or document.status == "deleted" for document in documents):
         raise AppError("retrieval_scope_denied", "Retrieval scope must be non-deleted documents in this project", status_code=403)
     for version in versions:
         require_ready_chunk_artifacts(session, version)
@@ -1375,12 +1405,13 @@ def _authorize_document_staging_identity(
 
 
 def _ensure_conversation_can_continue(session: Session, project_id: UUID, conversation_id: UUID, requested_ids: set[UUID], user_id: UUID, scope_mode: str) -> None:
-    existing = list(session.scalars(select(ChatRecord).where(ChatRecord.project_id == project_id, ChatRecord.conversation_id == conversation_id, ChatRecord.created_by == user_id, ChatRecord.scope_mode == scope_mode, ChatRecord.deleted_at.is_(None)).order_by(ChatRecord.created_at.desc()).limit(1)))
-    if not existing:
-        return
-    previous_scope = _uuid_set(existing[0].selected_document_version_ids)
-    if previous_scope and previous_scope != requested_ids:
-        raise AppError("conversation_scope_locked", "Conversation scope is fixed after the first turn", status_code=409)
+    identity = require_conversation_identity(session, project_id=project_id, conversation_id=conversation_id,
+        user_id=user_id, scope_mode=scope_mode, requested_ids=requested_ids)
+    if identity is not None:
+        eligible = (_staging_continuable_version_ids(session, project_id, requested_ids)
+                    if scope_mode == "document_staging" else _active_version_ids(session, project_id))
+        if not requested_ids or not requested_ids.issubset(eligible):
+            raise AppError("conversation_read_only", "Conversation retrieval scope is no longer available", status_code=403)
 
 
 def _select_chat_model(session: Session, project: Project) -> AIModel:
@@ -1429,10 +1460,10 @@ def _authorized_conversation_records(
     user_id: UUID,
     scope_mode: str,
     document_version_id: UUID | None,
+    shared_read: bool = False,
 ) -> list[ChatRecord]:
     filters = [
         ChatRecord.project_id == project_id,
-        ChatRecord.created_by == user_id,
         ChatRecord.conversation_id == conversation_id,
         ChatRecord.scope_mode == scope_mode,
         ChatRecord.deleted_at.is_(None),
@@ -1444,11 +1475,20 @@ def _authorized_conversation_records(
         filters.append(ChatRecord.document_version_id == document_version_id)
     elif document_version_id is not None:
         raise AppError("conversation_scope_invalid", "Published conversation does not accept a document staging version", status_code=422)
+    if not shared_read:
+        lock_conversation(session, conversation_id)
+    identity = conversation_identities(session, [conversation_id]).get(conversation_id)
+    if identity is None:
+        raise AppError("conversation_not_found", "Conversation was not found", status_code=404)
+    validate_visible_identity(identity, project_id=project_id, scope_mode=scope_mode, document_version_id=document_version_id)
+    if not shared_read and identity.creator_id != user_id:
+        raise AppError("conversation_read_only", "Only the conversation creator may change it", status_code=403)
     return list(
         session.scalars(
             select(ChatRecord)
             .where(*filters)
             .order_by(ChatRecord.asked_at, ChatRecord.id)
+            .execution_options(populate_existing=True)
         )
     )
 
@@ -1461,7 +1501,13 @@ def _csv_row(values: list | tuple) -> str:
     return output.getvalue()
 
 
-def _conversation_summaries(session: Session, project_id: UUID, records: list[ChatRecord], *, include_records: bool = False) -> list[ProjectChatConversationResponse]:
+def _conversation_summaries(session: Session, project_id: UUID, records: list[ChatRecord], *, user_id: UUID | None = None, include_records: bool = False) -> list[ProjectChatConversationResponse]:
+    identities = conversation_identities(session, list({record.conversation_id for record in records}))
+    # Never partially expose mixed-author/scope history selected by a narrower query.
+    records = [record for record in records if identities[record.conversation_id].valid
+               and identities[record.conversation_id].project_ids == {project_id}]
+    names = dict(session.execute(select(User.id, User.display_name).where(
+        User.id.in_({record.created_by for record in records}))).all()) if records else {}
     active_ids = _active_version_ids(session, project_id)
     hydrated_by_record_id: dict[UUID, list] = {}
     if include_records and records:
@@ -1482,6 +1528,8 @@ def _conversation_summaries(session: Session, project_id: UUID, records: list[Ch
     for conversation_id, rows in grouped.items():
         ordered = sorted(rows, key=lambda row: row.asked_at)
         latest = max(ordered, key=lambda row: row.created_at)
+        creator_id = identities[conversation_id].creator_id
+        is_mine = creator_id is not None and creator_id == user_id
         selected_ids = sorted(_uuid_set(latest.selected_document_version_ids), key=str)
         continuable_ids = (
             _staging_continuable_version_ids(session, project_id, set(selected_ids))
@@ -1496,7 +1544,15 @@ def _conversation_summaries(session: Session, project_id: UUID, records: list[Ch
                 selected_document_version_ids=selected_ids,
                 message_count=len(ordered),
                 updated_at=latest.created_at,
-                can_continue=bool(selected_ids) and set(selected_ids).issubset(continuable_ids),
+                can_continue=is_mine and bool(selected_ids) and set(selected_ids).issubset(continuable_ids),
+                created_by_user_id=creator_id,
+                created_by_display_name=names.get(creator_id),
+                is_mine=is_mine,
+                can_delete=is_mine,
+                can_evaluate=is_mine,
+                can_export=is_mine,
+                read_only_reason=("not_conversation_creator" if not is_mine else
+                                  "retrieval_scope_unavailable" if not selected_ids or not set(selected_ids).issubset(continuable_ids) else None),
                 records=[_chat_record_response(row, citations=hydrated_by_record_id.get(row.id)) for row in ordered] if include_records else [],
             )
         )

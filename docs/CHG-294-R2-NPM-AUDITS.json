@@ -1,0 +1,36 @@
+{
+  "change": "CHG-294 R2",
+  "verifiedOn": "2026-09-10",
+  "workspace": "/tmp/chg294-r2.5S694K/frontend",
+  "node": "24.21.0",
+  "npm": "11.19.0",
+  "packageSha256": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404",
+  "lockSha256": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+  "outputs": [
+    {
+      "command": "npm audit --json --cache=/tmp/chg294-r2.5S694K/npm-cache",
+      "exitCode": 0,
+      "json": {
+        "auditReportVersion": 2,
+        "vulnerabilities": {},
+        "metadata": {
+          "vulnerabilities": {"info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 0},
+          "dependencies": {"prod": 174, "dev": 464, "optional": 96, "peer": 10, "peerOptional": 0, "total": 677}
+        }
+      }
+    },
+    {
+      "command": "npm audit --omit=dev --json --cache=/tmp/chg294-r2.5S694K/npm-cache",
+      "exitCode": 0,
+      "json": {
+        "auditReportVersion": 2,
+        "vulnerabilities": {},
+        "metadata": {
+          "vulnerabilities": {"info": 0, "low": 0, "moderate": 0, "high": 0, "critical": 0, "total": 0},
+          "dependencies": {"prod": 174, "dev": 464, "optional": 96, "peer": 10, "peerOptional": 0, "total": 677}
+        }
+      }
+    }
+  ],
+  "boundary": "Complete JSON command outputs, not image security, exploit reachability, full E2E or release acceptance."
+}

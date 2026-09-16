@@ -1,6 +1,21 @@
 {{- if or (hasKey .Values.backend.env "DEPLOYMENT_BOOTSTRAP_RELEASE") (hasKey .Values.frontend.env "DEPLOYMENT_BOOTSTRAP_RELEASE") }}
 {{- fail "DEPLOYMENT_BOOTSTRAP_RELEASE is chart-managed and cannot be overridden" }}
 {{- end }}
+{{- range $env := list .Values.backend.env .Values.frontend.env }}
+{{- range $name, $_ := $env }}
+{{- if has (upper $name) (list "MIGRATION_REQUIRED_VERSION" "MIGRATION_REQUIRED_CHECKSUM" "MIGRATION_CHECK_TIMEOUT_SECONDS") }}
+{{- fail (printf "%s is chart-managed; configure migration.* instead" $name) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $migrationVersion := toString .Values.migration.requiredVersion }}
+{{- $migrationChecksum := toString .Values.migration.requiredChecksum }}
+{{- if ne (eq $migrationVersion "") (eq $migrationChecksum "") }}
+{{- fail "migration.requiredVersion and requiredChecksum must be configured together" }}
+{{- end }}
+{{- if and (ne $migrationChecksum "") (or (lt (int64 $migrationChecksum) (int64 "-2147483648")) (gt (int64 $migrationChecksum) (int64 "2147483647"))) }}
+{{- fail "migration.requiredChecksum must be a signed 32-bit Flyway checksum" }}
+{{- end }}
 {{- $bootstrapEvidenceRelease := .Values.bootstrap.evidenceRelease | default (printf "%s-%d" .Release.Name .Release.Revision) }}
 apiVersion: v1
 kind: ConfigMap
@@ -12,6 +27,9 @@ data:
   INSTALLER_DEPLOYMENT_STAGE: {{ .Values.installer.deploymentStage | quote }}
   INSTALLER_FINALIZATION_ENABLED: {{ .Values.bootstrap.finalize.enabled | quote }}
   DEPLOYMENT_BOOTSTRAP_RELEASE: {{ $bootstrapEvidenceRelease | quote }}
+  MIGRATION_REQUIRED_VERSION: {{ .Values.migration.requiredVersion | quote }}
+  MIGRATION_REQUIRED_CHECKSUM: {{ .Values.migration.requiredChecksum | quote }}
+  MIGRATION_CHECK_TIMEOUT_SECONDS: {{ .Values.migration.checkTimeoutSeconds | quote }}
   DEPLOYMENT_PHASE: {{ .Values.bootstrap.deploymentPhase | quote }}
   LOCAL_DEVELOPMENT_PLATFORM: {{ ternary .Values.localDevelopment.platform "disabled" .Values.localDevelopment.enabled | quote }}
   KNOWN_LOCAL_CREDENTIAL_RISK_ACCEPTED: {{ .Values.localDevelopment.knownCredentialRiskAccepted | quote }}

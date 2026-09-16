@@ -21,6 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, neo4j_driver_options
 from app.db.models import IdentitySyncRun
+from app.deployment.migration_gate import MigrationGateError, migration_connection, migration_target_detail
 from app.integrations.health import DependencyStatus
 from app.integrations.keycloak import NOMOSMART_BROWSER_FLOW, KeycloakAdminClient, nomosmart_realm_theme_ready, nomosmart_realm_theme_settings
 from app.integrations.redis_ha import redis_client
@@ -160,15 +161,8 @@ def _reject_retired_security_environment() -> None:
 
 
 def _database_check(settings: Settings) -> BootstrapCheck:
-    engine = create_engine(settings.database_url.get_secret_value(), pool_pre_ping=True)
     try:
-        with engine.connect() as connection:
-            flyway_table = connection.scalar(text("SELECT to_regclass('public.flyway_schema_history')"))
-            if not flyway_table:
-                raise BootstrapFailure("database_migration_history_missing")
-            failed = int(connection.scalar(text("SELECT count(*) FROM flyway_schema_history WHERE success = false")) or 0)
-            if failed:
-                raise BootstrapFailure("database_migration_failed")
+        with migration_connection(settings) as connection:
             tables = set(
                 connection.scalars(
                     text(
@@ -217,13 +211,13 @@ def _database_check(settings: Settings) -> BootstrapCheck:
             )
             if unfinished_scans:
                 raise BootstrapFailure("legacy_scan_work_requires_resolution")
+    except MigrationGateError as exc:
+        raise BootstrapFailure(exc.code) from exc
     except BootstrapFailure:
         raise
     except Exception as exc:
         raise BootstrapFailure("database_unavailable") from exc
-    finally:
-        engine.dispose()
-    return BootstrapCheck("database", "migrated")
+    return BootstrapCheck("database", migration_target_detail(settings))
 
 
 def _bootstrap_evidence_check(settings: Settings) -> BootstrapCheck:
@@ -1014,11 +1008,12 @@ def _reconcile_identity_database(settings: DeploymentBootstrapSettings, *, clien
 def run_bootstrap(settings: DeploymentBootstrapSettings, *, ensure: bool) -> list[BootstrapCheck]:
     _release_id(settings)
     _reject_retired_security_environment()
+    database_check = _database_check(settings)
     if ensure:
         _ensure_opensearch_service_identity(settings)
         _ensure_neo4j_service_identity(settings)
     checks = [
-        _database_check(settings),
+        database_check,
         _redis_check(settings),
         _s3_check(settings, ensure=ensure),
         _opensearch_check(settings),
@@ -1195,8 +1190,8 @@ def runtime_bootstrap_status(settings: Settings) -> list[DependencyStatus]:
     statuses: list[DependencyStatus] = []
     for name, callback in checks:
         try:
-            callback()
-            statuses.append(DependencyStatus(name, True, "ready"))
+            check = callback()
+            statuses.append(DependencyStatus(name, True, check.detail if name == "deployment.database" else "ready"))
         except BootstrapFailure as exc:
             statuses.append(DependencyStatus(name, False, exc.code))
     return statuses
@@ -1211,7 +1206,11 @@ def _parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = _parse_args()
-    settings = DeploymentBootstrapSettings()
+    try:
+        settings = DeploymentBootstrapSettings()
+    except ValueError:
+        print(json.dumps({"status": "failed", "code": "deployment_configuration_invalid"}), file=sys.stderr)
+        return 1
     wait_seconds = settings.deployment_bootstrap_wait_seconds if args.wait_seconds is None else max(0, args.wait_seconds)
     deadline = time.monotonic() + wait_seconds
     while True:

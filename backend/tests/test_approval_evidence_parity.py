@@ -24,7 +24,9 @@ def test_approval_detail_exposes_readonly_knowledge_evidence() -> None:
 
     for helper in [
         "_original_file_metadata(document.project_id, document.id, version)",
-        "_document_layout(version)",
+        # CHG-282/284: layout parity uses the canonical Markdown artifact, not
+        # a stale pre-rendered layout alone.
+        "_document_layout(version, markdown_artifact.text)",
         "_source_text(version, chunks)",
         "resolve_markdown_artifact(session, version)",
         "markdown_text=markdown_artifact.text",

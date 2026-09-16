@@ -14,6 +14,7 @@ from app.core.errors import AppError
 from app.db.models import AIModel, ChatRecord, Project, ValidationRun, ValidationRunItem
 from app.domain.ai_provider import evaluate_rag_answer, generate_rag_answer
 from app.domain.chat_citations import citation_persistence_payload, validate_citation_markers
+from app.domain.chat_conversations import require_conversation_identity
 from app.domain.model_usage import record_model_usage
 from app.domain.system_prompts import (
     SystemPromptLayer,
@@ -88,6 +89,10 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             (run.execution_manifest or {})["retrieval_top_k"]
         )
         selected_ids = _uuid_set(item.selected_document_ids) or _uuid_set(run.selected_document_ids)
+        conversation_id = uuid4()
+        chat_scope_mode = "document_staging" if run.run_scope == "document_staging" else "published"
+        require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
+            user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids, unused_only=True)
         if run.run_scope == "document_staging":
             requested_ids = serving._resolve_document_staging_scope(session, project.id, list(selected_ids))
             citations = serving._search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
@@ -114,7 +119,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             project_id=project.id,
             document_version_id=next(iter(requested_ids)) if len(requested_ids) == 1 else None,
             scope_mode=chat_scope_mode,
-            conversation_id=uuid4(),
+            conversation_id=conversation_id,
             conversation_title=f"Validation: {item.question[:80]}",
             selected_document_version_ids=[str(value) for value in sorted(requested_ids, key=str)],
             question=item.question,

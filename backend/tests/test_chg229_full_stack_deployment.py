@@ -56,7 +56,9 @@ def test_compose_defaults_to_the_complete_internal_stack_and_only_edge_publishes
     assert "CREATE ROLE %I LOGIN PASSWORD %L" in read("deploy/docker/postgresql-init.sh")
     postgresql_image = read("deploy/postgresql/Dockerfile")
     assert "COPY --chmod=0555 docker/postgresql-init.sh" in postgresql_image
-    assert "NOMOSMART_REMAP_SECRETS=1" in postgresql_image
+    assert "NOMOSMART_REMAP_SECRETS=1" not in postgresql_image
+    assert services["postgresql"]["entrypoint"] == ["/opt/nomosmart/compose-secret-entrypoint.sh", "postgresql", "docker-entrypoint.sh"]
+    assert services["postgresql"]["command"] == ["postgres"]
     assert "secret-env-entrypoint.sh" in postgresql_image
     assert 'CMD ["postgres"]' in postgresql_image
     rustfs_health = " ".join(services["rustfs"]["healthcheck"]["test"])
@@ -110,13 +112,23 @@ def test_helm_schema_rejects_ambiguous_modes_and_floating_tags() -> None:
     image_tag = schema["definitions"]["image"]["properties"]["tag"]
     assert component_mode["enum"] == ["bundled", "external"]
     assert set(image_tag["not"]["enum"]) == {"latest", "stable", "main", "master"}
+    helm = shutil.which("helm")
+    assert helm, "Real local Helm is required for values schema acceptance"
+    baseline = subprocess.run([helm, "template", "chg295-contract", str(CHART)], capture_output=True, text=True)
+    assert baseline.returncode == 0, baseline.stderr
     for name in PERIPHERALS:
-        expected = "#/definitions/opensearch" if name == "opensearch" else "#/definitions/component"
-        assert schema["properties"][name]["$ref"] == expected
+        # Equivalent inline/allOf/$ref schemas are acceptable; validate behavior
+        # with Helm rather than requiring one serialization of JSON Schema.
+        for field, value in [("mode", "ambiguous"), *[("image.tag", tag) for tag in image_tag["not"]["enum"]]]:
+            result = subprocess.run([helm, "template", "chg295-contract", str(CHART),
+                "--set-string", f"{name}.{field}={value}"], capture_output=True, text=True)
+            assert result.returncode != 0, (name, field, value)
+            assert name in result.stderr and "schema" in result.stderr.lower(), result.stderr
 
 
 def test_migration_image_uses_the_verified_current_flyway_release() -> None:
-    assert "FROM flyway/flyway:13.0.0-alpine" in read("deploy/migrations/Dockerfile")
+    assert "FROM flyway/flyway:13.6.0-alpine@sha256:fb7f326765649205574551e25ba774e432ea840b126983d6ec3bbda8f21b137c" in read("deploy/migrations/Dockerfile")
+    # Historical live-acceptance harness is not the current release image.
     assert '"flyway/flyway:13.0.0-alpine"' in read("backend/scripts/migration_live_acceptance.py")
 
 
@@ -133,19 +145,25 @@ def test_frontend_and_migration_images_use_the_chart_numeric_non_root_identity()
     assert "adduser -S -u 10001" in read("frontend/Dockerfile")
     migration = read("deploy/migrations/Dockerfile")
     assert "adduser -S -D -h /home/nomosmart -u 10001" in migration
-    assert "NOMOSMART_RUN_AS=10001:10001" in migration
-    assert "USER 0" in migration
+    assert "NOMOSMART_RUN_AS=" not in migration
+    assert "USER 10001:10001" in migration
     assert "apk add --no-cache su-exec" in migration
     rustfs = read("deploy/rustfs/Dockerfile")
-    assert "NOMOSMART_RUN_AS=10001:10001" in rustfs
-    assert "USER 0" in rustfs
-    assert "apk add --no-cache su-exec" in rustfs
-    entrypoint = read("deploy/docker/secret-env-entrypoint.sh")
+    assert "NOMOSMART_RUN_AS=" not in rustfs
+    assert "USER 10001:10001" in rustfs
+    assert "apk add --no-cache --upgrade" in rustfs
+    for package in ("su-exec=0.3-r0", "curl=8.22.0-r0", "libcurl=8.22.0-r0",
+                    "libssl3=3.5.8-r0", "libcrypto3=3.5.8-r0"):
+        assert package in rustfs
+    entrypoint = read("deploy/docker/compose-secret-entrypoint.sh")
     assert "su-exec" in entrypoint
     assert "--reuid" in entrypoint
     assert "NOMOSMART_REMAP_SECRETS" in entrypoint
     assert "previous_umask" in entrypoint
-    assert "/run/nomosmart/secrets" in entrypoint
+    assert "private=/run/nomosmart" in entrypoint
+    shared = read("deploy/docker/secret-env-entrypoint.sh")
+    assert "su-exec" not in shared
+    assert "chmod" not in shared
 
 
 def test_public_oidc_issuer_is_separate_from_internal_transport() -> None:

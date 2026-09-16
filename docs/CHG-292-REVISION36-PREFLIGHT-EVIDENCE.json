@@ -1,0 +1,2873 @@
+{
+  "change": "CHG-292",
+  "purpose": "Revision 36 read-only protected baseline; NOT deployment authorization or backup",
+  "status": "BLOCKED_HEALTH_ACCEPTANCE",
+  "source_head": "bbaf03850fd83892327c9e47cf3e9f8da7dbc5f3",
+  "observations": {
+    "cluster_initial_utc": "2026-09-08T18:55:49.416749+00:00",
+    "data_first_utc": "2026-09-08T18:59:06.429118+00:00",
+    "data_last_utc": "2026-09-08T19:02:30.470290+00:00",
+    "graph_first_utc": "2026-09-08T18:59:44.913943+00:00",
+    "graph_last_utc": "2026-09-08T19:03:17.807137+00:00"
+  },
+  "verification": {
+    "resource_digest_before_after": "3663917ffdeb0337847683471c5aaaf8d9b55b6ed77ab791e4f41c45a936f505",
+    "all_59_table_count_digest_parity": true,
+    "index_metadata_parity": true,
+    "neo4j_metadata_parity": true,
+    "maas_scope_parity": true
+  },
+  "cluster": {
+    "backend_pods": [
+      {
+        "images": [
+          {
+            "image_id": "docker.io/nomosmart/backend@sha256:465a14eee6601d91a419840a951e9cb0347c4c9d7099c4891bd0c78bdf8fcff5",
+            "name": "backend",
+            "ready": true
+          }
+        ],
+        "name": "nomosmart-local-backend-6d6bfbd467-8d8xt",
+        "phase": "Running",
+        "uid": "18f0d601-06a5-42ec-80de-1e020fbf8717"
+      }
+    ],
+    "configmaps": [
+      {
+        "data_sha256": "da5463607dae1e4d71531f3bd9d6222b7e39bf57412d0a09bded560e19143fe8",
+        "name": "nomosmart-local-compatibility",
+        "uid": "a14758be-0bbb-4980-8509-38edd7c09db9"
+      },
+      {
+        "data_sha256": "80b691149df1e77c2d87869a1e9dac6b8da54b6d6e56048f38283fb5c4752c41",
+        "name": "nomosmart-local-config",
+        "uid": "0feaa1d2-d161-4647-bdfd-62466aae8d18"
+      },
+      {
+        "data_sha256": "29dd3f850577de1e7fbfd6270d8c0b4d72f5336aa52ad4ce7444d8ece2d352e0",
+        "name": "nomosmart-local-postgresql-init",
+        "uid": "7134b716-8a4b-4f14-a935-bca385e8484e"
+      }
+    ],
+    "image_ids": {
+      "nomosmart/backend:0.1.0-chg292": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+      "nomosmart/frontend:0.1.0-chg292": "sha256:82df26d3807ebc3904826135ae61f10aaf3a6a2a6a5464d2d822638a7935bbd9",
+      "nomosmart/migrations:0.1.0-chg288": "sha256:bf9cb98e13bc396210a0a82bd785e602bde14ae4e240ca5f81fc9b9c0d4dafab"
+    },
+    "ingresses": [
+      {
+        "allowlist": "127.0.0.1/32,10.244.0.0/16",
+        "annotations_sha256": "723f81be5ab5f7bbbbce530f9adafb35db0b55b0cba78b81a803be643f6260ab",
+        "name": "nomosmart-local",
+        "spec_sha256": "8cc65a5bef0fed176ec7317d85cd67746ff7d73abcf069be26686ec0144efc4f",
+        "uid": "ca265ba3-b664-4dd7-ac66-fe50962dfdb2"
+      },
+      {
+        "allowlist": "127.0.0.1/32,10.244.0.0/16",
+        "annotations_sha256": "175187d9c3563ca0a823b5708dd149b7b4aea40ee6f9e9cd35e16f00f819daea",
+        "name": "nomosmart-local-keycloak-admin",
+        "spec_sha256": "74d01b4c2a78de589e2867bead155ee739b9ca126039d08abe4bb8c440e55061",
+        "uid": "fafc437c-9685-4e2f-ba12-59991ef496fa"
+      }
+    ],
+    "jobs": [
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-10",
+        "spec_sha256": "c0f7142bee1685e3357019ffee9a2a3b532f9656b6955dad65abb43f585c1329",
+        "succeeded": 1,
+        "uid": "75083744-f182-4ea9-879f-dc3693c88ad2"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-11",
+        "spec_sha256": "6a12285c0fc7fddb70d25cebd3a4c93c862cf99dd96a975b72b7aee166c23046",
+        "succeeded": 1,
+        "uid": "c5ad534b-32af-46c9-85f6-9e46a3e02165"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-12",
+        "spec_sha256": "95634bab4c05f28d79bfca761c70cc1408bbaa43609a6712a6a70f53c8306989",
+        "succeeded": 1,
+        "uid": "51fd3507-f4cc-4a7b-8203-b5ebdcff8dec"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-13",
+        "spec_sha256": "131d71a808e3d4fbf5d255d0cf3103f4c3d8430243ea417e46c00c2d3658c0b0",
+        "succeeded": 1,
+        "uid": "815d4854-11c6-4897-8758-568d910a4e96"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-14",
+        "spec_sha256": "b157c6327d189d223f5e0be750587df61d9555a457ece84dc5468e7c83eb6cda",
+        "succeeded": 1,
+        "uid": "379c57fc-c0ff-4f13-91ed-54e684eb8839"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-15",
+        "spec_sha256": "119e8b9088b832450c774e10c372e34befadbfdc570006abf5d1d429659c1dd1",
+        "succeeded": 1,
+        "uid": "1b27d90f-b725-4f98-b8a7-a787794c9f9c"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-16",
+        "spec_sha256": "f9b9e88ff5307c63552abc9c6e88967547e982a39c8ce90f1f4a9e6d9cd5fbcb",
+        "succeeded": 1,
+        "uid": "4ec16681-2608-426b-a884-8be9d02f1c27"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-17",
+        "spec_sha256": "15477aa93eceef06cc6382ee0e583a30ca1b7729fd4b3930043ae7e4081c4979",
+        "succeeded": 1,
+        "uid": "ce7ff3f7-a26d-4695-ba8e-99c0cb3bd6bd"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-18",
+        "spec_sha256": "5374eec42c4fa6a24f7c5f675eb7ffce12320dc1c6d675c79eea6d6df5e6d8be",
+        "succeeded": 1,
+        "uid": "a3bcc57c-2fdb-4b43-a58b-be369f181351"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-19",
+        "spec_sha256": "68985722e0bb51256c71b02cfe836b46ca3fb6d76cfec7a1b445dbf4634d5d22",
+        "succeeded": 1,
+        "uid": "57f3de2e-fd5f-4f9f-b2f3-70f69c010c70"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-20",
+        "spec_sha256": "f5cd3517913114ae6e40c7e8315c742adf85de706cf8f7af99e27c5742f6ae27",
+        "succeeded": 1,
+        "uid": "4b42de7e-569d-412c-8339-e0cee95e949f"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-21",
+        "spec_sha256": "deda7e67fcd79b79d13fd776ec5b37f27f1d6a95460b426a0b1a306f12f85541",
+        "succeeded": 1,
+        "uid": "0b96687e-7a64-44e5-b284-e7a4c51322fa"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-23",
+        "spec_sha256": "c6dcbcb4bded6e73ce0191ae6634191c1c0e92a3b02c79d7d4cb84e4a4c5e567",
+        "succeeded": 1,
+        "uid": "b842ebb4-c43a-452b-9a6b-e3f55663e6fe"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-24",
+        "spec_sha256": "d89d0e01156cb8854051e57f711846cfbb83daa7d5a4521998acf3ecf49354e7",
+        "succeeded": 1,
+        "uid": "0fb70e83-1c1a-4de9-bb2d-eae96b64133b"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-25",
+        "spec_sha256": "a997a31f03b93b5e5b31e5032c902bc5ad41687169a722b3b949916b980d4bde",
+        "succeeded": 1,
+        "uid": "5d17b29d-a1bb-4993-96b5-7a042673e1b7"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-26",
+        "spec_sha256": "2948827401abccc27b15633d64671aae07a8a3d4e11211ac6b3b0232ea95b290",
+        "succeeded": 1,
+        "uid": "2121d3fa-8424-4621-ab1f-972b0a338159"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-27",
+        "spec_sha256": "a1bc10878c027aa22bda26426cddacfc533441273d719693581fec3af6c70500",
+        "succeeded": 1,
+        "uid": "6fd52699-c696-48a7-b995-722ba5509a0a"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-28",
+        "spec_sha256": "5ef5981d8ac0a767c71beccf859547c256266192286ef22c3b418b2cd38d6c87",
+        "succeeded": 1,
+        "uid": "79204c92-42ac-49e3-8121-2c74f3a04d29"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-29",
+        "spec_sha256": "70917574cedf4e8970304d092042ab0af17da560663bf1293e165d4c524fea74",
+        "succeeded": 1,
+        "uid": "a05e7de4-36ea-44b7-babe-223103de94e2"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-30",
+        "spec_sha256": "47f78c69d5c959ad63e16ba9d833923d35dc70445714b101855aa4750a1e52f7",
+        "succeeded": 1,
+        "uid": "db57139b-e7ce-45f8-a09c-56c0d2b954f1"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-31",
+        "spec_sha256": "512c23cc9664e38bf311674f822dafb20ff29b0a7dca0678bbf0818396a1e408",
+        "succeeded": 1,
+        "uid": "4dd7be46-eeae-4096-87f1-88e0ce5c6d33"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-32",
+        "spec_sha256": "c8cb829ef48c4eefe26d402f6c7f0ae2aed515a055dca44fa936db598d71a4ae",
+        "succeeded": 1,
+        "uid": "7d295018-f5a9-4017-921d-f796da95e38c"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-33",
+        "spec_sha256": "41dade64b370aa97b80be482712e9db9ff261a486d6a7315d1afa9ad6291d565",
+        "succeeded": 1,
+        "uid": "fbf4d1d3-7070-487a-b6ba-cdaecd778663"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-34",
+        "spec_sha256": "58072add7124eaa442d79a3196eb867df376964e1cc4166bbe04103c08f2d51c",
+        "succeeded": 1,
+        "uid": "5acb8f7d-29b5-4845-b7a6-050cc73fb338"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-35",
+        "spec_sha256": "7e6c0e9604a4d87841efa4b2e962e7754e52a1138a61f57fa2c6a3a19163262f",
+        "succeeded": 1,
+        "uid": "62d3d409-d870-4ddb-b314-33f00118a577"
+      },
+      {
+        "active": 0,
+        "failed": 4,
+        "name": "nomosmart-local-bootstrap-5",
+        "spec_sha256": "6718256e1c887710bf9cd677ee9938becdf7e4b96da3ecb467156874499fa0d1",
+        "succeeded": 0,
+        "uid": "764b7fa8-8b72-40aa-a6a5-b1c1b51cf598"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-8",
+        "spec_sha256": "a6173f51694d2e5e9baf5bce10c3a2a924195399c686f4023341385f5498834e",
+        "succeeded": 1,
+        "uid": "b71d516f-1c26-4a4c-be96-cb75587ced2e"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-bootstrap-9",
+        "spec_sha256": "c48438db46449a9044f6c7804dea97c8a0aa25cab25b81d1c2fcb0e21e291006",
+        "succeeded": 1,
+        "uid": "97a178d4-2bcd-4cef-9e99-5787fcda5df8"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-10",
+        "spec_sha256": "ee56cce35b8078997fd479af613002caf88b26aedb917b87b92ad05cadd23683",
+        "succeeded": 1,
+        "uid": "a9de4621-ab36-4721-bfec-7a9275c18ebc"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-11",
+        "spec_sha256": "63574e1d738ff1860337c0d29b3f03f19d1e329526463a5a2918ab8e6b21915f",
+        "succeeded": 1,
+        "uid": "1e8bb4af-b63a-47cf-b7d2-c1ddc4ba491f"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-12",
+        "spec_sha256": "45dcbb312b4836f98d9f375eb20802e70dc4d420b8a29475525235db68500594",
+        "succeeded": 1,
+        "uid": "21503b76-1be8-44dc-8950-3025f3cf7cae"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-13",
+        "spec_sha256": "8ef9f47445750d56ba0dda7a2ed11bbe9862555514903a0a4a2f32daab0d0660",
+        "succeeded": 1,
+        "uid": "2bca7147-7a33-47b7-b8ed-288218feadc0"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-14",
+        "spec_sha256": "7f9386b69164b9af9063ef95af42bdd786ee05a1785e1238c6a2f9bb74da2590",
+        "succeeded": 1,
+        "uid": "33643e96-702e-4736-bdd1-85b33fb80a02"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-15",
+        "spec_sha256": "8528cc5a1482869c37f3a45a0e5b4607ec4da77b5c666c807c0127ea6c884cf0",
+        "succeeded": 1,
+        "uid": "e3a9d81d-b128-42da-8571-e0a52ec20c50"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-16",
+        "spec_sha256": "45b22dde0640e7a46b433e998991efd24e09b2a1a68bddf05b079b76de392c84",
+        "succeeded": 1,
+        "uid": "07e3189f-f7a3-455b-8322-c66790248bf0"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-17",
+        "spec_sha256": "51279010ace77cb46701075fbb44eec7b3f14e98db0033d3848b4ca149632493",
+        "succeeded": 1,
+        "uid": "06271668-4acf-423e-bb56-2b167f2c440c"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-18",
+        "spec_sha256": "86e45d00adf64cde091319f9c07d1d8e7490359c421c0ac0dd3e05ed8eec6653",
+        "succeeded": 1,
+        "uid": "cc6e7601-bf75-44e4-b252-089e98f8a0f4"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-19",
+        "spec_sha256": "557eaa1b0887a692b70cd65b1735f57dfb4d095492238e376eba051b3c62e4a0",
+        "succeeded": 1,
+        "uid": "1fc4ee16-893d-4f80-9b86-920cb1dfe8c1"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-20",
+        "spec_sha256": "07211f2d57a9d4133043897d62ef799fb08dc0779b9bcc84d431659b412b3c8b",
+        "succeeded": 1,
+        "uid": "39db77b5-bb57-4f2d-93a0-cd28f2c116c8"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-21",
+        "spec_sha256": "a1e80fb4509dc9d5e609360ca209c9cc94f517c62df155091c91861b29a1b551",
+        "succeeded": 1,
+        "uid": "9890b8d3-6e13-4a21-bdab-3f9bbde961f1"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-23",
+        "spec_sha256": "dbb51bdb122c8c50fb48f833571ddb4a7232d791c2ff6ac703b2bfcd53b819d9",
+        "succeeded": 1,
+        "uid": "789ce63c-d699-4811-ae23-7da151dcce33"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-24",
+        "spec_sha256": "6f9763fce85eae9c17693a8f6b7b5256293a090021b0899cd3116f10fa0e98be",
+        "succeeded": 1,
+        "uid": "83a15c39-4cf6-4944-9076-2a76ce602e7f"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-25",
+        "spec_sha256": "163c449d878c9911b1d5299ade36a01e7f4d39235fa3b2c80e78e0e0011807d7",
+        "succeeded": 1,
+        "uid": "88a60cde-c188-49ef-a487-d50a7fb5a93d"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-26",
+        "spec_sha256": "13ef56b3ce197d36bcbd40a7470d090d4c853d7ce248697bba5dbc09b25af573",
+        "succeeded": 1,
+        "uid": "4f900d91-7a28-481b-8b23-a9aaa658f5ea"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-27",
+        "spec_sha256": "45ea81b417716c6387cd5c85c2ff8f6aa6f696f15ec1e5e9d34bd776ece00bdc",
+        "succeeded": 1,
+        "uid": "88cb0b51-22a1-449b-8437-9ea928353c80"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-28",
+        "spec_sha256": "aa607ba9941807a468a5e0beb4847388b7a36450786e8cd5a35dc45f1c7f4eab",
+        "succeeded": 1,
+        "uid": "75a48744-b25a-4e35-89bd-a9a6ed60310c"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-29",
+        "spec_sha256": "5189a85eb96004e56105b6ba95520a1bb8679a0a30220827b17b918f52dff230",
+        "succeeded": 1,
+        "uid": "2dbed507-ad43-42ab-bd50-57ae9c8232b6"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-30",
+        "spec_sha256": "1d6e2312101473af111b4eab0492c9b0f88556824777a34ff8c8b16d054a5c38",
+        "succeeded": 1,
+        "uid": "e8e15c62-2097-4864-8b72-f2db9f1d10a1"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-31",
+        "spec_sha256": "c0ed93e575bbb1b43575183c757edfa8af55434071f40ed1e8c9b70db1e411da",
+        "succeeded": 1,
+        "uid": "5957c16c-daa6-41ce-ba7e-7fe50d1f7670"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-32",
+        "spec_sha256": "92a42efb60a22f6b771443b564e603f31ef8371a68520ee05cc31a2abe6c91de",
+        "succeeded": 1,
+        "uid": "59d4baaf-0959-4732-b32c-896bde5b3a67"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-33",
+        "spec_sha256": "af6646eedc548c9ae1fcee456aba02a964524338dbec39beec4db8aaabbbc6b1",
+        "succeeded": 1,
+        "uid": "3d3cb2f5-b0e3-4446-8914-d52512008887"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-34",
+        "spec_sha256": "b0b15291d68ecff4ce208423f2e9115383523a92c1d93d6903845a05174865b6",
+        "succeeded": 1,
+        "uid": "511a113f-c5c7-4fc6-baa3-660e59fc580c"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-35",
+        "spec_sha256": "534d0b04f9f1da817c62884cd18c0ba179a67b2aef79cda558b39e4d26be2fc0",
+        "succeeded": 1,
+        "uid": "6508be23-f50e-4036-ba84-dfa2d53ad5d1"
+      },
+      {
+        "active": 0,
+        "failed": 2,
+        "name": "nomosmart-local-migration-5",
+        "spec_sha256": "9ca782afc287b188ee516fa044b850225bcc867e8f62604cb3e5c2c5bbfba3a0",
+        "succeeded": 0,
+        "uid": "a3f54138-d662-4a5e-be7d-646c0505284d"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-6",
+        "spec_sha256": "063119caadd919a740c8154d643ecad422ca0cbffa4405725e740a3383fbf0a7",
+        "succeeded": 1,
+        "uid": "83485777-17a6-44d8-b1b9-773dc1c6c6ff"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-7",
+        "spec_sha256": "63304ea1e7df23f85a292f9e1e0c47363e0db45b5096a767d71689ef4e56637e",
+        "succeeded": 1,
+        "uid": "0648cd7b-b0a3-452e-95af-46d094a76886"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-8",
+        "spec_sha256": "e1b58ff822420af337627a4a7b96e195cf598f90795ef7b8de9487a90ba76e3e",
+        "succeeded": 1,
+        "uid": "9b21c654-e93f-4dbe-8667-2022259a493b"
+      },
+      {
+        "active": 0,
+        "failed": 0,
+        "name": "nomosmart-local-migration-9",
+        "spec_sha256": "ed98a291183f317e2e779238a1fa8acc2e467d2de75efbca06bb597907fa6646",
+        "succeeded": 1,
+        "uid": "d176b28e-7b97-4195-985b-ac3091648e47"
+      }
+    ],
+    "mode": "read_only",
+    "observed_at": "2026-09-08T19:02:10.999871+00:00",
+    "protected_resources_sha256": "3663917ffdeb0337847683471c5aaaf8d9b55b6ed77ab791e4f41c45a936f505",
+    "pvc_pv": [
+      {
+        "pv_name": "pvc-1ce542d8-6959-4219-9e29-a09cfbfe9d03",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "113d6cff4ac05e926fc851d292b70ee85c34cd4495abd1badf0e7eab50786c01",
+        "pv_uid": "a3b7f7d5-496c-4500-82c7-f1360ce49611",
+        "pvc_name": "data-nomosmart-local-neo4j-0",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "6e36b47e9c57d63cc1498625b6e3045dadfb774ca73096025d8b0ddd6534a0d3",
+        "pvc_uid": "1ce542d8-6959-4219-9e29-a09cfbfe9d03"
+      },
+      {
+        "pv_name": "pvc-77442aee-1cfb-4d05-9f58-a77340da7934",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "aac585e2f4f0fd4dc8e98560d5bcb5fa966a96c42e14f06dd20c8fa2980a251f",
+        "pv_uid": "09e51433-d6c2-4a0c-abaf-cfd192cc66f3",
+        "pvc_name": "data-nomosmart-local-opensearch-0",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "6aec2a99860cb25ac6280cd763a2e2e150e9c78b73e9bd3ff94003f16b7de2eb",
+        "pvc_uid": "77442aee-1cfb-4d05-9f58-a77340da7934"
+      },
+      {
+        "pv_name": "pvc-ba4557f1-8eb8-4931-8fc7-f119453eff4e",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "c3e0539bce7951c29fd785138d206805d9d81b2e413a003d14113ad08e00f50d",
+        "pv_uid": "17d67f1c-3efc-45bb-91ad-900137d1a3fe",
+        "pvc_name": "data-nomosmart-local-postgresql-0",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "e9a6c5c337a3d7bc42d7427b4aa13af7a9f4552439e99f92b955452f365c5558",
+        "pvc_uid": "ba4557f1-8eb8-4931-8fc7-f119453eff4e"
+      },
+      {
+        "pv_name": "pvc-f90f5d48-770e-471f-9e1d-515cc8cdc63b",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "f246abecd557f763adfc8f50b79ceb88196b58ea17682f49207e32fdd3c4e5f2",
+        "pv_uid": "026b5600-f79c-42a9-bbf0-184f6cb772fe",
+        "pvc_name": "data-nomosmart-local-redis-0",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "a0374c7be59029a4297adf652d4224afd119da897d99211ddc3f2ca31f92723d",
+        "pvc_uid": "f90f5d48-770e-471f-9e1d-515cc8cdc63b"
+      },
+      {
+        "pv_name": "pvc-08916bbd-5f85-465d-95d3-5a542a754f72",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "af4bf0c05f2c20d14f3643b58486891010cc17d8a3c06dcfbdcd80de4d75f8f4",
+        "pv_uid": "b2648d1d-4cc0-45cc-928a-1650bd1f395e",
+        "pvc_name": "data-nomosmart-local-redis-1",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "80d185ea94969c1102040cef1becf3992a60d5880f6f45775577f796c4d0a29c",
+        "pvc_uid": "08916bbd-5f85-465d-95d3-5a542a754f72"
+      },
+      {
+        "pv_name": "pvc-97b811d8-0d82-46d5-9dcd-29a4fefa53a8",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "bef5fed377e33d93f642befd4f0a09e7abd6071e44bc53a90b94993c8acf971b",
+        "pv_uid": "4dde3ccd-0804-4520-bf3c-11cc4709af46",
+        "pvc_name": "data-nomosmart-local-redis-2",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "716e1e3081aaccc6336ee1294f8250b301d50fe823c70c5e9a5db59bfe2a2d7f",
+        "pvc_uid": "97b811d8-0d82-46d5-9dcd-29a4fefa53a8"
+      },
+      {
+        "pv_name": "pvc-2ad76d06-e62c-43ab-b94e-51768c5f691e",
+        "pv_phase": "Bound",
+        "pv_spec_sha256": "b53f62a68d7b55778e840e765cb04b19df3417fc9e086717d9ce85ef8d00f738",
+        "pv_uid": "7a3005ff-e58e-4fcd-808a-61109e0cb3c2",
+        "pvc_name": "data-nomosmart-local-rustfs-0",
+        "pvc_phase": "Bound",
+        "pvc_spec_sha256": "8e59c280fa318c863fd744a5a972290690cb933b346e485c541335806539d6d2",
+        "pvc_uid": "2ad76d06-e62c-43ab-b94e-51768c5f691e"
+      }
+    ],
+    "pvc_pv_sha256": "55080d5ad353b80a91655dd05c0fdbc257b153a8b59032749431aac469e5531e",
+    "release": {
+      "bootstrap": {
+        "activeDeadlineSeconds": 1200,
+        "backoffLimit": 3,
+        "deploymentPhase": "factory_acceptance",
+        "keycloakMode": "manage",
+        "waitSeconds": 600
+      },
+      "compatibility": {
+        "applicationContract": "nomosmart-1",
+        "publicApiContract": "v1-scoped-graph-idempotent",
+        "schemaContract": "forward-v047",
+        "securityContract": "chg260-mounted-secrets-password-only"
+      },
+      "revision": 35,
+      "status": "deployed",
+      "values_sha256": "019eeed496ad5f6034258caaa2c1b09ad43c8e294b61fbddcce62bf46f469c57"
+    },
+    "secrets": [
+      {
+        "data_sha256": "adbac7aa08730888a960573b2b67c1973bd8bb4ab27a93bac21797da44d6703e",
+        "name": "nomosmart-directory-ca",
+        "type": "Opaque",
+        "uid": "01bc761f-3a47-423b-9095-e3846a778a3f"
+      },
+      {
+        "data_sha256": "c5882876a22837d3bd197de252039296784dea00a4ad400aa0d435d23cc1587f",
+        "name": "nomosmart-local-secrets",
+        "type": "Opaque",
+        "uid": "1c97c03f-a53e-4bae-9ad5-c1c22d9aecca"
+      },
+      {
+        "data_sha256": "d9e82c435a807414362718153c112c7615264b55f09d7b8b329a3abc89ca560d",
+        "name": "nomosmart-opensearch-tls",
+        "type": "Opaque",
+        "uid": "4585f964-5c90-431d-8c49-204d99062f2e"
+      },
+      {
+        "data_sha256": "25ecde6c6fd39f4418443b5a6508c0251008c67d6fc6355ddfa570620c6879f7",
+        "name": "nomosmart-redis-tls",
+        "type": "Opaque",
+        "uid": "63d284e7-8583-474f-9b46-60c82e549cb8"
+      },
+      {
+        "data_sha256": "1246fa607c6538c943a5f7e6270e75b9e6344322adbbf9f148b75bf5f3f2942b",
+        "name": "nomosmart-rustfs-tls",
+        "type": "Opaque",
+        "uid": "92a7d4c6-2fee-4b0d-a798-1a1fb6250c73"
+      }
+    ],
+    "workloads": [
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "deployment-readiness"
+          },
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "backend"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-backend",
+        "ready": 1,
+        "spec_sha256": "c1678e870754a035782bd29270e66bd5a1b07c8eed57f30dcebfcf7787084902",
+        "uid": "eacc0392-3841-4d05-9bcf-0059f4a277c2"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "deployment-evidence"
+          },
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "beat"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-beat",
+        "ready": 1,
+        "spec_sha256": "3ff17362952ce3ab9bad64f981a2d8807c1cead7b8d68300245041fd17010418",
+        "uid": "af994cdb-aaee-4f69-adc9-79592d47321f"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "backend-readiness"
+          },
+          {
+            "image": "nomosmart/frontend:0.1.0-chg291",
+            "name": "frontend"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-frontend",
+        "ready": 1,
+        "spec_sha256": "c7a65f17cb3b8e53d9755a240fed1b946f178512ca50f616771652bfbc43271d",
+        "uid": "f868a705-c387-4db6-9496-e340228b9879"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/keycloak:26.0.8",
+            "name": "keycloak"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-keycloak",
+        "ready": 1,
+        "spec_sha256": "2b3cbdb22003fb251e3be1b082c9850b91f39d162bcd98c7a740b489edb7b4a4",
+        "uid": "c6c02c7e-d610-4c08-9625-ee39afdd9991"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "neo4j:5.26.4-community",
+            "name": "neo4j"
+          }
+        ],
+        "kind": "StatefulSet",
+        "name": "nomosmart-local-neo4j",
+        "ready": 1,
+        "spec_sha256": "3b4173c7db45a1732fa8f51c8ac3f3deaa2f5d8663363616084b476ee72760c9",
+        "uid": "0b1750bd-7833-4da1-bed0-3b966b8eee50"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/opensearch:2.19.6-repository-s3",
+            "name": "opensearch"
+          }
+        ],
+        "kind": "StatefulSet",
+        "name": "nomosmart-local-opensearch",
+        "ready": 1,
+        "spec_sha256": "24aab6a9ce8b1ed02730277e3dedfaf4bdd903ce81cc87cbdaadc2498ea04aa6",
+        "uid": "7571a65f-20b5-4ea8-a8b6-d040302d7c9e"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/postgresql:18.4",
+            "name": "postgresql"
+          }
+        ],
+        "kind": "StatefulSet",
+        "name": "nomosmart-local-postgresql",
+        "ready": 1,
+        "spec_sha256": "e5dd45363f6cea3fb8c225325c29e117721f967540fceb7e291c351f47fd3c65",
+        "uid": "9e24daa1-67b1-47bb-b34a-be357abd9e29"
+      },
+      {
+        "desired": 3,
+        "images": [
+          {
+            "image": "redis:7.4.2-alpine",
+            "name": "redis"
+          }
+        ],
+        "kind": "StatefulSet",
+        "name": "nomosmart-local-redis",
+        "ready": 3,
+        "spec_sha256": "f74195579db072f3b5495861a440f4e967d9f0735f1822a469f0d15afebf515a",
+        "uid": "27c1f8f4-c193-4dff-99bf-b0327bfe7e69"
+      },
+      {
+        "desired": 3,
+        "images": [
+          {
+            "image": "redis:7.4.2-alpine",
+            "name": "sentinel"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-redis-sentinel",
+        "ready": 3,
+        "spec_sha256": "0b775b9a667f0fd498481f59596d588ddd5926e3c2fc247ee1802f4495fc5d7f",
+        "uid": "48cad742-418d-4d92-9687-1b659e292457"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/rustfs:1.0.0-beta.10",
+            "name": "rustfs"
+          }
+        ],
+        "kind": "StatefulSet",
+        "name": "nomosmart-local-rustfs",
+        "ready": 1,
+        "spec_sha256": "2a83f8e918b70bcff18f9ea654346f13a1023a071c15c7faaa55cf0ed2ddf649",
+        "uid": "0db32319-1c60-46df-bb23-e9225bab2846"
+      },
+      {
+        "desired": 1,
+        "images": [
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "deployment-evidence"
+          },
+          {
+            "image": "nomosmart/backend:0.1.0-chg291",
+            "name": "worker"
+          }
+        ],
+        "kind": "Deployment",
+        "name": "nomosmart-local-worker",
+        "ready": 1,
+        "spec_sha256": "042a85e267416f4b4f2093590cd73686e9652f82a9fd9065d5b0337549aa097c",
+        "uid": "84cf2775-8ad4-459c-bb4a-a1a49e1ec7ee"
+      }
+    ]
+  },
+  "database_and_indexes": {
+    "bootstrap_evidence": [
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-10"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-11"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-12"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-13"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-14"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-15"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-16"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-17"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-18"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-19"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-20"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-21"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-23"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-24"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-25"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-26"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-27"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-28"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-29"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-30"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-31"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-32"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-33"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-34"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-35"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-7"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-8"
+      },
+      {
+        "check_names": [
+          "database",
+          "keycloak",
+          "neo4j",
+          "oidc",
+          "opensearch",
+          "redis",
+          "s3"
+        ],
+        "contract_version": 1,
+        "release_id": "nomosmart-local-9"
+      }
+    ],
+    "broker": {
+      "nonmaintenance_task_types": [],
+      "queue_lengths": {
+        "0": 0,
+        "3": 0,
+        "6": 0,
+        "9": 0
+      },
+      "queued_task_types": [],
+      "unacked": 0,
+      "unacked_index": 0
+    },
+    "business_tables_sha256": "2f558246ff5c7251c36ba7cde7702550f34a6ad4dc5e6d17c90fd308e5d3b4c4",
+    "chunk_artifact_states": [
+      {
+        "count": 2,
+        "status": null
+      },
+      {
+        "count": 1,
+        "status": "ready"
+      }
+    ],
+    "constraints_sha256": "9a1b050d001f785237e7965621d43728748720b0b502f330aa303c4ad6eca53a",
+    "data_schedules": [],
+    "key_counts": [
+      {
+        "active_chunks": 37,
+        "active_groups": 8,
+        "active_users": 8,
+        "distinct_project_members": 2,
+        "documents": 3,
+        "projects": 1,
+        "published_versions": 0,
+        "undeleted_models": 4,
+        "versions": 3
+      }
+    ],
+    "memberships": [
+      {
+        "project_role": "editor",
+        "rows": 1
+      },
+      {
+        "project_role": "owner",
+        "rows": 1
+      },
+      {
+        "project_role": "viewer",
+        "rows": 1
+      }
+    ],
+    "migration_history": [
+      {
+        "checksum": 1014358394,
+        "description": "initial schema",
+        "installed_rank": 1,
+        "script": "V001__initial_schema.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "001"
+      },
+      {
+        "checksum": 1760157818,
+        "description": "identity projects permissions",
+        "installed_rank": 2,
+        "script": "V002__identity_projects_permissions.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "002"
+      },
+      {
+        "checksum": -1375074459,
+        "description": "seed role permissions",
+        "installed_rank": 3,
+        "script": "V003__seed_role_permissions.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "003"
+      },
+      {
+        "checksum": -1055988660,
+        "description": "revoked auth tokens",
+        "installed_rank": 4,
+        "script": "V004__revoked_auth_tokens.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "004"
+      },
+      {
+        "checksum": 30961391,
+        "description": "project ocr default",
+        "installed_rank": 5,
+        "script": "V005__project_ocr_default.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "005"
+      },
+      {
+        "checksum": -2015170426,
+        "description": "session expired form drafts",
+        "installed_rank": 6,
+        "script": "V006__session_expired_form_drafts.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "006"
+      },
+      {
+        "checksum": 1286174533,
+        "description": "milestone 7 1 serving permissions",
+        "installed_rank": 7,
+        "script": "V007__milestone_7_1_serving_permissions.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "007"
+      },
+      {
+        "checksum": -1184424072,
+        "description": "system initialization",
+        "installed_rank": 8,
+        "script": "V008__system_initialization.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "008"
+      },
+      {
+        "checksum": 1995791753,
+        "description": "system prompts",
+        "installed_rank": 9,
+        "script": "V009__system_prompts.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "009"
+      },
+      {
+        "checksum": 1215492404,
+        "description": "manual chunking and tags",
+        "installed_rank": 10,
+        "script": "V010__manual_chunking_and_tags.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "010"
+      },
+      {
+        "checksum": -1200775370,
+        "description": "llm chunk tag default",
+        "installed_rank": 11,
+        "script": "V011__llm_chunk_tag_default.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "011"
+      },
+      {
+        "checksum": -567174391,
+        "description": "owner editor submit review permission",
+        "installed_rank": 12,
+        "script": "V012__owner_editor_submit_review_permission.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "012"
+      },
+      {
+        "checksum": -1252084916,
+        "description": "sync review pipeline steps",
+        "installed_rank": 13,
+        "script": "V013__sync_review_pipeline_steps.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "013"
+      },
+      {
+        "checksum": -1852774896,
+        "description": "repair completed approval tasks",
+        "installed_rank": 14,
+        "script": "V014__repair_completed_approval_tasks.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "014"
+      },
+      {
+        "checksum": 1362906861,
+        "description": "chat conversation soft delete",
+        "installed_rank": 15,
+        "script": "V015__chat_conversation_soft_delete.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "015"
+      },
+      {
+        "checksum": 2042801639,
+        "description": "chat record scope mode",
+        "installed_rank": 16,
+        "script": "V016__chat_record_scope_mode.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "016"
+      },
+      {
+        "checksum": 1218944282,
+        "description": "first level menu permissions",
+        "installed_rank": 17,
+        "script": "V017__first_level_menu_permissions.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "017"
+      },
+      {
+        "checksum": 1841226500,
+        "description": "validation run item metadata",
+        "installed_rank": 18,
+        "script": "V018__validation_run_item_metadata.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "018"
+      },
+      {
+        "checksum": -416738528,
+        "description": "public api integration clients",
+        "installed_rank": 19,
+        "script": "V019__public_api_integration_clients.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "019"
+      },
+      {
+        "checksum": 105080784,
+        "description": "oidc reauthentication flows",
+        "installed_rank": 20,
+        "script": "V020__oidc_reauthentication_flows.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "020"
+      },
+      {
+        "checksum": 56670125,
+        "description": "secure async ingestion",
+        "installed_rank": 21,
+        "script": "V021__secure_async_ingestion.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "021"
+      },
+      {
+        "checksum": 1433722198,
+        "description": "connection test evidence",
+        "installed_rank": 22,
+        "script": "V022__connection_test_evidence.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "022"
+      },
+      {
+        "checksum": -1632022081,
+        "description": "public api runtime controls",
+        "installed_rank": 23,
+        "script": "V023__public_api_runtime_controls.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "023"
+      },
+      {
+        "checksum": 2144010749,
+        "description": "initialization last known good",
+        "installed_rank": 24,
+        "script": "V024__initialization_last_known_good.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "024"
+      },
+      {
+        "checksum": 1887197826,
+        "description": "ai model usage events",
+        "installed_rank": 25,
+        "script": "V025__ai_model_usage_events.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "025"
+      },
+      {
+        "checksum": 737663381,
+        "description": "deployment bootstrap evidence",
+        "installed_rank": 26,
+        "script": "V026__deployment_bootstrap_evidence.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "026"
+      },
+      {
+        "checksum": 1685468570,
+        "description": "local roles ldap group mapping",
+        "installed_rank": 27,
+        "script": "V027__local_roles_ldap_group_mapping.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "027"
+      },
+      {
+        "checksum": 851465812,
+        "description": "identity settings truth and sync recovery",
+        "installed_rank": 28,
+        "script": "V028__identity_settings_truth_and_sync_recovery.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "028"
+      },
+      {
+        "checksum": -410156826,
+        "description": "ai model soft delete",
+        "installed_rank": 29,
+        "script": "V029__ai_model_soft_delete.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "029"
+      },
+      {
+        "checksum": -1512503999,
+        "description": "local role lifecycle",
+        "installed_rank": 30,
+        "script": "V030__local_role_lifecycle.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "030"
+      },
+      {
+        "checksum": -26632342,
+        "description": "project archive lifecycle",
+        "installed_rank": 31,
+        "script": "V031__project_archive_lifecycle.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "031"
+      },
+      {
+        "checksum": -509533947,
+        "description": "project archive execute permission",
+        "installed_rank": 32,
+        "script": "V032__project_archive_execute_permission.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "032"
+      },
+      {
+        "checksum": 1392670678,
+        "description": "graph sync durable attempts",
+        "installed_rank": 33,
+        "script": "V033__graph_sync_durable_attempts.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "033"
+      },
+      {
+        "checksum": 320585810,
+        "description": "chunk edit lineage",
+        "installed_rank": 34,
+        "script": "V034__chunk_edit_lineage.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "034"
+      },
+      {
+        "checksum": 1695807962,
+        "description": "durable notification events",
+        "installed_rank": 35,
+        "script": "V035__durable_notification_events.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "035"
+      },
+      {
+        "checksum": -549519241,
+        "description": "project work generation fence",
+        "installed_rank": 36,
+        "script": "V036__project_work_generation_fence.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "036"
+      },
+      {
+        "checksum": 1915378826,
+        "description": "immutable approval evidence",
+        "installed_rank": 37,
+        "script": "V037__immutable_approval_evidence.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "037"
+      },
+      {
+        "checksum": 537151477,
+        "description": "report model permission",
+        "installed_rank": 38,
+        "script": "V038__report_model_permission.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "038"
+      },
+      {
+        "checksum": -256224521,
+        "description": "approval workspace priority indexes",
+        "installed_rank": 39,
+        "script": "V039__approval_workspace_priority_indexes.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "039"
+      },
+      {
+        "checksum": -238707788,
+        "description": "validation item attempt lineage",
+        "installed_rank": 40,
+        "script": "V040__validation_item_attempt_lineage.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "040"
+      },
+      {
+        "checksum": -704232275,
+        "description": "validation execution manifest",
+        "installed_rank": 41,
+        "script": "V041__validation_execution_manifest.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "041"
+      },
+      {
+        "checksum": -1068680275,
+        "description": "cloudnativepg application privileges",
+        "installed_rank": 42,
+        "script": "V042__cloudnativepg_application_privileges.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "042"
+      },
+      {
+        "checksum": 2105940763,
+        "description": "keycloak cascaded identity sync",
+        "installed_rank": 43,
+        "script": "V043__keycloak_cascaded_identity_sync.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "043"
+      },
+      {
+        "checksum": -1725877467,
+        "description": "keycloak boolean ignored sync result",
+        "installed_rank": 44,
+        "script": "V044__keycloak_boolean_ignored_sync_result.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "044"
+      },
+      {
+        "checksum": -1793464048,
+        "description": "structured person names",
+        "installed_rank": 45,
+        "script": "V045__structured_person_names.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "045"
+      },
+      {
+        "checksum": -1867881002,
+        "description": "structure aware retrieval chunks",
+        "installed_rank": 46,
+        "script": "V046__structure_aware_retrieval_chunks.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "046"
+      },
+      {
+        "checksum": 1351782687,
+        "description": "markdown display and retrieval only embedding",
+        "installed_rank": 47,
+        "script": "V047__markdown_display_and_retrieval_only_embedding.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "047"
+      },
+      {
+        "checksum": 1657807790,
+        "description": "project member candidate search and owner protection",
+        "installed_rank": 48,
+        "script": "V048__project_member_candidate_search_and_owner_protection.sql",
+        "success": true,
+        "type": "SQL",
+        "version": "048"
+      }
+    ],
+    "mode": "read_only",
+    "neo4j": {
+      "constraints": [],
+      "edges": [
+        {
+          "count": 107,
+          "relation": "CHUNK_HAS_TAG"
+        },
+        {
+          "count": 1,
+          "relation": "DOCUMENT_HAS_VERSION"
+        },
+        {
+          "count": 1,
+          "relation": "PROJECT_HAS_DOCUMENT"
+        },
+        {
+          "count": 26,
+          "relation": "VERSION_HAS_CHUNK"
+        },
+        {
+          "count": 8,
+          "relation": "VERSION_HAS_TAG"
+        }
+      ],
+      "indexes": [
+        {
+          "entityType": "NODE",
+          "labelsOrTypes": null,
+          "name": "index_343aff4e",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        },
+        {
+          "entityType": "RELATIONSHIP",
+          "labelsOrTypes": null,
+          "name": "index_f7700477",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        }
+      ],
+      "nodes": [
+        {
+          "count": 26,
+          "labels": [
+            "Chunk"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Document"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "DocumentVersion"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Project"
+          ]
+        },
+        {
+          "count": 81,
+          "labels": [
+            "Tag"
+          ]
+        }
+      ]
+    },
+    "neo4j_metadata_sha256": "430dfbd5d005a5172e5633acc9bcdd8089b6523c84afd1c57d6af0b9ae138dc7",
+    "observed_at": "2026-09-08T19:02:30.470290+00:00",
+    "opensearch": [
+      {
+        "aliases_sha256": "ef03bcb000da961bfed2510e17a141b88026b430c5710879ec21e297899bd69d",
+        "count": 26,
+        "docs.count": "26",
+        "docs.deleted": "0",
+        "health": "yellow",
+        "index": "nomosmart-staging-p9e1d3e43-v98050420",
+        "mapping_sha256": "07362a90a8eab6892d2a4173d0c1e08f7bbcc2e0e09a4223c19637d07c8de6d2",
+        "sequence_numbers": {
+          "indices": {
+            "nomosmart-staging-p9e1d3e43-v98050420": {
+              "shards": {
+                "0": [
+                  {
+                    "seq_no": {
+                      "global_checkpoint": 25,
+                      "local_checkpoint": 25,
+                      "max_seq_no": 25
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "settings_sha256": "09382a602d59a8bf2db92fca1b254109dbdecf016de37f88da208672b0b58b45",
+        "status": "open",
+        "uuid": "y9N0ThJdQlyujWvz344KxA"
+      },
+      {
+        "aliases_sha256": "3376c176cec16e206f14251f733600dc01e5a81ae247f35bc2f4d7f8e739eded",
+        "count": 11,
+        "docs.count": "11",
+        "docs.deleted": "0",
+        "health": "yellow",
+        "index": "nomosmart-staging-p9e1d3e43-vce1c4c6a",
+        "mapping_sha256": "a11e0a4fac38a7d0c04f709b4277148f2fd6c66d6643058e1246f9b31cc758cb",
+        "sequence_numbers": {
+          "indices": {
+            "nomosmart-staging-p9e1d3e43-vce1c4c6a": {
+              "shards": {
+                "0": [
+                  {
+                    "seq_no": {
+                      "global_checkpoint": 10,
+                      "local_checkpoint": 10,
+                      "max_seq_no": 10
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "settings_sha256": "9cc9202a050fad026b06085e8ad122a3384cb3b527f804a230029f613140d3cb",
+        "status": "open",
+        "uuid": "41mhbFFZSAqe6HcomzDrDQ"
+      }
+    ],
+    "opensearch_sha256": "136a8f44c4ff6c5fd98fea7ee6150b5516dbb16bc543f49417f55a4d688d450e",
+    "outbox_topics": [
+      {
+        "count": 3,
+        "status": "dispatched",
+        "topic": "chunk.artifacts.reconcile"
+      },
+      {
+        "count": 3,
+        "status": "dispatched",
+        "topic": "document.extraction.requested"
+      },
+      {
+        "count": 27,
+        "status": "dispatched",
+        "topic": "identity.sync.requested"
+      }
+    ],
+    "postgres_tables_sha256": "9dd711fbc65901f6869dccadde63b9ba77c33b4549ea6fa41456bea6eff94364",
+    "role_sources": [
+      {
+        "rows": 1,
+        "source": "break_glass"
+      },
+      {
+        "rows": 1,
+        "source": "external_sync"
+      },
+      {
+        "rows": 1,
+        "source": "manual"
+      }
+    ],
+    "scheduled_identity": {
+      "cron": "0 2 * * *",
+      "timezone": "Asia/Taipei"
+    },
+    "semantic_identity": {
+      "external_group_role_mappings": {
+        "md5": "f2b6fe0fcba84b9cc87e47d77ae77b2f",
+        "rows": 1
+      },
+      "external_group_users": {
+        "md5": "1f9730ec7546f5dc238a9df8a13cad80",
+        "rows": 10
+      },
+      "external_groups": {
+        "md5": "c3897e4d047fc81e73cbe74966c6e4d9",
+        "rows": 8
+      },
+      "role_permissions": {
+        "md5": "de2ef07d940fd9651c09f0e3d26fa24d",
+        "rows": 33
+      },
+      "role_users": {
+        "md5": "8bd6736736346087133c9fe40fc2c991",
+        "rows": 3
+      },
+      "roles": {
+        "md5": "29de3c94e9b3c064acfd8b77a61b3142",
+        "rows": 2
+      },
+      "users": {
+        "md5": "f64aa2e3c0dc1f0a9c52f6ced0f5fdfc",
+        "rows": 8
+      }
+    },
+    "status": "read_only_snapshot_completed",
+    "step_parent_states": [
+      {
+        "count": 2,
+        "parent_status": "failed",
+        "step_status": "completed"
+      },
+      {
+        "count": 1,
+        "parent_status": "failed",
+        "step_status": "failed"
+      },
+      {
+        "count": 13,
+        "parent_status": "failed",
+        "step_status": "pending"
+      },
+      {
+        "count": 22,
+        "parent_status": "submission_ready",
+        "step_status": "completed"
+      },
+      {
+        "count": 10,
+        "parent_status": "submission_ready",
+        "step_status": "pending"
+      }
+    ],
+    "structural_schema_sha256": "1774c3ef8c14a0bd520fc7f24311845d188c2b57f2e879b251e1c4e069453494",
+    "tables": {
+      "active_version_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "ai_model_usage_events": {
+        "full_rows_md5": "dd47a710e1cf9abdeb79e712b0df9fe1",
+        "rows": 84
+      },
+      "ai_models": {
+        "full_rows_md5": "5a07e4cbb2a06a58ec85a42d138f845d",
+        "rows": 5
+      },
+      "approval_evidence_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_requests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_tasks": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "audit_logs": {
+        "full_rows_md5": "e49491f7acd56728de19d8e4080211bf",
+        "rows": 342
+      },
+      "chat_feedback_events": {
+        "full_rows_md5": "c0d7dfd40a95052370b451688f687660",
+        "rows": 2
+      },
+      "chat_records": {
+        "full_rows_md5": "4f30ad8212e7014d2a3d74d62c5a8809",
+        "rows": 11
+      },
+      "chunk_tags": {
+        "full_rows_md5": "179b3bd22ab7204a7a26b50f8edb2727",
+        "rows": 164
+      },
+      "chunks": {
+        "full_rows_md5": "710cdca87f41d578c1b4ee0f40bbdd30",
+        "rows": 38
+      },
+      "data_connections": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "data_sync_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "deployment_bootstrap_evidence": {
+        "full_rows_md5": "10ad94e4cce6a82e68278bb4dfb49208",
+        "rows": 28
+      },
+      "document_reference_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_references": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_version_tags": {
+        "full_rows_md5": "e7b42dfa48d7b7eadce6da0e3bb7ea6a",
+        "rows": 16
+      },
+      "document_versions": {
+        "full_rows_md5": "a1becb286596aa23dbbc7314b88879bb",
+        "rows": 3
+      },
+      "documents": {
+        "full_rows_md5": "bf95cfc558006e0bb218ab89c9917181",
+        "rows": 3
+      },
+      "embedding_build_vectors": {
+        "full_rows_md5": "767e853bbef2d1cafbd471e685214cee",
+        "rows": 113
+      },
+      "embedding_builds": {
+        "full_rows_md5": "1b10ecf89e8853b2b1240c3eff9f2222",
+        "rows": 5
+      },
+      "embedding_profiles": {
+        "full_rows_md5": "7bbb11eee2ca82ac7e84c28f0c636d94",
+        "rows": 2
+      },
+      "external_group_role_mappings": {
+        "full_rows_md5": "f2b6fe0fcba84b9cc87e47d77ae77b2f",
+        "rows": 1
+      },
+      "external_group_users": {
+        "full_rows_md5": "1f9730ec7546f5dc238a9df8a13cad80",
+        "rows": 10
+      },
+      "external_groups": {
+        "full_rows_md5": "15f83ae804bc084353629bb1cd5e8b49",
+        "rows": 8
+      },
+      "file_scan_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "graph_sync_jobs": {
+        "full_rows_md5": "2abdbc5d4a142505020c2bfdd58ab9d5",
+        "rows": 3
+      },
+      "idempotency_keys": {
+        "full_rows_md5": "56ebd70af955ecd65d741b92265d44b1",
+        "rows": 6
+      },
+      "identity_reauth_flows": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_settings": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_sync_provider_results": {
+        "full_rows_md5": "0ab734012eeffa6d447935810b2a308b",
+        "rows": 27
+      },
+      "identity_sync_runs": {
+        "full_rows_md5": "73f7d71a062ed382510c7c0ec9747aed",
+        "rows": 124
+      },
+      "identity_unlock_grants": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_client_project_scopes": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_clients": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notification_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notifications": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "outbox_events": {
+        "full_rows_md5": "727879390feb87f0373bf2d4c1d18acf",
+        "rows": 33
+      },
+      "pipeline_run_steps": {
+        "full_rows_md5": "0ad2f85b649fc3a9e244839022bf8dd7",
+        "rows": 48
+      },
+      "pipeline_runs": {
+        "full_rows_md5": "e16976681e59f12a6dfc5daf30182c47",
+        "rows": 3
+      },
+      "project_archive_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "project_members": {
+        "full_rows_md5": "15678e13086bbaffa13ceb03e4008bfb",
+        "rows": 3
+      },
+      "project_owners": {
+        "full_rows_md5": "13caa5eaa68ffc2e69b277b4c74105db",
+        "rows": 1
+      },
+      "projects": {
+        "full_rows_md5": "fcc4d75dd6894b70b6a2fbd26c2215cc",
+        "rows": 1
+      },
+      "public_api_request_logs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "review_records": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "revoked_auth_tokens": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "role_permissions": {
+        "full_rows_md5": "ace69722219251ac1e9397a3473fe91f",
+        "rows": 33
+      },
+      "role_users": {
+        "full_rows_md5": "ba26c209a63d506297613b74f7625836",
+        "rows": 3
+      },
+      "roles": {
+        "full_rows_md5": "5533387584b66511a25bb42477238585",
+        "rows": 2
+      },
+      "session_expired_form_drafts": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "system_parameters": {
+        "full_rows_md5": "cbdc85b4dbcaaab4322bc419a63bfc88",
+        "rows": 4
+      },
+      "system_prompt_versions": {
+        "full_rows_md5": "9eb96e305eca0f98c64a3cc680c21cad",
+        "rows": 3
+      },
+      "system_prompts": {
+        "full_rows_md5": "e08b91843440dfb5d760abd9abe4b002",
+        "rows": 3
+      },
+      "tags": {
+        "full_rows_md5": "938b8519f76c8cf32b783fa13eb68f1c",
+        "rows": 115
+      },
+      "users": {
+        "full_rows_md5": "aa78ecd337d97cd95c723952a0c7a97b",
+        "rows": 8
+      },
+      "validation_questions": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_run_items": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      }
+    },
+    "transaction": [
+      {
+        "isolation": "repeatable read",
+        "read_only": "on"
+      }
+    ],
+    "version_status": [
+      {
+        "count": 1,
+        "published": false,
+        "status": "failed"
+      },
+      {
+        "count": 2,
+        "published": false,
+        "status": "submission_ready"
+      }
+    ],
+    "work_status": {
+      "data_sync_runs": [],
+      "embedding_builds": [
+        {
+          "count": 3,
+          "status": "invalidated"
+        },
+        {
+          "count": 2,
+          "status": "staged"
+        }
+      ],
+      "file_scan_runs": [],
+      "graph_sync_jobs": [
+        {
+          "count": 3,
+          "status": "completed"
+        }
+      ],
+      "identity_sync_runs": [
+        {
+          "count": 5,
+          "status": "failed"
+        },
+        {
+          "count": 119,
+          "status": "succeeded"
+        }
+      ],
+      "outbox_events": [
+        {
+          "count": 33,
+          "status": "dispatched"
+        }
+      ],
+      "pipeline_run_steps": [
+        {
+          "count": 24,
+          "status": "completed"
+        },
+        {
+          "count": 1,
+          "status": "failed"
+        },
+        {
+          "count": 23,
+          "status": "pending"
+        }
+      ],
+      "pipeline_runs": [
+        {
+          "count": 1,
+          "status": "failed"
+        },
+        {
+          "count": 2,
+          "status": "submission_ready"
+        }
+      ],
+      "project_archive_runs": [],
+      "validation_runs": []
+    }
+  },
+  "identity_readonly_comparison": {
+    "association_sha256": "d7e544243bc5d3688085a9c5b2886961a9595040e1eff30e1bfdbf35920568a2",
+    "browser_flow": "nomosmart-browser-password-only",
+    "clients": [
+      {
+        "client_id": "nomosmart-frontend",
+        "config_sha256": "edb47772cb0b986019ba5f0a21c269181ef0a2a6993578c1fe92451e60897311",
+        "enabled": true,
+        "mappers_sha256": "f3a992b7be6f86c69fa6ac47d58eadc7ed37d4df2f3b08dd931fceadd84b3cfd",
+        "uuid": "258dee8f-e361-4be5-abc0-c5d05a5d9812"
+      },
+      {
+        "client_id": "nomosmart-backend",
+        "config_sha256": "6d9291f95716ccea2b9e49768c8f73eaa0fd4ca97ae3ea46ccca6cc2f9f020c9",
+        "enabled": true,
+        "mappers_sha256": "2f00eec7e6a3f116b7a618e17a079eecb6519eac8b1f1e295d4dfa3306fbbf65",
+        "uuid": "f0cd8955-4646-4ba3-baed-7209ad04fdd9"
+      },
+      {
+        "client_id": "nomosmart-sync",
+        "config_sha256": "30acc3187d00fc38322a17679cbc35272b746b4e8bdad3b7b689497dff1cf988",
+        "enabled": true,
+        "mappers_sha256": "871af10345ac71b4b97d5df561be81bf29c7d5459a055ae47258d208f4779367",
+        "uuid": "03e86e9e-c8b6-43ae-a499-dee931709a1d"
+      }
+    ],
+    "expected_business_changes": {},
+    "keycloak_counts": {
+      "groups": 8,
+      "user_group_links": 10,
+      "users": 8
+    },
+    "ldap_mappers": [
+      {
+        "count": 13,
+        "provider_id": "uVYlBRsGTJa5tasXTZ7pFQ",
+        "sha256": "e2e0a1dd1a92ae670639270806b2ac9a642a77ebee041f4de9d1c9746573a721"
+      }
+    ],
+    "ldap_providers": [
+      {
+        "config_sha256": "4431811f238a5e1577a466fde89e6e74bf2c6159daa36ca09e5a80131d389b61",
+        "id": "uVYlBRsGTJa5tasXTZ7pFQ",
+        "provider": "ldap"
+      }
+    ],
+    "mode": "read_only_comparison",
+    "observed_at": "2026-09-08T19:00:55.917940+00:00",
+    "realm_config_sha256": "7a4d06fdbfd11df2d5b05d8051f765d80985061fcc85b1f04e87f44edaa6eb83",
+    "realm_enabled": true,
+    "same_association_counts": {
+      "break_glass_role": 1,
+      "external_role": 1,
+      "user_group": 10
+    },
+    "source_sha256": "037241537feddf90b14da6f086c155d4951e03a8ee3611dac0c2b49309e7de02",
+    "status": "matched"
+  },
+  "ldap_docker_resources": {
+    "containers": [
+      {
+        "config_sha256": "7eab9c61e0d02ae7e8a279b74c51599578e8bc5ae5aa551de1ef6e7b2355d8e6",
+        "health": "healthy",
+        "host_config_sha256": "7111bf2516d390b8bf37eeca6fed046c325142c35d50bc8442e8c5952e504695",
+        "id": "aae7c2bf8972198f6488d58f1dd9bc8d1fe7411295290d641ea82759fbda4f47",
+        "image_id": "sha256:e1f778655d02b96875352879e2168e4bc233153b338ce40c4026812935b38dfa",
+        "mounts": [
+          {
+            "destination": "/run/secrets/server.key",
+            "name": null,
+            "rw": false,
+            "source_sha256": "175e98c6538ba82d7954de0848d18f68113aa1e4fe281a0906625ec147ef5e78",
+            "type": "bind"
+          },
+          {
+            "destination": "/data/config",
+            "name": "nomosmart-ldap-test-config",
+            "rw": true,
+            "source_sha256": "626668777e2dda1829b5144d71e23f9d41c8ab942d636b519f2c5b11173cec70",
+            "type": "volume"
+          },
+          {
+            "destination": "/data/db",
+            "name": "nomosmart-ldap-test-data",
+            "rw": true,
+            "source_sha256": "eb374dad3ff35c8f9e18c1e3df7564b15e39159db99b49a50473df2e827d8a80",
+            "type": "volume"
+          },
+          {
+            "destination": "/run/secrets/ca.crt",
+            "name": null,
+            "rw": false,
+            "source_sha256": "5e08f30a558128f76d514a30c96814f9a10bd47fdb6fd844b7376dde38a0b30e",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/ldap_admin_password",
+            "name": null,
+            "rw": false,
+            "source_sha256": "d151f01eafc496dad77ff6fc8b0c98f64327bdf82a38771695ff95a17fb667a8",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/ldap_bind_password",
+            "name": null,
+            "rw": false,
+            "source_sha256": "9b8f58cc14de63d040b9e30396a96c810a0309b09894b4d355aed55147d4358e",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/ldap_config_password",
+            "name": null,
+            "rw": false,
+            "source_sha256": "4bfa34c60e53547af4d3e7814c1f1de143c03227b5a71c2f05179f842db4c04c",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/server.crt",
+            "name": null,
+            "rw": false,
+            "source_sha256": "3384f07a5d7f6d8e81edb9e4019cd568be31f0dd0fc5fd18cc15738e6fbefbdd",
+            "type": "bind"
+          }
+        ],
+        "name": "nomosmart-openldap",
+        "status": "running"
+      },
+      {
+        "config_sha256": "f3fb5369820bbba8328a0ce63422b2e03a60668081982201810df9901e85e19b",
+        "health": "healthy",
+        "host_config_sha256": "f188bfa0da9b8a5162647b3ac87e9eb766206b27e57170f3d46abdbcd91ad4c9",
+        "id": "744392cdf86e33d194cfbab2c4690455c0bcc1c84fbabea53fc4e0077ac484b6",
+        "image_id": "sha256:5ed66c77b792b0ad8a7d2e3de76681b4ea65ad4bf32bf4f14d7b42c58536c146",
+        "mounts": [
+          {
+            "destination": "/etc/ldap/ldap.conf",
+            "name": null,
+            "rw": false,
+            "source_sha256": "563fa01f9da1c60b8484ab5d7398f6747426c4807d5de1d11d80bffead4286f2",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/ldap-bind-password",
+            "name": null,
+            "rw": false,
+            "source_sha256": "9b8f58cc14de63d040b9e30396a96c810a0309b09894b4d355aed55147d4358e",
+            "type": "bind"
+          },
+          {
+            "destination": "/run/secrets/nomosmart-directory-ca.crt",
+            "name": null,
+            "rw": false,
+            "source_sha256": "5e08f30a558128f76d514a30c96814f9a10bd47fdb6fd844b7376dde38a0b30e",
+            "type": "bind"
+          }
+        ],
+        "name": "nomosmart-phpldapadmin",
+        "status": "running"
+      }
+    ],
+    "sha256": "fd6809ffd80fe21d9bc1d4c75d1408683a3e846092cc9ea6784a75e0f1cb14a9",
+    "volumes": [
+      {
+        "created_at": "2026-08-19T01:42:40Z",
+        "driver": "local",
+        "metadata_sha256": "ddfb7c1b3a8bdace3e84d18191225f65d694affbd9765f20c83cf2fa9b0037b2",
+        "name": "nomosmart-ldap-test-data"
+      },
+      {
+        "created_at": "2026-08-19T01:42:40Z",
+        "driver": "local",
+        "metadata_sha256": "1e58244ad298283b94df3cc1ffedc7839b7451271a47428b140c63c242fe4da7",
+        "name": "nomosmart-ldap-test-config"
+      }
+    ]
+  },
+  "maas_comparison": {
+    "canonical_tag_count": [
+      {
+        "count": 115
+      }
+    ],
+    "chunk_tag_assignments": [
+      {
+        "chunk_status": "active",
+        "count": 107,
+        "source": "llm",
+        "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+      },
+      {
+        "chunk_status": "deleted",
+        "count": 4,
+        "source": "llm",
+        "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+      },
+      {
+        "chunk_status": "active",
+        "count": 53,
+        "source": "llm",
+        "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+      }
+    ],
+    "chunks": [
+      {
+        "count": 26,
+        "document_version_id": "98050420-1be2-401c-9209-53ab271681b8",
+        "status": "active"
+      },
+      {
+        "count": 1,
+        "document_version_id": "98050420-1be2-401c-9209-53ab271681b8",
+        "status": "deleted"
+      },
+      {
+        "count": 11,
+        "document_version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65",
+        "status": "active"
+      }
+    ],
+    "comparisons": [
+      {
+        "actual_edges": {},
+        "actual_nodes": {
+          "Project": 1
+        },
+        "canonical_edges": {
+          "DOCUMENT_HAS_VERSION": 1,
+          "PROJECT_HAS_DOCUMENT": 1
+        },
+        "canonical_nodes": {
+          "Document": 1,
+          "DocumentVersion": 1,
+          "Project": 1
+        },
+        "comparison": {
+          "differences": {
+            "edges": {
+              "changed": 0,
+              "extra": 0,
+              "missing": 2
+            },
+            "nodes": {
+              "changed": 1,
+              "extra": 0,
+              "missing": 2
+            }
+          },
+          "differences_sha256": "6ac72ac7aa487adaec3071a2f0f62d8cc4e7cd63b0080b2cf1b367ca3cac638b",
+          "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+          "edge_count": 0,
+          "node_count": 1,
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "ready": false,
+          "revision": 1,
+          "source_digest": "f3eff674bbbbceba123e77c289b2b3c1a0f0b846df1ad1e26daddf91f2f9b297",
+          "tag_revision": 0,
+          "target_digest": "f1534bec217373aa012bbaa44cf82e35683ffa02a58f9ebcccaddb4b926db452",
+          "version_id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565"
+        },
+        "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+        "formal_sync_eligible": false,
+        "metadata_difference_counts": {
+          "Project.name": 1
+        },
+        "receipt_present": false,
+        "scope_kind": "unpublished_preview",
+        "source_binding": {
+          "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "revision": 1,
+          "source_digest": "f3eff674bbbbceba123e77c289b2b3c1a0f0b846df1ad1e26daddf91f2f9b297",
+          "tag_revision": 0,
+          "version_id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565"
+        },
+        "version_id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565"
+      },
+      {
+        "actual_edges": {
+          "CHUNK_HAS_TAG": 107,
+          "DOCUMENT_HAS_VERSION": 1,
+          "PROJECT_HAS_DOCUMENT": 1,
+          "VERSION_HAS_CHUNK": 26,
+          "VERSION_HAS_TAG": 8
+        },
+        "actual_nodes": {
+          "Chunk": 26,
+          "Document": 1,
+          "DocumentVersion": 1,
+          "Project": 1,
+          "Tag": 81
+        },
+        "canonical_edges": {
+          "CHUNK_HAS_TAG": 107,
+          "DOCUMENT_HAS_VERSION": 1,
+          "PROJECT_HAS_DOCUMENT": 1,
+          "VERSION_HAS_CHUNK": 26,
+          "VERSION_HAS_TAG": 8
+        },
+        "canonical_nodes": {
+          "Chunk": 26,
+          "Document": 1,
+          "DocumentVersion": 1,
+          "Project": 1,
+          "Tag": 81
+        },
+        "comparison": {
+          "differences": {
+            "edges": {
+              "changed": 115,
+              "extra": 0,
+              "missing": 0
+            },
+            "nodes": {
+              "changed": 29,
+              "extra": 0,
+              "missing": 0
+            }
+          },
+          "differences_sha256": "5f4a20c9c2b57361487e41709371f0f56465891ac186b7ab5575ea7b0b088578",
+          "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+          "edge_count": 143,
+          "node_count": 110,
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "ready": false,
+          "revision": 4,
+          "source_digest": "e41b2fa1303e9d9fbd8ed9964e7acb0fe8e91f844e46f6a15412f75c9da70ddc",
+          "tag_revision": 0,
+          "target_digest": "96f4bc468ac766c68cf03c639785d390a39040f50da3c533380185377c87ad2c",
+          "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+        },
+        "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+        "formal_sync_eligible": false,
+        "metadata_difference_counts": {
+          "CHUNK_HAS_TAG.created_at": 107,
+          "CHUNK_HAS_TAG.llm_model_id": 107,
+          "CHUNK_HAS_TAG.prompt_version": 107,
+          "CHUNK_HAS_TAG.source": 107,
+          "CHUNK_HAS_TAG.system_prompt_content_hash": 107,
+          "Chunk.document_version_id": 26,
+          "Chunk.project_id": 26,
+          "Document.project_id": 1,
+          "Document.source_type": 1,
+          "DocumentVersion.document_id": 1,
+          "DocumentVersion.project_id": 1,
+          "Project.name": 1,
+          "VERSION_HAS_TAG.created_at": 8,
+          "VERSION_HAS_TAG.llm_model_id": 8,
+          "VERSION_HAS_TAG.prompt_version": 8,
+          "VERSION_HAS_TAG.source": 8,
+          "VERSION_HAS_TAG.system_prompt_content_hash": 8
+        },
+        "receipt_present": false,
+        "scope_kind": "unpublished_preview",
+        "source_binding": {
+          "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "revision": 4,
+          "source_digest": "e41b2fa1303e9d9fbd8ed9964e7acb0fe8e91f844e46f6a15412f75c9da70ddc",
+          "tag_revision": 0,
+          "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+        },
+        "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+      },
+      {
+        "actual_edges": {},
+        "actual_nodes": {
+          "Project": 1,
+          "Tag": 27
+        },
+        "canonical_edges": {
+          "CHUNK_HAS_TAG": 53,
+          "DOCUMENT_HAS_VERSION": 1,
+          "PROJECT_HAS_DOCUMENT": 1,
+          "VERSION_HAS_CHUNK": 11,
+          "VERSION_HAS_TAG": 8
+        },
+        "canonical_nodes": {
+          "Chunk": 11,
+          "Document": 1,
+          "DocumentVersion": 1,
+          "Project": 1,
+          "Tag": 59
+        },
+        "comparison": {
+          "differences": {
+            "edges": {
+              "changed": 0,
+              "extra": 0,
+              "missing": 74
+            },
+            "nodes": {
+              "changed": 1,
+              "extra": 0,
+              "missing": 45
+            }
+          },
+          "differences_sha256": "50702a16083255520aaf0bf5a7de548d8ced70874d042b3a667f022da898633a",
+          "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+          "edge_count": 0,
+          "node_count": 28,
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "ready": false,
+          "revision": 1,
+          "source_digest": "a4778ab13645d5960d5491256f0c89ca49996b0d3fec40718c1b60d9c3715810",
+          "tag_revision": 0,
+          "target_digest": "3fc7ebcca571c6fc453e3fb80482487903fb36697cf214ca3894954d6557a477",
+          "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+        },
+        "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+        "formal_sync_eligible": false,
+        "metadata_difference_counts": {
+          "Project.name": 1
+        },
+        "receipt_present": false,
+        "scope_kind": "unpublished_preview",
+        "source_binding": {
+          "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+          "project_generation": 1,
+          "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+          "revision": 1,
+          "source_digest": "a4778ab13645d5960d5491256f0c89ca49996b0d3fec40718c1b60d9c3715810",
+          "tag_revision": 0,
+          "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+        },
+        "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+      }
+    ],
+    "document_tag_assignments": [
+      {
+        "count": 8,
+        "source": "llm",
+        "version_id": "98050420-1be2-401c-9209-53ab271681b8"
+      },
+      {
+        "count": 8,
+        "source": "llm",
+        "version_id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65"
+      }
+    ],
+    "documents": [
+      {
+        "document_code": "DOC-000003",
+        "id": "70691d4d-8111-4425-ab64-5e3237e06421",
+        "is_deleted": false,
+        "status": "inactive"
+      },
+      {
+        "document_code": "DOC-000001",
+        "id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+        "is_deleted": true,
+        "status": "deleted"
+      },
+      {
+        "document_code": "DOC-000002",
+        "id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+        "is_deleted": true,
+        "status": "deleted"
+      }
+    ],
+    "environment": "development",
+    "graph_job_counts": [
+      {
+        "count": 3,
+        "document_version_id": "98050420-1be2-401c-9209-53ab271681b8",
+        "status": "completed"
+      }
+    ],
+    "manifests": [],
+    "mode": "read_only_inventory",
+    "modules_sha256": {
+      "app.domain.graph_projection": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+      "app.domain.graph_reconciliation": "67d21dccd30ab455d08f074d0045d094f5cbb831ec1714c994438191cd17b2af"
+    },
+    "observed_at": "2026-09-08T19:03:17.807137+00:00",
+    "postgres_inventory_sha256": "26d7d453deb6339b512ee36fae70cf515668bc419a0b0eff18aabbf38f332e7f",
+    "postgres_transaction": [
+      {
+        "isolation": "repeatable read",
+        "read_only": "on"
+      }
+    ],
+    "project": {
+      "id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+      "name": "MAAS",
+      "status": "active",
+      "work_generation": 1
+    },
+    "versions": [
+      {
+        "document_id": "70691d4d-8111-4425-ab64-5e3237e06421",
+        "id": "ce1c4c6a-ff64-4dfb-9535-fb8c608e8f65",
+        "lock_version": 1,
+        "published_at": null,
+        "status": "submission_ready",
+        "version_label": "v1.0"
+      },
+      {
+        "document_id": "86905746-948c-415d-81e7-2ac4c70cf9ec",
+        "id": "4abdc8c3-5c58-49d3-bbc4-2658b92bf565",
+        "lock_version": 1,
+        "published_at": null,
+        "status": "failed",
+        "version_label": "v1.0"
+      },
+      {
+        "document_id": "af3abea0-8c90-43bf-b367-875fcbb8eb2d",
+        "id": "98050420-1be2-401c-9209-53ab271681b8",
+        "lock_version": 4,
+        "published_at": null,
+        "status": "submission_ready",
+        "version_label": "v1.0"
+      }
+    ]
+  },
+  "dryrun": {
+    "after": {
+      "revision": 35,
+      "revision36_jobs": 0,
+      "values_sha256": "019eeed496ad5f6034258caaa2c1b09ad43c8e294b61fbddcce62bf46f469c57"
+    },
+    "before": {
+      "revision": 35,
+      "revision36_jobs": 0,
+      "values_sha256": "019eeed496ad5f6034258caaa2c1b09ad43c8e294b61fbddcce62bf46f469c57"
+    },
+    "renders": [
+      {
+        "app_image_references": {
+          "nomosmart/backend:0.1.0-chg292": 8,
+          "nomosmart/frontend:0.1.0-chg292": 1,
+          "nomosmart/migrations:0.1.0-chg288": 1
+        },
+        "bootstrap_release": "nomosmart-local-36",
+        "canonical_bytes": 96181,
+        "jobs": [
+          "nomosmart-local-bootstrap-36",
+          "nomosmart-local-migration-36"
+        ],
+        "kinds": {
+          "ConfigMap": 3,
+          "Deployment": 6,
+          "Ingress": 2,
+          "Job": 2,
+          "NetworkPolicy": 10,
+          "PodDisruptionBudget": 3,
+          "Service": 10,
+          "ServiceAccount": 1,
+          "StatefulSet": 5
+        },
+        "normalized_nonsecret_manifest_parity": true,
+        "render_sha256": "fad6bb97fcaeadbccfd90d8b32a3a4a41e578be2ba37a776be7a78f278b32b67",
+        "revision": 36,
+        "run": 1,
+        "secret_body_hidden": true,
+        "secret_manifest_objects": 0
+      },
+      {
+        "app_image_references": {
+          "nomosmart/backend:0.1.0-chg292": 8,
+          "nomosmart/frontend:0.1.0-chg292": 1,
+          "nomosmart/migrations:0.1.0-chg288": 1
+        },
+        "bootstrap_release": "nomosmart-local-36",
+        "canonical_bytes": 96181,
+        "jobs": [
+          "nomosmart-local-bootstrap-36",
+          "nomosmart-local-migration-36"
+        ],
+        "kinds": {
+          "ConfigMap": 3,
+          "Deployment": 6,
+          "Ingress": 2,
+          "Job": 2,
+          "NetworkPolicy": 10,
+          "PodDisruptionBudget": 3,
+          "Service": 10,
+          "ServiceAccount": 1,
+          "StatefulSet": 5
+        },
+        "normalized_nonsecret_manifest_parity": true,
+        "render_sha256": "fad6bb97fcaeadbccfd90d8b32a3a4a41e578be2ba37a776be7a78f278b32b67",
+        "revision": 36,
+        "run": 2,
+        "secret_body_hidden": true,
+        "secret_manifest_objects": 0
+      }
+    ],
+    "status": "pass"
+  },
+  "health": {
+    "host_https_login_attempts": [
+      {
+        "curl_exit": 35,
+        "http_status": "000",
+        "error": "Recv failure: Connection reset by peer"
+      },
+      {
+        "curl_exit": 35,
+        "http_status": "000",
+        "error": "Recv failure: Connection reset by peer"
+      }
+    ],
+    "tls_verification_disabled": false,
+    "backend_loopback_ready": {
+      "path": "/api/v1/ready",
+      "port": 8000,
+      "timeout_seconds": 20,
+      "error": "httpx.ReadTimeout"
+    },
+    "backend_loopback_health": {
+      "http_status": 200,
+      "status": "healthy"
+    },
+    "pod_status_observed": "1/1 Ready; 3 restarts, latest 22h before check; same Pod UID",
+    "root_cause": "Not determined; no repair authorized"
+  },
+  "limitations": [
+    "Counts/digests are point-in-time evidence, not a backup or full vector/document-body export.",
+    "PostgreSQL table checksums use MD5 of sorted MD5 row JSON strings as change detectors, not a security integrity primitive.",
+    "No role/group/user writes or bootstrap ensure/check/reconcile call was executed.",
+    "Keycloak admin requests were GETs after normal configured service-account token authentication; no credentials or profiles exported.",
+    "No live image scanner/SBOM, full coverage or authenticated browser acceptance performed.",
+    "No definitive diagnosis or repair of the observed HTTPS/readiness failures."
+  ]
+}

@@ -1,0 +1,9 @@
+# PostgreSQL build context: never send generated credentials or operator state.
+**
+!postgresql
+!postgresql/Dockerfile
+!postgresql/Dockerfile.dockerignore
+!docker
+!docker/postgresql-init.sh
+!docker/secret-env-entrypoint.sh
+!docker/compose-secret-entrypoint.sh

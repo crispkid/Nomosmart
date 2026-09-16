@@ -1,0 +1,117 @@
+{
+  "schema_version": 1,
+  "scope": "CHG-301 R2 High-risk Remediation And Review PR Checkpoint",
+  "status": "PARTIAL_REGRESSION_REPAIRED_HIGH_RISK_BLOCKED",
+  "approval": {
+    "phrase": "核准 CHG-301 R2 高風險修正、必要回歸與 PR 更新計畫",
+    "preapproval_sha256": "ef830bcb3007261cb61b4cea5fcb0e96a607c16c2912065c54c248f6b4c34dbb",
+    "approved_plan_sha256": "da3865a87a30f55e61aa78f74b1a6a3d12a7634af2139f7676a28c706bbe1fca"
+  },
+  "run": {
+    "root": "/private/tmp/chg301-r2-high-w4fccj_d",
+    "manifest_sha256": "8824f9f56e5c596eff89c9ca31ba2735e1df4fdf61f4244c0c21e3a6736755ff",
+    "started_at": "2026-09-15T19:27:16.177085+00:00",
+    "deadline": "2026-09-16T01:27:16.177085+00:00",
+    "retained_disk_kib_du": 4508,
+    "phases": ["preflight", "ledger", "catalogs", "evidence", "recheck", "capacity", "closeout"]
+  },
+  "implementation": {
+    "backend/scripts/chg301_r2_high_risk.py": "e09359fd6dc181ff337367a5701aa43f4e9159d8c250ccd2ca0423e18a26b12a",
+    "backend/scripts/chg301_r2_node_qualification.py": "670bd8aba85112774ae084758539e9ca568c0f77118dc704a364da3006cd4a60",
+    "backend/tests/test_chg301_r2_ingress.py": "e6f13e4b0f705f5206db053de5d9fba31117b085de8b7c08b600c0f370c0c56d",
+    "backend/tests/test_chg301_r2_node_qualification.py": "32bf9cd27d5afb4f75257551d7000a675a4bc725b538399862a5e823ee14a295",
+    "backend/tests/test_chg301_r2_high_risk.py": "64c552663b2ff9bc547f18abb098fc94e2c8bcbdac3ebef1659a55087ba13527"
+  },
+  "ledger": {
+    "path": "analysis/high-ledger-complete-raw.json",
+    "sha256": "159977c7e95034596e6a7f75fbd137f9486b14092a7d6f4709af7e2a50f5154c",
+    "scope": "Original node all 151 IDs, 339 additional image-by-ID entries, one supplemental Critical advisory. Traefik and application evidence tracked separately; not all product-image security acceptance.",
+    "rows": 491,
+    "unresolved_high_critical_rows": 221,
+    "raw_high_critical_unique_ids": 83,
+    "supplemental_critical": "GHSA-p7v4-vr35-mj6f",
+    "deferred_nonhigh_rows": 270,
+    "new_vulnerability_fixes": 0,
+    "new_waivers": 0,
+    "fresh_image_scan": false
+  },
+  "official_candidates": {
+    "path": "analysis/official-candidates.json",
+    "sha256": "99f49820688353944be1c8419daa9a4438eeb8ccdc7c433f38b96eb15349e6a3",
+    "scope_limit": "Latest 30 official release records per repository; no unpublished registry artifact inferred.",
+    "kind": {"series": "1.36", "latest_observed_compatible": "1.36.4", "newer_candidates": 0, "source": "https://github.com/kubernetes-sigs/kind/releases/tag/v0.33.0"},
+    "cilium": {"series": "1.20", "latest_observed_compatible": "1.20.1", "newer_candidates": 0, "source": "https://github.com/cilium/cilium/releases/tag/v1.20.1"},
+    "traefik": {"series": "3.7", "latest_observed_compatible": "3.7.13", "newer_candidates": 0, "source": "https://github.com/traefik/traefik/releases/tag/v3.7.13"},
+    "node_cilium_operator_registry_tags_rechecked_unchanged": true
+  },
+  "tests": {
+    "before": {"passed": 204, "failed": 7, "seconds": 13.08, "junit_sha256": "d71e202c57828bff9382a968f49d08d0a88aa0cf22e8d6eed9c67de8b14537fa"},
+    "final": {"passed": 247, "failed": 0, "errors": 0, "skipped": 0, "seconds": 13.12, "junit_sha256": "7dbf2ad72ae38360f27d6bc73c3504428af4d6b2d65b835a04574f4bca0f6113"},
+    "meaning": "All original 211 cases retained, two current-scope refusal cases and 34 new high-only artifact/policy cases. Not whole-application coverage, container repair or Kubernetes acceptance."
+  },
+  "static_security": {
+    "files": ["backend/scripts/chg301_r2_high_risk.py", "backend/scripts/chg301_r2_node_qualification.py"],
+    "command": "bandit --ignore-nosec -f json",
+    "exit_code": 1,
+    "high": 0,
+    "medium": 0,
+    "low": 7,
+    "errors": 0,
+    "suppression_added": false,
+    "raw_sha256": "4dced82aa3238458edd8b98b3cfa9b70da2fe1c78d1c7d811e8c4bff4e85d2ab"
+  },
+  "historical_application_security": {
+    "source_files_rechecked_unchanged": 140,
+    "result_sha256": "bd648f6c323e238b84faf886e1c29a1f09bb2c3278d224275825899f7485786a",
+    "scan_time": "2026-09-15T11:45:50.444583+00:00",
+    "npm_production_findings": 0,
+    "npm_full_findings": 0,
+    "pip_production_findings": 0,
+    "pip_full_findings": 0,
+    "fresh_scan": false,
+    "candidate_app_image_scan_complete": false,
+    "limits": "Earlier source-bound Bandit accepted-risk report retained; not a new waiver or all-product image pass."
+  },
+  "protection": {
+    "existing_containers": 14,
+    "container_identity_status_start_restart_unchanged": true,
+    "image_inventory_unchanged": true,
+    "network_inventory_unchanged": true,
+    "product_source_unchanged": true,
+    "old_source_snapshot_changed_paths": ["backend/tests/test_chg301_r2_ingress.py"],
+    "new_image_builds": 0,
+    "container_mutations": 0,
+    "kubernetes_mutations": 0,
+    "provider_calls": 0,
+    "git_commits": 0,
+    "pr_writes": 0,
+    "cleanup": "No runtime resources created or removed. Public metadata, logs and policy artifacts retained; no application data or test credentials copied."
+  },
+  "capacity": {
+    "vm_cpu_total": 8,
+    "vm_memory_total_bytes": 33598726144,
+    "available_vm_memory_verified": false,
+    "metrics_command": "kubectl --context docker-desktop top nodes --no-headers --request-timeout=10s",
+    "metrics_exit_code": 1,
+    "metrics_error": "Metrics API not available",
+    "heavy_work_gate": "UNVERIFIED_VM_AVAILABLE_MEMORY_AND_JOB_LIMIT_ENFORCEMENT",
+    "metrics_server_installed": false
+  },
+  "pr": {
+    "number": 1,
+    "url": "https://github.com/crispkid/Nomosmart/pull/1",
+    "head": "c261a494283835af57c0e0678afc7ee7e2c0dcc8",
+    "base_main": "5f1a0a2505dee9c85ee621bd2c8680b92d397a45",
+    "state_observed": "OPEN",
+    "checks_observed": [],
+    "write_gate": "BLOCKED_UNRESOLVED_HIGH_AND_INCOMPLETE_CANDIDATE_IMAGE_EVIDENCE",
+    "merged": false
+  },
+  "deferred": ["Full frontend/backend coverage", "Full E2E", "Kubernetes runtime acceptance", "Medium/Low/Unspecified remediation"],
+  "remaining": [
+    "No newer compatible official node/Cilium/Traefik release found in bounded catalogs; embedded Go and preloaded component findings cannot be fixed by outer OS packages.",
+    "OS repair payload/solver/final-image build not performed; VM available-memory and job-limit prerequisites not verified. No partial OS patch claimed.",
+    "High/Critical applicability not resolved is still blocking. Prior exact-image Traefik acceptance is neither broadened nor extended.",
+    "Application source audit reused after hash verification, but candidate application image scan coverage remains incomplete."
+  ]
+}

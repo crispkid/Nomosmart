@@ -1,0 +1,40 @@
+{
+  "change": "CHG-300",
+  "observed_date": "2026-09-13",
+  "status": "DEPLOYED_ACCEPTANCE_PARTIAL",
+  "scope_sha256": "2aafb12b21f33f2d71a7c38c3c8df6348515b4d2132d2da7f0f6b5e949a76dc7",
+  "target": {"context": "docker-desktop", "namespace": "nomosmart", "release": "nomosmart-local", "previous_revision": 36, "revision": 37, "helm_status": "deployed", "exit_code": 0},
+  "render_sha256": "41908a8b99d38e76469d84f354a6ce1409b9d2e105fd12bf680a370862d894de",
+  "images": {
+    "backend": {"tag": "nomosmart/backend:0.1.0-chg300", "id": "sha256:21283c4f28bb05cc444c416b8020ddd34719235ba56b8c64d51b42a786392ef2"},
+    "frontend": {"tag": "nomosmart/frontend:0.1.0-chg299-v049", "id": "sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f"},
+    "migration": {"tag": "nomosmart/migrations:0.1.0-chg300", "id": "sha256:7c8c3625d3e965d9fd1e333ac4f2a55c8c432306312bb19f350baaf6085619e6"},
+    "runtime_ids_match": true
+  },
+  "timeline_unix_seconds": {"freeze_started": 1789303723.435353, "freeze_completed": 1789303747.851228, "migration_data_pass": 1789303847.040708, "helm_started": 1789303939.722919, "helm_completed": 1789303994.285701},
+  "jobs": {
+    "migration": {"name": "nomosmart-local-migration-37", "uid": "b6c79d7c-2d01-4583-a4f0-2290009a76a0", "complete_utc": "2026-09-13T12:50:29Z", "spec_sha256": "f5542d8ae23bdc45c9df6dad6336d3690db3aed39372b16f8fa0d442153dadd4", "same_uid_spec_adopted": true},
+    "bootstrap": {"name": "nomosmart-local-bootstrap-37", "uid": "47c394b8-1761-4d79-9b1d-ebb13c87eade", "complete_utc": "2026-09-13T12:52:29Z"},
+    "other_jobs_created": 0,
+    "old_audit_jobs_preserved": true
+  },
+  "migration": {"version": "049", "checksum": -1579162252, "status": "PASS", "member_rows_before": 3, "member_rows_after": 2, "removed_duplicate_viewer_rows": 1, "owner_parity_errors": 0, "old_business_rows_preserved": true, "new_audit_rows": 1, "new_history_rows": 1},
+  "bootstrap": {"status": "PASS_BOUNDED_OPERATIONAL_CHANGES", "new_identity_sync_runs": 3, "new_reconcile_audits": 3, "new_deployment_evidence": 1, "identity_semantics_equal": true, "other_business_rows_preserved": true},
+  "protected": {"nonapp_resources": 37, "pvc_pv_pairs_bound": 7, "network_policies": 10, "pdbs": 3, "uid_spec_semantics_equal": true, "opensearch_document_counts": [26, 11], "opensearch_index_content_configuration_equal": true, "neo4j_nodes": 110, "neo4j_relationships": 143, "neo4j_content_equal": true},
+  "runtime_secrets": {"body_read": false, "all_seven_created_before_deploy": true, "recorded_managed_updates_before_preflight": true, "historical_five_selected_uids_match": true, "individual_resource_version_comparison": "NOT_AVAILABLE_PRE_BASELINE_AGGREGATED_WITH_MUTABLE_HELM_METADATA", "data_digest_comparison": "NOT_PERFORMED", "known_runtime_secret_mutation": false},
+  "health": {"samples": 3, "host_login_ready_health_http": [200, 200, 200], "frontend_to_backend": "PASS_HTTP_200", "backend_ready": "migrated:49:-1579162252", "backend_to_frontend": "FAIL_CONNECT_TIMEOUT_EXISTING_INGRESS_NETWORK_POLICY", "original_all_pass": false, "oidc_discovery": "PASS", "redis_ping": true, "worker_beat_heartbeat": "PASS", "browser_login_reload": "PASS", "authenticated_ui": "NOT_RUN_NO_EXISTING_LOGGED_IN_SESSION"},
+  "acceptance": {"MIGLOCAL-T01": "PARTIAL_SECRET_RESOURCE_VERSION_EVIDENCE_GAP", "MIGLOCAL-T02": "PASS", "MIGLOCAL-T03": "PASS", "MIGLOCAL-T04": "PASS", "MIGLOCAL-T05": "PASS", "MIGLOCAL-T06": "PARTIAL_NETWORK_POLICY_CONFLICT_AND_NO_AUTHENTICATED_UI", "rollback": "NOT_EXERCISED"},
+  "retained_risks": ["NO_VALIDATED_RECOVERABLE_BACKUP", "FULL_TEST_E2E_COVERAGE_GATES_OPEN", "NEW_BACKEND_MIGRATION_UNSCANNED_SECURITY_UNKNOWN"],
+  "not_performed": ["provider_call", "new_backup", "image_build", "security_scan", "reprocess", "reembed", "reindex", "manifest_switch", "network_policy_change", "cni_repair", "database_restore"],
+  "governance_checks": {"spec:doctor": "PASS", "spec:trace": "PASS", "plan:doctor": "PASS", "plan:approved": "PASS", "test:plan": "PASS", "git_diff_check": "PASS", "evidence_json_validation": "PASS", "immutable_scope_hash": "PASS"},
+  "private_evidence_root": "/private/tmp/chg300-revision37-deploy-z5dUrjhQ",
+  "private_evidence_sha256": {
+    "fresh.json": "75b9bb636331e947a70b0017d372e914974018f64006c07f07c1128ce6e0c176",
+    "freeze-result.json": "527cd3a49f0b6475a5955e666b4edf4ca91394ee077c075f2513580ab8eafefb",
+    "migration-data-acceptance.json": "72c3f9032f939c8a00f9c86048019bfc2520a82b0849d3e76ec2ab807ff506ac",
+    "helm-result.json": "515cc91daa3a1dd24d5035003a0c5a2af009a1179aa6b20b23fcd3c2485b5ad4",
+    "postproof.json": "477e52ab56dcea5b2ed2c990df38e51271928081d4104ea6729e5de0c3c2ec39",
+    "health.json": "88f790823c05adc87e3431785de4d01bfbf70512b87df4f7862ed6e030638bec",
+    "supplement.json": "a5cb763d874c1bbf25fd1104ebedb7f088fdb0898c634e166ebbe1fbfe157519"
+  }
+}

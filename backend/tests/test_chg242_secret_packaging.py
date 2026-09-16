@@ -306,8 +306,9 @@ def test_compose_limits_admin_secrets_to_bootstrap_and_finalize() -> None:
     assert compose["services"]["rustfs"]["environment"]["NOMOSMART_SECRET_EXPORTS"]
     for name in ("backend", "celery-worker", "celery-beat", "deployment-bootstrap", "deployment-finalize"):
         assert compose["services"][name]["user"] == "0:0"
-        assert compose["services"][name]["entrypoint"] == ["/opt/nomosmart/secret-env-entrypoint.sh"]
-    assert compose["services"]["backend"]["environment"]["NOMOSMART_RUN_AS"] == "10001:10001"
+        assert compose["services"][name]["entrypoint"] == ["/opt/nomosmart/compose-secret-entrypoint.sh", "backend"]
+        assert compose["services"][name]["tmpfs"] == ["/run/nomosmart:rw,noexec,nosuid,nodev,size=16m,mode=0700"]
+    assert "NOMOSMART_RUN_AS" not in compose["services"]["backend"]["environment"]
     assert compose["services"]["backend"]["command"] == ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     assert "~* &*" in " ".join(compose["services"]["redis"]["command"])
     assert "celerybeat-schedule.db" in " ".join(compose["services"]["celery-beat"]["healthcheck"]["test"])
@@ -374,24 +375,35 @@ def test_keycloak_management_identity_can_complete_idempotent_bootstrap() -> Non
     )
 
 
-def test_compose_preflight_treats_missing_minikube_as_stopped(
-    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
-) -> None:
-    module = _module()
+def test_compose_preflight_treats_missing_minikube_as_stopped(tmp_path: Path) -> None:
+    # A real subprocess with no executable in PATH, not a fake subprocess.run.
+    command = (
+        "import importlib.util; "
+        f"s=importlib.util.spec_from_file_location('package',{str(PACKAGE_SCRIPT)!r}); "
+        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+        "assert m._minikube_profile_running('unused-chg301') is False"
+    )
+    # Preserve only coverage instrumentation, never operator/application env.
+    environment = {key: value for key, value in os.environ.items() if key.startswith("COVERAGE_")}
+    environment["PATH"] = str(tmp_path)
+    result = subprocess.run([sys.executable, "-c", command], env=environment,
+                            capture_output=True, text=True, timeout=15)
+    assert result.returncode == 0, result.stderr
 
-    def fake_run(command, *args, **kwargs):
-        if command[0] == "minikube":
-            raise FileNotFoundError(command[0])
-        if command[0] == "lsof":
-            return subprocess.CompletedProcess(command, 1, "", "")
-        raise AssertionError(command)
 
-    monkeypatch.setattr(module.subprocess, "run", fake_run)
-    monkeypatch.setattr(module, "_local_host_mapping", lambda *_args, **_kwargs: True)
-    args = module._parser().parse_args(["preflight", "--runtime", "compose"])
-
-    assert module.preflight_package(args) == 0
-    payload = json.loads(capsys.readouterr().out)
-    assert payload["status"] == "ready"
-    assert payload["runtime"] == "compose"
-    assert payload["other_runtime"] == "stopped"
+def test_compose_preflight_does_not_hide_executable_permission_error(tmp_path: Path) -> None:
+    executable = tmp_path / "minikube"
+    executable.write_bytes(b"not executable")
+    executable.chmod(0o600)
+    command = (
+        "import importlib.util; "
+        f"s=importlib.util.spec_from_file_location('package',{str(PACKAGE_SCRIPT)!r}); "
+        "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
+        "m._minikube_profile_running('unused-chg301')"
+    )
+    environment = {key: value for key, value in os.environ.items() if key.startswith("COVERAGE_")}
+    environment["PATH"] = str(tmp_path)
+    result = subprocess.run([sys.executable, "-c", command], env=environment,
+                            capture_output=True, text=True, timeout=15)
+    assert result.returncode != 0
+    assert "PermissionError" in result.stderr

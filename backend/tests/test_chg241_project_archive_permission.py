@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 from pathlib import Path
+import os
+import zlib
 from uuid import uuid4
 
 import pytest
@@ -77,7 +79,22 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
     now = datetime.now(UTC)
     subject = f"chg241-{uuid4()}"
     with factory() as session:
-        assert session.scalar(text("select version from flyway_schema_history where success = true order by installed_rank desc limit 1")) == "032"
+        migrations = {int(path.name.split("__", 1)[0][1:]): path for path in (ROOT / "sql/migrations").glob("V*.sql")}
+        target = int(os.environ.get("NOMOSMART_TEST_MAX_MIGRATION", max(migrations)))
+        assert target in migrations and target >= 32
+        expected = {number: path for number, path in migrations.items() if number <= target}
+        applied = list(session.execute(text("SELECT version, script, checksum, success FROM flyway_schema_history "
+            "WHERE version IS NOT NULL ORDER BY installed_rank")))
+        assert {int(row.version) for row in applied} == set(expected)
+        assert len(applied) == len(expected) and all(row.success for row in applied)
+        for row in applied:
+            path = expected[int(row.version)]
+            # Flyway's SQL checksum is signed CRC32 over UTF-8 lines without
+            # newline delimiters/BOM; do not bless arbitrary newer migrations.
+            content = "".join(path.read_text(encoding="utf-8-sig").splitlines()).encode("utf-8")
+            crc = zlib.crc32(content)
+            assert row.script == path.name
+            assert row.checksum == (crc if crc < 2**31 else crc - 2**32)
         actor = User(
             employee_id=f"Z{uuid4().hex[:9]}",
             keycloak_user_id=subject,
@@ -168,6 +185,15 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
         assert projects[0].published_version_count == 1
         assert projects[0].last_activity_at is not None
 
+        # CHG-293 explicitly denies Editors even with a separate archive grant.
+        with pytest.raises(AppError) as editor_denied:
+            _require_project_archive_authority(session, complete.id, context)
+        assert editor_denied.value.code == "project_editor_archive_forbidden"
+        actor_membership = session.get(ProjectMember, (complete.id, actor.id, "editor"))
+        session.delete(actor_membership); session.flush()
+        session.add(ProjectMember(project_id=complete.id, user_id=actor.id, project_role="viewer", created_at=now))
+        session.flush()
+        context = resolve_identity_context(session, _principal(subject))
         authorized_project, is_owner = _require_project_archive_authority(session, complete.id, context)
         assert authorized_project.id == complete.id
         assert is_owner is False
@@ -187,7 +213,7 @@ def test_chg241_live_project_discovery_and_archive_execute_revocation() -> None:
             _require_project_archive_authority(session, complete.id, revoked_context)
         assert revoked.value.code == "project_archive_permission_required"
 
-        actor_membership = session.get(ProjectMember, (complete.id, actor.id, "editor"))
+        actor_membership = session.get(ProjectMember, (complete.id, actor.id, "viewer"))
         assert actor_membership is not None
         session.delete(actor_membership)
         session.flush()

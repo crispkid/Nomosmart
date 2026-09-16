@@ -12,3 +12,4 @@
 !deploy/migrations/Dockerfile
 !deploy/docker
 !deploy/docker/secret-env-entrypoint.sh
+!deploy/docker/compose-secret-entrypoint.sh

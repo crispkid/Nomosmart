@@ -1,0 +1,1331 @@
+{
+  "scope": "CHG-301 R2 pytest and FTP risk amendment; not full release acceptance",
+  "recorded_date": "2026-09-15",
+  "approval": "同意升級pytest，接收明文風險",
+  "dependency_change": {
+    "before_pytest": "8.4.2",
+    "after_pytest": "9.0.3",
+    "changed_records": [
+      "nomosmart-backend",
+      "pytest"
+    ],
+    "root_record_dev_specifier_only": true,
+    "all_other_package_records_unchanged": true,
+    "before_lock_sha256": "84f46fc301ba21029f299ad23556dc33f8402ef0fca112ae84225ce340d62741",
+    "after_lock_sha256": "75bd849993d8ac77b4c75bc8c9e4dd60dfb7bb891b59f6a3b89c3ebdcff4c449",
+    "production_exports_equal": true,
+    "production_export_sha256": "28a78400e81f15a01bd204f81f1203b253f30ef5215986a7af7cb39e8e1fc5e8",
+    "pytest_cov": "6.3.0"
+  },
+  "policy_tests": {
+    "passed": 13,
+    "failed": 0,
+    "skipped": 0,
+    "junit_sha256": "66d1f940e27b39eae18d86de0c1720d2db544742d1eca4c1cfa49eecf5b555fe",
+    "source_sha256": {
+      "backend/tests/test_chg301_r2_security_policy.py": "5d2fd0e4557311f39902202b01bf18a26e47916199bf7e40dff4219859bf883b",
+      "backend/scripts/chg301_r2_security.py": "fe7629b023b48d819caa98d242923a8ef85d13e84790e0b6cba66f280f4dbd61",
+      "docs/CHG-301-R2-FTP-RISK-ACCEPTANCE.json": "e0ef6fb654acc49093f5c3cbc50f3449f527fd3e135d66cda6a7f1e5a6b969e5"
+    }
+  },
+  "package_tests": {
+    "passed": 81,
+    "failed": 0,
+    "skipped": 0,
+    "result_sha256": "47918aafc66b0120038984871ad35be7df400c83e45173692aad6be7e508b344",
+    "coverage": {
+      "deploy/package/generate_opensearch_tls.py": {
+        "lines": 97.2972972972973,
+        "branches": 93.33333333333333,
+        "combined": 96.62921348314607
+      },
+      "deploy/package/nomosmart_package.py": {
+        "lines": 85.1520572450805,
+        "branches": 80.12820512820514,
+        "combined": 84.05594405594405
+      },
+      "TOTAL": {
+        "lines": 87.6944837340877,
+        "branches": 82.25806451612904,
+        "combined": 86.56215005599104
+      }
+    },
+    "source_sha256": {
+      "backend/scripts/chg301_package_verify.py": "4bc5edb09f1c861148b247ea244214d6ce212130583a07c365db1c27f6fa6789",
+      "backend/tests/chg301_coverage.ini": "3be55f101cfe87cab09814309952e3ebe892a5b6be88aba29c2af23e003d8168",
+      "backend/tests/test_chg229_full_stack_deployment.py": "4106228d2a9c1d9de4ec35db99b70d6589001555e083118cc6015923aa9fe273",
+      "backend/tests/test_chg231_deployment_initialization.py": "b593d68b76eb3a9703a6be478c42dc515ef714516c943d40c4f0bd30a5a3556c",
+      "backend/tests/test_chg242_secret_packaging.py": "2cfe255738d969c9191aa2b343f6660bb6eeba5e954b5b44d1073918b83a6903",
+      "backend/tests/test_chg262_docker_desktop_local.py": "9af93e97482b155ade40f9084607819d3c261121d2565259b19c6dde2fdef289",
+      "backend/tests/test_chg301_package_boundaries.py": "a1112c77239ca4b39cc7498bed8a58a0f550582f1f93d8076b1fce5dda7d2b25",
+      "deploy/package/generate_opensearch_tls.py": "200ad539d1e8b853eb324f66c66dd2645486a8d5fc4cc6910b3256beab5c1371",
+      "deploy/package/nomosmart_package.py": "c453e9e1e97aacf7c0fe728cebb8c80fb73a8ed8e6f9d0bf6652b4e686aaa0de"
+    },
+    "test_file_cleanup": true
+  },
+  "security": {
+    "result_sha256": "bd648f6c323e238b84faf886e1c29a1f09bb2c3278d224275825899f7485786a",
+    "status": "PASS_WITH_ACCEPTED_RISK_SCOPED",
+    "started_at": "2026-09-15T11:45:36.502365+00:00",
+    "finished_at": "2026-09-15T11:45:50.444583+00:00",
+    "versions": {
+      "npm": "11.12.1",
+      "node": "v25.9.0",
+      "uv": "uv 0.11.8 (Homebrew 2026-04-27 aarch64-apple-darwin)",
+      "python": "Python 3.12.10",
+      "pip-audit": "pip-audit 2.10.1",
+      "bandit": "bandit 1.9.4\n  python version = 3.12.10 (v3.12.10:0cc81280367, Apr  8 2025, 08:46:59) [Clang 13.0.0 (clang-1300.0.29.30)]"
+    },
+    "source_sha256": {
+      "backend/app/__init__.py": "bf24c9ffd0883098066bdeee2f0ba96e24c914545db428f9451beddb926540f3",
+      "backend/app/api/__init__.py": "bef9ac0fbdb88dd69007b4adbc94e2071b6bee5909e29833ff76e091b022ddf6",
+      "backend/app/api/router.py": "f8928641f097b2589522f4433488da89a6c2a74261570d8567b2ef74d6608325",
+      "backend/app/api/routes/__init__.py": "54fdbe4dbd01a28f6966964cd382c2c7eb06acd9bc1bf2714a0390b172d3fae1",
+      "backend/app/api/routes/approvals.py": "5198c8692996e5688e4c43e56ab3c68dfeac5096b54c1e23b1cb2fa7a6da28ba",
+      "backend/app/api/routes/auth.py": "6193431eae2e96b0e88157b694147b971bec66662ed12503d3bee2b8b7ad820c",
+      "backend/app/api/routes/compatibility.py": "a8475b15033f704e2b7304f4fb04eed663b52d02b1d8727d15ee81cf79795d2d",
+      "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+      "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+      "backend/app/api/routes/health.py": "42f1c2c9f673fb658e507f8c239f8819caff40832ea585c7345f3afac6cc064c",
+      "backend/app/api/routes/identity.py": "57a7d2e82261b6c7148df271ae453f7096c9da03d72dcd482df49de0ea85a7d2",
+      "backend/app/api/routes/identity_settings.py": "853e613f44ff5073891d941b0f5b3fea3f264636dcc2197e2c1b91004302d06b",
+      "backend/app/api/routes/integration_clients.py": "dc64c24813f8d2c83694712372662103e0c2889af088b40ca3ac7d06627f0050",
+      "backend/app/api/routes/models.py": "cb58ce865dab2a7bee19dc755e05d3da5bd9563f4db69a41ac5e9bffe8bc18f0",
+      "backend/app/api/routes/projects.py": "0a4c73d6ab4bf86639df5152bfa03c5e5cd1c098412b4a9578a5cfad672c1507",
+      "backend/app/api/routes/public_api.py": "4e1c60da52dd295e65e5c22fce2ba2500a7318deba5d3549f808401af6c4a2a0",
+      "backend/app/api/routes/references.py": "f47776954f89d01f11d0bbb857460d2fb3d897f6b1d218de8b9106c08eda03d7",
+      "backend/app/api/routes/reports.py": "b45ccba3f4df7deae5b7b974247272948e27d798e50c4ad9b0e9a9ce6a5e8c91",
+      "backend/app/api/routes/roles.py": "fc7f53cdb2124d1ae8434051786aed99deb8e060d0ae97fc10ad93eb7c8c558a",
+      "backend/app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+      "backend/app/api/routes/system.py": "ea4748c7080aa84dfc7082fce5f24213e3480ad9d96adcb65226137cc26f2b45",
+      "backend/app/api/routes/system_prompts.py": "840dcda9f4dc9b107d0eb3a0bd5852e0bc47eb7f9a032663f381413b6edf2fb9",
+      "backend/app/api/routes/users.py": "903c4255394d2aa52b13a8ab23dd3ccd93febcf32870f879e8d72b173bb07dd9",
+      "backend/app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+      "backend/app/beat_leader.py": "9d48c1fe9521249f3706ff64d41d5f2c87660a16efaa13e79ac6556ff3b6246a",
+      "backend/app/core/__init__.py": "5c3c1f860582075a58bc7fabee6112095c27422567df01fdc1bd43c2231a99c4",
+      "backend/app/core/config.py": "d93d852bc28e98aed1155e58b982ff1ae17ccf948a2574e9dd6ba85753050386",
+      "backend/app/core/contracts.py": "9500be915618d30916544b405cd093ca8076ddb7616bf08cef244bd7246a8f5a",
+      "backend/app/core/cursor.py": "a7f728567f5390f227971597fcdf94081131ad74f96fc0ca4d799110fa8aa3e8",
+      "backend/app/core/encryption.py": "069d33c95f35fee0b1e1e57276e2b11ad4c3b13a6a9d5c3cf72672441e65a9df",
+      "backend/app/core/errors.py": "be6f511d9ab8d7dc713ea07b9126f4fb26af16fec7a7c18bf42711e74088318f",
+      "backend/app/core/idempotency.py": "8c295ff1d41811618e13f178c7c9c719e4ffa405d621e4e5b811967d21c1d661",
+      "backend/app/core/logging.py": "287a34565c74b3721516b590e68a9e6f30f87af8e10d5a0edb714044164d392d",
+      "backend/app/core/middleware.py": "78299ecf2cfb19e30be9022830f4462e55fbf99f02a806ade6db12bfc7fac5af",
+      "backend/app/db/__init__.py": "72e3dd8e53ac1c659e0d99d2a5e7ce959a66032e776058e8da583b2309a542ac",
+      "backend/app/db/base.py": "12205beafbee930528e14ee8439dba3fc6272c995e98dab39f87187c73a89b87",
+      "backend/app/db/models.py": "3b2958ae201ba218acab47a7ae47e2be8c597df908aee21f577ae6cd5e284965",
+      "backend/app/db/session.py": "10014b225fcfd25bd32732f425502e27b3a182cbdd3967f728d5623484378a72",
+      "backend/app/deployment/__init__.py": "e6782840e1003ec2ebe393b165005d81911a926686562d3b21942fc31aabe99e",
+      "backend/app/deployment/bootstrap.py": "0d3198bd38356b0e9d827c4109c4b62a106abd84282ddf97d33a3412cb903056",
+      "backend/app/deployment/directory_reconcile.py": "16c3c32bef0f86b6d36a8bb898e00ad690017e1040354629043d3af379f2b60f",
+      "backend/app/deployment/migration_gate.py": "1e77de108c6d4dbc3e46c95ab1b4a50fbc121558804704e1f75a61ee0d3a9cdb",
+      "backend/app/deployment/onboarding_status.py": "acf4e77847e5193c8a5ce74be348bc0fe0fdf4521a751174bc2767a81f4036e4",
+      "backend/app/deployment/storage_bootstrap.py": "7ff3f06ac13bffb9faee6929f1ccea386807cbc01e9a2315156d2594ca2346df",
+      "backend/app/domain/__init__.py": "937190c22a092dcf603508680cd24c4e48b16b868d1c327a367bfb3c4d28962b",
+      "backend/app/domain/ai_provider.py": "716368167529506c4dc01b7d1e4eeb78f17fce95553441aed8fbaef1fa735ffe",
+      "backend/app/domain/chat_citations.py": "68d225e408685893dbc37ae00c15a39afb09db5f9d6c00b88b3333e47562107d",
+      "backend/app/domain/chat_conversations.py": "8a3bcb80395e6b8bdd5b22d57e3ba706388b6f68c8f00d05a3891e25555af0cc",
+      "backend/app/domain/chat_retrieval.py": "b58d8e9bee1ffb1722f4dd8b7a14b37629d59feb6d8f4a7b01ba4474f2da4727",
+      "backend/app/domain/chunk_artifacts.py": "6c15b2a2abb540a08f5b97934f5e6dc6d3421020a3841617ac93553bdb0b9580",
+      "backend/app/domain/chunk_deletion.py": "e6bb6d6680b51046005bf06ce394f5e8c967c3a3caca0e6855a635523125b981",
+      "backend/app/domain/chunk_representations.py": "2c3c75be26527c41596fa65884163bb39179c6f23370cda737bd58d16131833c",
+      "backend/app/domain/connection_evidence.py": "d57e37a8e48f10e45be6a4d4f299551a458aeb37c8259fc50dbc491a21e6ffc4",
+      "backend/app/domain/connection_probes.py": "281c9cd149b323c81b6b64c0c19e97a3784f080d0663ac4c416883a0f9ea040f",
+      "backend/app/domain/data_sync.py": "97736775b44bfb9a5c264fc975cc1e4db0a8c0547a27dd5c4655d3e02d0e4a7c",
+      "backend/app/domain/directory_filters.py": "0a320ecdd6090e26fdbad4452b473ea0bb5a76febd5c9923ea16f8601f073784",
+      "backend/app/domain/document_imports.py": "e86fb903e1e5d52d63c7a1ffa37a2b99b033c1dbea1a2b451efa830f30c78df1",
+      "backend/app/domain/document_layout.py": "e23e68b038ecc1d05094218e2aa4a9799989007e5d40ced42be96d8b28c91177",
+      "backend/app/domain/docx_security.py": "9bdd4ea33bbb0e89cadeb0d61c036bfe44ad09ba0ba250560d748a8e9f116880",
+      "backend/app/domain/embeddings.py": "90023f9da12b89d5f076cb3f2156f082ae8e232cceee3d36cf2535aadf239643",
+      "backend/app/domain/extraction_pipeline.py": "83d53e7918071aa84472f8b9da8da18a5ffabb2a235aad9803a57b57f9e1bce2",
+      "backend/app/domain/graph_projection.py": "0420ee9826cb256079660f16ee2ab0821eab4b99704cecf14543be783b0539b6",
+      "backend/app/domain/graph_reconciliation.py": "2705673920a8c82f291c2f42fce9a7d1ac6803b1f539675a9de92f5191b28005",
+      "backend/app/domain/graph_sync_jobs.py": "992026dfc5c2cef79c2291e3cae975ebdcec1172bf0fb77cef9474b94d73b83f",
+      "backend/app/domain/identity_settings.py": "8235be967fbab0330df6eb90e9cda4f3a45a02c69e73a08e82711da605f7ce81",
+      "backend/app/domain/integration_api_keys.py": "17567e9701e9d6b6ab127e30deb25728beb68e03e101538f3a737886cc538eb6",
+      "backend/app/domain/markdown_artifacts.py": "6f9fa6128d2cf69bffe81ebedf7f31459d4d8911b5744c9589100f065dbe7871",
+      "backend/app/domain/markdown_structure.py": "bff8b7f84f3bc4e44cf7b7952c307f2a07e294839ebc972611c39736992a0743",
+      "backend/app/domain/model_usage.py": "b5fdf64a68fa60f7fa280607b40fd4f8815997600a73aff4c3c1d3b50a1ed15a",
+      "backend/app/domain/notifications.py": "1402651e5d187d8a9f57715178d61130369a85328a299e38223648b41e03892c",
+      "backend/app/domain/office_parser.py": "73984b4ac55ca95f185c440e2f4f554e14a45c40a70936613cc4cf9576eda22e",
+      "backend/app/domain/oidc_reauth.py": "434fd6472b98983432001ad32eb6a00ffd38dae1faa011c7f2827389e53a6ef4",
+      "backend/app/domain/operations.py": "8ed806943062f56c07885cd6ef5cb42e427d5811f905ed5446b9e21509724efa",
+      "backend/app/domain/project_access.py": "7c456e68313196bcc18bde3e6beee55a3c6668b05ac35cc76a5483f765892259",
+      "backend/app/domain/project_archival.py": "61eff47b568bb911da5e2fd4e1f952fc1a3739b494ea7914bebf60a71d908217",
+      "backend/app/domain/project_members.py": "4928ebc559e5914788af92b0c45ce3f35a21acacf3e7893d52fe25b31585f4ba",
+      "backend/app/domain/public_api_controls.py": "232aef5783596b4bd6bc7116edcb8dd3c3349c509ef0c5e86589269639fc2bfa",
+      "backend/app/domain/public_api_retention.py": "d18a0e4df342c9de779140fb6ad1539af4375e44a26a2f55e3a094b6d8743d07",
+      "backend/app/domain/reference_events.py": "e8ca48ecf912a83936d8558cd38c09aefb2a4b7af605cd82984b40637c6443a2",
+      "backend/app/domain/report_policy.py": "2e9d0e2b72c3d77bbf5120cc4d4b098e0454b270dca7916af95a0efcf519254a",
+      "backend/app/domain/retrieval_evaluation.py": "b9c9337b2c8fb92116fad0fead88356ae09838fc04472499bf0790fecb87195d",
+      "backend/app/domain/retrieval_text.py": "c2663dc02a7eacf0a5428920a6145d7f577b490757599f92875f8cf83e02b07e",
+      "backend/app/domain/review_publish.py": "25978e4f12409ba5e0a46ece672a40a976c55480dd5e19cff42ede9932c637b3",
+      "backend/app/domain/search.py": "9d09c58a7cd80634cb1f9d5519ea281605023ae5a293594637795958fecda699",
+      "backend/app/domain/structure_chunking.py": "1a164684120a3d22f920904315ae602b282c013fcf9535e7f26151b0675d44d1",
+      "backend/app/domain/submission_evidence.py": "91282cde6bf292c49122e08c24f532af88525758da6d792f67e91dde16c5cbb0",
+      "backend/app/domain/system_parameters.py": "38c9c09f2326c6479a4708163be9e9c0cf861dcbc23ef6cd653e1c3d5cf7aae6",
+      "backend/app/domain/system_prompts.py": "adc68f35adbbee57192cc52ecdc40ca877532881acb1c19e0ed211d4b0af1f93",
+      "backend/app/domain/tokenization.py": "c077b94071e1d700e5d45aef0a2e6a9f89bcf1bc40b04aa398fb560a30944d14",
+      "backend/app/domain/uploads.py": "8a81ab695101e04178e575b4f9b467b9256861e86fbc4012e53822e7e080d956",
+      "backend/app/domain/validation_runner.py": "3f8ca052f8432c31d586d9580ebfbd6a55c721de484a4a3d57dca90e854c65f4",
+      "backend/app/integrations/__init__.py": "4611b22e5b452990f133e94508b15e3ad43ab20f170a20c04fdd071d6f3c03f3",
+      "backend/app/integrations/health.py": "10919e136ce46e089532772cfc2ff06d91212d6a8ed402ed74dd910cb01a3045",
+      "backend/app/integrations/keycloak.py": "ada778fb22f5558756fc239304b893758cc84fce4b2a127068b0d2e0fed1514d",
+      "backend/app/integrations/redis_ha.py": "35fded0f161837b11eb2c7dc16c9d7abc05403d3992ae93513297fa6fbcde633",
+      "backend/app/integrations/remote_sources.py": "338c6ae58c299e7f9bdb60b9f79d8234446d864cbaa18de1cf8d162da418c3a5",
+      "backend/app/integrations/s3_storage.py": "dc5abaaa3364e47a6bf319927b7bd84511c3e6ad8d7fd552ff5ced2bbe24b605",
+      "backend/app/main.py": "8d89cab98290235f626fb2932c91a67252160a994a42a7cc32969724c826a4ff",
+      "backend/app/security/__init__.py": "a3ca65cd67f6ced0b16165a381c7992beee22fdcb7dd7fd91cebf9bae78d0718",
+      "backend/app/security/auth.py": "0e7f837646a871589aa8e887edbb329b151d65fded2a71408595027f65fa8aae",
+      "backend/app/security/context.py": "5d62f5c8f02032e278d9be3f5eee87e94cfaf934bc1d4bba8f4e4c3ded5ad578",
+      "backend/app/security/permissions.py": "a134b6a3357d6b752e8149d8d7af2b82d91a824dd9dfd58fe2a480f66aed9c4e",
+      "backend/app/security/project_roles.py": "53c88e8cd954d215b569f79296486d8d9e2db8e741956756a13c1094acc3ac81",
+      "backend/app/security/secrets.py": "d341c343fc464bbf450e0bf3170eae4ff3015ee0b3d5b4c5186060d7b731e041",
+      "backend/app/services/__init__.py": "ac74225afed0c30c874dafb9fa708dfeab2d64ebe9b488a345e7e3119a6092fa",
+      "backend/app/services/audit.py": "1f1f319a6df5dc7f93f709bd2b8d304aa10e5edb8150b3b3c5407a4e08fef505",
+      "backend/app/services/identity_sync.py": "72eee9998996649fe3ef133c3f633eaa341c71cdf09077fbe255a3cfa116e019",
+      "backend/app/services/identity_sync_jobs.py": "9fedee17f43aacbc748b86df924867770a79021da5aae378dace4175a54cb46d",
+      "backend/app/services/logout.py": "b5069cac7923b2b7a62e6c38d007d3b97f53b195aa9e34c5cf81fde8f9bb2b02",
+      "backend/app/services/role_memberships.py": "5b52e399ff90e8af0a12faf0b90bad133dc30753d6e4d8b91338158b135a5cd7",
+      "backend/app/worker.py": "c782f61bea838c7e7fd7e211cf4ad8b6bb4dbe33ead9c4ac5df9cce435324e37",
+      "backend/pyproject.toml": "1fbf60bf958a7056b5ddcad02750b069681d9d11be4fa9b9350db1c5679aefeb",
+      "backend/uv.lock": "75bd849993d8ac77b4c75bc8c9e4dd60dfb7bb891b59f6a3b89c3ebdcff4c449",
+      "deploy/installer/nomosmart_installer/__init__.py": "cf6deed6feb9d000b8fc94b70a2f59e0a5ed1230c094d43f994f8f318edeb6d1",
+      "deploy/installer/nomosmart_installer/barman_cloud.py": "0c5cc61dfee824b67fd447e131b9cd648114b74d3ec24ab53015fa6329281096",
+      "deploy/installer/nomosmart_installer/capacity.py": "3f233ec94801ed7b0f2fc9c7ed81e54f062199d3338372b1f33566830ea12942",
+      "deploy/installer/nomosmart_installer/cli.py": "1765433e9863e57e1a0f7caf292632ff440d909c249dbb8546ea4decf7966c17",
+      "deploy/installer/nomosmart_installer/cloudnativepg.py": "8b9a50a3f18654d6f80d2b919e36c9d43ba5866d9f4037b11640d0a880479722",
+      "deploy/installer/nomosmart_installer/config.py": "f7aedd687f48989e738b02bb55f8c48f0aed15eb098999e7c69c9e082cdfdb66",
+      "deploy/installer/nomosmart_installer/core.py": "4c50c792daa007dc122a50e8d51b5293eafaaec27822dd60ce41bd1efbbe682f",
+      "deploy/installer/nomosmart_installer/diagnostics.py": "1d813be97a525c979d00e90911e4b3501542d4f87313af46344db1349716502a",
+      "deploy/installer/nomosmart_installer/directory.py": "32aaa2b3fb0020b854413e38d069f517fdfed482d864a90405a5fd8296fc6874",
+      "deploy/installer/nomosmart_installer/factory.py": "277f6c86fa319bc0bb7b9cbc0251db5e933d45d75c573b11b676b7184d2786d4",
+      "deploy/installer/nomosmart_installer/helm.py": "ef68891044da5eb12f43664481ae39c489412c26ad9d298a34ae5e62e0eb99f0",
+      "deploy/installer/nomosmart_installer/kube.py": "210e35c0a0b38af12aa269f329edf59404ec55bff90baa0e87614ebf695231fb",
+      "deploy/installer/nomosmart_installer/orchestrator.py": "829ae1eee1bcf19dc6fdacdd5258524b5fccf7181c5c8023d5a5b430c0baf44d",
+      "deploy/installer/nomosmart_installer/package.py": "a6045e4bdc7d48c89b8a33ac813f150a2f5ac1c352a7fcaa584244b1acb5c7ac",
+      "deploy/installer/nomosmart_installer/preflight.py": "5b090b171b20bbc7f4b109cd16c25cbd5d9cb3bdd05fddac53dfb1ce10a455e6",
+      "deploy/installer/nomosmart_installer/release.py": "ea003f06ca5852e2c86fb85ae3a9443c5579a24395a0beb6119d308c5f005635",
+      "deploy/installer/nomosmart_installer/state.py": "d6b8b84a3f4a2242c934eba16f8db7ee55854917a42dde371dc344381dc643b7",
+      "deploy/installer/nomosmart_installer/tls_client.py": "698d4a437ba43c8d65f1c24b1dd4d9848b8642d57095fb1ee29a0c884243b01b",
+      "deploy/installer/nomosmart_installer/verify.py": "8507b7df2d438a1a026079f1044cccb687c046181e62e85bcbcc9fe74e5513ef",
+      "deploy/package/generate_opensearch_tls.py": "200ad539d1e8b853eb324f66c66dd2645486a8d5fc4cc6910b3256beab5c1371",
+      "deploy/package/nomosmart_package.py": "c453e9e1e97aacf7c0fe728cebb8c80fb73a8ed8e6f9d0bf6652b4e686aaa0de",
+      "deploy/release/nomosmart_release/__init__.py": "85af5c107c9a287da80d3e30f74e7d0e5d3b4bc6e0e98b89aa2cb67a05076c56",
+      "deploy/release/nomosmart_release/cli.py": "48d70faed568baed011aa46926412e9ebcaf09bc90979df453dbbfffa8b20bf4",
+      "deploy/release/nomosmart_release/contract.py": "d90b14df19264068723e3663402721553065edc1c2d8759064636b9bfcd7533f",
+      "docs/CHG-301-R2-FTP-RISK-ACCEPTANCE.json": "e0ef6fb654acc49093f5c3cbc50f3449f527fd3e135d66cda6a7f1e5a6b969e5",
+      "frontend/package-lock.json": "0c00961b9a9baa799788c85cb6fdeff573d34ca8605b685fcaad17671e9ac025",
+      "frontend/package.json": "76cf6331e73990bc2598aa5dd94728a1dfb58cdfb2c86cd37229be9debbfa404"
+    },
+    "scanner_lock_sha256": "31033fa707819a80505f10f05e8b9dca206875a3cb271a3fde9beca5fb56e013",
+    "checks": {
+      "npm-production": {
+        "status": "PASS",
+        "dependencies": {
+          "prod": 174,
+          "dev": 464,
+          "optional": 96,
+          "peer": 10,
+          "peerOptional": 0,
+          "total": 677
+        },
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "findings": {}
+      },
+      "npm-full": {
+        "status": "PASS",
+        "dependencies": {
+          "prod": 174,
+          "dev": 464,
+          "optional": 96,
+          "peer": 10,
+          "peerOptional": 0,
+          "total": 677
+        },
+        "counts": {
+          "info": 0,
+          "low": 0,
+          "moderate": 0,
+          "high": 0,
+          "critical": 0,
+          "total": 0
+        },
+        "findings": {}
+      },
+      "pip-production": {
+        "status": "PASS",
+        "dependencies": 54,
+        "findings": []
+      },
+      "pip-full": {
+        "status": "PASS",
+        "dependencies": 60,
+        "findings": []
+      },
+      "bandit": {
+        "status": "ACCEPTED_RISK",
+        "findings": [
+          {
+            "filename": "backend/app/api/routes/compatibility.py",
+            "line_number": 189,
+            "test_id": "B101",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code."
+          },
+          {
+            "filename": "backend/app/api/routes/identity_settings.py",
+            "line_number": 253,
+            "test_id": "B101",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code."
+          },
+          {
+            "filename": "backend/app/api/routes/identity_settings.py",
+            "line_number": 254,
+            "test_id": "B101",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code."
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 124,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: '驗證通過率'"
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 133,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: '通過率'"
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 140,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'Token 數'"
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 203,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'Validation Pass Rate'"
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 212,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'Pass Rate'"
+          },
+          {
+            "filename": "backend/app/api/routes/reports.py",
+            "line_number": 219,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'Token Count'"
+          },
+          {
+            "filename": "backend/app/api/routes/serving.py",
+            "line_number": 2382,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/api/routes/serving.py",
+            "line_number": 2404,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 10,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 19,
+            "test_id": "B108",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Probable insecure usage of temp file/directory."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 20,
+            "test_id": "B108",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Probable insecure usage of temp file/directory."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 102,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 134,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 227,
+            "test_id": "B607",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Starting a process with a partial executable path"
+          },
+          {
+            "filename": "backend/app/beat_leader.py",
+            "line_number": 227,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/core/config.py",
+            "line_number": 219,
+            "test_id": "B108",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Probable insecure usage of temp file/directory."
+          },
+          {
+            "filename": "backend/app/core/config.py",
+            "line_number": 430,
+            "test_id": "B323",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "By default, Python will create a secure, verified ssl context for use in such classes as HTTPSConnection. However, it still allows using an insecure context via the _create_unverified_context that  reverts to the previous behavior that does not validate certificates or perform hostname checks."
+          },
+          {
+            "filename": "backend/app/core/contracts.py",
+            "line_number": 50,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'runtime_secret.reference.denied'"
+          },
+          {
+            "filename": "backend/app/core/contracts.py",
+            "line_number": 51,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'runtime_secret.resolution.failed'"
+          },
+          {
+            "filename": "backend/app/domain/ai_provider.py",
+            "line_number": 542,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/ai_provider.py",
+            "line_number": 552,
+            "test_id": "B323",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "By default, Python will create a secure, verified ssl context for use in such classes as HTTPSConnection. However, it still allows using an insecure context via the _create_unverified_context that  reverts to the previous behavior that does not validate certificates or perform hostname checks."
+          },
+          {
+            "filename": "backend/app/domain/connection_probes.py",
+            "line_number": 4,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "backend/app/domain/connection_probes.py",
+            "line_number": 230,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/domain/docx_security.py",
+            "line_number": 7,
+            "test_id": "B405",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Using ElementTree to parse untrusted XML data is known to be vulnerable to XML attacks. Replace ElementTree with the equivalent defusedxml package, or make sure defusedxml.defuse_stdlib() is called."
+          },
+          {
+            "filename": "backend/app/domain/docx_security.py",
+            "line_number": 93,
+            "test_id": "B314",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Using xml.etree.ElementTree.fromstring to parse untrusted XML data is known to be vulnerable to XML attacks. Replace xml.etree.ElementTree.fromstring with its defusedxml equivalent function or make sure defusedxml.defuse_stdlib() is called"
+          },
+          {
+            "filename": "backend/app/domain/embeddings.py",
+            "line_number": 409,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/embeddings.py",
+            "line_number": 560,
+            "test_id": "B323",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "By default, Python will create a secure, verified ssl context for use in such classes as HTTPSConnection. However, it still allows using an insecure context via the _create_unverified_context that  reverts to the previous behavior that does not validate certificates or perform hostname checks."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 12,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 160,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 363,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 384,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 954,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 1127,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 1172,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 1296,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/extraction_pipeline.py",
+            "line_number": 1351,
+            "test_id": "B323",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "By default, Python will create a secure, verified ssl context for use in such classes as HTTPSConnection. However, it still allows using an insecure context via the _create_unverified_context that  reverts to the previous behavior that does not validate certificates or perform hostname checks."
+          },
+          {
+            "filename": "backend/app/domain/office_parser.py",
+            "line_number": 10,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "backend/app/domain/office_parser.py",
+            "line_number": 163,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/domain/office_parser.py",
+            "line_number": 350,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "backend/app/domain/oidc_reauth.py",
+            "line_number": 113,
+            "test_id": "B101",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code."
+          },
+          {
+            "filename": "backend/app/domain/oidc_reauth.py",
+            "line_number": 183,
+            "test_id": "B101",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Use of assert detected. The enclosed code will be removed when compiling to optimised byte code."
+          },
+          {
+            "filename": "backend/app/domain/review_publish.py",
+            "line_number": 136,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/review_publish.py",
+            "line_number": 230,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/review_publish.py",
+            "line_number": 257,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/domain/review_publish.py",
+            "line_number": 279,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 4,
+            "test_id": "B402",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "A FTP-related module is being imported.  FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 86,
+            "test_id": "B321",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 111,
+            "test_id": "B321",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 301,
+            "test_id": "B112",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Try, Except, Continue detected."
+          },
+          {
+            "filename": "backend/app/worker.py",
+            "line_number": 117,
+            "test_id": "B112",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Try, Except, Continue detected."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/barman_cloud.py",
+            "line_number": 291,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 94,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 95,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 135,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 136,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 145,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/capacity.py",
+            "line_number": 146,
+            "test_id": "B113",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "LOW",
+            "issue_text": "Call to requests without timeout"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/cloudnativepg.py",
+            "line_number": 179,
+            "test_id": "B310",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "HIGH",
+            "issue_text": "Audit url open for permitted schemes. Allowing use of file:/ or custom schemes is often unexpected."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/config.py",
+            "line_number": 838,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/core.py",
+            "line_number": 14,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/core.py",
+            "line_number": 132,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/directory.py",
+            "line_number": 104,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: ''"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/factory.py",
+            "line_number": 560,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: '70'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/kube.py",
+            "line_number": 529,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/orchestrator.py",
+            "line_number": 351,
+            "test_id": "B110",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Try, Except, Pass detected."
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 305,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'break_glass'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 306,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'postgres_admin'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 307,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'postgres_app'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 308,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'postgres_migration'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 310,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'postgres_migration'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 312,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'keycloak_db'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 313,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'keycloak_bootstrap'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 315,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'keycloak_sync'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 316,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'rustfs'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 318,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'redis_service'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 319,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'redis_replication'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 320,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'redis_sentinel'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 324,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'opensearch_admin'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 325,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'opensearch_service'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 326,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'neo4j_admin'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 327,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'neo4j_service'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 359,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 392,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'directory-managed credential; not held by installer'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 416,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 551,
+            "test_id": "B106",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'kubernetes.io/tls'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/package.py",
+            "line_number": 709,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/preflight.py",
+            "line_number": 479,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'existing'"
+          },
+          {
+            "filename": "deploy/installer/nomosmart_installer/verify.py",
+            "line_number": 310,
+            "test_id": "B108",
+            "issue_severity": "MEDIUM",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Probable insecure usage of temp file/directory."
+          },
+          {
+            "filename": "deploy/package/generate_opensearch_tls.py",
+            "line_number": 20,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "deploy/package/generate_opensearch_tls.py",
+            "line_number": 33,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 21,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 119,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'POSTGRES_ADMIN_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 120,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'POSTGRES_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 121,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'POSTGRES_MIGRATION_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 122,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'KEYCLOAK_DB_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 123,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 125,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'OIDC_CLIENT_SECRET'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 126,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'KEYCLOAK_SYNC_CLIENT_SECRET'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 127,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'S3_SECRET_ACCESS_KEY'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 128,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'REDIS_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 129,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'REDIS_REPLICATION_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 130,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'REDIS_SENTINEL_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 131,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'OPENSEARCH_ADMIN_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 132,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'OPENSEARCH_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 133,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'NEO4J_ADMIN_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 134,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'NEO4J_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 135,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'BREAK_GLASS_INITIAL_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 138,
+            "test_id": "B105",
+            "issue_severity": "LOW",
+            "issue_confidence": "MEDIUM",
+            "issue_text": "Possible hardcoded password: 'DATABASE_MIGRATION_PASSWORD'"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 233,
+            "test_id": "B607",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Starting a process with a partial executable path"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 233,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1175,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1207,
+            "test_id": "B607",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Starting a process with a partial executable path"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1207,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1229,
+            "test_id": "B607",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Starting a process with a partial executable path"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1229,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1249,
+            "test_id": "B607",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Starting a process with a partial executable path"
+          },
+          {
+            "filename": "deploy/package/nomosmart_package.py",
+            "line_number": 1249,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/release/nomosmart_release/cli.py",
+            "line_number": 13,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "deploy/release/nomosmart_release/cli.py",
+            "line_number": 108,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/release/nomosmart_release/contract.py",
+            "line_number": 9,
+            "test_id": "B404",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "Consider possible security implications associated with the subprocess module."
+          },
+          {
+            "filename": "deploy/release/nomosmart_release/contract.py",
+            "line_number": 289,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          },
+          {
+            "filename": "deploy/release/nomosmart_release/contract.py",
+            "line_number": 309,
+            "test_id": "B603",
+            "issue_severity": "LOW",
+            "issue_confidence": "HIGH",
+            "issue_text": "subprocess call - check for execution of untrusted input."
+          }
+        ],
+        "metrics": {
+          "CONFIDENCE.HIGH": 64,
+          "CONFIDENCE.LOW": 6,
+          "CONFIDENCE.MEDIUM": 55,
+          "CONFIDENCE.UNDEFINED": 0,
+          "SEVERITY.HIGH": 3,
+          "SEVERITY.LOW": 90,
+          "SEVERITY.MEDIUM": 32,
+          "SEVERITY.UNDEFINED": 0,
+          "loc": 44551,
+          "nosec": 0,
+          "skipped_tests": 0
+        },
+        "accepted_findings": [
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 4,
+            "test_id": "B402",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "A FTP-related module is being imported.  FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 86,
+            "test_id": "B321",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          },
+          {
+            "filename": "backend/app/integrations/remote_sources.py",
+            "line_number": 111,
+            "test_id": "B321",
+            "issue_severity": "HIGH",
+            "issue_confidence": "HIGH",
+            "issue_text": "FTP-related functions are being called. FTP is considered insecure. Use SSH/SFTP/SCP or some other encrypted protocol."
+          }
+        ],
+        "unaccepted_high_critical": [],
+        "approval_id": "CHG301-R2-FTP-20260915"
+      }
+    },
+    "source_unchanged": true
+  },
+  "local_evidence": {
+    "upgrade_root": "/private/tmp/chg301-r2-pytest-layr63SP",
+    "package_result": "/private/tmp/chg301-package-evidence-pxgia9ie/result.json",
+    "security_result": "/private/tmp/chg301-r2-security-0utu1kq_/result.json"
+  },
+  "provider_calls": 0,
+  "kubernetes_operations": 0,
+  "pr_writes": 0,
+  "current_deployment_changes": 0
+}

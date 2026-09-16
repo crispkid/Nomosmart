@@ -1,0 +1,3737 @@
+{
+  "scope": "CHG-301 R2 isolated Kubernetes ingress prerequisite; registry-only static scan, not deployment",
+  "date": "2026-09-15",
+  "status": "FAIL_GATE_REQUIRES_DISCUSSION",
+  "scanner": {
+    "name": "docker scout",
+    "version": "1.24.0",
+    "database_version": "not exposed by SARIF; no independent freshness assertion",
+    "scan_file_time_utc": "2026-09-15T11:53:01.236Z",
+    "sbom_created": "2026-09-15T11:54:06Z"
+  },
+  "image": {
+    "official_reference": "registry.k8s.io/ingress-nginx/controller:v1.15.1@sha256:594ceea76b01c592858f803f9ff4d2cb40542cae2060410b2c95f75907d659e1",
+    "requested_platform": "linux/arm64",
+    "sbom_image_purl": "pkg:oci/ingress-nginx/controller@sha256:fa34e053d6ac30a9df379caa4180154c3a6ff17b5f78ac377117da440b09ba20?repository_url=registry.k8s.io&tag=v1.15.1",
+    "components": 227
+  },
+  "summary": {
+    "unique_cves": 125,
+    "result_instances": 128,
+    "severity_counts": {
+      "UNSPECIFIED": 7,
+      "LOW": 7,
+      "MEDIUM": 37,
+      "HIGH": 58,
+      "CRITICAL": 16
+    },
+    "unaccepted_high_critical_cves": 74,
+    "meaning": "Scanner package/version findings; not confirmed exploitable paths. Initial applicability triage only. No waiver or suppressed finding."
+  },
+  "reports": {
+    "sarif": {
+      "path": "/private/tmp/chg301-r2-ingress-scan-9N0uXTFy/all-severity.sarif.json",
+      "sha256": "b3394e54c48b0158429d3137f7e3dd6c9dde53a3b9da6631c26a27a2fdc1e321"
+    },
+    "spdx": {
+      "path": "/private/tmp/chg301-r2-ingress-scan-9N0uXTFy/sbom.spdx.json",
+      "sha256": "ffccf0afd5d54bb9f1ad1faf18f0f8a9c8ae8cff51562adef2003917de0b9d26"
+    }
+  },
+  "rules": [
+    {
+      "id": "CVE-2026-39822",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.5",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "1.26.5",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39822?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.5",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39822            \nSeverity         :UNSPECIFIED               \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.5        \nFixed version    :1.26.5                    \nEPSS Score       :0.002320                  \nEPSS Percentile  :0.141740                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42505",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.5",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "1.26.5",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42505?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.5",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42505            \nSeverity         :UNSPECIFIED               \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.5        \nFixed version    :1.26.5                    \nEPSS Score       :0.003820                  \nEPSS Percentile  :0.316720                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56288",
+      "properties": {
+        "affected_version": "<=2.8-r0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/patch@2.8-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56288?s=alpine&n=patch&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D2.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56288                                              \nSeverity         :UNSPECIFIED                                                 \nPackage          :pkg:apk/alpine/patch@2.8-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=2.8-r0                                                    \nFixed version    :not fixed                                                   \nEPSS Score       :0.001680                                                    \nEPSS Percentile  :0.063330                                                    \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/patch"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56289",
+      "properties": {
+        "affected_version": "<=2.8-r0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/patch@2.8-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56289?s=alpine&n=patch&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D2.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56289                                              \nSeverity         :UNSPECIFIED                                                 \nPackage          :pkg:apk/alpine/patch@2.8-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=2.8-r0                                                    \nFixed version    :not fixed                                                   \nEPSS Score       :0.001680                                                    \nEPSS Percentile  :0.063320                                                    \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/patch"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56852",
+      "properties": {
+        "affected_version": "<0.39.0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "0.39.0",
+        "purls": [
+          "pkg:golang/golang.org/x/text@0.35.0"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56852?s=golang&n=text&ns=golang.org%2Fx&t=golang&vr=%3C0.39.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56852                       \nSeverity         :UNSPECIFIED                          \nPackage          :pkg:golang/golang.org/x/text@0.35.0  \nAffected range   :<0.39.0                              \nFixed version    :0.39.0                               \nEPSS Score       :0.004750                             \nEPSS Percentile  :0.396970                             \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-58055",
+      "properties": {
+        "affected_version": "<=1.68.0-r0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/nghttp2@1.68.0-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-58055?s=alpine&n=nghttp2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D1.68.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-58055                                                   \nSeverity         :UNSPECIFIED                                                      \nPackage          :pkg:apk/alpine/nghttp2@1.68.0-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=1.68.0-r0                                                      \nFixed version    :not fixed                                                        \nEPSS Score       :0.002530                                                         \nEPSS Percentile  :0.168480                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libnghttp2.so.14.29.2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-80256",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-80256?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability   :CVE-2026-80256                                                \nSeverity        :UNSPECIFIED                                                   \nPackage         :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range  :<8.22.0-r0                                                    \nFixed version   :8.22.0-r0                                                     \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-34743",
+      "properties": {
+        "affected_version": "<5.8.3-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "5.8.3-r0",
+        "purls": [
+          "pkg:apk/alpine/xz@5.8.2-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "1.7",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-34743?s=alpine&n=xz&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C5.8.3-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-34743                                             \nSeverity         :LOW                                                        \nPackage          :pkg:apk/alpine/xz@5.8.2-r0?os_name=alpine&os_version=3.23  \nAffected range   :<5.8.3-r0                                                  \nFixed version    :5.8.3-r0                                                   \nEPSS Score       :0.004500                                                   \nEPSS Percentile  :0.379600                                                   \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/liblzma.so.5.8.2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-11979",
+      "properties": {
+        "affected_version": "<=2.13.9-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "1.8",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-11979?s=alpine&n=libxml2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D2.13.9-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-11979                                                   \nSeverity         :LOW                                                              \nPackage          :pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=2.13.9-r0                                                      \nFixed version    :not fixed                                                        \nEPSS Score       :0.001480                                                         \nEPSS Percentile  :0.043720                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libxml2.so.2.13.9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2025-8732",
+      "properties": {
+        "affected_version": "<=2.13.9-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "1.9",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2025-8732?s=alpine&n=libxml2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D2.13.9-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2025-8732                                                    \nSeverity         :LOW                                                              \nPackage          :pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=2.13.9-r0                                                      \nFixed version    :not fixed                                                        \nEPSS Score       :0.002070                                                         \nEPSS Percentile  :0.109540                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libxml2.so.2.13.9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39824",
+      "properties": {
+        "affected_version": "<0.44.0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "0.44.0",
+        "purls": [
+          "pkg:golang/golang.org/x/sys@0.42.0"
+        ],
+        "security-severity": "3.3",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39824?s=golang&n=sys&ns=golang.org%2Fx&t=golang&vr=%3C0.44.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39824                      \nSeverity         :LOW                                 \nPackage          :pkg:golang/golang.org/x/sys@0.42.0  \nAffected range   :<0.44.0                             \nFixed version    :0.44.0                              \nEPSS Score       :0.001140                            \nEPSS Percentile  :0.016640                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-0989",
+      "properties": {
+        "affected_version": "<=2.13.9-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.7",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-0989?s=alpine&n=libxml2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D2.13.9-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-0989                                                    \nSeverity         :LOW                                                              \nPackage          :pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23  \nAffected range   :<=2.13.9-r0                                                      \nFixed version    :not fixed                                                        \nEPSS Score       :0.004980                                                         \nEPSS Percentile  :0.411840                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libxml2.so.2.13.9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42768",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.7",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42768?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42768                                                  \nSeverity         :LOW                                                             \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.005800                                                        \nEPSS Percentile  :0.459060                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42770",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "LOW",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "3.7",
+        "tags": [
+          "LOW"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42770?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42770                                                  \nSeverity         :LOW                                                             \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.004680                                                        \nEPSS Percentile  :0.392100                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-45446",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "4.8",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-45446?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-45446                                                  \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.003740                                                        \nEPSS Percentile  :0.308100                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-6042",
+      "properties": {
+        "affected_version": "<1.2.5-r22",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.2.5-r22",
+        "purls": [
+          "pkg:apk/alpine/musl@1.2.5-r21?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "4.8",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-6042?s=alpine&n=musl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C1.2.5-r22",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-6042                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/musl@1.2.5-r21?os_name=alpine&os_version=3.23  \nAffected range   :<1.2.5-r22                                                    \nFixed version    :1.2.5-r22                                                     \nEPSS Score       :0.002360                                                      \nEPSS Percentile  :0.146330                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/lib/ld-musl-aarch64.so.1",
+            "/sbin/ldconfig",
+            "/usr/bin/getconf",
+            "/usr/bin/getent",
+            "/usr/bin/iconv",
+            "/usr/bin/ldd"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2025-14524",
+      "properties": {
+        "affected_version": "<8.18.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2025-14524?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.18.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2025-14524                                                \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.18.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.006650                                                      \nEPSS Percentile  :0.498360                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2025-14819",
+      "properties": {
+        "affected_version": "<8.18.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2025-14819?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.18.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2025-14819                                                \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.18.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.007390                                                      \nEPSS Percentile  :0.525890                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-3783",
+      "properties": {
+        "affected_version": "<8.19.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-3783?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.19.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-3783                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.19.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.004540                                                      \nEPSS Percentile  :0.382940                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39825",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39825?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39825            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.003900                  \nEPSS Percentile  :0.325480                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42507",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.4",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.4",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42507?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.4",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42507            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.4        \nFixed version    :1.26.4                    \nEPSS Score       :0.003700                  \nEPSS Percentile  :0.304580                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42769",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42769?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42769                                                  \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.004010                                                        \nEPSS Percentile  :0.337130                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-6429",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-6429?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-6429                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.005190                                                      \nEPSS Percentile  :0.425920                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-7009",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-7009?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-7009                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.002740                                                      \nEPSS Percentile  :0.197000                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-7168",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-7168?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-7168                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.004710                                                      \nEPSS Percentile  :0.394070                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32288",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "5.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32288?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32288            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.002900                  \nEPSS Percentile  :0.214760                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42766",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42766?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42766                                                  \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.010600                                                        \nEPSS Percentile  :0.626460                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42767",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42767?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42767                                                  \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.005570                                                        \nEPSS Percentile  :0.447300                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-4873",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-4873?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-4873                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.003290                                                      \nEPSS Percentile  :0.258080                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56860",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56860?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56860            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005180                  \nEPSS Percentile  :0.425110                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-6253",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-6253?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-6253                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.007190                                                      \nEPSS Percentile  :0.519170                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-63074",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-63074?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-63074                                                  \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.004950                                                        \nEPSS Percentile  :0.410300                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-25681",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-25681?s=golang&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.55.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-25681                      \nSeverity         :MEDIUM                              \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.55.0                             \nFixed version    :0.55.0                              \nEPSS Score       :0.002230                            \nEPSS Percentile  :0.129660                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-27136",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-27136?s=golang&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.55.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-27136                      \nSeverity         :MEDIUM                              \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.55.0                             \nFixed version    :0.55.0                              \nEPSS Score       :0.002230                            \nEPSS Percentile  :0.129670                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32289",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32289?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32289            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.002900                  \nEPSS Percentile  :0.214790                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39823",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39823?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39823            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.003140                  \nEPSS Percentile  :0.241700                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39826",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39826?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39826            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.003710                  \nEPSS Percentile  :0.305490                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42502",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42502?s=golang&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.55.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42502                      \nSeverity         :MEDIUM                              \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.55.0                             \nFixed version    :0.55.0                              \nEPSS Score       :0.002230                            \nEPSS Percentile  :0.129670                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42506",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42506?s=golang&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.55.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42506                      \nSeverity         :MEDIUM                              \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.55.0                             \nFixed version    :0.55.0                              \nEPSS Score       :0.002350                            \nEPSS Percentile  :0.145750                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56858",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.1",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56858?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56858            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.003100                  \nEPSS Percentile  :0.236040                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2025-14017",
+      "properties": {
+        "affected_version": "<8.18.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.3",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2025-14017?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.18.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2025-14017                                                \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.18.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.001160                                                      \nEPSS Percentile  :0.017990                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32282",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.4",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32282?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32282            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.002920                  \nEPSS Percentile  :0.216320                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2025-60876",
+      "properties": {
+        "affected_version": "<=1.37.0-r30",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/busybox@1.37.0-r30?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2025-60876?s=alpine&n=busybox&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D1.37.0-r30",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2025-60876                                                    \nSeverity         :MEDIUM                                                            \nPackage          :pkg:apk/alpine/busybox@1.37.0-r30?os_name=alpine&os_version=3.23  \nAffected range   :<=1.37.0-r30                                                      \nFixed version    :not fixed                                                         \nEPSS Score       :0.002910                                                          \nEPSS Percentile  :0.215810                                                          \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/bin/busybox",
+            "/etc/busybox-paths.d/busybox",
+            "/etc/logrotate.d/acpid",
+            "/etc/network/if-up.d/dad",
+            "/etc/securetty",
+            "/etc/udhcpc/udhcpc.conf",
+            "/usr/bin/ssl_client",
+            "/usr/share/udhcpc/default.script"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-1965",
+      "properties": {
+        "affected_version": "<8.19.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-1965?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.19.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-1965                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.19.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.002590                                                      \nEPSS Percentile  :0.176590                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-25680",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3": 6.5,
+        "cvssV3_severity": "MEDIUM",
+        "cvssV3_vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-25680?s=github&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.55.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-25680                                \nSeverity         :MEDIUM                                        \nPackage          :pkg:golang/golang.org/x/net@0.52.0            \nAffected range   :<0.55.0                                       \nFixed version    :0.55.0                                        \nCVSS Score       :6.5                                           \nCVSS Vector      :CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:U/C:N/I:N/A:H  \nEPSS Score       :0.003260                                      \nEPSS Percentile  :0.255720                                      \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-2673",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-2673?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-2673                                                   \nSeverity         :MEDIUM                                                          \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.004350                                                        \nEPSS Percentile  :0.368010                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-27145",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.4",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "1.26.4",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-27145?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.4",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-27145            \nSeverity         :MEDIUM                    \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.4        \nFixed version    :1.26.4                    \nEPSS Score       :0.005910                  \nEPSS Percentile  :0.464350                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-3784",
+      "properties": {
+        "affected_version": "<8.19.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-3784?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.19.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-3784                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.19.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.004120                                                      \nEPSS Percentile  :0.346880                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-5545",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-5545?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-5545                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.004140                                                      \nEPSS Percentile  :0.348610                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-6732",
+      "properties": {
+        "affected_version": "<2.13.9-r1",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "2.13.9-r1",
+        "purls": [
+          "pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-6732?s=alpine&n=libxml2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C2.13.9-r1",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-6732                                                    \nSeverity         :MEDIUM                                                           \nPackage          :pkg:apk/alpine/libxml2@2.13.9-r0?os_name=alpine&os_version=3.23  \nAffected range   :<2.13.9-r1                                                       \nFixed version    :2.13.9-r1                                                        \nEPSS Score       :0.006320                                                         \nEPSS Percentile  :0.483820                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libxml2.so.2.13.9"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8458",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "6.5",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8458?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8458                                                 \nSeverity         :MEDIUM                                                        \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.005430                                                      \nEPSS Percentile  :0.439810                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9080",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.3",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9080?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9080                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.002950                                                      \nEPSS Percentile  :0.220680                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-13608",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.4",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-13608?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-13608                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.006440                                                      \nEPSS Percentile  :0.489610                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-34181",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.4",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-34181?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-34181                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.002350                                                        \nEPSS Percentile  :0.145600                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9547",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.4",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9547?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9547                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.003250                                                      \nEPSS Percentile  :0.254390                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-11352",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-11352?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-11352                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.007150                                                      \nEPSS Percentile  :0.517720                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-11586",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-11586?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-11586                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.006090                                                      \nEPSS Percentile  :0.472780                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-12064",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-12064?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-12064                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.003990                                                      \nEPSS Percentile  :0.335330                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-14456",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-14456?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-14456                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.007290                                                        \nEPSS Percentile  :0.522540                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-14457",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-14457?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-14457                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.009840                                                        \nEPSS Percentile  :0.603780                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-18798",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-18798?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-18798                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.014810                                                        \nEPSS Percentile  :0.724890                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-27135",
+      "properties": {
+        "affected_version": "<1.68.1",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.68.1",
+        "purls": [
+          "pkg:apk/alpine/nghttp2@1.68.0-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-27135?s=alpine&n=nghttp2&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C1.68.1",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-27135                                                   \nSeverity         :HIGH                                                             \nPackage          :pkg:apk/alpine/nghttp2@1.68.0-r0?os_name=alpine&os_version=3.23  \nAffected range   :<1.68.1                                                          \nFixed version    :1.68.1                                                           \nEPSS Score       :0.007750                                                         \nEPSS Percentile  :0.537710                                                         \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libnghttp2.so.14.29.2"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-28388",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-28388?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-28388                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.008850                                                        \nEPSS Percentile  :0.572280                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-28389",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-28389?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-28389                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.008050                                                        \nEPSS Percentile  :0.547290                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-28390",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-28390?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-28390                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.008050                                                        \nEPSS Percentile  :0.547290                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-31790",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-31790?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-31790                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.010300                                                        \nEPSS Percentile  :0.618000                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32280",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32280?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32280            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.006150                  \nEPSS Percentile  :0.475660                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32281",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32281?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32281            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.003550                  \nEPSS Percentile  :0.288790                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-32283",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-32283?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-32283            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.006210                  \nEPSS Percentile  :0.478990                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33630",
+      "properties": {
+        "affected_version": "<1.34.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.34.8-r0",
+        "purls": [
+          "pkg:apk/alpine/c-ares@1.34.6-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33630?s=alpine&n=c-ares&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C1.34.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33630                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/c-ares@1.34.6-r0?os_name=alpine&os_version=3.23  \nAffected range   :<1.34.8-r0                                                      \nFixed version    :1.34.8-r0                                                       \nEPSS Score       :0.004520                                                        \nEPSS Percentile  :0.381170                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/lib/libcares.so.2.19.5"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33811",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33811?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33811            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.008130                  \nEPSS Percentile  :0.550060                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33814",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0",
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33814?s=golang&n=net&ns=golang.org%2Fx&t=golang&vr=%3C0.53.0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33814            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.007810                  \nEPSS Percentile  :0.539700                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        },
+        {
+          "message": "Vulnerability    :CVE-2026-33814                      \nSeverity         :HIGH                                \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.53.0                             \nFixed version    :0.53.0                              \nEPSS Score       :0.007810                            \nEPSS Percentile  :0.539700                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33818",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33818?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33818            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005680                  \nEPSS Percentile  :0.453020                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-34180",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-34180?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-34180                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.010250                                                        \nEPSS Percentile  :0.616540                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-34183",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-34183?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-34183                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.010490                                                        \nEPSS Percentile  :0.623430                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-3805",
+      "properties": {
+        "affected_version": "<8.19.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.19.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-3805?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.19.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-3805                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.19.0-r0                                                    \nFixed version    :8.19.0-r0                                                     \nEPSS Score       :0.007450                                                      \nEPSS Percentile  :0.527740                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39820",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39820?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39820            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.007840                  \nEPSS Percentile  :0.540380                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39836",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39836?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39836            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.005880                  \nEPSS Percentile  :0.462960                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42499",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.3",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.3",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42499?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.3",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42499            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.3        \nFixed version    :1.26.3                    \nEPSS Score       :0.007980                  \nEPSS Percentile  :0.544840                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42504",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.4",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.4",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42504?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.4",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42504            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.4        \nFixed version    :1.26.4                    \nEPSS Score       :0.005600                  \nEPSS Percentile  :0.449060                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-42764",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-42764?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-42764                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.011650                                                        \nEPSS Percentile  :0.655230                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-45445",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-45445?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-45445                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.006030                                                        \nEPSS Percentile  :0.470330                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-46600",
+      "properties": {
+        "affected_version": "<0.56.0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "0.56.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0",
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-46600?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-46600                      \nSeverity         :HIGH                                \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.56.0                             \nFixed version    :0.56.0                              \nEPSS Score       :0.005490                            \nEPSS Percentile  :0.443260                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        },
+        {
+          "message": "Vulnerability    :CVE-2026-46600            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005490                  \nEPSS Percentile  :0.443260                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-54874",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-54874?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-54874                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.005240                                                        \nEPSS Percentile  :0.428710                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56853",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56853?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56853            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005680                  \nEPSS Percentile  :0.453020                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56859",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56859?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56859            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005680                  \nEPSS Percentile  :0.453020                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-56862",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.6",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.6",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-56862?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-56862            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.005680                  \nEPSS Percentile  :0.453020                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-5773",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-5773?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-5773                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.006180                                                      \nEPSS Percentile  :0.477310                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-6276",
+      "properties": {
+        "affected_version": "<8.20.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.20.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-6276?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.20.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-6276                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.20.0-r0                                                    \nFixed version    :8.20.0-r0                                                     \nEPSS Score       :0.002950                                                      \nEPSS Percentile  :0.219800                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-63072",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-63072?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-63072                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.006760                                                        \nEPSS Percentile  :0.502840                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-63075",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-63075?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-63075                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.004800                                                        \nEPSS Percentile  :0.400730                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-63076",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-63076?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-63076                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.013500                                                        \nEPSS Percentile  :0.699240                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-80229",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-80229?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-80229                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.008990                                                      \nEPSS Percentile  :0.576710                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-80230",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-80230?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-80230                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.005660                                                      \nEPSS Percentile  :0.452160                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-80231",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-80231?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-80231                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.009370                                                      \nEPSS Percentile  :0.588940                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-80255",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-80255?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-80255                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.006840                                                      \nEPSS Percentile  :0.506260                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-82208",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-82208?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-82208                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.004250                                                      \nEPSS Percentile  :0.359160                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8932",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8932?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8932                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.003960                                                      \nEPSS Percentile  :0.331920                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9076",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9076?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9076                                                   \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.007070                                                        \nEPSS Percentile  :0.514730                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9545",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9545?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9545                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.002680                                                      \nEPSS Percentile  :0.189620                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9546",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9546?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9546                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.004940                                                      \nEPSS Percentile  :0.409600                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-28387",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.1",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-28387?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-28387                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.006710                                                        \nEPSS Percentile  :0.500660                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-40200",
+      "properties": {
+        "affected_version": "<1.2.5-r23",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.2.5-r23",
+        "purls": [
+          "pkg:apk/alpine/musl@1.2.5-r21?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.1",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-40200?s=alpine&n=musl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C1.2.5-r23",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-40200                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/musl@1.2.5-r21?os_name=alpine&os_version=3.23  \nAffected range   :<1.2.5-r23                                                    \nFixed version    :1.2.5-r23                                                     \nEPSS Score       :0.001660                                                      \nEPSS Percentile  :0.061400                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/lib/ld-musl-aarch64.so.1",
+            "/sbin/ldconfig",
+            "/usr/bin/getconf",
+            "/usr/bin/getent",
+            "/usr/bin/iconv",
+            "/usr/bin/ldd"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-7383",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.1",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-7383?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-7383                                                   \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.008040                                                        \nEPSS Percentile  :0.547080                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8286",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.1",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8286?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8286                                                 \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.003090                                                      \nEPSS Percentile  :0.236010                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-0994",
+      "properties": {
+        "affected_version": "<=31.1-r1",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/protobuf@31.1-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.2",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-0994?s=alpine&n=protobuf&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D31.1-r1",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-0994                                                   \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/protobuf@31.1-r1?os_name=alpine&os_version=3.23  \nAffected range   :<=31.1-r1                                                       \nFixed version    :not fixed                                                       \nEPSS Score       :0.006880                                                        \nEPSS Percentile  :0.507850                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/protoc-31.1.0",
+            "/usr/bin/protoc-gen-upb-31.1.0",
+            "/usr/bin/protoc-gen-upbdefs-31.1.0",
+            "/usr/lib/libprotobuf-lite.so.31.1.0",
+            "/usr/lib/libprotobuf.so.31.1.0",
+            "/usr/lib/libprotoc.so.31.1.0",
+            "/usr/lib/libutf8_range.so.31.1.0",
+            "/usr/lib/libutf8_validity.so.31.1.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33810",
+      "properties": {
+        "affected_version": ">=1.26.0-0,<1.26.2",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "1.26.2",
+        "purls": [
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "8.2",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33810?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33810            \nSeverity         :HIGH                      \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.2        \nFixed version    :1.26.2                    \nEPSS Score       :0.003400                  \nEPSS Percentile  :0.271770                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-82209",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.2",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-82209?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-82209                                                \nSeverity         :HIGH                                                          \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.005400                                                      \nEPSS Percentile  :0.438290                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-45447",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "8.8",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-45447?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-45447                                                  \nSeverity         :HIGH                                                            \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.035660                                                        \nEPSS Percentile  :0.886950                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-11564",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-11564?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-11564                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.003630                                                      \nEPSS Percentile  :0.297410                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-18924",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-18924?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-18924                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.008970                                                      \nEPSS Percentile  :0.576090                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-33186",
+      "properties": {
+        "affected_version": "<=1.76.0-r2",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:apk/alpine/grpc@1.76.0-r2?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-33186?s=alpine&n=grpc&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C%3D1.76.0-r2",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-33186                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/grpc@1.76.0-r2?os_name=alpine&os_version=3.23  \nAffected range   :<=1.76.0-r2                                                   \nFixed version    :not fixed                                                     \nEPSS Score       :0.015570                                                      \nEPSS Percentile  :0.737830                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/certs/ca-certificates.crt",
+            "/usr/lib/libaddress_sorting.so.51.0.0",
+            "/usr/lib/libgpr.so.51.0.0",
+            "/usr/lib/libgrpc++.so.1.76.0",
+            "/usr/lib/libgrpc++_alts.so.1.76.0",
+            "/usr/lib/libgrpc++_error_details.so.1.76.0",
+            "/usr/lib/libgrpc++_reflection.so.1.76.0",
+            "/usr/lib/libgrpc++_unsecure.so.1.76.0",
+            "/usr/lib/libgrpc.so.51.0.0",
+            "/usr/lib/libgrpc_plugin_support.so.1.76.0",
+            "/usr/lib/libgrpc_unsecure.so.51.0.0",
+            "/usr/lib/libgrpcpp_channelz.so.1.76.0",
+            "/usr/lib/libupb_base_lib.so.51.0.0",
+            "/usr/lib/libupb_hash_lib.so.51.0.0",
+            "/usr/lib/libupb_json_lib.so.51.0.0",
+            "/usr/lib/libupb_lex_lib.so.51.0.0",
+            "/usr/lib/libupb_mem_lib.so.51.0.0",
+            "/usr/lib/libupb_message_lib.so.51.0.0",
+            "/usr/lib/libupb_mini_descriptor_lib.so.51.0.0",
+            "/usr/lib/libupb_mini_table_lib.so.51.0.0",
+            "/usr/lib/libupb_reflection_lib.so.51.0.0",
+            "/usr/lib/libupb_textformat_lib.so.51.0.0",
+            "/usr/lib/libupb_wire_lib.so.51.0.0",
+            "/usr/lib/libutf8_range_lib.so.51.0.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-34182",
+      "properties": {
+        "affected_version": "<3.5.7-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.7-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-34182?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.7-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-34182                                                  \nSeverity         :CRITICAL                                                        \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.7-r0                                                       \nFixed version    :3.5.7-r0                                                        \nEPSS Score       :0.006070                                                        \nEPSS Percentile  :0.471900                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-75803",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-75803?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-75803                                                  \nSeverity         :CRITICAL                                                        \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.002210                                                        \nEPSS Percentile  :0.126360                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8924",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8924?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8924                                                 \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.005600                                                      \nEPSS Percentile  :0.449050                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8926",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8926?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8926                                                 \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.004440                                                      \nEPSS Percentile  :0.374930                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8927",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8927?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8927                                                 \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.005000                                                      \nEPSS Percentile  :0.413750                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-39821",
+      "properties": {
+        "affected_version": "<0.55.0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "0.55.0",
+        "purls": [
+          "pkg:golang/golang.org/x/net@0.52.0",
+          "pkg:golang/stdlib@1.26.1"
+        ],
+        "security-severity": "9.6",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-39821?s=golang&n=stdlib&t=golang&vr=%3E%3D1.26.0-0%2C%3C1.26.6",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-39821                      \nSeverity         :CRITICAL                            \nPackage          :pkg:golang/golang.org/x/net@0.52.0  \nAffected range   :<0.55.0                             \nFixed version    :0.55.0                              \nEPSS Score       :0.006920                            \nEPSS Percentile  :0.509050                            \n",
+          "locations": [
+            "/nginx-ingress-controller"
+          ]
+        },
+        {
+          "message": "Vulnerability    :CVE-2026-39821            \nSeverity         :CRITICAL                  \nPackage          :pkg:golang/stdlib@1.26.1  \nAffected range   :>=1.26.0-0,<1.26.6        \nFixed version    :1.26.6                    \nEPSS Score       :0.006920                  \nEPSS Percentile  :0.509050                  \n",
+          "locations": [
+            "/dbg",
+            "/nginx-ingress-controller",
+            "/wait-shutdown"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-10536",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-10536?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-10536                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.008910                                                      \nEPSS Percentile  :0.574190                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-11856",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-11856?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-11856                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.006880                                                      \nEPSS Percentile  :0.507720                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-19931",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-19931?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-19931                                                \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.011620                                                      \nEPSS Percentile  :0.654240                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-31789",
+      "properties": {
+        "affected_version": "<3.5.6-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.6-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-31789?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.6-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-31789                                                  \nSeverity         :CRITICAL                                                        \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.6-r0                                                       \nFixed version    :3.5.6-r0                                                        \nEPSS Score       :0.002430                                                        \nEPSS Percentile  :0.155790                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-63073",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-63073?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C3.5.8-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-63073                                                  \nSeverity         :CRITICAL                                                        \nPackage          :pkg:apk/alpine/openssl@3.5.5-r0?os_name=alpine&os_version=3.23  \nAffected range   :<3.5.8-r0                                                       \nFixed version    :3.5.8-r0                                                        \nEPSS Score       :0.009290                                                        \nEPSS Percentile  :0.586200                                                        \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/etc/ssl/ct_log_list.cnf",
+            "/etc/ssl/ct_log_list.cnf.dist",
+            "/etc/ssl/openssl.cnf",
+            "/etc/ssl/openssl.cnf.dist",
+            "/usr/bin/openssl",
+            "/usr/lib/engines-3/afalg.so",
+            "/usr/lib/engines-3/capi.so",
+            "/usr/lib/engines-3/loader_attic.so",
+            "/usr/lib/engines-3/padlock.so",
+            "/usr/lib/libcrypto.so.3",
+            "/usr/lib/libssl.so.3",
+            "/usr/lib/ossl-modules/legacy.so"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-8925",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-8925?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-8925                                                 \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.006740                                                      \nEPSS Percentile  :0.502020                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "CVE-2026-9079",
+      "properties": {
+        "affected_version": "<8.22.0-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "8.22.0-r0",
+        "purls": [
+          "pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "url": "https://scout.docker.com/v/CVE-2026-9079?s=alpine&n=curl&ns=alpine&t=apk&osn=alpine&osv=3.23&vr=%3C8.22.0-r0",
+      "instances": [
+        {
+          "message": "Vulnerability    :CVE-2026-9079                                                 \nSeverity         :CRITICAL                                                      \nPackage          :pkg:apk/alpine/curl@8.17.0-r1?os_name=alpine&os_version=3.23  \nAffected range   :<8.22.0-r0                                                    \nFixed version    :8.22.0-r0                                                     \nEPSS Score       :0.010640                                                      \nEPSS Percentile  :0.627860                                                      \n",
+          "locations": [
+            "/lib/apk/db/installed",
+            "/usr/bin/curl",
+            "/usr/bin/wcurl",
+            "/usr/lib/libcurl.so.4.8.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "chart_source_sha256": {
+    "deploy/helm/nomosmart/templates/ingress.yaml": "aa2ed901587ce5f65719356845a6a28384b84c630f3a9fdc2b844f1b23efc60f",
+    "deploy/helm/nomosmart/values.yaml": "548fb3af5cf95cca08064036bd4bef3f5e18efc91f9544a452f10e1accfce545"
+  },
+  "primary_sources": [
+    "https://kubernetes.io/blog/2025/11/11/ingress-nginx-retirement/",
+    "https://github.com/kubernetes/ingress-nginx/releases/tag/controller-v1.15.1",
+    "https://raw.githubusercontent.com/kubernetes/ingress-nginx/controller-v1.15.1/charts/ingress-nginx/values.yaml",
+    "https://pkg.go.dev/vuln/GO-2026-5026",
+    "https://openssl-library.org/news/vulnerabilities/index.html#CVE-2026-31789",
+    "https://github.com/grpc/grpc-go/security/advisories/GHSA-p77j-4mvh-x3m3"
+  ],
+  "triage": [
+    {
+      "cve": "CVE-2026-39821",
+      "state": "version match; runtime reachability not established",
+      "components": "Go stdlib1.26.1 and x/net0.52.0; affected code reported in /nginx-ingress-controller",
+      "condition": "hostname-based authorization then IDNA conversion; malformed punycode accepted",
+      "fixes": "Go1.26.6 and x/net0.55.0, not an authorization to rebuild"
+    },
+    {
+      "cve": "CVE-2026-31789",
+      "state": "architecture mismatch candidate; retained raw, not silently waived",
+      "condition": "upstream Low, only32bit platforms with over1GiB certificates; requested image linux/arm64",
+      "fixes": "OpenSSL3.5.6 for this issue; does not resolve other OpenSSL advisories"
+    },
+    {
+      "cve": "CVE-2026-33186",
+      "state": "ecosystem mismatch requires review; retained raw",
+      "condition": "upstream gRPC-Go path-based authz; scanner matches Alpine C++ grpc package",
+      "fixes": "Go grpc1.79.3 upstream; cannot apply this version to Alpine C++ grpc"
+    }
+  ],
+  "provider_calls": 0,
+  "kubernetes_operations": 0,
+  "containers_started": 0,
+  "images_built": 0,
+  "application_data_changes": 0,
+  "default_kubeconfig_changes": 0,
+  "pr_writes": 0
+}

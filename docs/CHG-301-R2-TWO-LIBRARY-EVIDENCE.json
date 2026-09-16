@@ -1,0 +1,638 @@
+{
+  "change": "CHG-301 R2 signed-index two-library supplement",
+  "status": "LIBRARIES_REPAIRED_SECURITY_BLOCKED",
+  "approval": {
+    "text": "核准 CHG-301 R2 官方簽章索引補充計畫",
+    "preapproval_sha256": "c0a4b2348abe9fd4b5472b172629629c5e147191fec5f38a81f09e0d7d7cbfab",
+    "batch_started_at": "2026-09-15T14:17:52.088462+00:00",
+    "batch_deadline": "2026-09-15T20:17:52.088462+00:00"
+  },
+  "source": {
+    "git": [
+      "c261a494283835af57c0e0678afc7ee7e2c0dcc8",
+      "5f1a0a2505dee9c85ee621bd2c8680b92d397a45"
+    ],
+    "current_tool_sha256": {
+      "backend/scripts/chg301_r2_ingress.py": "40a362b0045ab95efd8dce97d4273c02d0a4efd8a17b85791c4c2cc8f3ad58bc",
+      "backend/tests/test_chg301_r2_ingress.py": "5a2534faff4b9e5abc933cb635b1fb53b87df90d2faf8475d907e755d93f6256",
+      "deploy/test/chg301-r2-traefik/Dockerfile": "22a5b77aa7da24c7bf148888ec09775161cb98075ff6571e1f330fff772b0b7b"
+    },
+    "product_files_unchanged": true,
+    "protected_product_file_count": 277,
+    "build_source_manifest_sha256": "2beef69cf23a06b3fa2dcbed0f7f78020f59772497b3a8122b805e75cf193302",
+    "verify_source_manifest_sha256": "b71da9cddcdb727fa2387e357dfe390febc4dff414fc00b3f8cda3708bdc9a8c",
+    "note": "Only approved runner/tests changed between build and static verification. Final guard tests add pinned-SHA256/Q1 validation; no image rebuild."
+  },
+  "image": {
+    "tag": "nomosmart-test/traefik:3.7.13-chg301-r2-say0hh9k",
+    "image_id": "sha256:5043ce31721c19e4a3a18afd60f449a7c842d46a52ec1ed6d7fdfb84a68cf7cd",
+    "manifest_digest": "sha256:5043ce31721c19e4a3a18afd60f449a7c842d46a52ec1ed6d7fdfb84a68cf7cd",
+    "base_arm64_digest": "sha256:444bb54c1f7ebe5fac94d1c40f02b48c08dc005a92fc65ca29c1c75991d16baa",
+    "platform": "linux/arm64",
+    "lower_layers_retained": true,
+    "build_exit_code": 0,
+    "builds": 3,
+    "successful_builds": 1,
+    "controller_executions": 0
+  },
+  "inputs": {
+    "context_lock": {
+      "Dockerfile": "22a5b77aa7da24c7bf148888ec09775161cb98075ff6571e1f330fff772b0b7b",
+      "APKINDEX.tar.gz": "f0ee7c9c6bb43109521715530f6c1922bd486207ae63e598557ce2900e5a1a49",
+      "libcrypto3-3.5.8-r0.apk": "35b892813c23664a3592e4fc8c12a03538a22c579057655361c7043305272a9a",
+      "libssl3-3.5.8-r0.apk": "d6ec970cc10e01539e41626f720c4e0ac69016eaa2079a10ef776ffd3243db5b"
+    },
+    "signed_index_revalidated": true,
+    "package_bindings": {
+      "libcrypto3": {
+        "sha256": "35b892813c23664a3592e4fc8c12a03538a22c579057655361c7043305272a9a",
+        "index_checksum": "Q1yBbnEKxht37PmWjI99NQMTTPTe0=",
+        "metadata": {
+          "pkgname": [
+            "libcrypto3"
+          ],
+          "pkgver": [
+            "3.5.8-r0"
+          ],
+          "pkgdesc": [
+            "Crypto library from openssl"
+          ],
+          "url": [
+            "https://www.openssl.org/"
+          ],
+          "builddate": [
+            "1787691537"
+          ],
+          "packager": [
+            "Unknown"
+          ],
+          "size": [
+            "4961766"
+          ],
+          "arch": [
+            "aarch64"
+          ],
+          "origin": [
+            "openssl"
+          ],
+          "commit": [
+            "013edf8b29199933e8ea34dde460b5584b979042"
+          ],
+          "maintainer": [
+            "Natanael Copa <ncopa@alpinelinux.org>"
+          ],
+          "provider_priority": [
+            "100"
+          ],
+          "license": [
+            "Apache-2.0"
+          ],
+          "replaces": [
+            "libcrypto1.1"
+          ],
+          "provides": [
+            "so:libcrypto.so.3=3"
+          ],
+          "depend": [
+            "so:libc.musl-aarch64.so.1"
+          ],
+          "datahash": [
+            "000bcacec6f69b40986ae86773ffa78555d343a0cda17b7303c1d6e0c15271e8"
+          ]
+        }
+      },
+      "libssl3": {
+        "sha256": "d6ec970cc10e01539e41626f720c4e0ac69016eaa2079a10ef776ffd3243db5b",
+        "index_checksum": "Q1PH/y0GXoooWZHJVNhDry3HE8zVk=",
+        "metadata": {
+          "pkgname": [
+            "libssl3"
+          ],
+          "pkgver": [
+            "3.5.8-r0"
+          ],
+          "pkgdesc": [
+            "SSL shared libraries"
+          ],
+          "url": [
+            "https://www.openssl.org/"
+          ],
+          "builddate": [
+            "1787691537"
+          ],
+          "packager": [
+            "Unknown"
+          ],
+          "size": [
+            "868240"
+          ],
+          "arch": [
+            "aarch64"
+          ],
+          "origin": [
+            "openssl"
+          ],
+          "commit": [
+            "013edf8b29199933e8ea34dde460b5584b979042"
+          ],
+          "maintainer": [
+            "Natanael Copa <ncopa@alpinelinux.org>"
+          ],
+          "provider_priority": [
+            "100"
+          ],
+          "license": [
+            "Apache-2.0"
+          ],
+          "depend": [
+            "libcrypto3=3.5.8-r0",
+            "so:libc.musl-aarch64.so.1",
+            "so:libcrypto.so.3"
+          ],
+          "provides": [
+            "so:libssl.so.3=3"
+          ],
+          "datahash": [
+            "1a2922a2f168e4256927a717e7098a79cf5eb4ba5b93dfc58b810e2c289c6622"
+          ]
+        }
+      }
+    }
+  },
+  "comparison": {
+    "installed_packages": {
+      "alpine-baselayout": {
+        "P": "alpine-baselayout",
+        "V": "3.7.2-r1",
+        "A": "aarch64",
+        "D": "alpine-baselayout-data=3.7.2-r1 /bin/sh"
+      },
+      "alpine-baselayout-data": {
+        "P": "alpine-baselayout-data",
+        "V": "3.7.2-r1",
+        "A": "aarch64"
+      },
+      "alpine-keys": {
+        "P": "alpine-keys",
+        "V": "2.6-r0",
+        "A": "aarch64"
+      },
+      "alpine-release": {
+        "P": "alpine-release",
+        "V": "3.24.1-r0",
+        "A": "aarch64",
+        "D": "alpine-keys"
+      },
+      "apk-tools": {
+        "P": "apk-tools",
+        "V": "3.0.6-r0",
+        "A": "aarch64",
+        "D": "musl>=1.2.3_git20230424 libcrypto3>=3.5 libapk=3.0.6-r0 ca-certificates-bundle so:libapk.so.3.0.0 so:libc.musl-aarch64.so.1 so:libz.so.1",
+        "p": "apk-tools3=3.0.6-r0 cmd:apk=3.0.6-r0"
+      },
+      "busybox": {
+        "P": "busybox",
+        "V": "1.37.0-r31",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1",
+        "p": "cmd:busybox=1.37.0-r31"
+      },
+      "busybox-binsh": {
+        "P": "busybox-binsh",
+        "V": "1.37.0-r31",
+        "A": "aarch64",
+        "D": "busybox=1.37.0-r31",
+        "p": "/bin/sh cmd:sh=1.37.0-r31"
+      },
+      "ca-certificates": {
+        "P": "ca-certificates",
+        "V": "20260611-r0",
+        "A": "aarch64",
+        "D": "/bin/sh so:libc.musl-aarch64.so.1 so:libcrypto.so.3",
+        "p": "cmd:c_rehash=20260611-r0 cmd:update-ca-certificates=20260611-r0"
+      },
+      "ca-certificates-bundle": {
+        "P": "ca-certificates-bundle",
+        "V": "20260611-r0",
+        "A": "aarch64",
+        "p": "ca-certificates-cacert=20260611-r0"
+      },
+      "libapk": {
+        "P": "libapk",
+        "V": "3.0.6-r0",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1 so:libcrypto.so.3 so:libssl.so.3 so:libz.so.1",
+        "p": "libapk2=3.0.6-r0 so:libapk.so.3.0.0=3.0.0"
+      },
+      "libcrypto3": {
+        "P": "libcrypto3",
+        "V": "3.5.8-r0",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1",
+        "p": "so:libcrypto.so.3=3"
+      },
+      "libssl3": {
+        "P": "libssl3",
+        "V": "3.5.8-r0",
+        "A": "aarch64",
+        "D": "libcrypto3=3.5.8-r0 so:libc.musl-aarch64.so.1 so:libcrypto.so.3",
+        "p": "so:libssl.so.3=3"
+      },
+      "musl": {
+        "P": "musl",
+        "V": "1.2.6-r2",
+        "A": "aarch64",
+        "p": "so:libc.musl-aarch64.so.1=1"
+      },
+      "musl-utils": {
+        "P": "musl-utils",
+        "V": "1.2.6-r2",
+        "A": "aarch64",
+        "D": "scanelf so:libc.musl-aarch64.so.1",
+        "p": "libc-utils=1.2.6-r2 cmd:getconf=1.2.6-r2 cmd:getent=1.2.6-r2 cmd:iconv=1.2.6-r2 cmd:ldconfig=1.2.6-r2 cmd:ldd=1.2.6-r2"
+      },
+      "scanelf": {
+        "P": "scanelf",
+        "V": "1.3.9-r1",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1",
+        "p": "cmd:scanelf=1.3.9-r1"
+      },
+      "ssl_client": {
+        "P": "ssl_client",
+        "V": "1.37.0-r31",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1 so:libcrypto.so.3 so:libssl.so.3",
+        "p": "cmd:ssl_client=1.37.0-r31"
+      },
+      "tzdata": {
+        "P": "tzdata",
+        "V": "2026c-r0",
+        "A": "aarch64"
+      },
+      "zlib": {
+        "P": "zlib",
+        "V": "1.3.2-r0",
+        "A": "aarch64",
+        "D": "so:libc.musl-aarch64.so.1",
+        "p": "so:libz.so.1=1.3.2"
+      }
+    },
+    "diff": {
+      "lib/apk/db/installed": {
+        "category": "two_package_install_metadata",
+        "before": {
+          "type": "0",
+          "mode": 420,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "ac5c2bd6671834172b17e1c6010a9ad3e0ee39f7f8892d8c60a21e880e581c11"
+        },
+        "after": {
+          "type": "0",
+          "mode": 420,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "44734b2e6ffb6a01beb68c057bf5f8d04b8c1db0c08357a626fe13f0fb09372b"
+        }
+      },
+      "usr/lib/engines-3/afalg.so": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "6ac3ab9444779651ba82d22fdc4b9c33207b9ffbccfb29dfb7b28f2d118d0b56"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "187e2f7673de3da8a9c258cf86a38190f668408ccf363ef6bacf4d164af5911e"
+        }
+      },
+      "usr/lib/engines-3/capi.so": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "3dfa156b53f35e4ddb4d78ebc67ef6c5b22fda58b10e87f00c337ccbf9c5b012"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "2b9866e20f4b91f874837bbf6fedbbb458343a600545473bfad4f28b19d6f5c3"
+        }
+      },
+      "usr/lib/engines-3/loader_attic.so": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "4ea7ffcb237205451ca504982eedf9ffac36b89d03f1937fa34a6d1130922e56"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "61727c2a4e56f9c47a53e6169080c8730935a5c05212c20061f9882fa476ca0e"
+        }
+      },
+      "usr/lib/engines-3/padlock.so": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "a8d1757ce73da248399f3dfc1e3df7c36e5d46018dc2f04e33d0c4d3fecaf380"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "132e008e8ead05bccb85c2f976a64b719a15577147f335c7ad3c1cec6e34d213"
+        }
+      },
+      "usr/lib/libcrypto.so.3": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "ae1d370e3146642824c6ee4bde0fdf83b9e8174a9d28d093362afde5cc4b3e6c"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "260d17c5fb9632a033c30d35752ade78c758de34f9d6089cfd07de4902c365b8"
+        }
+      },
+      "usr/lib/libssl.so.3": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "c9a8250bba27abe89c240876f8c78704eaaca9636f53b2aa29b3859f89d2e938"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "932e0853669c249b251ce6bc54e7efeb21c4f3a617d6e5d3e4dbf1967045b6ba"
+        }
+      },
+      "usr/lib/ossl-modules/legacy.so": {
+        "category": "signed_library_payload",
+        "before": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "97dfbbad9bb764b88381de662893ee05485dc5c611f856d3133b1c5f60c391e0"
+        },
+        "after": {
+          "type": "0",
+          "mode": 493,
+          "uid": 0,
+          "gid": 0,
+          "link": "",
+          "sha256": "bf43646bba4ef7a669da433bd4ebfac89875344df0e0c1a33a995c65a1d0a05a"
+        }
+      }
+    },
+    "package_count": 18,
+    "runtime_config_unchanged": true,
+    "world_unchanged": true,
+    "controller_binary_unchanged": true,
+    "ca_trust_unchanged": true
+  },
+  "scan": {
+    "before_counts": {
+      "UNSPECIFIED": 1,
+      "MEDIUM": 1,
+      "HIGH": 8,
+      "CRITICAL": 2
+    },
+    "after_counts": {
+      "UNSPECIFIED": 1,
+      "HIGH": 1
+    },
+    "before_advisories": 12,
+    "after_advisories": 2,
+    "resolved_openssl_advisories": [
+      "CVE-2026-14456",
+      "CVE-2026-14457",
+      "CVE-2026-18798",
+      "CVE-2026-54874",
+      "CVE-2026-63072",
+      "CVE-2026-63073",
+      "CVE-2026-63074",
+      "CVE-2026-63075",
+      "CVE-2026-63076",
+      "CVE-2026-75803"
+    ],
+    "remaining": [
+      {
+        "id": "CVE-2025-15558",
+        "severity": "HIGH",
+        "assessment": "PROPOSED_NOT_AFFECTED",
+        "waiver_applied": false
+      },
+      {
+        "id": "GO-2026-5932",
+        "severity": "UNSPECIFIED",
+        "assessment": "INDETERMINATE",
+        "waiver_applied": false
+      }
+    ],
+    "raw_scan": {
+      "path": "/private/tmp/chg301-r2-two-lib-say0hh9k/all-severity.sarif.json",
+      "sha256": "de4d48715588b953f4b39ab64608f285ae394a13c66873e62e3fed1ca296f51c"
+    },
+    "sbom": {
+      "path": "/private/tmp/chg301-r2-two-lib-say0hh9k/sbom.spdx.json",
+      "sha256": "393c81a53440649fb23dcc30207b50f8e8d1f09ac5186aef383c82d04305b72d",
+      "image_purls": [
+        "pkg:oci/nomosmart-test/traefik@sha256:5043ce31721c19e4a3a18afd60f449a7c842d46a52ec1ed6d7fdfb84a68cf7cd?repository_url=docker.io&tag=3.7.13-chg301-r2-say0hh9k"
+      ]
+    },
+    "ignore_base": false,
+    "vex_applied": [],
+    "sbom_note": "Scout still lists an openssl entry by source inventory; actual installed set remains18 with no openssl package/executable. No cause inferred."
+  },
+  "tests": {
+    "scope": "Fixed real OCI/APK/index/build/filesystem/raw-scan/CLI guards, not application runtime acceptance",
+    "pytest": "9.0.3",
+    "suite": {
+      "name": "pytest",
+      "errors": "0",
+      "failures": "0",
+      "skipped": "0",
+      "tests": "94",
+      "time": "10.839",
+      "timestamp": "2026-09-16T00:12:26.213981+08:00",
+      "hostname": "Peters-Mac.local"
+    },
+    "junit": "/private/tmp/chg301-r2-two-library-tests-PfzvUt/junit-final.xml",
+    "junit_sha256": "7e7bfcebe8d0d75b57591e2273c07fedfcb31a9e56d5bd14b49bb8b1a1e945da",
+    "frontend_backend_full_coverage": "NOT_MEASURED_BY_THIS_SUITE",
+    "historical58_result_preserved": true
+  },
+  "static_analysis": {
+    "scanner": "bandit1.9.4",
+    "before_counts": {
+      "LOW": 8,
+      "MEDIUM": 1,
+      "HIGH": 2
+    },
+    "after_counts": {
+      "LOW": 8,
+      "MEDIUM": 1
+    },
+    "errors": [],
+    "before_sha256": "1d1aea20c4710f695b5323f5f3ebf5c50e6463d1b829599ad48c7d96db1aaf42",
+    "after_sha256": "eb4634a6ac5c2ed3a49ded2ffeb3335cbad973085f5549b95532c595197b87e3",
+    "raw_exit_code": 1,
+    "raw_findings_retained": true,
+    "correction": "Q1 helper now requires exact approved full-APK SHA256 before compatibility-only SHA1 formatting; RSA-SHA1 signature check remains with its MEDIUM finding. No nosec or waiver."
+  },
+  "cleanup": {
+    "all_owned_build_contexts_removed": true,
+    "all_probe_cleanup_verified": true,
+    "probes": [
+      {
+        "path": "/private/tmp/chg301-r2-preflight-b_adsr60/result.json",
+        "sha256": "730dbe6fb98cb9bb242fc2b6db7769b7111c80c2a91750bd525ebaeb0434ad2e",
+        "probe_removed": true,
+        "baseline_unchanged": true
+      },
+      {
+        "path": "/private/tmp/chg301-r2-preflight-jdi9k0ty/result.json",
+        "sha256": "5822992ef9b7503d4a9dc499bdfb6fbdc178197b6b5587ee7e4f501879239d4f",
+        "probe_removed": true,
+        "baseline_unchanged": true
+      },
+      {
+        "path": "/private/tmp/chg301-r2-preflight-hcutpbbz/result.json",
+        "sha256": "47af9a818c0449d218cc775993964dbe6101d0c07e498b8c138f9d9670a02c72",
+        "probe_removed": true,
+        "baseline_unchanged": true
+      },
+      {
+        "path": "/private/tmp/chg301-r2-preflight-cnb3uqeh/result.json",
+        "sha256": "45f3e44762c857b995e605bf07d22464e3d52b7dc5ec23fac629f02610869ec3",
+        "probe_removed": true,
+        "baseline_unchanged": true
+      },
+      {
+        "path": "/private/tmp/chg301-r2-preflight-r1y2xyh_/result.json",
+        "sha256": "a6d7ff4ca05a3e91846a8b53ef45897264a198033e0960aaa385311c3a65c6cb",
+        "probe_removed": true,
+        "baseline_unchanged": true
+      }
+    ],
+    "existing_container_count": 14,
+    "original_containers_unchanged": true,
+    "original_networks_unchanged": true,
+    "images_added": [
+      "nomosmart-test/traefik:3.7.13-chg301-r2-say0hh9k sha256:5043ce31721c19e4a3a18afd60f449a7c842d46a52ec1ed6d7fdfb84a68cf7cd"
+    ],
+    "images_removed": [],
+    "retained": [
+      "one local-only test image",
+      "public signed input/OCI archives and raw evidence",
+      "existing BuildKit cache; no prune"
+    ],
+    "resource_after": {
+      "vm_memory_bytes": 33598726144,
+      "vm_memory_available_bytes": 24618962944,
+      "vm_sample_busy_cores": 0.4017576898932831,
+      "vm_filesystem_available_bytes": 273590034432,
+      "sample_seconds": 2,
+      "required_reserve_cores": 4,
+      "required_reserve_memory_bytes": 8589934592,
+      "remaining_test_cpu_ceiling": 3.598242310106717,
+      "remaining_test_memory_ceiling_bytes": 16029028352,
+      "disk_100gib_precondition": true
+    },
+    "observed_disk_available_delta_bytes": 238178304,
+    "postflight_sha256": "a6d7ff4ca05a3e91846a8b53ef45897264a198033e0960aaa385311c3a65c6cb"
+  },
+  "historical_attempts": [
+    {
+      "path": "/private/tmp/chg301-r2-two-lib-5u6hmsd9",
+      "result_sha256": "00ca6f7443532a98e6687b3bc25e12f6994076fb4e071495fb1ff0526ac03ff4",
+      "error_code": "builder_identity",
+      "build_started": false
+    },
+    {
+      "path": "/private/tmp/chg301-r2-two-lib-nmz39q4_",
+      "result_sha256": "075e2b04d784fdc367b05f83b55a21a619b5bbd0172698e607e0d6eac127ac23",
+      "error_code": null,
+      "build_started": true
+    },
+    {
+      "path": "/private/tmp/chg301-r2-two-lib-gp0o0w3x",
+      "result_sha256": "98078cd036b801e11a00402cf788ab5994bead080e424cbc7b59d104db146c45",
+      "error_code": null,
+      "build_started": true
+    },
+    {
+      "path": "/private/tmp/chg301-r2-two-lib-say0hh9k",
+      "result_sha256": "550cc37cdd5de8491584f22eff49d219e6f7e3c6d6ac46e95b89445908a32d27",
+      "error_code": "built_image_identity",
+      "build_started": true
+    }
+  ],
+  "final_verification": {
+    "path": "/private/tmp/chg301-r2-two-lib-say0hh9k/verification-result.json",
+    "sha256": "811bde0b0b20a8d064703a46c8742e0d28b12e7946aa5fccd552902be121cbe2",
+    "source_unchanged_during_verification": true
+  },
+  "operations": {
+    "kubernetes": 0,
+    "provider_calls": 0,
+    "pr_writes": 0,
+    "image_pushes": 0,
+    "controller_runs": 0
+  },
+  "remaining_gates": [
+    "OpenPGP applicability unresolved",
+    "Docker CLI exclusion proposed only, not accepted",
+    "Full application >=80% per-side coverage and critical flows",
+    "Isolated Kubernetes/TLS/OIDC/NetworkPolicy/full R2 acceptance",
+    "PR update remains unauthorized until gates pass"
+  ]
+}

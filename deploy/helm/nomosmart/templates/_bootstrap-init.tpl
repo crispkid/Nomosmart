@@ -75,21 +75,33 @@
   args:
     - |
       import time
+      import json
       import urllib.error
       import urllib.request
+      from app.core.config import MigrationTargetSettings
+      from app.deployment.migration_gate import MigrationGateError, migration_readiness_matches, required_contract
+      try:
+          settings = MigrationTargetSettings()
+          required_contract(settings.migration_required_version, settings.migration_required_checksum)
+      except (ValueError, MigrationGateError):
+          raise SystemExit("database_migration_configuration_invalid")
       url = "http://{{ include "nomosmart.fullname" . }}-backend:{{ .Values.backend.service.port }}/api/v1/ready"
       deadline = time.monotonic() + {{ int .Values.bootstrap.waitSeconds }}
       while True:
           try:
               with urllib.request.urlopen(url, timeout=5) as response:
-                  if response.status == 200:
+                  content = response.read(65537)
+                  if len(content) <= 65536 and response.status == 200 and migration_readiness_matches(json.loads(content), settings):
                       print('{"status":"ready","check":"backend"}')
                       break
-          except (OSError, urllib.error.HTTPError):
+          except (OSError, urllib.error.HTTPError, ValueError):
               pass
           if time.monotonic() >= deadline:
               raise SystemExit("backend_readiness_timeout")
           time.sleep(3)
   securityContext:
     {{- toYaml .Values.securityContext | nindent 4 }}
+  envFrom:
+    - configMapRef:
+        name: {{ include "nomosmart.fullname" . }}-config
 {{- end -}}

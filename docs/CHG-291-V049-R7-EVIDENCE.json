@@ -1,0 +1,300 @@
+{
+  "change": "CHG-291 R7",
+  "requirement": "V49-U012",
+  "approval": {
+    "approver": "Peter",
+    "date": "2026-09-13",
+    "response": "核准",
+    "gate": 4
+  },
+  "status": "ISOLATED_ENTRY_VERIFIED_NOT_CURRENT_QUALIFIED",
+  "audit": {
+    "status": "ISOLATED_ENTRY_PASS_NOT_CURRENT_QUALIFIED",
+    "sources": {
+      "backend/scripts/chg291_v049_live_backup.py": "e42eeb866dfd7fd8db13a5051c699d2b2660352e2663443a04706418a16a56c9",
+      "backend/tests/test_chg291_v049_live_backup.py": "dd9d88d0f5c8c8c15986b8579731a09e5bd2d794fb567b5f14c244161c086152"
+    },
+    "tests": 254,
+    "legacy_tests": 212,
+    "new_tests": 42,
+    "human_gpg": "1 deselected",
+    "coverage": {
+      "coverage-pytest.json": {
+        "statements": 81.57614483493077,
+        "branches": 80.45112781954887,
+        "combined": 81.43656716417911,
+        "totals": {
+          "covered_lines": 1532,
+          "num_statements": 1878,
+          "percent_covered": 81.43656716417911,
+          "percent_covered_display": "81",
+          "missing_lines": 346,
+          "excluded_lines": 0,
+          "percent_statements_covered": 81.57614483493077,
+          "percent_statements_covered_display": "82",
+          "num_branches": 266,
+          "num_partial_branches": 18,
+          "covered_branches": 214,
+          "missing_branches": 52,
+          "percent_branches_covered": 80.45112781954887,
+          "percent_branches_covered_display": "80"
+        }
+      },
+      "coverage.json": {
+        "statements": 82.42811501597444,
+        "branches": 80.45112781954887,
+        "combined": 82.18283582089552,
+        "totals": {
+          "covered_lines": 1548,
+          "num_statements": 1878,
+          "percent_covered": 82.18283582089552,
+          "percent_covered_display": "82",
+          "missing_lines": 330,
+          "excluded_lines": 0,
+          "percent_statements_covered": 82.42811501597444,
+          "percent_statements_covered_display": "82",
+          "num_branches": 266,
+          "num_partial_branches": 18,
+          "covered_branches": 214,
+          "missing_branches": 52,
+          "percent_branches_covered": 80.45112781954887,
+          "percent_branches_covered_display": "80"
+        }
+      }
+    },
+    "rehearsals": [
+      {
+        "path": "r7-entry-2dfef17d63e60d1a",
+        "result": {
+          "sha256": "6bf59063c4d1fb5de2bb835d0937eae5edf30e02210d15a750a221f25dba3c2d",
+          "bytes": 1827
+        },
+        "full_comparison": true
+      },
+      {
+        "path": "r7_roundtrip_custom_14319c56",
+        "result": {
+          "sha256": "aa6c72a5b8200f6174815c7c05b6480fa53c891ab95c8b63c54c038e93e6ed6c",
+          "bytes": 1830
+        },
+        "full_comparison": true
+      },
+      {
+        "path": "r7_roundtrip_default_355f236d",
+        "result": {
+          "sha256": "5a311403baf35d6d0252aa2763cab59b258a56eae16960a17e0f4ef8cab15b04",
+          "bytes": 1831
+        },
+        "full_comparison": true
+      },
+      {
+        "path": "r7_roundtrip_removed_b0a4f88a",
+        "result": {
+          "sha256": "b72fe32944e7c425a689f3d3b4d0d3cda52ae076eab34d8484a77c2e75844e8e",
+          "bytes": 1831
+        },
+        "full_comparison": true
+      },
+      {
+        "path": "r7_roundtrip_custom_289cb9d7",
+        "result": {
+          "sha256": "cefb2d1d849da35a2a8b35a7e74123ee12065a79d1394e437bfbc6ac2df35aaa",
+          "bytes": 1830
+        },
+        "full_comparison": true
+      }
+    ],
+    "cancellations": [
+      {
+        "phase": "comments",
+        "report": {
+          "sha256": "9a738f307437380e603d418f5cb8d3325b580e3acf804c78c7015b1a9a2abb46",
+          "bytes": 399
+        }
+      },
+      {
+        "phase": "install",
+        "report": {
+          "sha256": "0acde84668893d4b5f1b9d78664d37cd236802e79986d5de0b8036ef44154d78",
+          "bytes": 398
+        }
+      }
+    ],
+    "docker_baseline_equal": true,
+    "owned_containers": 0,
+    "current_access": false,
+    "deployment": false,
+    "reports": {
+      "tests.xml": {
+        "sha256": "3982b2b0af6dc3216a3e3081626ed9679e12261d17d452e9142b1301feae7ee2",
+        "bytes": 26319
+      },
+      "coverage.json": {
+        "sha256": "5844f4bb59fe83cdabbec64eab4f22620322a217eb2ec00243b03e0c58104f67",
+        "bytes": 135549
+      },
+      "coverage-pytest.json": {
+        "sha256": "ba6c0b5a501037737c40ee946a7dfe8b2348560e93fd1bfa3a5451b54dd27994",
+        "bytes": 135520
+      },
+      "coverage.xml": {
+        "sha256": "b919fc53a3061d85696bbb3fa27fbb682d90eb79853dc5ec01db8341e06c6571",
+        "bytes": 76650
+      },
+      "cleanup.json": {
+        "sha256": "d46afd330b57698a294494faf99897bd59a87dc8eef393578fe53b61fb6a0fbb",
+        "bytes": 299
+      },
+      ".coverage.cli": {
+        "sha256": "cba7fb477078c35326cf83c714c3e7686057c1d708eb9ae805a001109feb3e1f",
+        "bytes": 53248
+      },
+      ".coverage.tests": {
+        "sha256": "136aa169a6c75f6821107224468c68c4237a0493cdf992c55d91ca0fae646b0d",
+        "bytes": 139264
+      }
+    },
+    "synthetic_proof": {
+      "sha256": "d4714f8c4c4fde1a78951a96df668fdaccb4fc08cd453daa992b2057271f0248",
+      "bytes": 1214
+    }
+  },
+  "cli_cancellation": {
+    "status": "PASS",
+    "case": "V49-U-T48 real CLI cancellation",
+    "sources": {
+      "backend/scripts/chg291_v049_live_backup.py": "e42eeb866dfd7fd8db13a5051c699d2b2660352e2663443a04706418a16a56c9",
+      "backend/tests/test_chg291_v049_live_backup.py": "dd9d88d0f5c8c8c15986b8579731a09e5bd2d794fb567b5f14c244161c086152"
+    },
+    "run": "/private/tmp/v049-backup-plain-r6-clh5133z",
+    "pid": 79876,
+    "exit_code": -2,
+    "observed_real_pg_and_test_progress": true,
+    "parent_cleanup_completed": true,
+    "docker_baseline_equal": true,
+    "owned_pg": 0,
+    "qualified": false,
+    "current_access": false,
+    "deployment": false,
+    "elapsed_seconds": 4.01163241697941,
+    "log_sha256": "cae77f987e86c4308b1af9e2d03ee5ee9b038f4eae78e5bf13956df3f620b383"
+  },
+  "runs": [
+    {
+      "label": "first narrow",
+      "run": "/private/tmp/v049-backup-plain-r6-vs4eoa",
+      "script_sha256": "3b26c09444bee57e8b10bbbde27170420c0ad893dabc562788c8aa642a49cdd1",
+      "test_sha256": "8706acfb71369f5557cb4eb6acee6f06d9144bdf21efba2a7c4332cb5ce74902",
+      "passed": 43,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "reports": {
+        "tests.xml": {
+          "sha256": "973caa072c36ed7aab0e046551ff4d8b35f9251e5e9ade5ad2cfbb7f5625dea2",
+          "bytes": 3904
+        },
+        "coverage.json": {
+          "sha256": "959f5bba55995f954a3eeb61d93e5a8d0f18bb840fc2878711b4405f34268e39",
+          "bytes": 135184
+        },
+        "coverage.xml": {
+          "sha256": "9b014fdc6504302910437a01e82003b943ff3e14dac37e4817a2e7ae65f334e5",
+          "bytes": 77722
+        },
+        ".coverage.tests": {
+          "sha256": "412c49cc132243871cd01e7eea682286535756ab179aaf786cfb46d66ffe96ed",
+          "bytes": 118784
+        }
+      }
+    },
+    {
+      "label": "first full CLI failed",
+      "run": "/private/tmp/v049-backup-plain-r6-i67m_0s9",
+      "script_sha256": "e42eeb866dfd7fd8db13a5051c699d2b2660352e2663443a04706418a16a56c9",
+      "test_sha256": "8706acfb71369f5557cb4eb6acee6f06d9144bdf21efba2a7c4332cb5ce74902",
+      "passed": 219,
+      "failures": 24,
+      "errors": 11,
+      "skips": 0,
+      "reports": {
+        "tests.xml": {
+          "sha256": "316af9f6132fef45f57b87e2b5c727f59761b9df35c24b392b4a0bc244a0fc49",
+          "bytes": 73034
+        },
+        "coverage.json": {
+          "sha256": "1df3eb91cbdb15ce9de24d257e92a05994e78c80bfb2fb1210d8bf8bbd27521c",
+          "bytes": 135618
+        },
+        "coverage.xml": {
+          "sha256": "b5bc06ae52055c2e059a19476bc35350ac02bb909638266ac8566e7ffb06926a",
+          "bytes": 76957
+        },
+        ".coverage.tests": {
+          "sha256": "0ff23d7603438410ad67744a270ecab43ec4e00995129e04d87eee367f57b7ee",
+          "bytes": 131072
+        }
+      }
+    },
+    {
+      "label": "final full CLI",
+      "run": "/private/tmp/v049-backup-plain-r6-dbi2mr3c",
+      "script_sha256": "e42eeb866dfd7fd8db13a5051c699d2b2660352e2663443a04706418a16a56c9",
+      "test_sha256": "dd9d88d0f5c8c8c15986b8579731a09e5bd2d794fb567b5f14c244161c086152",
+      "passed": 254,
+      "failures": 0,
+      "errors": 0,
+      "skips": 0,
+      "reports": {
+        "tests.xml": {
+          "sha256": "3982b2b0af6dc3216a3e3081626ed9679e12261d17d452e9142b1301feae7ee2",
+          "bytes": 26319
+        },
+        "coverage.json": {
+          "sha256": "5844f4bb59fe83cdabbec64eab4f22620322a217eb2ec00243b03e0c58104f67",
+          "bytes": 135549
+        },
+        "coverage.xml": {
+          "sha256": "b919fc53a3061d85696bbb3fa27fbb682d90eb79853dc5ec01db8341e06c6571",
+          "bytes": 76650
+        },
+        ".coverage.tests": {
+          "sha256": "136aa169a6c75f6821107224468c68c4237a0493cdf992c55d91ca0fae646b0d",
+          "bytes": 139264
+        }
+      }
+    }
+  ],
+  "audit_files": {
+    "audit.py": {
+      "sha256": "404b05123c17afc7d4aa32c45815b6c5dfdc70f4b5775c02e50b6fcc50064516",
+      "bytes": 7988
+    },
+    "audit-results.json": {
+      "sha256": "269787ab74fc01a119741cae977b3757ce1a5a647e2d331491a3ceb23fa5b19d",
+      "bytes": 4591
+    },
+    "cancel_cli.py": {
+      "sha256": "d948b53d79ea1d6e8c8cd0866e176f3d98ac7d76054aa2c8a098f72e6f31f4f6",
+      "bytes": 3812
+    },
+    "cancel-cli-evidence.json": {
+      "sha256": "6e0c5976f6f668d6187a1ddf26fd77a3337e751063dde2b8eebfd7bf8176c927",
+      "bytes": 743
+    },
+    "full-cli-output.log": {
+      "sha256": "546c49e31e3e68b5d927698a0f28e30edf6c6d942bf9beecc14b68127f4e5cbe",
+      "bytes": 3445
+    },
+    "cancel-cli-output.log": {
+      "sha256": "cae77f987e86c4308b1af9e2d03ee5ee9b038f4eae78e5bf13956df3f620b383",
+      "bytes": 1196
+    }
+  },
+  "current_positive_paths": "NOT RUN",
+  "current_access": false,
+  "new_current_backup": false,
+  "provider_calls": 0,
+  "v049_applied": false,
+  "deployment": false
+}

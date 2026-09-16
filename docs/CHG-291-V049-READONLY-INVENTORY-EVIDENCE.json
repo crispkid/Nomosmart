@@ -1,0 +1,106 @@
+{
+  "change": "CHG-291 V049 discussion inventory",
+  "date": "2026-09-12",
+  "context": "docker-desktop",
+  "namespace": "nomosmart",
+  "release": "nomosmart-local",
+  "observedRevision": 36,
+  "scope": "Read-only current membership/Owner inventory; no migration, DDL, repair, backup, image build, deployment or Provider",
+  "sourceHashes": {
+    "sql/migrations/V049__exclusive_project_member_role.sql": "b8d256be49ff99c2c157ec8f95bf96f5ac2846aae450637f895747bb298f9f96",
+    "docs/CHG-291-V049-READONLY-INVENTORY.sql": "068d9a551e649ccf1b83153b4f1578d4e49415c8b5a5531ce168bd86e5e908c8"
+  },
+  "inventory": {
+    "members": [
+      {
+        "email": "user01@nomosmart.test",
+        "user_id": "b58382db-f1a6-4251-b3e2-00c5ac46cbbd",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "user_active": true,
+        "display_name": "Peter Chu",
+        "project_name": "MAAS",
+        "current_roles": [
+          "owner"
+        ],
+        "proposed_role": "owner",
+        "project_status": "active",
+        "owner_governance": true,
+        "owner_membership": true
+      },
+      {
+        "email": "user02@nomosmart.test",
+        "user_id": "b38d3df7-ae45-4585-a2f1-207e34b9731f",
+        "project_id": "9e1d3e43-8069-4965-84d1-f5890880b3d4",
+        "user_active": true,
+        "display_name": "Justin Wu",
+        "project_name": "MAAS",
+        "current_roles": [
+          "editor",
+          "viewer"
+        ],
+        "proposed_role": "editor",
+        "project_status": "active",
+        "owner_governance": false,
+        "owner_membership": false
+      }
+    ],
+    "database": "nomosmart",
+    "ownerRows": 1,
+    "capturedAt": "2026-09-12T11:27:36.142729+00:00",
+    "flywayLatest": {
+      "success": true,
+      "version": "048"
+    },
+    "projectCount": 1,
+    "duplicatePairs": 1,
+    "membershipRows": 3,
+    "v049AuditCount": 0,
+    "invalidRoleRows": 0,
+    "memberPairCount": 2,
+    "v049HistoryCount": 0,
+    "memberConstraints": [
+      {
+        "name": "project_members_created_at_not_null",
+        "definition": "NOT NULL created_at"
+      },
+      {
+        "name": "project_members_pkey",
+        "definition": "PRIMARY KEY (project_id, user_id, project_role)"
+      },
+      {
+        "name": "project_members_project_id_fkey",
+        "definition": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "project_members_project_id_not_null",
+        "definition": "NOT NULL project_id"
+      },
+      {
+        "name": "project_members_project_role_check",
+        "definition": "CHECK (((project_role)::text = ANY ((ARRAY['owner'::character varying, 'editor'::character varying, 'viewer'::character varying])::text[])))"
+      },
+      {
+        "name": "project_members_project_role_not_null",
+        "definition": "NOT NULL project_role"
+      },
+      {
+        "name": "project_members_user_id_fkey",
+        "definition": "FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE"
+      },
+      {
+        "name": "project_members_user_id_not_null",
+        "definition": "NOT NULL user_id"
+      }
+    ],
+    "inactiveOwnerPairs": 0,
+    "ownerMismatchPairs": 0,
+    "transactionReadOnly": "on",
+    "transactionIsolation": "repeatable read",
+    "proposedLowerRoleDeletes": 1,
+    "projectsWithoutProvableOwner": [],
+    "proposedOwnerGovernanceInserts": 0,
+    "proposedOwnerMembershipInserts": 0
+  },
+  "effectsAreProjectionsNotWrites": true,
+  "liveCompatibilityAndBackupRestoreNotVerified": true
+}

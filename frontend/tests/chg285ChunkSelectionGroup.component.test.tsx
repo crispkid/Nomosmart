@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
@@ -12,6 +12,7 @@ import {
 
 const paragraph = "node-paragraph";
 const list = "node-list";
+const nullableLayoutFields = { level: null, caption: null, confidence: null, bbox: null };
 
 const pages: DocumentLayoutPage[] = [{
   page_number: 1,
@@ -74,8 +75,8 @@ describe("CHG-285 one Chunk one visual selection group", () => {
 
   it("uses one page-local enclosure per crossed page with the same Chunk identity", () => {
     const crossPage: DocumentLayoutPage[] = [
-      { page_number: 1, blocks: [{ id: "part-1", type: "paragraph", source_anchor: "shared", text: "First", items: [], rows: [] }] },
-      { page_number: 2, blocks: [{ id: "part-2", type: "paragraph", source_anchor: "shared", text: "Second", items: [], rows: [] }] },
+      { page_number: 1, width: 794, height: 1123, blocks: [{ ...nullableLayoutFields, id: "part-1", type: "paragraph", source_anchor: "shared", text: "First", items: [], rows: [] }] },
+      { page_number: 2, width: 794, height: 1123, blocks: [{ ...nullableLayoutFields, id: "part-2", type: "paragraph", source_anchor: "shared", text: "Second", items: [], rows: [] }] },
     ];
     const groups = [{ id: "chunk-cross-page", sourceAnchors: ["shared"], sourceMappings: [] }];
     const { container } = render(
@@ -96,10 +97,12 @@ describe("CHG-285 one Chunk one visual selection group", () => {
   it("does not enclose an unrelated block between non-contiguous anchors", () => {
     const nonContiguous: DocumentLayoutPage[] = [{
       page_number: 1,
+      width: 794,
+      height: 1123,
       blocks: [
-        { id: "a", type: "paragraph", source_anchor: "a", text: "A", items: [], rows: [] },
-        { id: "unrelated", type: "paragraph", source_anchor: "unrelated", text: "Unrelated", items: [], rows: [] },
-        { id: "c", type: "paragraph", source_anchor: "c", text: "C", items: [], rows: [] },
+        { ...nullableLayoutFields, id: "a", type: "paragraph", source_anchor: "a", text: "A", items: [], rows: [] },
+        { ...nullableLayoutFields, id: "unrelated", type: "paragraph", source_anchor: "unrelated", text: "Unrelated", items: [], rows: [] },
+        { ...nullableLayoutFields, id: "c", type: "paragraph", source_anchor: "c", text: "C", items: [], rows: [] },
       ],
     }];
     const groups = [{ id: "chunk-safe", sourceAnchors: ["a", "c"], sourceMappings: [] }];
@@ -155,36 +158,6 @@ describe("CHG-285 one Chunk one visual selection group", () => {
     expect(Array.from(container.querySelectorAll(".canonical-markdown-selection-group")).map((element) => element.getAttribute("data-chunk-id"))).toEqual(["alpha", "gamma"]);
   });
 
-  it("positions the Markdown enclosure from the multiline range union without changing text", async () => {
-    const source = "Before\nSelected line one\nSelected line two\nAfter";
-    const mapped: MarkdownMappedChunk[] = [{
-      id: "measured",
-      sourceMappings: [{ sourceAnchor: "selected", markdownStart: 7, markdownEnd: 43, anchorStart: 0, anchorEnd: 36 }],
-    }];
-    const rect = (left: number, top: number, width: number, height: number): DOMRect => ({
-      x: left,
-      y: top,
-      left,
-      top,
-      width,
-      height,
-      right: left + width,
-      bottom: top + height,
-      toJSON: () => ({}),
-    });
-    const geometry = vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockImplementation(function () {
-      if (this.classList.contains("canonical-markdown-source")) return rect(10, 20, 500, 300);
-      if (this.classList.contains("canonical-markdown-range")) return rect(38, 74, 320, 96);
-      return rect(0, 0, 0, 0);
-    });
-    const { container } = render(<CanonicalMarkdownSource chunks={mapped} selectedChunkIds={["measured"]} source={source} />);
-    const enclosure = container.querySelector<HTMLElement>('.canonical-markdown-selection-group[data-chunk-id="measured"]');
-    await waitFor(() => expect(enclosure).toHaveClass("is-positioned"));
-    expect(enclosure?.style.left).toBe("28px");
-    expect(enclosure?.style.top).toBe("54px");
-    expect(enclosure?.style.width).toBe("320px");
-    expect(enclosure?.style.height).toBe("96px");
-    expect(container.querySelector(".canonical-markdown-source")?.textContent).toBe(source);
-    geometry.mockRestore();
-  });
+  // The multiline-union geometry assertion runs in test:geometry, using actual
+  // browser layout/DOMRange, resize and scroll instead of fabricated DOMRects.
 });

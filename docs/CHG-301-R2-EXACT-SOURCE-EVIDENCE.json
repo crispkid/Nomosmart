@@ -1,0 +1,59 @@
+{
+  "change": "CHG-301 R2 / CMPPATCH-001 and CMPPATCH-003",
+  "status": "EXACT_SOURCE_ASSESSED_RUNTIME_GATE_PENDING_HUMAN_CONFIRMATION",
+  "assessedAt": "2026-09-15T17:20:54.835438+00:00",
+  "imageId": "sha256:5043ce31721c19e4a3a18afd60f449a7c842d46a52ec1ed6d7fdfb84a68cf7cd",
+  "imageTag": "nomosmart-test/traefik:3.7.13-chg301-r2-say0hh9k",
+  "platform": "linux/arm64",
+  "binarySha256": "7415b6155dfd70f4d8ec8dd6092ec4534e016baa5f051d44f179f7b4780878ca",
+  "sourceCommit": "fc92cc118a0557a029c7019d5ee06665127b0f13",
+  "sourceArchiveSha256": "61e162b2117305c5f83cf77beb671ac2cba4f215a716b46a56de75b208c62706",
+  "officialReleaseArchiveSha256": "9155048abd64c59000d2f3c07dc6d6919bc6be9b618e6a554bc3808338aaf8b8",
+  "officialReleaseMatchesImageBinary": true,
+  "sourceFilesUnchanged": 2277,
+  "importGraphPackages": 2647,
+  "missingImportEdges": 0,
+  "openpgpPackages": 0,
+  "binaryDependencies": 356,
+  "externalVersionAndSumMatches": 355,
+  "localReplacement": {
+    "path": "./pkg/config/dynamic/ext",
+    "binaryVersion": "(devel)",
+    "goListVersion": "",
+    "sameCommitFileHashes": {
+      "ext.go": "fdd9a8232809b310da14d1f2bc467d9d45dd3d0d9937fc2f3280b779b52861d1",
+      "go.mod": "406b1bce4e6ba31bbdaad3f9085b83b88e2b70db438e166b761c1c67cbdf370b"
+    }
+  },
+  "sourceToolchain": "go1.26.5",
+  "binaryToolchain": "go1.26.8",
+  "rawGovulncheckSymbolsRemain": 0,
+  "bitReproducibleBuildVerified": false,
+  "findings": [
+    {"id": "CVE-2025-15558", "rawSeverity": "HIGH", "assessment": "PROPOSED_NOT_AFFECTED", "basis": "Windows-only; actual Linux/ARM64 docker/cli29.7.2 after fix29.2.0"},
+    {"id": "GO-2026-5932", "rawSeverity": "UNSPECIFIED", "previousAssessment": "INDETERMINATE", "assessment": "PROPOSED_NOT_AFFECTED", "basis": "Release/binary/commit/checksum-bound complete source import closure excludes OpenPGP"}
+  ],
+  "commands": {
+    "goListDepsJson": "PASS",
+    "goModVerifyOffline": "BLOCKED_MISSING_PUBLIC_MODULE_METADATA",
+    "goModVerifyWithPinnedPublicMetadata": "PASS",
+    "officialReleaseBinding": "PASS"
+  },
+  "privateEvidenceSha256": "ab737268f7027049a755d97f7c62af5fe7a5506e7dc33d711c2909793d0bb7d4",
+  "importGraphSha256": "1710b8e07e9dd57d4c3144e79fdc0289e3450795680d47ea7a7a6235a4c6cdc2",
+  "priorImageVerificationSha256": "811bde0b0b20a8d064703a46c8742e0d28b12e7946aa5fccd552902be121cbe2",
+  "rawSarifSha256": "de4d48715588b953f4b39ab64608f285ae394a13c66873e62e3fed1ca296f51c",
+  "rawSpdxSha256": "393c81a53440649fb23dcc30207b50f8e8d1f09ac5186aef383c82d04305b72d",
+  "vexApplied": false,
+  "humanFindingAcceptance": "PENDING",
+  "pluginsAllowedUnderProposal": false,
+  "originalBatchDeadline": "2026-09-15T20:17:52.088462Z",
+  "fullR2Complete": false,
+  "controllerExecutions": 0,
+  "dockerOperations": 0,
+  "kubernetesOperations": 0,
+  "providerCalls": 0,
+  "prOperations": 0,
+  "temporaryEvidence": "116MiB private source/release/raw analysis and checksum evidence retained; only exact-owned 1.8GiB module cache and 34MiB analysis cache removed with private GOMODCACHE/GOCACHE. Regenerable from recorded versions/checksums; no shared cache touched.",
+  "governance": {"specDoctor": "PASS", "specTrace": "PASS_21_MAPPINGS", "planApproved": "PASS_NOT_RUNTIME_RELEASE", "testPlan": "PASS", "gitDiffCheck": "PASS"}
+}

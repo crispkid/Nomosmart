@@ -104,7 +104,7 @@ def list_identity_sync_runs(
             namespace="identity-sync-runs",
             payload={"filter": filter_hash, "queued_at": last.queued_at.isoformat(), "id": str(last.id)},
         )
-    return IdentitySyncRunPage(items=rows, next_cursor=next_cursor)
+    return IdentitySyncRunPage(items=rows, next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/identity-sync/runs/{run_id}", response_model=IdentitySyncRunResponse)

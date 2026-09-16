@@ -1,0 +1,586 @@
+{
+  "change": "CHG-301 R2 / CMPING-001..005",
+  "status": "BLOCKED_CANDIDATE_SECURITY_REQUIRES_DISCUSSION",
+  "approval": {
+    "approver": "Peter",
+    "response": "OK",
+    "date": "2026-09-15",
+    "gate": 4,
+    "preapprovalPlanSha256": "11a36a1c5ee3e5ec664cb628b2d088d69ce072b47aadec0de155e791d18733aa"
+  },
+  "scan": {
+    "scope": "CHG-301 R2 Traefik candidate registry-only",
+    "phase": "candidate",
+    "started_at": "2026-09-15T13:07:57.888611+00:00",
+    "status": "BLOCKED_FINDINGS",
+    "kubernetes_operations": 0,
+    "provider_calls": 0,
+    "container_execution": 0,
+    "database_version": "not exposed by Scout SARIF; no independent freshness assertion",
+    "git": [
+      "c261a494283835af57c0e0678afc7ee7e2c0dcc8",
+      "5f1a0a2505dee9c85ee621bd2c8680b92d397a45"
+    ],
+    "dirty_diff_sha256": "ea79b8e07971ec9954ff8ba81835de30a8c32ef1ea7cb3cdbe6c90586a04e24c",
+    "source_manifest_sha256": "633ac67933d9504138a0634c7ff491df67b86ab1725e9ffa6f9839406828ab0a",
+    "source_file_count": 284,
+    "download_ca_bundle_sha256": "bbc7e9c01d7551bb8a159b5dedd989b8ee3ce105aff522b68eb1b01bf854cab0",
+    "chart": {
+      "version": "41.5.0",
+      "app_version": "v3.7.13",
+      "sha256": "30f8db73182019b2764179d7fc0a7efc9505670204f847ffc3a779bacaae3a1a",
+      "url": "https://traefik.github.io/charts/traefik/traefik-41.5.0.tgz",
+      "kube_version": ">=1.25.0-0",
+      "compatible_provider_present": true
+    },
+    "image": {
+      "reference": "docker.io/library/traefik:v3.7.13@sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259",
+      "index_digest": "sha256:f86a2cab1b5c649070c49f883c743dd32d8485a56e3368c5f93b9e91f1e91259",
+      "arm64_digest": "sha256:444bb54c1f7ebe5fac94d1c40f02b48c08dc005a92fc65ca29c1c75991d16baa",
+      "platform": "linux/arm64"
+    },
+    "sbom": {
+      "packages_including_image": 381,
+      "image_purls": [
+        "pkg:oci/traefik@sha256:444bb54c1f7ebe5fac94d1c40f02b48c08dc005a92fc65ca29c1c75991d16baa?repository_url=docker.io&tag=v3.7.13"
+      ],
+      "creation_info": {
+        "creators": [
+          "Organization: Docker, Inc",
+          "Tool: docker-scout-1.24.0"
+        ],
+        "created": "2026-09-15T13:08:19Z"
+      }
+    },
+    "source_unchanged": true,
+    "artifacts": {
+      "Chart.yaml": {
+        "sha256": "002d92f56498f5e968a107b7849aff02e95b392376feb1e258b097bf602c9c02",
+        "bytes": 1142
+      },
+      "all-severity.sarif.json": {
+        "sha256": "107ee5882f15e04af4bde6fc2c881c70e2aa668edc16d47f8cec8fb7f29886bf",
+        "bytes": 29489
+      },
+      "chart-index.yaml": {
+        "sha256": "5dc20760453633b4755bf453fe6e98fb2911d592ba7f477bce622baa15d38725",
+        "bytes": 503985
+      },
+      "command-00.stderr": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-00.stdout": {
+        "sha256": "4e1ef539196bfeb10e054d2565a2e4c00a1e55fa9a1a360061f678936919ac46",
+        "bytes": 82
+      },
+      "command-01.stderr": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-02.stderr": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-02.stdout": {
+        "sha256": "f47cbaeff8a11a3e1a27a91398bdfb0162b047ec5cb8f205e84a2db7ba3493bc",
+        "bytes": 9454
+      },
+      "command-03.stderr": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-03.stdout": {
+        "sha256": "5f3b0aebc495d3367b64c8217d7d898a08a863ddaaa625081b631a2dbf0af568",
+        "bytes": 1253
+      },
+      "command-04.stderr": {
+        "sha256": "af3194d576c45c4646a7d714a0a4aa209c8b59d2fbe7469b5449545c8a0b2b0c",
+        "bytes": 297
+      },
+      "command-04.stdout": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-05.stderr": {
+        "sha256": "09583f414dc61a2d709f7311e1fa16615cbd09cbcad130df8065da273c22c0d0",
+        "bytes": 140
+      },
+      "command-05.stdout": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-06.stderr": {
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "bytes": 0
+      },
+      "command-06.stdout": {
+        "sha256": "f47cbaeff8a11a3e1a27a91398bdfb0162b047ec5cb8f205e84a2db7ba3493bc",
+        "bytes": 9454
+      },
+      "image-index.json": {
+        "sha256": "f47cbaeff8a11a3e1a27a91398bdfb0162b047ec5cb8f205e84a2db7ba3493bc",
+        "bytes": 9454
+      },
+      "sbom.spdx.json": {
+        "sha256": "076524820478dfaf1009c4e3052d0fd775f5575451ba6f18b1d7491c07601dfb",
+        "bytes": 1243961
+      },
+      "source-manifest.json": {
+        "sha256": "633ac67933d9504138a0634c7ff491df67b86ab1725e9ffa6f9839406828ab0a",
+        "bytes": 32720
+      },
+      "traefik-41.5.0.tgz": {
+        "sha256": "30f8db73182019b2764179d7fc0a7efc9505670204f847ffc3a779bacaae3a1a",
+        "bytes": 261770
+      },
+      "values.yaml": {
+        "sha256": "5298aa19f8416752035a0ee803fa38f08caf75297c6c8691eba265bc0be253f8",
+        "bytes": 84004
+      }
+    },
+    "finished_at": "2026-09-15T13:08:23.822963+00:00"
+  },
+  "scan_result_path": "/private/tmp/chg301-r2-traefik-vtkgc8jt/result.json",
+  "scan_result_sha256": "f3a74af03ac4135ec552a6e6272243ed525fa6c70064a61499e560ea3da29545",
+  "scan_summary": {
+    "status": "BLOCKED_FINDINGS",
+    "unique_cves": 11,
+    "result_instances": 12,
+    "severity_counts": {
+      "UNSPECIFIED": 1,
+      "MEDIUM": 1,
+      "HIGH": 8,
+      "CRITICAL": 2
+    },
+    "unaccepted_high_critical": 10,
+    "unclassified": 1,
+    "waivers_applied": [],
+    "runtime_exploitability_verified": false,
+    "unique_advisories": 12
+  },
+  "original_count_label_correction": "Original result.json called all12 advisories unique_cves. It is retained unchanged. There are11 CVE IDs and1 GO ID. Runner corrected and28 tests verify this; no raw severity/count/safety result changed.",
+  "findings": [
+    {
+      "id": "GO-2026-5932",
+      "severity": "UNSPECIFIED",
+      "properties": {
+        "affected_version": ">=0",
+        "cvssV3_severity": "UNSPECIFIED",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:golang/golang.org/x/crypto@0.56.0"
+        ],
+        "security-severity": "3.1",
+        "tags": [
+          "UNSPECIFIED"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/GO-2026-5932?s=golang&n=crypto&ns=golang.org%2Fx&t=golang&vr=%3E%3D0",
+      "triage": {
+        "upstream_severity": null,
+        "assessment": "OpenPGP subpackages only; module presence is insufficient to establish linked/reachable code. Not excluded.",
+        "source": "https://pkg.go.dev/vuln/GO-2026-5932",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-63074",
+      "severity": "MEDIUM",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "MEDIUM",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "5.9",
+        "tags": [
+          "MEDIUM"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-63074?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "CMP certificate cache; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2025-15558",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": ">=19.03.0+incompatible",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "not fixed",
+        "purls": [
+          "pkg:golang/github.com/docker/cli@29.7.2%2Bincompatible"
+        ],
+        "security-severity": "7.0",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2025-15558?s=golang&n=cli&ns=github.com%2Fdocker&t=golang&vr=%3E%3D19.03.0%2Bincompatible",
+      "triage": {
+        "upstream_severity": "HIGH",
+        "assessment": "Official advisory excludes non-Windows binaries and fixes docker/cli >=29.2.0; candidate is Linux ARM64 with module29.7.2. Strong applicability mismatch; raw finding retained, no waiver applied.",
+        "source": "https://github.com/docker/cli/security/advisories/GHSA-p436-gjf2-799p",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-14456",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-14456?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "Requires OpenSSL QUIC server queue; 3.5.7 version affected, candidate call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260813.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-14457",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-14457?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "RPK key-only configuration; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-18798",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-18798?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "MODERATE",
+        "assessment": "OpenSSL QUIC initial-packet error handling; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-54874",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-54874?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "DTLS future-epoch buffering; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-63072",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-63072?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "MODERATE",
+        "assessment": "CMS key unwrap; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-63075",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-63075?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "QUIC ACK retention; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-63076",
+      "severity": "HIGH",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "HIGH",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "7.5",
+        "tags": [
+          "HIGH"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-63076?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "MODERATE",
+        "assessment": "CMP PBM message validation; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-75803",
+      "severity": "CRITICAL",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "9.1",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-75803?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "EVP_Cipher empty-ciphertext AEAD; scanner Critical differs from upstream Low; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    },
+    {
+      "id": "CVE-2026-63073",
+      "severity": "CRITICAL",
+      "properties": {
+        "affected_version": "<3.5.8-r0",
+        "cvssV3_severity": "CRITICAL",
+        "fixed_version": "3.5.8-r0",
+        "purls": [
+          "pkg:apk/alpine/openssl@3.5.7-r0?os_name=alpine&os_version=3.24"
+        ],
+        "security-severity": "9.8",
+        "tags": [
+          "CRITICAL"
+        ]
+      },
+      "scanner_url": "https://scout.docker.com/v/CVE-2026-63073?s=alpine&n=openssl&ns=alpine&t=apk&osn=alpine&osv=3.24&vr=%3C3.5.8-r0",
+      "triage": {
+        "upstream_severity": "LOW",
+        "assessment": "CMP sender validation; scanner Critical differs from upstream Low; call path unverified.",
+        "source": "https://openssl-library.org/news/secadv/20260825.txt",
+        "risk_acceptance_applied": false
+      }
+    }
+  ],
+  "preflight": {
+    "scope": "CHG-301 R2 capacity only",
+    "started_at": "2026-09-15T12:59:29.298314+00:00",
+    "probe_image_id": "sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952",
+    "provider_calls": 0,
+    "kubernetes_operations": 0,
+    "status": "MEASURED_NOT_CLUSTER_APPROVAL",
+    "probe_container_id": "4eed7c320a9c43470448f61836f1d400cd047b17328b102501a73e98be06e165",
+    "tool_sha256": "cab067e0cb9af1d3611cab769e9936e3b7e0ee47cc1f8e7ba453f4b8c8fe08e5",
+    "git": [
+      "c261a494283835af57c0e0678afc7ee7e2c0dcc8",
+      "5f1a0a2505dee9c85ee621bd2c8680b92d397a45"
+    ],
+    "docker": {
+      "cpus": 8,
+      "memory_bytes": 33598726144,
+      "version": "29.7.2"
+    },
+    "capacity": {
+      "vm_memory_bytes": 33598726144,
+      "vm_memory_available_bytes": 24659251200,
+      "vm_sample_busy_cores": 0.4528301886792453,
+      "vm_filesystem_available_bytes": 273855664128,
+      "sample_seconds": 2,
+      "required_reserve_cores": 4,
+      "required_reserve_memory_bytes": 8589934592,
+      "remaining_test_cpu_ceiling": 3.547169811320755,
+      "remaining_test_memory_ceiling_bytes": 16069316608,
+      "disk_100gib_precondition": true
+    },
+    "probe_removed": true,
+    "baseline_unchanged": true,
+    "finished_at": "2026-09-15T12:59:32.145440+00:00"
+  },
+  "preflight_result_sha256": "4756904aeb0bdb7be1d66ae0d70baf617f5a3bdb7545ade7e54b5861aea4e597",
+  "end_baseline": {
+    "checked_at": "2026-09-15T13:12:17.283323+00:00",
+    "existing_container_baseline_unchanged": true,
+    "container_count": 14,
+    "baseline_sha256": "82530e727acb18983a1a30e530419dd87daf73cba6a7b14b92229dfae40ca84c",
+    "mutations": 0
+  },
+  "tests": {
+    "junit_path": "/private/tmp/chg301-r2-ingress-tests-dYzi1v/junit.xml",
+    "junit_sha256": "5d9a6dd87989a6f3d1e38aa47dfedcde3d2a3af14931be1d61f18a1fec63a16e",
+    "suites": [
+      {
+        "name": "pytest",
+        "errors": "0",
+        "failures": "0",
+        "skipped": "0",
+        "tests": "28",
+        "time": "4.212",
+        "timestamp": "2026-09-15T21:11:00.954156+08:00",
+        "hostname": "Peters-Mac.local"
+      }
+    ],
+    "status": "28_PASS_0_FAIL_0_SKIP",
+    "scope": "Local real chart/manifest/SARIF/SBOM and file/process guard tests only; no Kubernetes/ingress/live-app acceptance",
+    "source_sha256": {
+      "backend/scripts/chg301_r2_ingress.py": "18c22e3fdc3d1bc563287f35cff7fd0c453be2b4935c19607f8608986166cb06",
+      "backend/tests/test_chg301_r2_ingress.py": "5b7f58217f869e9fdf21ffed9a5bf3134f85e95852dc722284b9871c70802038"
+    }
+  },
+  "post_scan_source_changes": {
+    "files": [
+      "backend/scripts/chg301_r2_ingress.py"
+    ],
+    "reason": "Only candidate runner: scanner identity guard, distinguish advisory and CVE counts, add test file to future source manifest. Official image/chart and raw evidence unchanged; new test file has separate SHA.",
+    "other_existing_bound_source_files_unchanged": true
+  },
+  "attempts": [
+    {
+      "path": "/private/tmp/chg301-r2-traefik-btac26wr/result.json",
+      "status": "BLOCKED_ERROR",
+      "reason": "Python default CA bundle missing; used already-installed certifi with hostname/certificate verification enabled; no host trust change."
+    },
+    {
+      "path": "/private/tmp/chg301-r2-traefik-kangf1e3/result.json",
+      "status": "BLOCKED_ERROR",
+      "reason": "Runner provider spelling incorrect (Nginx vs official NGINX), corrected from actual hash-verified chart contents; no scanner/controller operation in this attempt."
+    },
+    {
+      "path": "/private/tmp/chg301-r2-traefik-vtkgc8jt/result.json",
+      "status": "BLOCKED_FINDINGS",
+      "reason": "Real full-severity scan/SBOM completed, unresolved findings prohibit execution."
+    }
+  ],
+  "not_run": [
+    "Traefik execution",
+    "cluster creation or installation",
+    "provider/class isolation",
+    "TLS/IP/OIDC/BFF/NetworkPolicy live acceptance",
+    "full Frontend/Backend suites and >=80% whole-source coverage",
+    "PR update"
+  ],
+  "cleanup": {
+    "probe_removed": true,
+    "controller_resources_created": 0,
+    "cluster_resources_created": 0,
+    "application_data_changes": 0,
+    "provider_calls": 0,
+    "current_kubernetes_mutations": 0,
+    "pr_writes": 0,
+    "retained": "Private chart/archive/SARIF/SPDX/public-metadata cache and local guard-test artifacts only; no new service credentials."
+  },
+  "governance_checks": [
+  {
+    "command": "./HARNESS/harness.sh spec:doctor",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  },
+  {
+    "command": "./HARNESS/harness.sh spec:trace",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  },
+  {
+    "command": "./HARNESS/harness.sh plan:doctor",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  },
+  {
+    "command": "./HARNESS/harness.sh plan:approved",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  },
+  {
+    "command": "./HARNESS/harness.sh test:plan",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  },
+  {
+    "command": "git diff --check",
+    "exit_code": 0,
+    "status": "PASS",
+    "scope": "governance only"
+  }
+],
+  "follow_up": "Discuss bounded fixed-controller test-image base remediation and exact binary/package applicability evidence. No new image build/version switch/VEX exception is approved by this result."
+}

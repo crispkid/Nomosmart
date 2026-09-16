@@ -5,6 +5,14 @@ type Translate = (key: TranslationKey) => string;
 type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 
 const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
+  published_index_evidence_invalid: "publishedIndexEvidenceInvalid",
+  chunk_delete_reference_conflict: "knowledgeDetailDeleteChunkReferenceConflict",
+  conversation_read_only: "chatConversationWriteDenied",
+  conversation_busy: "chatConversationBusy",
+  conversation_identity_conflict: "chatConversationIdentityConflict",
+  conversation_not_found: "apiNotFound",
+  conversation_scope_locked: "projectChatScopeChangedWarning",
+  project_editor_archive_forbidden: "chatEditorArchiveDenied",
   application_access_denied: "applicationAccessDeniedDescription",
   archive_confirmation_required: "apiConflict",
   authentication_required: "apiUnauthorized",

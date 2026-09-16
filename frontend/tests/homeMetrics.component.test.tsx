@@ -22,6 +22,7 @@ function project(overrides: Partial<ProjectResponse>): ProjectResponse {
     published_version_count: 0,
     last_activity_at: null,
     capabilities: {
+      can_manage_lifecycle: true,
       can_upload: true,
       can_update_source: true,
       can_start_extraction: true,

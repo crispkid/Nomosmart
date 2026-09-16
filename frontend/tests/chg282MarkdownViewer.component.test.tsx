@@ -5,6 +5,7 @@ import { DocumentLayoutViewer } from "@/components/DocumentLayoutViewer";
 import { SafeMarkdown, SafeMarkdownInline } from "@/components/SafeMarkdown";
 import type { DocumentLayoutPage } from "@/lib/api";
 
+const nullableLayoutFields = { text: null, level: null, caption: null, confidence: null, bbox: null };
 
 describe("CHG-282 safe CommonMark/GFM rendering", () => {
   it("renders inline code without visible Markdown backticks", () => {
@@ -93,15 +94,17 @@ describe("CHG-282 lossless document pages", () => {
     const onKeyDown = vi.fn();
     const pages: DocumentLayoutPage[] = [{
       page_number: 1,
+      width: 794,
+      height: 1123,
       blocks: [
-        ...[1, 2, 3, 4, 5, 6].map((level) => ({ id: `h-${level}`, type: "heading" as const, source_anchor: `h-${level}`, text: `Heading ${level}`, level, items: [], rows: [] })),
-        { id: "legacy-list", type: "list", source_anchor: "legacy-list", items: ["Legacy one", "Legacy two"], rows: [], list_ordered: true, list_start: 4 },
-        { id: "table", type: "table", source_anchor: "table", items: [], table_header: ["Key", "Value"], rows: [["Mode", "Live"]] },
-        { id: "image", type: "image", source_anchor: "image", items: [], rows: [], caption: "Architecture caption" },
-        { id: "code", type: "code", source_anchor: "code", text: "metric: [1]", items: [], rows: [], code_language: "yaml" },
-        { id: "quote", type: "blockquote", source_anchor: "quote", text: "Important note", items: [], rows: [] },
-        { id: "rule", type: "horizontal_rule", source_anchor: "rule", items: [], rows: [] },
-        { id: "paragraph", type: "paragraph", source_anchor: "paragraph", text: "Plain text", items: [], rows: [] },
+        ...[1, 2, 3, 4, 5, 6].map((level) => ({ ...nullableLayoutFields, id: `h-${level}`, type: "heading" as const, source_anchor: `h-${level}`, text: `Heading ${level}`, level, items: [], rows: [] })),
+        { ...nullableLayoutFields, id: "legacy-list", type: "list", source_anchor: "legacy-list", items: ["Legacy one", "Legacy two"], rows: [], list_ordered: true, list_start: 4 },
+        { ...nullableLayoutFields, id: "table", type: "table", source_anchor: "table", items: [], table_header: ["Key", "Value"], rows: [["Mode", "Live"]] },
+        { ...nullableLayoutFields, id: "image", type: "image", source_anchor: "image", items: [], rows: [], caption: "Architecture caption" },
+        { ...nullableLayoutFields, id: "code", type: "code", source_anchor: "code", text: "metric: [1]", items: [], rows: [], code_language: "yaml" },
+        { ...nullableLayoutFields, id: "quote", type: "blockquote", source_anchor: "quote", text: "Important note", items: [], rows: [] },
+        { ...nullableLayoutFields, id: "rule", type: "horizontal_rule", source_anchor: "rule", items: [], rows: [] },
+        { ...nullableLayoutFields, id: "paragraph", type: "paragraph", source_anchor: "paragraph", text: "Plain text", items: [], rows: [] },
       ],
     }];
     const { container } = render(<DocumentLayoutViewer formatPageLabel={(page) => `Page ${page}`} onKeyDown={onKeyDown} onSelect={vi.fn()} pages={pages} selectedAnchors={new Set()} />);
@@ -120,7 +123,10 @@ describe("CHG-282 lossless document pages", () => {
   it("renders nested list metadata without flattening its relationship", () => {
     const pages: DocumentLayoutPage[] = [{
       page_number: 1,
+      width: 794,
+      height: 1123,
       blocks: [{
+        ...nullableLayoutFields,
         id: "list-1",
         type: "list",
         source_anchor: "list-1",

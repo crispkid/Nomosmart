@@ -17,7 +17,8 @@ from app.domain.project_access import get_scoped_project as _get_scoped_project,
 from app.domain.project_archival import archive_impact, begin_project_archive, retry_project_archive_cleanup
 from app.domain.project_members import lock_project_for_member_mutation as _lock_project_for_member_mutation, reject_protected_owner_mutation as _reject_protected_owner_mutation, search_project_member_candidates as _search_project_member_candidates, validate_project_member_candidates as _validate_project_member_candidates
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission
-from app.security.project_roles import canonical_project_role
+from app.security.project_roles import canonical_project_role, project_roles
+from app.domain.project_access import archive_authority
 from app.services.audit import add_audit
 
 
@@ -67,7 +68,10 @@ def _require_project_archive_authority(session: Session, project_id: UUID, conte
         PROJECT_ARCHIVE,
         PermissionAction.EXECUTE,
     )
-    if not is_owner and not can_execute:
+    roles = project_roles(session, project_id, context.user_id)
+    if not is_owner and canonical_project_role(roles) == "editor":
+        raise AppError("project_editor_archive_forbidden", "Project Editors cannot archive or retry archive cleanup", status_code=403)
+    if not archive_authority(roles, is_owner=is_owner, can_execute=can_execute):
         raise AppError("project_archive_permission_required", "Project archive execute permission is required", status_code=403)
     return project, is_owner
 
@@ -221,6 +225,7 @@ def list_projects(
                 visible_project_ids=set(context.visible_project_ids),
                 current_user_project_roles=set(row.current_user_project_roles or []),
                 is_owner=bool(row.is_owner),
+                grants=context.grants,
             )
         )
     return projects
@@ -269,13 +274,14 @@ def create_project(
         visible_project_ids={project.id},
         current_user_project_roles={assignments[context.user_id]},
         is_owner=True,
+        grants=context.grants,
     )
 
 
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Project:
     project = _get_scoped_project(session, project_id, context)
-    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), grants=context.grants)
 
 
 @router.put("/{project_id}", response_model=ProjectResponse)
@@ -307,7 +313,7 @@ def update_project(project_id: UUID, payload: ProjectUpdate, request: Request, c
     add_audit(session, actor_user_id=context.user_id, action="project.update", resource_type="project", resource_id=project.id, result="success", request_id=request.state.request_id, summary={"fields": sorted(changes)})
     session.commit()
     session.refresh(project)
-    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), grants=context.grants)
 
 
 @router.get("/{project_id}/archive-impact", response_model=ProjectArchiveImpactResponse)
@@ -325,12 +331,12 @@ def archive_project(project_id: UUID, payload: ProjectArchiveRequest, request: R
         if payload.confirmation_name != existing.name:
             raise AppError("project_confirmation_mismatch", "Project name confirmation does not match", status_code=422)
         existing.archive_cleanup_status = session.scalar(select(ProjectArchiveRun.status).where(ProjectArchiveRun.project_id == project_id).order_by(ProjectArchiveRun.queued_at.desc(), ProjectArchiveRun.id.desc()).limit(1))
-        return _project_response_projection(session, existing, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
+        return _project_response_projection(session, existing, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner, grants=context.grants)
     project = begin_project_archive(session, project_id=project_id, actor_user_id=context.user_id, lock_version=payload.lock_version, confirmation_name=payload.confirmation_name, request_id=request.state.request_id)
     session.commit()
     session.refresh(project)
     project.archive_cleanup_status = "queued"
-    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner, grants=context.grants)
 
 
 @router.delete("/{project_id}", response_model=ProjectResponse)
@@ -348,7 +354,7 @@ def retry_archive_cleanup(project_id: UUID, request: Request, context: IdentityC
     session.commit()
     session.refresh(project)
     project.archive_cleanup_status = "queued"
-    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner)
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), is_owner=is_owner, grants=context.grants)
 
 
 @router.get("/{project_id}/members", response_model=list[ProjectMemberResponse])
@@ -449,4 +455,4 @@ def remove_project_member(project_id: UUID, user_id: UUID, request: Request, loc
     add_audit(session, actor_user_id=context.user_id, action="project.member.remove", resource_type="project", resource_id=project_id, result="success", request_id=request.state.request_id, summary={"user_id": str(user_id)})
     session.commit()
     session.refresh(project)
-    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
+    return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), grants=context.grants)

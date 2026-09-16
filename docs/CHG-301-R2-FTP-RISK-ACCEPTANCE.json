@@ -1,0 +1,20 @@
+{
+  "id": "CHG301-R2-FTP-20260915",
+  "scope": "CHG-301 R2",
+  "status": "ACCEPTED_RISK",
+  "approver": "Peter",
+  "approved_on": "2026-09-15",
+  "approval_text": "同意升級pytest，接收明文風險",
+  "reason": "Retain existing DSYNC-001/NET-002 plaintext FTP compatibility.",
+  "residual_risk": "FTP credentials and file contents are unencrypted and may be observed or modified by parties able to intercept the network traffic.",
+  "limitations": "Only these existing source-bound findings in this CHG-301 R2 candidate; no new vulnerability, new FTP behavior, current deployment mutation or Provider authority. Reassess if source/findings/scope changes.",
+  "source_sha256": {
+    "backend/app/integrations/remote_sources.py": "338c6ae58c299e7f9bdb60b9f79d8234446d864cbaa18de1cf8d162da418c3a5"
+  },
+  "findings": [
+    {"filename": "backend/app/integrations/remote_sources.py", "line_number": 4, "test_id": "B402", "issue_severity": "HIGH", "issue_confidence": "HIGH"},
+    {"filename": "backend/app/integrations/remote_sources.py", "line_number": 86, "test_id": "B321", "issue_severity": "HIGH", "issue_confidence": "HIGH"},
+    {"filename": "backend/app/integrations/remote_sources.py", "line_number": 111, "test_id": "B321", "issue_severity": "HIGH", "issue_confidence": "HIGH"}
+  ],
+  "required_reporting": "Keep unsuppressed raw findings; report ACCEPTED_RISK, not vulnerability-fixed or clean PASS. Block any other High/Critical finding."
+}

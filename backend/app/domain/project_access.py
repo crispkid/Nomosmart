@@ -9,8 +9,8 @@ from app.core.errors import AppError
 from app.core.contracts import empty_project_capabilities
 from app.db.models import AIModel, Project, ProjectMember, ProjectOwner
 from app.security.context import IdentityContext
-from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PermissionAction, require_menu_permission, require_project_scope
-from app.security.project_roles import PROJECT_EDITOR_ROLES, PROJECT_OWNER_ROLES, PROJECT_VIEWER_ROLES, canonical_project_role, has_project_role
+from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, PermissionGrant, has_permission, require_menu_permission, require_project_scope
+from app.security.project_roles import PROJECT_EDITOR_ROLES, PROJECT_VIEWER_ROLES, canonical_project_role, project_roles
 
 
 PROJECT_MODEL_GROUP_KEYS = (
@@ -121,6 +121,13 @@ def get_scoped_project(session: Session, project_id: UUID, context: IdentityCont
     return project
 
 
+def archive_authority(roles: set[str], *, is_owner: bool, can_execute: bool) -> bool:
+    """Project Editor explicitly denies an otherwise independent archive grant."""
+    if is_owner:
+        return True
+    return canonical_project_role(roles) != "editor" and can_execute
+
+
 def project_capabilities(
     session: Session,
     project: Project,
@@ -128,19 +135,21 @@ def project_capabilities(
     user_id: UUID,
     visible_project_ids: set[UUID],
     current_user_project_roles: set[str] | None = None,
+    can_execute_archive: bool = False,
+    is_owner: bool | None = None,
 ) -> dict[str, bool]:
     capabilities = empty_project_capabilities()
-    if project.status != "active" or project.id not in visible_project_ids:
+    if project.id not in visible_project_ids:
         return capabilities
-    if current_user_project_roles is None:
-        can_view = has_project_role(session, project.id, user_id, PROJECT_VIEWER_ROLES)
-        can_edit = has_project_role(session, project.id, user_id, PROJECT_EDITOR_ROLES)
-        is_owner = has_project_role(session, project.id, user_id, PROJECT_OWNER_ROLES)
-    else:
-        roles = set(current_user_project_roles)
-        can_view = bool(roles & PROJECT_VIEWER_ROLES)
-        can_edit = bool(roles & PROJECT_EDITOR_ROLES)
-        is_owner = bool(roles & PROJECT_OWNER_ROLES)
+    roles = project_roles(session, project.id, user_id) if current_user_project_roles is None else set(current_user_project_roles)
+    owner = session.get(ProjectOwner, (project.id, user_id)) is not None if is_owner is None else is_owner
+    can_archive = archive_authority(roles, is_owner=owner, can_execute=can_execute_archive)
+    capabilities["can_archive_project"] = can_archive and project.status == "active"
+    capabilities["can_retry_archive_cleanup"] = can_archive and project.status == "archived" and getattr(project, "archive_cleanup_status", None) == "failed"
+    if project.status != "active":
+        return capabilities
+    can_view = bool(roles & PROJECT_VIEWER_ROLES)
+    can_edit = bool(roles & PROJECT_EDITOR_ROLES)
     capabilities.update(
         {
             "can_upload": can_edit,
@@ -152,7 +161,7 @@ def project_capabilities(
             "can_sync_source": can_edit,
             "can_view_graph": can_view,
             "can_submit_review": can_edit,
-            "can_manage_lifecycle": is_owner,
+            "can_manage_lifecycle": can_edit,
         }
     )
     return capabilities
@@ -166,6 +175,7 @@ def project_response_projection(
     visible_project_ids: set[UUID],
     current_user_project_roles: set[str] | None = None,
     is_owner: bool | None = None,
+    grants: tuple[PermissionGrant, ...] = (),
 ) -> Project:
     """Attach the current request's authoritative project access projection."""
 
@@ -200,5 +210,7 @@ def project_response_projection(
         user_id=user_id,
         visible_project_ids=visible_project_ids,
         current_user_project_roles=roles,
+        is_owner=resolved_is_owner,
+        can_execute_archive=has_permission(list(grants), PROJECT_MODULE, PROJECT_ARCHIVE, PermissionAction.EXECUTE),
     )
     return project

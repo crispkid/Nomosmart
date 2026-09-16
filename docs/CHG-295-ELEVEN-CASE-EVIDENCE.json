@@ -1,0 +1,251 @@
+{
+  "change": "CHG-295",
+  "scope": "Approved eleven-case Stage B test-contract/preparation repair only",
+  "date": "2026-09-11",
+  "result": "Partial: 5 PASS / 6 FAIL; not release accepted or deployed",
+  "productSourceChangedThisContinuation": false,
+  "requirements": [
+    "ACCEPT-REPAIR-001",
+    "ACCEPT-REPAIR-002",
+    "REPORT-014",
+    "API-PAGE-001",
+    "GRAPH-008",
+    "RAG-EMBED-001",
+    "PROJECT-009",
+    "PROJECT-012"
+  ],
+  "final": {
+    "tests": 11,
+    "pass": 5,
+    "fail": 6,
+    "errors": 0,
+    "skips": 0,
+    "seconds": 10.464,
+    "artifact": "eleven-final-r2.xml"
+  },
+  "cases": [
+    {
+      "number": 1,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_system_reports_and_session_drafts",
+      "pytestResult": "PASS",
+      "seconds": 6.222,
+      "classification": "contract_repair_pass"
+    },
+    {
+      "number": 2,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_document_knowledge_serving_chat_and_notifications",
+      "pytestResult": "FAIL",
+      "seconds": 1.518,
+      "classification": "confirmed_product_gap"
+    },
+    {
+      "number": 3,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_reference_and_approval_workflows",
+      "pytestResult": "FAIL",
+      "seconds": 0.422,
+      "classification": "prerequisite_blocked"
+    },
+    {
+      "number": 4,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_external_services_and_domain_adapters",
+      "pytestResult": "FAIL",
+      "seconds": 0.28,
+      "classification": "prerequisite_blocked"
+    },
+    {
+      "number": 5,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_integration_adapter_embedding_and_switch_edges",
+      "pytestResult": "FAIL",
+      "seconds": 0.215,
+      "classification": "confirmed_product_gap"
+    },
+    {
+      "number": 6,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_configuration_identity_worker_and_sync_edges",
+      "pytestResult": "FAIL",
+      "seconds": 0.096,
+      "classification": "confirmed_product_gap"
+    },
+    {
+      "number": 7,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_pipeline_execution_and_publish_edge_behaviors",
+      "pytestResult": "PASS",
+      "seconds": 0.078,
+      "classification": "contract_repair_pass"
+    },
+    {
+      "number": 8,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_serving_and_document_response_helpers",
+      "pytestResult": "PASS",
+      "seconds": 0.058,
+      "classification": "contract_repair_pass"
+    },
+    {
+      "number": 9,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_extraction_ai_provider_and_publish_helper_edges",
+      "pytestResult": "PASS",
+      "seconds": 0.06,
+      "classification": "contract_repair_pass"
+    },
+    {
+      "number": 10,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_approval_project_and_data_source_route_edges",
+      "pytestResult": "PASS",
+      "seconds": 0.123,
+      "classification": "contract_repair_pass"
+    },
+    {
+      "number": 11,
+      "nodeId": "tests/test_live_backend_api_behavior.py::test_live_compatibility_routes_execute_governed_workflows",
+      "pytestResult": "FAIL",
+      "seconds": 0.072,
+      "classification": "confirmed_product_gap"
+    }
+  ],
+  "sources": {
+    "backend/tests/test_live_backend_api_behavior.py": "d825f9eab2119bfe6ef51a4f6a658e372aade5f01c6bb28118876227504f793c",
+    "backend/app/api/routes/serving.py": "dee40484b7379181b6b2b92b6edacf77e52a338be87feeb6ab2c4e980699fa53",
+    "backend/app/api/schemas.py": "4fd5dcd77bc41cf60efb20b4aaceb711a6de3292bf00eae2185d17ff1b34727f",
+    "backend/app/domain/review_publish.py": "972ef5a8bbd1433c4f28fc248e750d141460af55d11059fc81dbf513db98c8ef",
+    "backend/app/domain/embeddings.py": "2f1dcb8e7c35675612ae66f3a6e2c3da12d5e28a4fca6b819f54e3bb7f88314d",
+    "backend/app/domain/chunk_representations.py": "2c3c75be26527c41596fa65884163bb39179c6f23370cda737bd58d16131833c",
+    "SPECIFICATION.md": "6bb4d34bab1dc6732d49e96094afd6d6dfadf60d7352018013f34403633dbb21",
+    "SPEC_CHANGELOG.md": "68241527258fa747cdab4f8950571f5e81d28acc3a192128e6a0231b466a36d9",
+    "DEVELOPMENT_PLAN.md": "3eed7843d5781046f20759636729281083743c5452595167751bca465461cd39",
+    "TEST_PLAN.md": "a47fd72336b9bdc4df52002681583ff3ce7d2dbe7538002b58864dc82e079d20",
+    "TRACEABILITY.md": "0ade3cc1a57b5a05947934ba0befae202282ef42a14ce8eabc6b13f2cc562290",
+    "docs/CHG-295-ELEVEN-CASE-REPAIR.md": "f1925a8256417bdf254216771905351e77ffc323d311bdbd542d75bffddc276b"
+  },
+  "artifacts": {
+    "/tmp/chg295-eleven.c8iJuG/backend-syntax.log": "ef1b03bf69faf02460686a8dfb19f4ff6d0886cad1826d26ceebe9dc3344c1e0",
+    "/tmp/chg295-eleven.c8iJuG/cleanup-evidence.json": "d99c534c5941ea988d9248c89ad1efdcb2234e39d3f63ef1fa7e42baa2b4f28a",
+    "/tmp/chg295-eleven.c8iJuG/eleven-final-r2.log": "affdb01b89b0fe3fe341e346c7d705fe641ff81f8daf04799b77e1d0275b80bb",
+    "/tmp/chg295-eleven.c8iJuG/eleven-final-r2.xml": "e1cb7dad4ad98237df3c369fe4f9774ec733891e30ad6eac719bdfae001a7c4a",
+    "/tmp/chg295-eleven.c8iJuG/eleven-final.log": "8363e36330e35fd44fee2dea522f7945d042f5a22b62c546e8688f6eb7bac1b9",
+    "/tmp/chg295-eleven.c8iJuG/eleven-final.xml": "501f2ff18c124f253f38a94ae76797cae96aa142b20fa3ab755e0c51513630dd",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r1.log": "b7138c2b0995ecd64406784c1aa2e176c2f57c64f5e469df4356784f9127d843",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r1.xml": "ad9e0db978967b5c646864370800a0931a0f706f7104b4d25931251858eb16f4",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r2.log": "883ab595a04d90742ceb6032627b34b3b647cdb5ef5664efca211488d2ad334b",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r2.xml": "aded9adb46c945228c94b0d5e752ddafaff07bc8e6ff7c6d6bca670ef10b2e5d",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r3.log": "dfe9cf849ad4fa6653af95cf7b5ab60f704715f0d71eee54fa1d426cca729902",
+    "/tmp/chg295-eleven.c8iJuG/helpers-r3.xml": "c65c8fbfa5e0fcee3320dccbcc48ce6b0adaf5ce2ec9626f06f7d05957f24c5a",
+    "/tmp/chg295-eleven.c8iJuG/migrations.log": "e97dc0e53419273ac061f69815878af816e9b270b36826b5b0764b7470ab1904",
+    "/tmp/chg295-eleven.c8iJuG/mixed-r1.log": "630be69364f7e5238de42d451e9e8e1aec61d3eacd983fbe09d41e6c8c2ecc76",
+    "/tmp/chg295-eleven.c8iJuG/mixed-r1.xml": "5bb57e300f6647ccc49372b048a0f8706b23152fe470e6f367fa6bef62da8fe5",
+    "/tmp/chg295-eleven.c8iJuG/mixed-r2.log": "576270e8a1438db4efc5c31c6db006a375ecbafa75fd41d90ec304248f5a5eaf",
+    "/tmp/chg295-eleven.c8iJuG/mixed-r2.xml": "65cc28ab94716d8057d4d687d1ce3adebd4d4db2e846f717e4e5dd0e54ba103f",
+    "/tmp/chg295-eleven.c8iJuG/plan-approved.log": "938d7c400072e1ae8ad5d5337010758cac245c3e2c0e3c9cca4502faf6e97846",
+    "/tmp/chg295-eleven.c8iJuG/runtime-audit.json": "9c41ec258a309398692116632a131bc8f1947daead9e6ee5a5d47dbc9e2afa94",
+    "/tmp/chg295-eleven.c8iJuG/simple-r1.log": "1d80acfeee6567c4353614dfc2e235b17c5f17a21b74ba338a60a957b34724fb",
+    "/tmp/chg295-eleven.c8iJuG/simple-r1.xml": "face86fa6e3fb2cf2b32a4a5d0f988210ee77e9c080364d4eeb662ae98f45500",
+    "/tmp/chg295-eleven.c8iJuG/spec-doctor.log": "0504806e81b2c73d144b840bafd65da3f4e4457f388cd6bb706761129f01cce3",
+    "/tmp/chg295-eleven.c8iJuG/spec-trace.log": "012b673caa3901089d7af5eeda9c74cef7113f0fe63623f0a8e4f48dd5808395",
+    "/tmp/chg295-eleven.c8iJuG/test-plan.log": "93c4a802985806b89d00806e7d3e6073b411b2bb0eefe90db5881c1939b8d758"
+  },
+  "staticChecks": {
+    "spec:doctor": "PASS",
+    "spec:trace": "PASS",
+    "plan:approved": "PASS",
+    "test:plan": "PASS",
+    "backend:syntax": "PASS",
+    "git diff --check": "PASS"
+  },
+  "runtimeAudit": {
+    "switchTestRowsAfterRollback": 0,
+    "isolatedFlywayVersion": "048",
+    "currentEnvironmentAccess": false,
+    "providerCallsAuthorized": false
+  },
+  "cleanup": {
+    "label": "chg295-eleven-c8ijug",
+    "containersRemoved": 7,
+    "anonymousVolumesRemoved": 5,
+    "networksRemoved": 1,
+    "transportPidStopped": 98070,
+    "baseline": [
+      {
+        "idPrefix": "945f0089317b",
+        "startedAt": "2026-09-07T20:08:05.765003041Z",
+        "running": true
+      },
+      {
+        "idPrefix": "125e83c8ac29",
+        "startedAt": "2026-09-09T14:27:36.23941196Z",
+        "running": true
+      },
+      {
+        "idPrefix": "aae7c2bf8972",
+        "startedAt": "2026-09-07T20:08:05.782693Z",
+        "running": true
+      },
+      {
+        "idPrefix": "744392cdf86e",
+        "startedAt": "2026-09-07T20:08:05.8079315Z",
+        "running": true
+      }
+    ],
+    "baselineUnchangedDuringCleanup": true,
+    "imagesRemoved": 0,
+    "privateEvidenceRetained": true
+  },
+  "isolation": {
+    "root": "/tmp/chg295-eleven.c8iJuG",
+    "network": "chg295-eleven-c8ijug",
+    "freshRealm": "chg295-api-c8ijug",
+    "serviceTypes": [
+      "PostgreSQL",
+      "Keycloak",
+      "Neo4j",
+      "OpenSearch",
+      "Redis",
+      "RustFS S3"
+    ],
+    "relay": "byte-only transport; no response substitution",
+    "reusedCurrentCredentials": false,
+    "imageBuilds": 0,
+    "kubernetesMutations": 0,
+    "providerCalls": 0
+  },
+  "remaining": {
+    "pagination": {
+      "cases": [
+        2,
+        6,
+        11
+      ],
+      "actual": "has_more absent",
+      "required": "Boolean plus next_cursor consistency; audit remaining cursor surfaces"
+    },
+    "legacySwitch": {
+      "cases": [
+        5
+      ],
+      "actual": "DID NOT RAISE on missing canonical retrieval evidence",
+      "required": "Fail closed before manifest/job/audit writes; genuine positive switch remains unverified"
+    },
+    "genuinePreparation": {
+      "cases": [
+        3,
+        4
+      ],
+      "actual": [
+        "submission_evidence_not_ready",
+        "canonical_embedding_build_required"
+      ],
+      "required": "Separately authorized actual generation/build/staging/workflow evidence; no fabricated successful states"
+    }
+  },
+  "coverage": {
+    "rerun": false,
+    "historicalCombinedPercent": 59.3662,
+    "historicalFullBackendPass": 529,
+    "historicalFullBackendFail": 11,
+    "note": "Focused counts are not a new full-suite denominator or coverage result"
+  },
+  "limitations": [
+    "Later assertions in failing cases are not fully verified.",
+    "No full Frontend/browser/E2E/security/image/deployment verification this turn.",
+    "Intermediate XML/logs retained; only final r2 binds the final source hashes.",
+    "Two product gaps need discussion and plan approval; Provider preparation remains separately gated."
+  ]
+}

@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.core.idempotency import canonical_request_hash, validate_replay
+from app.core.idempotency import canonical_request_hash, storage_scope, validate_replay
 from app.db.models import IdempotencyKey
 from app.integrations.redis_ha import redis_client
 
@@ -59,6 +59,7 @@ def begin_idempotent_operation(
     request_payload: object,
 ) -> tuple[IdempotencyReplay | None, IdempotencyKey]:
     key = require_idempotency_key(raw_key)
+    scope = storage_scope(scope)
     key_hash = keyed_fingerprint(settings, "public-idempotency", key)
     request_hash = canonical_request_hash(request_payload)
     now = datetime.now(UTC)

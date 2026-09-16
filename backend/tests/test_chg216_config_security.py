@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+import os
+import subprocess
+import sys
 
 import pytest
 import yaml
@@ -69,9 +72,16 @@ def test_unsafe_production_configuration_is_rejected(overrides: dict[str, object
 
 
 def test_development_configuration_keeps_local_service_defaults() -> None:
-    settings = Settings(_env_file=None, app_env="development")
-    assert settings.oidc_issuer_url.startswith("http://127.0.0.1")
-    assert settings.opensearch_username.get_secret_value() == "nomosmart"
+    # _env_file=None does not disable environment variables. Test actual defaults
+    # in a clean process without overwriting this suite's strict-TLS endpoints.
+    backend = Path(__file__).resolve().parents[1]
+    env = {key: os.environ[key] for key in ("PATH", "HOME", "SYSTEMROOT") if key in os.environ}
+    env["PYTHONPATH"] = str(backend)
+    subprocess.run([sys.executable, "-c", "from app.core.config import Settings; "
+        "s=Settings(_env_file=None, app_env='development'); "
+        "assert s.oidc_issuer_url.startswith('http://127.0.0.1'); "
+        "assert s.opensearch_username.get_secret_value() == 'nomosmart'"],
+        env=env, cwd=backend.parent, check=True, capture_output=True, text=True)
 
 
 def test_production_neo4j_tls_requires_and_loads_operator_ca(tmp_path: Path) -> None:

@@ -1547,7 +1547,7 @@ test("Milestone 8B Project Chat exposes persistence feedback and validation APIs
     "/chat/validation-runs",
     "/retry-failed"
   ]) assert.match(api, new RegExp(required.replace(/[()]/g, "\\$&")));
-  assert.match(chat, /listProjectChatConversations\(apiFetch, projectId\)/);
+  assert.match(chat, /listProjectChatConversationPage\(apiFetch, projectId\)/);
   assert.match(chat, /deleteProjectChatConversation\(apiFetch, params\.id, target\.id\)/);
   assert.match(chat, /persisted: true/);
   assert.match(chat, /target\.persisted/);
@@ -1556,9 +1556,11 @@ test("Milestone 8B Project Chat exposes persistence feedback and validation APIs
   assert.match(chat, /projectChatDeleteConversationTitle/);
   assert.match(chat, /projectChatConfirmDeleteConversation/);
   assert.match(chat, /setDeleteTargetId\(conversation\.id\)/);
-  assert.match(chat, /setConversations\(remaining\)/);
+  assert.match(chat, /setConversations\(\(current\) => current\.filter\(\(conversation\) => conversation\.id !== target\.id\)\)/);
+  assert.match(chat, /selectionEpoch\.current\.isCurrent\(selection\)/);
+  assert.match(chat, /chatConversationAccess\(target\.history, currentUser\?\.user_id\)\.canDelete/);
   assert.doesNotMatch(chat, /blankConversation/);
-  assert.match(chat, /conversation_id: activeConversation\?\.persisted && isUuid\(localConversationId\) \? localConversationId : undefined/);
+  assert.match(chat, /conversation_id: isUuid\(localConversationId\) \? localConversationId : undefined/);
   assert.match(chat, /recordId: result\.chat_record_id/);
   assert.match(chat, /updateProjectChatFeedback\(apiFetch/);
   assert.match(chat, /createProjectChatValidationRun\(apiFetch/);
@@ -1593,11 +1595,11 @@ test("CHG-190 Project Chat restores persisted history without implicit blank con
   assert.match(chat, /setActiveConversationId\(null\)/);
   assert.match(chat, /const unavailableVersionLabel = t\("projectChatUnavailableVersion"\)/);
   assert.match(chat, /operationalErrorMessage\(error, t, format, "projectChatHistoryLoadFailed"\)/);
-  assert.match(chat, /listProjectChatConversations\(apiFetch, projectId\)\.then/);
-  assert.match(chat, /}, \[apiFetch, authReady, params\?\.id, unavailableVersionLabel\]\);/);
-  assert.match(chat, /}, \[apiFetch, authReady, format, params\?\.id, t\]\);/);
-  const documentLoadEffect = chat.slice(chat.indexOf("Promise.all([listProjectDocuments"), chat.indexOf("}, [apiFetch, authReady, params?.id, unavailableVersionLabel]);"));
-  assert.doesNotMatch(documentLoadEffect, /listProjectChatConversations/);
+  assert.match(chat, /listProjectChatConversationPage\(apiFetch, projectId\)\.then/);
+  assert.match(chat, /}, \[apiFetch, authReady, currentUser\?\.user_id, discardRevokedScope, params\?\.id, unavailableVersionLabel\]\);/);
+  assert.match(chat, /}, \[apiFetch, authReady, currentUser\?\.user_id, discardRevokedScope, format, params\?\.id, t\]\);/);
+  const documentLoadEffect = chat.slice(chat.indexOf("Promise.all([listProjectDocuments"), chat.indexOf("}, [apiFetch, authReady, currentUser?.user_id, discardRevokedScope, params?.id, unavailableVersionLabel]);"));
+  assert.doesNotMatch(documentLoadEffect, /listProjectChatConversationPage/);
   assert.doesNotMatch(documentLoadEffect, /setHistoryStatus/);
   assert.doesNotMatch(documentLoadEffect, /setConversations\(\[]\)/);
   assert.match(chat, /const restored = history\.map\(conversationFromHistory\)/);
@@ -1683,7 +1685,7 @@ test("CHG-192 Project Chat conversation box matches document-level Chat Test str
 
   const headerActions = chat.slice(chat.indexOf('className="chat-conversation-header-actions"'), chat.indexOf("</header>", mainIndex));
   const actionOrder = headerActions.indexOf('t("uploadTestConversations")') < headerActions.indexOf('t("downloadConversation")')
-    && headerActions.indexOf('t("downloadConversation")') < headerActions.indexOf('t("newConversation")');
+    && headerActions.indexOf('t("downloadConversation")') < headerActions.indexOf('t("chatNewOwnConversation")');
   assert.equal(actionOrder, true);
   assert.match(chat, /project-history-delete/);
   assert.match(chat, /projectChatNewConversationWithScope/);
@@ -1732,7 +1734,7 @@ test("CHG-193 Project Chat serving readiness summary is collapsible by default",
   assert.match(css, /\.project-serving-documents\s*\{[\s\S]*max-height:\s*74px/);
   assert.match(css, /\.project-serving-documents\s*\{[\s\S]*overflow-y:\s*auto/);
   assert.match(chat, /toggleDocument\(document\.id\)/);
-  assert.match(chat, /listProjectChatConversations\(apiFetch, projectId\)/);
+  assert.match(chat, /listProjectChatConversationPage\(apiFetch, projectId\)/);
   assert.match(chat, /queryProjectChat\(apiFetch, params\.id!/);
   assert.match(chat, /createProjectChatValidationRun\(apiFetch/);
 });

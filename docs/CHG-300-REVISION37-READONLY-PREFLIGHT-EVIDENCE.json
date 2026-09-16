@@ -1,0 +1,161 @@
+{
+  "status": "READONLY_PLANNING_COMPLETE_NOT_DEPLOYED",
+  "created_epoch": 1789302225.4596028,
+  "identity": {
+    "context": "docker-desktop",
+    "namespace": "nomosmart",
+    "release": "nomosmart-local",
+    "revision": 36,
+    "pod_uid": "83e48efc-56e4-4cda-81da-e9117acb9ef6",
+    "pod": "nomosmart-local-postgresql-0",
+    "container": "postgresql",
+    "database": "nomosmart",
+    "image": "nomosmart/postgresql:18.4",
+    "runtime_image_id": "docker.io/nomosmart/postgresql@sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a"
+  },
+  "counts": {
+    "projects": 1,
+    "documents": 3,
+    "document_versions": 3,
+    "chunks": 38,
+    "chat_records": 11,
+    "users": 8,
+    "external_groups": 8,
+    "embedding_builds": 5,
+    "project_owners": 1,
+    "project_members": 3
+  },
+  "work_status": {
+    "pipeline_runs": {
+      "failed": 1,
+      "submission_ready": 2
+    },
+    "data_sync_runs": {},
+    "graph_sync_jobs": {
+      "completed": 3
+    },
+    "outbox_events": {
+      "dispatched": 37
+    }
+  },
+  "protected_sha256": "747ee6b2fc741f06d7ab1302c76aa52f508c6a48a8a86f53e3da8260d600eea1",
+  "database_properties_sha256": "cfc9912a112e4a56b940f4343062faa4575d1a43e24d8fd191b448a731173e8a",
+  "live_nonsecret_specs_sha256": "d6110c180890fbf45c258e4930a1a6eb16023777d4271a1e96b179507aa8a8d8",
+  "images": {
+    "nomosmart/backend:0.1.0-chg300": "sha256:21283c4f28bb05cc444c416b8020ddd34719235ba56b8c64d51b42a786392ef2",
+    "nomosmart/frontend:0.1.0-chg299-v049": "sha256:3fb90bfc19cf0548ad5bcd3d2db4b5915e6b0d37ed7c381c4dff8e36ae57cd8f",
+    "nomosmart/migrations:0.1.0-chg300": "sha256:7c8c3625d3e965d9fd1e333ac4f2a55c8c432306312bb19f350baaf6085619e6"
+  },
+  "chart_digest": "a89cc8fc02df68693c35f7f59ed004617a3eed32f14fb690d6aea040c5079739",
+  "source_hashes_checked": 160,
+  "render_sha256": "41908a8b99d38e76469d84f354a6ce1409b9d2e105fd12bf680a370862d894de",
+  "render_bytes": 97091,
+  "render_twice_identical": true,
+  "migration_job_file_sha256": "0a0c9121cc646080d6d8c045d1fe4d7fc0c81d91ddca6f313259b84eb32558c2",
+  "migration_job_server_admission": "PASS_ONLY_DRY_RUN",
+  "proposed_migration_spec_matches_render": true,
+  "overrides": {
+    "image.backend.tag": "0.1.0-chg300",
+    "image.frontend.tag": "0.1.0-chg299-v049",
+    "image.migration.tag": "0.1.0-chg300",
+    "compatibility.schemaContract": "forward-v049",
+    "migration.requiredVersion": "049",
+    "migration.requiredChecksum": "-1579162252",
+    "migration.checkTimeoutSeconds": "10"
+  },
+  "baseline": {
+    "latest": [
+      "048",
+      1657807790,
+      true
+    ],
+    "failed": 0,
+    "v49": 0,
+    "readonly": "on"
+  },
+  "comparison": {
+    "two_dry_runs_sha256": "41908a8b99d38e76469d84f354a6ce1409b9d2e105fd12bf680a370862d894de",
+    "new_jobs_only": [
+      "Job/nomosmart-local-bootstrap-37",
+      "Job/nomosmart-local-migration-37"
+    ],
+    "existing_pdb_specs_equal": [
+      "PodDisruptionBudget/nomosmart-local-keycloak",
+      "PodDisruptionBudget/nomosmart-local-redis",
+      "PodDisruptionBudget/nomosmart-local-redis-sentinel"
+    ],
+    "nonsecret_changes": {
+      "ConfigMap/nomosmart-local-compatibility": [
+        "/data/schema_contract"
+      ],
+      "ConfigMap/nomosmart-local-config": [
+        "/data/DEPLOYMENT_BOOTSTRAP_RELEASE",
+        "/data/MIGRATION_CHECK_TIMEOUT_SECONDS",
+        "/data/MIGRATION_REQUIRED_CHECKSUM",
+        "/data/MIGRATION_REQUIRED_VERSION"
+      ],
+      "Deployment/nomosmart-local-backend": [
+        "/spec/template/metadata/annotations/nomosmart.io/deployment-release",
+        "/spec/template/spec/containers/0/image",
+        "/spec/template/spec/initContainers/0/image"
+      ],
+      "Deployment/nomosmart-local-beat": [
+        "/spec/template/metadata/annotations/nomosmart.io/deployment-release",
+        "/spec/template/spec/containers/0/image",
+        "/spec/template/spec/initContainers/0/image"
+      ],
+      "Deployment/nomosmart-local-frontend": [
+        "/spec/template/metadata/annotations/nomosmart.io/deployment-release",
+        "/spec/template/spec/containers/0/image",
+        "/spec/template/spec/initContainers/0/args/0",
+        "/spec/template/spec/initContainers/0/envFrom",
+        "/spec/template/spec/initContainers/0/image"
+      ],
+      "Deployment/nomosmart-local-worker": [
+        "/spec/template/metadata/annotations/nomosmart.io/deployment-release",
+        "/spec/template/spec/containers/0/image",
+        "/spec/template/spec/initContainers/0/image"
+      ]
+    },
+    "default_deny_note": "live omitted ingress vs render empty array; both Ingress policyTypes and no allowed ingress",
+    "live_not_rendered_note": "seven Bound StatefulSet data PVCs, kube-root-ca.crt and default ServiceAccount have no Helm release annotation; not deletion targets, their live protection remains required",
+    "removed_by_this_plan": [],
+    "dry_run_not_real_job_adoption_proof": true
+  },
+  "gates": {
+    "gate2": "CONFIRMED_BY_PETER_接受_2026-09-13",
+    "gate3": "WRITTEN",
+    "gate4": "PENDING_EXACT_MECHANISM"
+  },
+  "not_run": [
+    "writer_drain",
+    "fresh_broker_identity_index_prewrite_guards",
+    "live_job_creation",
+    "live_v049",
+    "helm_write",
+    "real_job_adoption",
+    "postdeploy_acceptance",
+    "provider",
+    "new_security_scan"
+  ],
+  "governance": {
+    "spec:doctor": 0,
+    "spec:trace": 0,
+    "plan:doctor": 0,
+    "test:plan": 0,
+    "git diff --check": 0,
+    "plan:approved": 1
+  },
+  "governance_note": "plan:approved correctly rejects pending exact mechanism; not a test failure waiver",
+  "failed_attempts_preserved": [
+    "Stored Helm manifest read encountered Secret kind, local assertion stopped without saving/outputting payload. Retry with in-memory filtering rejected by safety review; that route removed completely. Safe accepted replacement uses explicit nonsecret live kinds, metadata-only Secrets and hidden-Secret dry-runs.",
+    "First safe Helm dry-run failed missing migration.checkTimeoutSeconds in reused values.",
+    "Second failed schema type when timeout provided as string; final two pass using --set migration.checkTimeoutSeconds=10."
+  ],
+  "limits": [
+    "Source counts reflect only actually selected tables; full corrected ai_models/ai_model_usage_events/embedding_build_vectors/active_version_manifests and semantic inventory remain pre-write requirements, not invented baseline counts.",
+    "Resource comparison uses live explicit kinds, not historical stored Helm manifest. Existing PDBs and non-Helm PVC/default resources checked separately.",
+    "Server admission does not demonstrate actual Helm Job adoption or rollback.",
+    "No validated restore backup; incomplete full coverage/E2E/testing and unknown new Backend/Migration security accepted only for this local operation."
+  ]
+}

@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Header, Request
 from fastapi.responses import StreamingResponse
 from sqlalchemy import delete, desc, exists, func, select
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
@@ -21,8 +22,9 @@ from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, Chu
 from app.db.session import get_db, get_session_factory
 from app.domain.ai_provider import generate_knowledge_tags
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
-from app.domain.chunk_artifacts import chunk_artifact_state, queue_chunk_artifact_reconciliation, require_ready_chunk_artifacts
+from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation, require_ready_chunk_artifacts
 from app.domain.chunk_representations import build_manual_chunk_representation
+from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
 from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction
 from app.domain.document_layout import hydrate_document_layout_inline_markdown
 from app.domain.extraction_pipeline import retry_failed_step
@@ -613,7 +615,7 @@ def update_document_lifecycle(
     session: Session = Depends(get_db),
 ) -> DocumentSummary:
     project = _get_scoped_project(session, project_id, context)
-    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_OWNER_ROLES, code="project_owner_required", message="Project Owner relationship is required for document lifecycle changes")
+    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Project Owner or Editor relationship is required for document lifecycle changes")
     document = session.get(Document, document_id)
     if document is None or document.project_id != project.id:
         raise AppError("document_not_found", "Document was not found", status_code=404)
@@ -957,10 +959,13 @@ def edit_chunk(
     )
     chunk.status = "superseded"
     chunk.superseded_at = now
-    chunk.superseded_by_id = replacement.id
-    chunk.chunk_strategy = {**(chunk.chunk_strategy or {}), "superseded_by": str(replacement.id), "superseded_at": now.isoformat()}
+    # Release the active-index slot before INSERT, and only link back after the
+    # replacement exists. Flushes share this transaction; no partial commit.
+    session.flush()
     session.add(replacement)
     session.flush()
+    chunk.superseded_by_id = replacement.id
+    chunk.chunk_strategy = {**(chunk.chunk_strategy or {}), "superseded_by": str(replacement.id), "superseded_at": now.isoformat()}
     for tag in session.scalars(select(ChunkTag).where(ChunkTag.chunk_id == chunk.id)):
         session.add(
             ChunkTag(
@@ -1000,9 +1005,29 @@ def delete_chunk(
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> KnowledgeDetailResponse:
+    try:
+        return _delete_chunk_transaction(project_id, document_id, version_id, chunk_id,
+                                         lock_version, request, context, session)
+    except DBAPIError as exc:
+        session.rollback()
+        code = getattr(exc.orig, "sqlstate", None) or getattr(exc.orig, "pgcode", None)
+        if code in {"23503", "40001", "40P01", "55P03"}:
+            raise reference_conflict() from None
+        raise
+    except Exception:
+        session.rollback()
+        raise
+
+
+def _delete_chunk_transaction(project_id: UUID, document_id: UUID, version_id: UUID,
+                              chunk_id: UUID, lock_version: int, request: Request,
+                              context: IdentityContext, session: Session) -> KnowledgeDetailResponse:
     project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to delete chunks")
     document, version = _scoped_document_version(session, project.id, document_id, version_id)
+    # Governance parents first, then Version before Chunk. Never hold Version
+    # while waiting for Project owned by a tag/review/archive transaction.
+    _lock_manual_edit_scope(session, version)
     chunk = session.scalar(select(Chunk).where(
         Chunk.id == chunk_id,
         Chunk.project_id == project.id,
@@ -1014,10 +1039,10 @@ def delete_chunk(
         raise AppError("chunk_not_found", "Chunk was not found", status_code=404)
     _ensure_manual_edit_allowed(session, version, lock_version)
     deleted_index = chunk.chunk_index
-    chunk.status = "deleted"
-    chunk.superseded_at = datetime.now(UTC)
-    chunk.change_type = "manual_delete"
-    _delete_chunk_staging_evidence(session, version.id, chunk.id)
+    lineage_id, revision = chunk.lineage_id, chunk.revision
+    deleted = delete_candidate_chunk(session, version, chunk, actor_id=context.user_id,
+                                     request_id=request.state.request_id)
+    orphan_ids = _delete_orphan_tags(session, list(deleted.tag_ids))
     _reindex_active_chunks(session, project.id, document.id, version.id)
     version.lock_version += 1
     reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
@@ -1032,9 +1057,15 @@ def delete_chunk(
         summary={
             "project_id": str(project.id), "document_id": str(document.id), "document_version_id": str(version.id),
             "chunk_id": str(chunk_id), "chunk_index": deleted_index,
-            "lineage_id": str(chunk.lineage_id), "revision": chunk.revision, "reconciliation_id": str(reconciliation.id),
+            "lineage_id": str(lineage_id), "revision": revision, "reconciliation_id": str(reconciliation.id),
+            "orphan_tag_count": len(orphan_ids), "chat_count": deleted.chat_count,
+            "validation_item_count": deleted.validation_item_count, "vector_count": deleted.vector_count,
         },
     )
+    for tag_id in orphan_ids:
+        add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk.orphan_tag.delete",
+                  resource_type="tag", resource_id=tag_id, result="success", request_id=request.state.request_id,
+                  summary={"project_id": str(project.id), "document_version_id": str(version.id), "chunk_id": str(chunk_id)})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
 
@@ -1372,7 +1403,16 @@ def _manual_edit_state(session: Session, version: DocumentVersion, pipeline: Pip
     return True, None
 
 
+def _lock_manual_edit_scope(session: Session, version: DocumentVersion) -> None:
+    project, document, current = lock_chunk_write_scope(session, version)
+    if project is None or project.status != "active":
+        raise AppError("project_archived", "Archived projects cannot edit chunks", status_code=409)
+    if document is None or document.is_deleted or document.status == "deleted" or current is None:
+        raise AppError("document_version_not_found", "Document version was not found", status_code=404)
+
+
 def _ensure_manual_edit_allowed(session: Session, version: DocumentVersion, lock_version: int) -> None:
+    _lock_manual_edit_scope(session, version)
     if version.lock_version != lock_version:
         raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
     _ensure_not_review_locked(version, "knowledge.chunk.manual_create")
@@ -1415,37 +1455,6 @@ def _delete_orphan_tags(session: Session, candidate_tag_ids: list[UUID]) -> list
     return deleted_ids
 
 
-def _delete_chunk_staging_evidence(session: Session, version_id: UUID, chunk_id: UUID) -> None:
-    chat_records = list(session.scalars(select(ChatRecord).where(
-        ChatRecord.document_version_id == version_id,
-        ChatRecord.scope_mode == "document_staging",
-    )))
-    chat_ids = [record.id for record in chat_records if _references_chunk(record.reference_docs, chunk_id)]
-    runs = list(session.scalars(select(ValidationRun).where(
-        ValidationRun.document_version_id == version_id,
-        ValidationRun.run_scope == "document_staging",
-    )))
-    run_by_id = {run.id: run for run in runs}
-    run_ids = list(run_by_id)
-    items = list(session.scalars(select(ValidationRunItem).where(ValidationRunItem.run_id.in_(run_ids)))) if run_ids else []
-    deleted_by_run: dict[UUID, int] = {}
-    for item in items:
-        if item.chat_record_id in chat_ids or _references_chunk(item.reference_docs, chunk_id):
-            deleted_by_run[item.run_id] = deleted_by_run.get(item.run_id, 0) + 1
-            session.delete(item)
-    for run_id, deleted_count in deleted_by_run.items():
-        run = run_by_id[run_id]
-        run.total_count = max(0, run.total_count - deleted_count)
-        run.completed_count = min(run.completed_count, run.total_count)
-        run.failed_count = min(run.failed_count, run.total_count)
-    if chat_ids:
-        session.flush()
-        session.execute(delete(ChatRecord).where(ChatRecord.id.in_(chat_ids)))
-
-
-def _references_chunk(reference_docs: list, chunk_id: UUID) -> bool:
-    expected = str(chunk_id)
-    return any(isinstance(reference, dict) and str(reference.get("chunk_id") or "") == expected for reference in reference_docs or [])
 
 
 def _chunk_offsets(chunk: Chunk) -> tuple[int | None, int | None]:
@@ -1599,7 +1608,7 @@ def _reindex_active_chunks(session: Session, project_id: UUID, document_id: UUID
     version_chunks = list(
         session.scalars(
             select(Chunk)
-            .where(Chunk.project_id == project_id, Chunk.document_id == document_id, Chunk.document_version_id == version_id)
+            .where(Chunk.project_id == project_id, Chunk.document_id == document_id, Chunk.document_version_id == version_id, Chunk.status == "active")
             .order_by(Chunk.chunk_index, Chunk.created_at)
         )
     )

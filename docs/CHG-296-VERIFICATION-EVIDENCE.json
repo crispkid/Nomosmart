@@ -1,0 +1,1374 @@
+{
+  "change": "CHG-296",
+  "date": "2026-09-12",
+  "result": "PARTIAL; not release accepted or deployed",
+  "approval": "Peter approves CHG-296 Cursor Metadata And Active Version Switch Evidence Guards",
+  "specification": "10.53",
+  "sourceSha256": {
+    "backend/app/api/schemas.py": "e5ec67011a3aad985d4ff65abbebac35ed8d23e04031916ba87784a23af168f3",
+    "backend/app/api/routes/compatibility.py": "8a7acc5ec0f88f2ed5e684ccf7731323a5a28aff07f3a78821dc65a8f1df488b",
+    "backend/app/api/routes/serving.py": "cb703876b16a3aff8c8363d08456d0f0c717b1bea77a0f75d5a5554edcdcea10",
+    "backend/app/api/routes/identity.py": "57a7d2e82261b6c7148df271ae453f7096c9da03d72dcd482df49de0ea85a7d2",
+    "backend/app/api/routes/approvals.py": "5198c8692996e5688e4c43e56ab3c68dfeac5096b54c1e23b1cb2fa7a6da28ba",
+    "backend/app/api/routes/integration_clients.py": "dc64c24813f8d2c83694712372662103e0c2889af088b40ca3ac7d06627f0050",
+    "backend/app/domain/embeddings.py": "90023f9da12b89d5f076cb3f2156f082ae8e232cceee3d36cf2535aadf239643",
+    "backend/app/domain/review_publish.py": "25978e4f12409ba5e0a46ece672a40a976c55480dd5e19cff42ede9932c637b3",
+    "frontend/src/lib/api.ts": "bff0e7d72ea0c09ee42498665103764eb1570527328e4d436c73b4d129d23442",
+    "frontend/src/lib/operationalMessages.ts": "0c650d143e8c1c6ccc591356609099fc9d61790eab279f934333dac0a7ca6452",
+    "frontend/src/i18n/locales/zh.json": "bf0bedf36461668a0b4d2d449c45961a45b643a06dc0a7c78bb0ef9f9a6f8bd7",
+    "frontend/src/i18n/locales/en.json": "af88c4afb892f39d7016a16fff5b1594e2cb4ce7da24deed97edaf6d66077322",
+    "backend/tests/test_chg296_cursor_and_switch_guards.py": "4bf11ab49934af0ff23ccdd340c9fe4de0e8984527d7ed219123c9996a24790e",
+    "backend/tests/test_live_backend_api_behavior.py": "0f042801ee56c6b10371162c667d95ea1ca942fa7ba1211956f72de55604f462"
+  },
+  "runs": {
+    "focused-r1": {
+      "tests": 35,
+      "pass": 0,
+      "fail": 6,
+      "errors": 29,
+      "skips": 0,
+      "seconds": 5.084,
+      "artifact": "/tmp/chg296-guards.gYP6UX/focused-r1.xml",
+      "sha256": "3aaf30a8f04c2a6cbdf1339566558aa1cee47c618af5f35401fe81f0362bf04b",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "ERROR"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_canonical_read_validation_does_not_bind_version",
+          "result": "ERROR"
+        }
+      ]
+    },
+    "focused-r2": {
+      "tests": 35,
+      "pass": 35,
+      "fail": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 6.404,
+      "artifact": "/tmp/chg296-guards.gYP6UX/focused-r2.xml",
+      "sha256": "122428a7b1308745c6f06e471c2e3fda3c372091627c3c5d4906ddb0659a009b",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_canonical_read_validation_does_not_bind_version",
+          "result": "PASS"
+        }
+      ]
+    },
+    "focused-r3": {
+      "tests": 38,
+      "pass": 35,
+      "fail": 3,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 15.027,
+      "artifact": "/tmp/chg296-guards.gYP6UX/focused-r3.xml",
+      "sha256": "c53b58cec16ad08e1c97f96c6323f3d424d3bcd37bf0f240dbba9af432a785ef",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_canonical_read_validation_does_not_bind_version",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_connection_refusal_preserves_active_state",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_owner_stale_and_legacy_refusals",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_chat_validation_identity_and_client_pages",
+          "result": "FAIL"
+        }
+      ]
+    },
+    "focused-r4": {
+      "tests": 39,
+      "pass": 36,
+      "fail": 3,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 15.243,
+      "artifact": "/tmp/chg296-guards.gYP6UX/focused-r4.xml",
+      "sha256": "8e018b9c7eda752bdd4da2fd6cc3a7d924f6f9b6f17863005197f13e931da7e2",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[consistent_storage_read]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_canonical_read_validation_does_not_bind_version",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_connection_refusal_preserves_active_state",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_owner_stale_and_legacy_refusals",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_chat_validation_identity_and_client_pages",
+          "result": "FAIL"
+        }
+      ]
+    },
+    "focused-final": {
+      "tests": 39,
+      "pass": 37,
+      "fail": 2,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 15.681,
+      "artifact": "/tmp/chg296-guards.gYP6UX/focused-final.xml",
+      "sha256": "a516c8f999c1927bd3da6364afd5454cc1eab06aa82c7d13ebc8b31354e5ff0d",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[0-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[1-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[2-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[3-2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_notification_boundaries_and_traversal[5-1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_all_cursor_openapi_contracts_and_existing_empty_endpoints",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[legacy-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[hash-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[versions-retrieval_reprocessing_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[model-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[fingerprint-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[newer_staged-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[dimension-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[checksum-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[vector_mapping-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[extra_vector-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[scope-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[build_count-canonical_embedding_build_invalid]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[staged_only-canonical_embedding_build_required]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[missing_index-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_invalid_target_refused_before_any_mutation[inactive_extra-published_index_not_ready]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[mapping_dimension]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[missing]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[extra]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[wrong_id]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[hash]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[text]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[vector]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[versions]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_opensearch_mismatch_is_read_only_and_atomic[consistent_storage_read]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[stale-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_switch_waits_for_document_then_refreshes_before_child_lock[deleted-document_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_canonical_read_validation_does_not_bind_version",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_real_connection_refusal_preserves_active_state",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_owner_stale_and_legacy_refusals",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_chg296_cursor_and_switch_guards.py::test_authenticated_chat_validation_identity_and_client_pages",
+          "result": "PASS"
+        }
+      ]
+    },
+    "eleven-r1": {
+      "tests": 11,
+      "pass": 5,
+      "fail": 6,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 13.804,
+      "artifact": "/tmp/chg296-guards.gYP6UX/eleven-r1.xml",
+      "sha256": "63bfad109b60a2a51b915f08bee722628cbc2869f601386c301377851e4c0a06",
+      "cases": [
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_system_reports_and_session_drafts",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_document_knowledge_serving_chat_and_notifications",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_reference_and_approval_workflows",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_external_services_and_domain_adapters",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_integration_adapter_embedding_and_switch_edges",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_configuration_identity_worker_and_sync_edges",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_pipeline_execution_and_publish_edge_behaviors",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_serving_and_document_response_helpers",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_extraction_ai_provider_and_publish_helper_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_approval_project_and_data_source_route_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_compatibility_routes_execute_governed_workflows",
+          "result": "FAIL"
+        }
+      ]
+    },
+    "eleven-final": {
+      "tests": 11,
+      "pass": 6,
+      "fail": 5,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 15.217,
+      "artifact": "/tmp/chg296-guards.gYP6UX/eleven-final.xml",
+      "sha256": "59aae6847c3fe9a883db4051cd0cf23b956425a34dea1ba2a6c9665a20cf1394",
+      "cases": [
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_system_reports_and_session_drafts",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_document_knowledge_serving_chat_and_notifications",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_seeded_reference_and_approval_workflows",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_external_services_and_domain_adapters",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_integration_adapter_embedding_and_switch_edges",
+          "result": "FAIL"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_configuration_identity_worker_and_sync_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_pipeline_execution_and_publish_edge_behaviors",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_serving_and_document_response_helpers",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_extraction_ai_provider_and_publish_helper_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_approval_project_and_data_source_route_edges",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_live_backend_api_behavior.py::test_live_compatibility_routes_execute_governed_workflows",
+          "result": "FAIL"
+        }
+      ]
+    },
+    "regressions-r1": {
+      "tests": 78,
+      "pass": 78,
+      "fail": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 14.247,
+      "artifact": "/tmp/chg296-guards.gYP6UX/regressions-r1.xml",
+      "sha256": "eab7cb48eab9dab261ac56f1222455d2f66bb407ab45081fe0b158e3057bb983",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles0-False-True-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles1-False-True-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles2-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles3-True-False-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles4-False-True-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles5-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_editor_deny[roles6-False-False-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_foreign_creator_cannot_reuse_existing_uuid",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_deleted_and_legacy_ids_are_not_new[True-published]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_deleted_and_legacy_ids_are_not_new[False-None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_mixed_creators_are_not_guessed",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_same_uuid_is_serialized_across_real_connections",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_malformed_stored_fixed_scope_fails_closed[fixed_scope0]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_malformed_stored_fixed_scope_fails_closed[fixed_scope1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_malformed_stored_fixed_scope_fails_closed[fixed_scope2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_authenticated_shared_history_names_scope_and_paging",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_real_fixed_version_and_unused_only_guards",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_authenticated_other_creator_mutations_denied_before_provider[owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_authenticated_other_creator_mutations_denied_before_provider[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_lifecycle_and_governance_are_separate",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_creator_feedback_export_soft_delete_and_deleted_id_guard",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_published_history_is_shared_but_cannot_mix_surfaces",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_inactive_creator_remains_visible_but_disabled_reader_is_denied",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_removed_reader_and_conflicting_history_fail_closed",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_scope_unchanged_and_new_identity_allowance_are_provider_free",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archive_write_denial_and_list_detail_capability_parity",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_lifecycle_keeps_stale_and_activation_guards",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_cannot_bypass_review_locked_chunk",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_shared_reads_do_not_modify_conversation_or_usage",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_archived_retry_policy_is_independent_from_active_content",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_manual_chunk_crud_preserves_raw_and_queues_real_outbox",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_document_and_chunk_tag_crud_updates_postgresql_preview",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[foreign]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[removed]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[disabled]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[missing_menu]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_content_write_denials_preserve_rows_and_outbox[archived]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_writes_keep_review_and_published_locks[pending_manager_review-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_writes_keep_review_and_published_locks[pending_owner_review-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_writes_keep_review_and_published_locks[approved-False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_writes_keep_review_and_published_locks[active-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_editor_content_writes_keep_review_and_published_locks[inactive-True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_nullable_heading_path_binding_honors_v046_constraint[None]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_nullable_heading_path_binding_honors_v046_constraint[heading_path1]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_nullable_heading_path_binding_honors_v046_constraint[heading_path2]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_json_null_heading_path_is_still_rejected_by_database",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg293_project_content_and_chat_history.py::test_failed_replacement_rolls_back_superseded_state_and_outbox",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_exact_deletion_retains_shared_tags_raw_other_versions[owner]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_exact_deletion_retains_shared_tags_raw_other_versions[editor]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_ledger_and_retry_history_survive_scoped_evidence_deletion",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[lineage]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[chat]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[chat_scope]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[citations]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[usage]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[retry]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[submitted]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_protected_or_unprovable_reference_is_atomic_conflict[unknown_fk]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_unauthorized_delete_cannot_touch_data[viewer]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_unauthorized_delete_cannot_touch_data[outsider]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_real_constraint_failure_rolls_back_every_mutation",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_two_actual_delete_requests_commit_only_once",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_vector_storage_deletion_is_build_scoped[False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_vector_storage_deletion_is_build_scoped[True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_staging_evidence_shared_fence_prevents_late_citations",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_authenticated_delete_obeys_parent_governance_lock_order",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_zero_chunk_actual_graph_search_cleanup_retry_and_isolation[False]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_chunk_deletion.py::test_zero_chunk_actual_graph_search_cleanup_retry_and_isolation[True]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_parent_governance_lock_never_waits_on_a_child_held_by_waiting_writer[edit_enqueue]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_parent_governance_lock_never_waits_on_a_child_held_by_waiting_writer[reconcile]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_cached_scope_is_revalidated_before_candidate_mutation[archive-project_archived]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_cached_scope_is_revalidated_before_candidate_mutation[delete_document-document_version_not_found]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_cached_scope_is_revalidated_before_candidate_mutation[review-document_version_review_locked]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_cached_scope_is_revalidated_before_candidate_mutation[revision-stale_document_version]",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_deleted_document_worker_refuses_before_external_artifacts",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_lock_order.py::test_staging_reader_parent_fk_commit_does_not_deadlock_waiting_edit",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg295_acceptance_contracts.py::test_integration_client_http_defaults_and_permission_denial",
+          "result": "PASS"
+        }
+      ]
+    },
+    "retrieval-r1": {
+      "tests": 8,
+      "pass": 8,
+      "fail": 0,
+      "errors": 0,
+      "skips": 0,
+      "seconds": 0.638,
+      "artifact": "/tmp/chg296-guards.gYP6UX/retrieval-r1.xml",
+      "sha256": "17899c51784ff2968b07ea4e7ed1e4ae0d4423d7eb09c37ef4ab1255f98b9aef",
+      "cases": [
+        {
+          "nodeId": "tests/test_chg283_retrieval_only_embedding.py::test_manual_representation_separates_markdown_display_and_retrieval_text",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg283_retrieval_only_embedding.py::test_strict_embedding_resolver_uses_only_retrieval_text_and_legacy_is_explicit",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg283_retrieval_only_embedding.py::test_final_hash_is_bound_to_profile_before_indexing",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg281_structure_pipeline.py::test_parser_preserves_raw_markdown_and_structural_semantics",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg281_structure_pipeline.py::test_heading_context_is_inherited_without_markdown_formatting_noise",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg281_structure_pipeline.py::test_table_normalization_retains_header_row_relationship",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg281_structure_pipeline.py::test_embedding_build_fingerprint_does_not_drift_after_final_hash_is_persisted",
+          "result": "PASS"
+        },
+        {
+          "nodeId": "tests/test_chg281_structure_pipeline.py::test_deterministic_identity_and_embedding_hash_invalidation",
+          "result": "PASS"
+        }
+      ]
+    }
+  },
+  "scriptSha256": {
+    "audit_runtime.py": "a6d879b9645d41166a9e9d0d23eae405b2568b4a8d1c26c1c687ad1ea56668aa",
+    "cleanup_verified.py": "60ad1b5f5208a3ae62f3b705bea954a09083f4df4b912783d4703d251283dfe1",
+    "prepare.py": "b7c44a6353c14a8db0157b50f29f416abcb67b1092e2716a3820db020a9fade1",
+    "prepare_api.py": "0c7085554b32b96774865de33750355afddce2da05ce3d62317a70b15429379f",
+    "run_capture.py": "9b9718b6189dd4840e0014cf2eb5370da7ad65e1cf930f747f82f7ba3704ec8a",
+    "run_focused.py": "c490c971b2695f8e13b53331027e00752a3de303e17ea45b5112899273567874",
+    "stack.py": "fdc4bf97cd475ab20a70320b3f1a22685565fcd8525a8ea9153d8e552316f8ad",
+    "summarize_evidence.py": "db3f387f52110441896e98dbf4bad0a7be196f3e2bf27eb5a8ab7e340217a9e5",
+    "transport.py": "4bb1768f934753a59d91e8e6d574eb45877a3f15e746d326f2b5237f08e9767d"
+  },
+  "runtimeAudit": {
+    "flywayVersion": 48,
+    "successfulSwitchAudits": 0,
+    "guardTargetsSwitched": 0,
+    "networkPolicy": "Internal Docker network; loopback-only allowlisted byte relay; no Provider runtime configured"
+  },
+  "cleanup": {
+    "label": "chg296-guards-gyp6ux",
+    "containersRemoved": 7,
+    "anonymousVolumesRemoved": 5,
+    "networksRemoved": 1,
+    "transportPidStopped": 2054,
+    "baselineUnchangedDuringCleanup": true,
+    "imagesRemoved": 0,
+    "privateEvidenceRetained": true,
+    "baselineCount": 14,
+    "runningBaselineCount": 4,
+    "baselineSha256": "1fc504e5e7fa7984166785dca3ea0e18baaf5ee872f3671a374975211d37a0fe",
+    "baselineUnchangedSincePreflight": true
+  },
+  "staticChecks": {
+    "spec:doctor": "PASS",
+    "spec:trace": "PASS",
+    "plan:approved": "PASS",
+    "test:plan": "PASS",
+    "backend:syntax": "PASS",
+    "git diff --check": "PASS",
+    "i18nGuard": "4 PASS",
+    "fullFrontendTsc": "FAIL: stale generated setup/page.js reference",
+    "sourceOnlyFrontendTsc": "PASS; not full build acceptance"
+  },
+  "newDefects": {
+    "B01": "Data-source DocumentVersion constructor has nonexistent project_generation",
+    "B02": "Nonempty GraphSyncJobPage ORM projection raises validation error",
+    "B03": "104-character switch idempotency scope exceeds VARCHAR(100)"
+  },
+  "blocked": [
+    "Genuine submission/embedding/publication/positive switch acceptance",
+    "Full backend/frontend and 80% coverage per side",
+    "Browser/E2E/release/deployment acceptance"
+  ],
+  "priorFullBackend": {
+    "pass": 529,
+    "fail": 11,
+    "coveragePercent": 59.3662,
+    "rerunThisChange": false
+  },
+  "notAuthorized": [
+    "Provider calls",
+    "image builds",
+    "Helm/Kubernetes",
+    "current data/index/identity changes"
+  ],
+  "disclaimer": "Controlled stored numeric/status inputs prove validators/read-back only, never genuine generation or successful publication/switch; original failures retained"
+}

@@ -440,6 +440,18 @@
     "migration": {
       "type": "object",
       "properties": {
+        "requiredVersion": {
+          "type": "string",
+          "maxLength": 80,
+          "pattern": "^$|^[0-9]+([._][0-9]+)*$"
+        },
+        "requiredChecksum": {
+          "oneOf": [
+            {"type": "string", "pattern": "^$|^-?[0-9]+$", "maxLength": 11},
+            {"type": "integer", "minimum": -2147483648, "maximum": 2147483647}
+          ]
+        },
+        "checkTimeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 60},
         "jdbcUrl": {
           "type": "string",
           "pattern": "^$|^jdbc:postgresql://"
@@ -463,6 +475,9 @@
       },
       "required": [
         "jdbcUrl",
+        "requiredVersion",
+        "requiredChecksum",
+        "checkTimeoutSeconds",
         "userSecretKey",
         "passwordSecretKey",
         "backoffLimit",

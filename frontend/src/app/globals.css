@@ -12656,3 +12656,12 @@ small {
     transition: none;
   }
 }
+.chat-history-author { display: grid; gap: 4px; margin-top: 5px; color: var(--text-muted, #52636e); font-size: 12px; line-height: 1.5; min-width: 0; }
+.chat-history-author > span { display: flex; align-items: baseline; gap: 4px; overflow-wrap: anywhere; }
+.chat-history-author svg { flex-shrink: 0; }
+.chat-readonly-notice { margin: 0; padding: 10px 16px; background: #EAF7F1; color: #2E3A42; font-size: 13px; }
+.chat-document-history-list { display: grid; grid-auto-rows: max-content; align-content: start; gap: 8px; min-height: 0; max-height: min(48vh, 520px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
+.chat-document-history-list:focus-visible { outline: 2px solid var(--deep-green); outline-offset: 2px; }
+@media (max-width: 860px) {
+  .chat-document-history-list { max-height: min(40vh, 320px); }
+}

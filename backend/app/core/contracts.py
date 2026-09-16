@@ -90,6 +90,8 @@ class ProjectCapability(StrEnum):
     VIEW_GRAPH = "can_view_graph"
     SUBMIT_REVIEW = "can_submit_review"
     MANAGE_LIFECYCLE = "can_manage_lifecycle"
+    ARCHIVE_PROJECT = "can_archive_project"
+    RETRY_ARCHIVE_CLEANUP = "can_retry_archive_cleanup"
 
 
 PROJECT_CAPABILITY_KEYS = tuple(capability.value for capability in ProjectCapability)

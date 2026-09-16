@@ -1,0 +1,541 @@
+{
+  "change": "CHG-299",
+  "date": "2026-09-12",
+  "status": "Scoped code repair and isolated acceptance complete; not deployed; full release gates open",
+  "requirements": [
+    "DSYNC-MANUAL-001",
+    "DSYNC-MANUAL-002",
+    "DSYNC-MANUAL-003"
+  ],
+  "source": {
+    "originalBroadCase4AstIdenticalAfterHelperInlining": true,
+    "originalBroadCase4Assertions": 39,
+    "sourceSha256": {
+      "backend/app/domain/data_sync.py": "97736775b44bfb9a5c264fc975cc1e4db0a8c0547a27dd5c4655d3e02d0e4a7c",
+      "backend/tests/test_live_backend_api_behavior.py": "85e1cecdb28b5e26540090ac4098dbe790903bc2928c643293ab74c56ba79da1",
+      "backend/tests/test_chg299_s3_manual_extraction.py": "5f792310750beb3121fbb9035bda33a5aa1b2620ab3fdfa3de53c51e4b1edc5e",
+      "backend/app/domain/document_imports.py": "e86fb903e1e5d52d63c7a1ffa37a2b99b033c1dbea1a2b451efa830f30c78df1",
+      "backend/app/api/routes/documents.py": "8bfad5582771a809cedc9e33b9ac99a0e250b65e8837f79167c3d0f552f0768f",
+      "backend/app/api/routes/data_sources.py": "d7839fcb52dacf4c759704aae1de9d769ac1319dc6668029f1dff54073f481b5",
+      "backend/tests/test_chg296_cursor_and_switch_guards.py": "4bf11ab49934af0ff23ccdd340c9fe4de0e8984527d7ed219123c9996a24790e",
+      "backend/tests/test_chg297_sync_graph_idempotency.py": "7979250290d49dc86b183eb58e6010cd09a111084df050a5823a95b3166aef64",
+      "backend/tests/test_chg298_graph_retry.py": "b02d99ab1e541d33c308884c9c58081d777977a57ea141ea5aea6173956a317a"
+    },
+    "beforeDataSyncSha256": "e8819a8b7e3c4334ce696aee6d10205bef98da2924511bb0125413530de03cf1"
+  },
+  "previousSourceBaseline": {
+    "files": 164,
+    "unchanged": 162,
+    "changed": [
+      "backend/app/domain/data_sync.py",
+      "backend/tests/test_live_backend_api_behavior.py"
+    ]
+  },
+  "finalReports": {
+    "audited-focused": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/audited-focused.xml",
+      "sha256": "cd48f124a87934cd16bacab5ebe1ffa98ba575b3363f6598bbe960c5a34d90f7",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 13.79,
+      "startedAt": "2026-09-12T16:09:39.420381+08:00"
+    },
+    "guards296": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/guards296.xml",
+      "sha256": "94de133f6403a65c43ee9bf02ca790900764386b385d947e48f9bef75acc9931",
+      "tests": 39,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 15.954,
+      "startedAt": "2026-09-12T16:06:11.148832+08:00"
+    },
+    "serial-guards297": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/serial-guards297.xml",
+      "sha256": "0cde0411bca74dd889c831a949f13222b34587b10decee73eba7fad463d8b5ed",
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 4.04,
+      "startedAt": "2026-09-12T16:08:54.959345+08:00"
+    },
+    "graph298": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/graph298.xml",
+      "sha256": "bd3a4e8c2ad2e7622929211f8bb587ba6914a67f87199fff63475ad350644164",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 68.708,
+      "startedAt": "2026-09-12T16:07:28.585605+08:00"
+    },
+    "serial-config": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/serial-config.xml",
+      "sha256": "b21fb654347473c06bb78ae4ab2fadc165ba873ea3357d94e4e171235055f9ba",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 1.512,
+      "startedAt": "2026-09-12T16:09:17.636507+08:00"
+    }
+  },
+  "distinctFinalCases": 116,
+  "coverage": {
+    "scope": "app.domain.data_sync only; accumulated real-service/computational runs",
+    "totals": {
+      "covered_lines": 304,
+      "num_statements": 362,
+      "percent_covered": 80,
+      "percent_covered_display": "80",
+      "missing_lines": 58,
+      "excluded_lines": 2,
+      "percent_statements_covered": 83.97790055248619,
+      "percent_statements_covered_display": "84",
+      "num_branches": 108,
+      "num_partial_branches": 20,
+      "covered_branches": 72,
+      "missing_branches": 36,
+      "percent_branches_covered": 66.66666666666667,
+      "percent_branches_covered_display": "67"
+    },
+    "files": {
+      "app/domain/data_sync.py": {
+        "summary": {
+          "covered_lines": 304,
+          "num_statements": 362,
+          "percent_covered": 80,
+          "percent_covered_display": "80",
+          "missing_lines": 58,
+          "excluded_lines": 2,
+          "percent_statements_covered": 83.97790055248619,
+          "percent_statements_covered_display": "84",
+          "num_branches": 108,
+          "num_partial_branches": 20,
+          "covered_branches": 72,
+          "missing_branches": 36,
+          "percent_branches_covered": 66.66666666666667,
+          "percent_branches_covered_display": "67"
+        },
+        "missing_lines": [
+          48,
+          53,
+          54,
+          74,
+          77,
+          101,
+          105,
+          122,
+          177,
+          178,
+          179,
+          180,
+          181,
+          194,
+          197,
+          198,
+          199,
+          202,
+          245,
+          269,
+          283,
+          288,
+          296,
+          297,
+          298,
+          308,
+          309,
+          310,
+          311,
+          312,
+          313,
+          314,
+          323,
+          327,
+          328,
+          329,
+          330,
+          331,
+          332,
+          334,
+          335,
+          336,
+          342,
+          343,
+          344,
+          345,
+          346,
+          347,
+          348,
+          349,
+          350,
+          378,
+          381,
+          408,
+          409,
+          417,
+          418,
+          429
+        ],
+        "missing_branches": [
+          [
+            47,
+            48
+          ],
+          [
+            73,
+            74
+          ],
+          [
+            76,
+            77
+          ],
+          [
+            100,
+            101
+          ],
+          [
+            104,
+            105
+          ],
+          [
+            121,
+            122
+          ],
+          [
+            193,
+            194
+          ],
+          [
+            196,
+            197
+          ],
+          [
+            201,
+            202
+          ],
+          [
+            244,
+            245
+          ],
+          [
+            281,
+            283
+          ],
+          [
+            287,
+            288
+          ],
+          [
+            291,
+            296
+          ],
+          [
+            296,
+            297
+          ],
+          [
+            296,
+            313
+          ],
+          [
+            308,
+            309
+          ],
+          [
+            308,
+            310
+          ],
+          [
+            310,
+            311
+          ],
+          [
+            310,
+            312
+          ],
+          [
+            313,
+            314
+          ],
+          [
+            313,
+            323
+          ],
+          [
+            328,
+            329
+          ],
+          [
+            328,
+            334
+          ],
+          [
+            330,
+            331
+          ],
+          [
+            330,
+            332
+          ],
+          [
+            340,
+            342
+          ],
+          [
+            342,
+            343
+          ],
+          [
+            342,
+            350
+          ],
+          [
+            343,
+            344
+          ],
+          [
+            343,
+            345
+          ],
+          [
+            377,
+            378
+          ],
+          [
+            380,
+            381
+          ],
+          [
+            404,
+            409
+          ],
+          [
+            406,
+            408
+          ],
+          [
+            427,
+            429
+          ],
+          [
+            500,
+            503
+          ]
+        ]
+      }
+    },
+    "artifact": "/tmp/chg299-live.IP4kuZ/coverage-final.json",
+    "sha256": "1ae4eb3c91e536973aca8ed4f9764db6402ca8c8a89a0b4e8a6c2f17bfb847b1",
+    "wholeBackendAndFrontendCoverageClaimed": false,
+    "thresholdUnchanged": 80
+  },
+  "intermediateReports": {
+    "focused": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/focused.xml",
+      "sha256": "9fca76d3402b2851793da86c3d53cf3fa7dc5af2a4d4f4e2a36a90110b532c80",
+      "tests": 17,
+      "failures": 9,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.045,
+      "startedAt": "2026-09-12T16:03:37.113140+08:00"
+    },
+    "focused2": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/focused2.xml",
+      "sha256": "de066d7bdb8ab07a4c2e957ae614ee0cf6b7f1043ce8f44fda874d37ab0cf3e1",
+      "tests": 17,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 8.376,
+      "startedAt": "2026-09-12T16:04:09.824745+08:00"
+    },
+    "red-original": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/red-original.xml",
+      "sha256": "9df188e395a18401c9add03ca77d1c7ba98f4a59f2a39293be0b4f56cd8ac016",
+      "tests": 2,
+      "failures": 2,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 2.094,
+      "startedAt": "2026-09-12T16:04:45.319610+08:00"
+    },
+    "guards297": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/guards297.xml",
+      "sha256": "51a2d3eeab54fe5763a671a860bc92899fa756c4f85f516b84b2143a53df8180",
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 5.35,
+      "startedAt": "2026-09-12T16:05:13.409981+08:00"
+    },
+    "config-guards": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/config-guards.xml",
+      "sha256": "38123db473e59a21d5af2dc23485f38ad771647e63ad38e6a32a87c1b77283e9",
+      "tests": 1,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.018,
+      "startedAt": "2026-09-12T16:05:57.368461+08:00"
+    },
+    "complete-focused": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/complete-focused.xml",
+      "sha256": "2905813390b8ab40bc4634469eb3cb45277bbe9ba614fa03e47bdba06ed0527f",
+      "tests": 28,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 12.693,
+      "startedAt": "2026-09-12T16:07:10.735322+08:00"
+    },
+    "final-guards297": {
+      "artifact": "/tmp/chg299-live.IP4kuZ/final-guards297.xml",
+      "sha256": "6cef769699d3eadfda5075a18862026003adcc6d8a6ed97db91bf52814cdf53c",
+      "tests": 47,
+      "failures": 0,
+      "errors": 0,
+      "skipped": 0,
+      "seconds": 3.954,
+      "startedAt": "2026-09-12T16:07:53.617342+08:00"
+    }
+  },
+  "intermediateNotes": [
+    "Initial list-object test signature failure: 8 pass, 9 fail; corrected test API usage without permission changes.",
+    "Functional tests passed but coverage invocation exit 1 at 63.83% and 74.89%; final 80.00% exit 0.",
+    "Two red tests using pre-change isolated source fail ocr_model_required as expected; workspace not reset.",
+    "final-guards297 overlapped graph298; not final serial evidence. Replaced by independently rerun serial-guards297.",
+    "Legacy Starlette TestClient deprecation warning retained."
+  ],
+  "runtime": {
+    "providerUsageRows": 0,
+    "flywayMaxVersion": 48,
+    "chg299SyncRunStates": {
+      "failed": 37,
+      "queued": 9,
+      "success": 62,
+      "cancelled": 4,
+      "unchanged": 9
+    },
+    "chg299PipelineStates": {
+      "queued": 10
+    },
+    "chg299StartedPipelines": 0,
+    "chg299DispatchedExtractionEvents": 0
+  },
+  "cleanup": {
+    "label": "chg299-live-ip4kuz",
+    "containersRemoved": 7,
+    "anonymousVolumesRemoved": 5,
+    "networksRemoved": 1,
+    "transportPidStopped": 25654,
+    "baseline": [
+      {
+        "idPrefix": "f5419ca062b08dc559f9f49f2440c143cd86fbc737ee68b3a27ee015252e7a28",
+        "startedAt": "2026-09-07T03:01:06.756581926Z",
+        "running": false
+      },
+      {
+        "idPrefix": "9c2da911b170d5a10e9ac07cdaea58619161110b308c135d3ef0222e60f22653",
+        "startedAt": "2026-09-07T03:01:01.177603298Z",
+        "running": false
+      },
+      {
+        "idPrefix": "945f0089317bfffd339e189d02605289165c2945dfe526337a078186d496a01e",
+        "startedAt": "2026-09-07T20:08:05.765003041Z",
+        "running": true
+      },
+      {
+        "idPrefix": "125e83c8ac297ddebfec6d1b17f44229e326d535ae7249aa92789033a6649891",
+        "startedAt": "2026-09-09T14:27:36.23941196Z",
+        "running": true
+      },
+      {
+        "idPrefix": "aae7c2bf8972198f6488d58f1dd9bc8d1fe7411295290d641ea82759fbda4f47",
+        "startedAt": "2026-09-07T20:08:05.782693Z",
+        "running": true
+      },
+      {
+        "idPrefix": "8ef553e20fc95e8555d8e52f893d0dbc22c74c4fc4cc378c066e61f03c0b86fc",
+        "startedAt": "2026-08-19T16:22:23.227768758Z",
+        "running": false
+      },
+      {
+        "idPrefix": "7b21e23bb3de5f8377926f61cdccfd2758437595b5a95b7d3ca2996c665ae262",
+        "startedAt": "2026-09-07T02:04:49.224820167Z",
+        "running": false
+      },
+      {
+        "idPrefix": "ef3bc2ddec4b6386f135f54b2a8cf91c53f2950b6de8b24d346971272006067b",
+        "startedAt": "2026-09-07T02:04:49.224474292Z",
+        "running": false
+      },
+      {
+        "idPrefix": "744392cdf86e33d194cfbab2c4690455c0bcc1c84fbabea53fc4e0077ac484b6",
+        "startedAt": "2026-09-07T20:08:05.8079315Z",
+        "running": true
+      },
+      {
+        "idPrefix": "bc4a66b2a094a71fc2297958545a33cfc3515ab080f6335e50cbf0765ae9cd39",
+        "startedAt": "2026-08-17T17:38:18.883148676Z",
+        "running": false
+      },
+      {
+        "idPrefix": "2c96e654bdb53af5d6310657168502c2bb86103938e02792d5c06b373aa4d1f7",
+        "startedAt": "2026-08-17T16:29:22.459625262Z",
+        "running": false
+      },
+      {
+        "idPrefix": "cba543e4b6a0d0ca8fee42d8d3b4ca24efa2ad38b5f946ec99559967008952e2",
+        "startedAt": "2026-08-17T16:29:12.261993924Z",
+        "running": false
+      },
+      {
+        "idPrefix": "fb05aa86075d152a4adf1af4d0f946c55ab20861d7edc31b937dc3dd9f52934b",
+        "startedAt": "2026-08-17T16:29:11.685290465Z",
+        "running": false
+      },
+      {
+        "idPrefix": "93ab984de332b73b111a34b031bc765fff81eea370667b005c91fa67f528d70a",
+        "startedAt": "2026-08-17T16:29:11.68791259Z",
+        "running": false
+      }
+    ],
+    "baselineUnchangedDuringCleanup": true,
+    "imagesRemoved": 0,
+    "privateEvidenceRetained": true
+  },
+  "operations": {
+    "providerCalls": 0,
+    "imageBuilds": 0,
+    "imagePulls": 0,
+    "kubernetesWrites": 0,
+    "currentApplicationDataChanges": 0,
+    "extractionWorkersStarted": 0,
+    "globalOutboxDrains": 0,
+    "isolatedMaximumFlywayVersion": 48,
+    "providerBridgeStarted": false
+  },
+  "harnessPassed": [
+    "spec:doctor",
+    "spec:trace",
+    "plan:approved",
+    "test:plan",
+    "backend:syntax",
+    "git diff --check"
+  ],
+  "notClaimed": [
+    "Original eleven tests rerun as a whole",
+    "Full model-prepared broad case 4",
+    "Whole-backend/frontend 80% coverage",
+    "FTP/FTPS/SFTP/HTTP positive protocol acceptance",
+    "Actual manual OCR completion",
+    "New images or deployment",
+    "Existing failed-run repair"
+  ]
+}

@@ -1,0 +1,173 @@
+{
+  "date": "2026-09-13",
+  "scope": "CHG-291 stage C qualification primitives only",
+  "source_hashes": {
+    "backend/scripts/chg291_v049_live_backup.py": "15b42f2bbe6e723faec9257e28bec2fac6cbfcf7913e81f0c459987a558666f1",
+    "backend/tests/test_chg291_v049_live_backup.py": "7ac8d4cd26b7e6518e019ad2651509c5e31f2a129356f05176a7a10a047456a4"
+  },
+  "runs": [
+    {
+      "directory": "/private/tmp/v049-backup-auto-p1tCS4",
+      "junit": {
+        "tests": 12,
+        "errors": 8,
+        "failures": 0,
+        "skipped": 0
+      },
+      "coverage_percent": 58.87096774193548,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "d75ad3ead4578bd1d0b3439ffde3965d58230df2133f266a6d58331c80e1eedf",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-p1tCS4/tests.xml": "041868671d9dcddb109b9d6b08f5b554e311c1e02532bf155357fffdde1e5526",
+        "/private/tmp/v049-backup-auto-p1tCS4/coverage.json": "2da67898f661cc9019b0dd513f61b395999bbf8ad91fdacd7613cd14e37b8595",
+        "/private/tmp/v049-backup-auto-p1tCS4/cleanup.json": "9729798370dab1c84ac64dea40895e4fec57ba440a52533fefc0d2371e5d132c",
+        "/private/tmp/v049-backup-auto-p1tCS4/container-receipt.json": "39b75fb4f69c81e7f5e32f64bffe978e567a68a7cd16b235b424e3fe48a52e89"
+      }
+    },
+    {
+      "directory": "/private/tmp/v049-backup-auto-0qDEIC",
+      "junit": {
+        "tests": 12,
+        "errors": 0,
+        "failures": 1,
+        "skipped": 0
+      },
+      "coverage_percent": 74.06417112299465,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "e7f9318fcd220e03f3a44a9ce2c7aaeb4bcac2a51ae2646a485befd99b5a59e6",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-0qDEIC/tests.xml": "24d786b59027014e77955d8645df47ad4e467a4901fdf797a5c5c616fa2ba63f",
+        "/private/tmp/v049-backup-auto-0qDEIC/coverage.json": "21f9e0e77d485831735c2381bf5925497689a15c1a65ca4a6c40a105ddc2eceb",
+        "/private/tmp/v049-backup-auto-0qDEIC/cleanup.json": "eb250b64c40e4762a357d5fa6b66f5a159f113806e17692f9d4b5145d864fdd0",
+        "/private/tmp/v049-backup-auto-0qDEIC/container-receipt.json": "94d51422d6ed45e9d2b2d9cec41a08770ec834dafbf915a7ae9ca688ed348d87"
+      }
+    },
+    {
+      "directory": "/private/tmp/v049-backup-auto-93t42J",
+      "junit": {
+        "tests": 12,
+        "errors": 0,
+        "failures": 1,
+        "skipped": 0
+      },
+      "coverage_percent": 74.06417112299465,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "e7f9318fcd220e03f3a44a9ce2c7aaeb4bcac2a51ae2646a485befd99b5a59e6",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-93t42J/tests.xml": "98aa219784279ee1b3aec6e85a4bb08614b02cf1b73a9fdf8805152d66cb2eac",
+        "/private/tmp/v049-backup-auto-93t42J/coverage.json": "51883464000dee3021972899eb0c15570e997109d2f3875bf8d429f6a8b7dc61",
+        "/private/tmp/v049-backup-auto-93t42J/cleanup.json": "eb250b64c40e4762a357d5fa6b66f5a159f113806e17692f9d4b5145d864fdd0",
+        "/private/tmp/v049-backup-auto-93t42J/container-receipt.json": "ffb7d89f3b5f4859a8b0b7df15adbae6a6fd38c8d615457a663eaee80ad7ecaf"
+      }
+    },
+    {
+      "directory": "/private/tmp/v049-backup-auto-VeuoJE",
+      "junit": {
+        "tests": 12,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "coverage_percent": 75.66844919786097,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "e7f9318fcd220e03f3a44a9ce2c7aaeb4bcac2a51ae2646a485befd99b5a59e6",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-VeuoJE/tests.xml": "09ea19cb324adeb692d1f1296fcd6204e6c9fc68e0962e9e2d317f6dbd9f6491",
+        "/private/tmp/v049-backup-auto-VeuoJE/coverage.json": "216674f14e36ba4353447a91c0b543be34483aefe278300d7e9b4b4fa4e7fea1",
+        "/private/tmp/v049-backup-auto-VeuoJE/cleanup.json": "eb250b64c40e4762a357d5fa6b66f5a159f113806e17692f9d4b5145d864fdd0",
+        "/private/tmp/v049-backup-auto-VeuoJE/container-receipt.json": "ea4c736cbfc5ef7abdd91834777e011558e053dc9dee917206cb468ddcccce45"
+      }
+    },
+    {
+      "directory": "/private/tmp/v049-backup-auto-yP8RwG",
+      "junit": {
+        "tests": 15,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "coverage_percent": 69.71830985915493,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "15b42f2bbe6e723faec9257e28bec2fac6cbfcf7913e81f0c459987a558666f1",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-yP8RwG/tests.xml": "cf9806d4e6f6e8fe9ef7c2799fa022c3683b965164c0c50108995912ea9c8b9a",
+        "/private/tmp/v049-backup-auto-yP8RwG/coverage.json": "7e73d7210d21013f3f05f867411785246e495462db3a800400c536664afe7059",
+        "/private/tmp/v049-backup-auto-yP8RwG/cleanup.json": "3abd223dddf71e4201460eaab642269ed93ca6c590051de65aace34fa567794a",
+        "/private/tmp/v049-backup-auto-yP8RwG/container-receipt.json": "158bedced5a45a7124e793e2ebb85b7cd1f73d01f1f817a9669c7b14ea18ea24"
+      }
+    },
+    {
+      "directory": "/private/tmp/v049-backup-auto-hyXa8e",
+      "junit": {
+        "tests": 17,
+        "errors": 0,
+        "failures": 0,
+        "skipped": 0
+      },
+      "coverage_percent": 73.47417840375587,
+      "cleanup": {
+        "cleanup_ok": true,
+        "baseline_equal": true,
+        "image": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a",
+        "source_sha256": "15b42f2bbe6e723faec9257e28bec2fac6cbfcf7913e81f0c459987a558666f1",
+        "kubernetes_access": false,
+        "provider_calls": 0,
+        "live_data": false
+      },
+      "artifacts": {
+        "/private/tmp/v049-backup-auto-hyXa8e/tests.xml": "4d974397725936091a3e83c2be096250fa465bd3aca2c84546bb8abac0ccb25b",
+        "/private/tmp/v049-backup-auto-hyXa8e/coverage.json": "db4b6841d691e5e69d14a41bf208806ca05ce41a3bd154a34c4d93acb0be08a2",
+        "/private/tmp/v049-backup-auto-hyXa8e/cleanup.json": "3abd223dddf71e4201460eaab642269ed93ca6c590051de65aace34fa567794a",
+        "/private/tmp/v049-backup-auto-hyXa8e/container-receipt.json": "939d40d2d1ac1af4e12951a6f956ac2cddb4f14327d1cafdd8deafebc9c9f97d"
+      }
+    }
+  ],
+  "final_subset_assertions": "17 PASS",
+  "full_qualification": "NOT COMPLETE",
+  "retained_coverage_threshold": 80,
+  "coverage_gate": "FAIL",
+  "human_gpg": "NOT RUN; requires Peter own Terminal Pinentry, one case not selected in automated subset",
+  "live_export_entrypoint": "NOT IMPLEMENTED; current command only synthetic qualification/receipt cleanup",
+  "current_data_read": false,
+  "current_data_write": false,
+  "migration_apply": false,
+  "deployment": false,
+  "scanner_calls": 0,
+  "provider_calls": 0,
+  "whole_application_coverage": "unchanged; no new full acceptance"
+}

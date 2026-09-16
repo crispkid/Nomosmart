@@ -47,7 +47,9 @@ def test_chat_history_is_scoped_by_surface_and_document_version() -> None:
     assert 'options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string }' in api
     assert 'params.set("scope_mode", options?.scope_mode ?? "published")' in api
     assert 'params.set("document_version_id", options.document_version_id)' in api
-    assert "listProjectChatConversations(apiFetch, projectId)" in project_chat
+    # CHG-293 introduces paging without changing the published default scope.
+    assert "listProjectChatConversationPage(apiFetch, projectId)" in project_chat
+    assert "listProjectChatConversationPage(apiFetch, params.id, { cursor: historyCursor })" in project_chat
     assert 'scope_mode: "document_staging", document_version_id: loaded.version.id' in document_chat
     assert "getDocumentVersionSubmissionEvidence" in submit_review
     assert "submissionEvidence.chat_records" in submit_review

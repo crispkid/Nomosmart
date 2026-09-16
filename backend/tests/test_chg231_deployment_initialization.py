@@ -71,8 +71,11 @@ def test_compose_owns_migration_bootstrap_and_application_gate() -> None:
     assert services["deployment-bootstrap"]["depends_on"]["migration"]["condition"] == "service_completed_successfully"
     assert services["backend"]["depends_on"]["migration"]["condition"] == "service_completed_successfully"
     assert services["backend"]["depends_on"]["deployment-bootstrap"]["condition"] == "service_completed_successfully"
-    assert services["celery-worker"]["depends_on"]["backend"]["condition"] == "service_started"
-    assert services["celery-beat"]["depends_on"]["backend"]["condition"] == "service_started"
+    for name in ("celery-worker", "celery-beat"):
+        assert "backend" not in services[name]["depends_on"]
+        assert services[name]["depends_on"]["migration"]["condition"] == "service_completed_successfully"
+        assert services[name]["depends_on"]["deployment-bootstrap"]["condition"] == "service_completed_successfully"
+        assert services[name]["depends_on"]["redis"]["condition"] == "service_healthy"
     assert "/api/v1/ready" in services["backend"]["healthcheck"]["test"][-1]
     assert "DEPLOYMENT_BOOTSTRAP_RELEASE" in services["backend"]["environment"]
     assert "SYSTEM_INITIALIZATION_" not in compose_source

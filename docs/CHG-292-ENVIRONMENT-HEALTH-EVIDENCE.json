@@ -1,0 +1,2146 @@
+{
+  "observed_date": "2026-09-09",
+  "authorization": "先恢復目前環境的健康狀態，再核准部署",
+  "scope": "Restore existing revision 35 only; no CHG-292 deploy or data/Provider action",
+  "operations": [
+    {
+      "kind": "restart_existing_container",
+      "name": "nomosmart-local-ingress-https-loopback",
+      "id": "125e83c8ac297ddebfec6d1b17f44229e326d535ae7249aa92789033a6649891",
+      "spec_sha256": "92be0ed0c0734793e80bd35a28ef5e2c6bee4a22b6be939242f8f5a79f046c36",
+      "same_identity_and_spec": true
+    },
+    {
+      "kind": "UID-preconditioned stateless Pod replacement",
+      "node": "desktop-worker2",
+      "old_name": "kindnet-dq5w7",
+      "old_uid": "1772c67a-9b39-4f9e-af16-51f19fab4b83",
+      "new_name": "kindnet-rrhgh",
+      "new_uid": "898d80dc-95ed-4c13-a167-2f715e585e5e"
+    },
+    {
+      "kind": "UID-preconditioned stateless Pod replacement",
+      "node": "desktop-worker",
+      "old_name": "kindnet-pps22",
+      "old_uid": "8245e05c-1100-434b-8408-33701a14672f",
+      "new_name": "kindnet-znz6d",
+      "new_uid": "8ab9326b-1cdd-45c8-8304-5ae2c5122a46"
+    },
+    {
+      "kind": "UID-preconditioned stateless Pod replacement",
+      "node": "desktop-control-plane",
+      "old_name": "kindnet-pnbmg",
+      "old_uid": "d594bed5-da55-49d0-9cfe-714c7eb51d2c",
+      "new_name": "kindnet-4zc4p",
+      "new_uid": "85ba74c9-a838-46d0-b485-8051386a20b4"
+    }
+  ],
+  "summary": {
+    "samples": 12,
+    "passed": 12,
+    "start": "2026-09-09T14:36:24.108634+00:00",
+    "end": "2026-09-09T14:40:04.168100+00:00",
+    "all_pass": true
+  },
+  "acceptance": [
+    {
+      "sample": 1,
+      "at": "2026-09-09T14:36:24.108634+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 68
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002979",
+        "total_seconds": "5.076028"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004981",
+        "total_seconds": "5.043820"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.006391",
+        "total_seconds": "5.177297"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 2,
+      "at": "2026-09-09T14:36:44.119519+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 78
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004098",
+        "total_seconds": "5.053840"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002812",
+        "total_seconds": "5.052468"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003111",
+        "total_seconds": "5.196112"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 3,
+      "at": "2026-09-09T14:37:04.122942+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 88
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005414",
+        "total_seconds": "5.054687"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004082",
+        "total_seconds": "5.053526"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004341",
+        "total_seconds": "5.160425"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 4,
+      "at": "2026-09-09T14:37:24.126954+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 90,
+        "beat_ttl": 68
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003923",
+        "total_seconds": "5.060845"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004996",
+        "total_seconds": "5.051924"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005473",
+        "total_seconds": "5.156606"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 5,
+      "at": "2026-09-09T14:37:44.132557+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 90,
+        "beat_ttl": 78
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005361",
+        "total_seconds": "5.060056"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004794",
+        "total_seconds": "5.062041"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005137",
+        "total_seconds": "5.148761"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 6,
+      "at": "2026-09-09T14:38:04.140065+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 88,
+        "beat_ttl": 88
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004164",
+        "total_seconds": "5.052703"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003380",
+        "total_seconds": "5.051024"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002329",
+        "total_seconds": "5.152801"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 7,
+      "at": "2026-09-09T14:38:24.143229+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 68
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004289",
+        "total_seconds": "5.052597"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004311",
+        "total_seconds": "5.054528"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002500",
+        "total_seconds": "5.199094"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 8,
+      "at": "2026-09-09T14:38:44.141980+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 78
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005681",
+        "total_seconds": "5.054363"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004709",
+        "total_seconds": "5.055035"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002889",
+        "total_seconds": "5.151907"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 9,
+      "at": "2026-09-09T14:39:04.150991+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 89,
+        "beat_ttl": 88
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004594",
+        "total_seconds": "5.060295"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003103",
+        "total_seconds": "5.050206"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003318",
+        "total_seconds": "5.152133"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 10,
+      "at": "2026-09-09T14:39:24.152619+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 90,
+        "beat_ttl": 68
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005765",
+        "total_seconds": "5.056244"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.007200",
+        "total_seconds": "5.053668"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003611",
+        "total_seconds": "5.152042"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 11,
+      "at": "2026-09-09T14:39:44.158439+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 90,
+        "beat_ttl": 78
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.004593",
+        "total_seconds": "5.053787"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003650",
+        "total_seconds": "5.052044"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.003237",
+        "total_seconds": "5.147239"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    },
+    {
+      "sample": 12,
+      "at": "2026-09-09T14:40:04.168100+00:00",
+      "backend": {
+        "ready_status": 200,
+        "ready": "ready",
+        "redis_ping": true,
+        "redis_role": "master",
+        "replicas": 2,
+        "worker_ttl": 88,
+        "beat_ttl": 88
+      },
+      "cni": {
+        "kindnet-rrhgh": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-znz6d": {
+          "exit": 0,
+          "netlink_errors": 0
+        },
+        "kindnet-4zc4p": {
+          "exit": 0,
+          "netlink_errors": 0
+        }
+      },
+      "login": {
+        "path": "/login",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.005123",
+        "total_seconds": "5.055323"
+      },
+      "health": {
+        "path": "/api/backend/health",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002469",
+        "total_seconds": "5.052119"
+      },
+      "ready": {
+        "path": "/api/backend/ready",
+        "exit": 0,
+        "status": "200",
+        "dns_seconds": "5.002692",
+        "total_seconds": "5.144371"
+      },
+      "restarts_unchanged": true,
+      "pass": true
+    }
+  ],
+  "initial_acceptance_pods": [
+    {
+      "name": "nomosmart-local-backend-6d6bfbd467-8d8xt",
+      "uid": "18f0d601-06a5-42ec-80de-1e020fbf8717",
+      "ready": true,
+      "restarts": {
+        "backend": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-beat-7f6955cb54-shr4p",
+      "uid": "9f5e1e45-04b5-40eb-b4f8-e2c57d600957",
+      "ready": true,
+      "restarts": {
+        "beat": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-frontend-784546679c-6n2dg",
+      "uid": "d9a1be2e-22f0-4b2d-9e3b-28d370c82475",
+      "ready": true,
+      "restarts": {
+        "frontend": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-keycloak-7bfb457bc9-v2bnz",
+      "uid": "16c11d92-61ff-4cc2-8e56-05a10434c4ab",
+      "ready": true,
+      "restarts": {
+        "keycloak": 8
+      }
+    },
+    {
+      "name": "nomosmart-local-neo4j-0",
+      "uid": "2dad9e11-ddf6-427e-a733-ef609fb71cf0",
+      "ready": true,
+      "restarts": {
+        "neo4j": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-opensearch-0",
+      "uid": "5bfa09d3-b69e-48b0-a8bc-b9ad31e6aa7b",
+      "ready": true,
+      "restarts": {
+        "opensearch": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-postgresql-0",
+      "uid": "83e48efc-56e4-4cda-81da-e9117acb9ef6",
+      "ready": true,
+      "restarts": {
+        "postgresql": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-0",
+      "uid": "45d22a7c-4378-4ca1-be97-6879235a7446",
+      "ready": true,
+      "restarts": {
+        "redis": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-1",
+      "uid": "bf66c8f4-ee03-4589-b7ba-f4e8d31b0ade",
+      "ready": true,
+      "restarts": {
+        "redis": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-2",
+      "uid": "cd238b6a-bdc5-4a8d-9279-091ea6a24503",
+      "ready": true,
+      "restarts": {
+        "redis": 7
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-dgj4r",
+      "uid": "4cfa7ab8-9572-4aac-9e23-944b8a623ada",
+      "ready": true,
+      "restarts": {
+        "sentinel": 28
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-frxzp",
+      "uid": "0dfafae1-42e6-4daa-acaa-ebe9276820d2",
+      "ready": true,
+      "restarts": {
+        "sentinel": 191
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-qhgsb",
+      "uid": "0baae7e1-25a3-4072-af5c-5e200b251158",
+      "ready": true,
+      "restarts": {
+        "sentinel": 38
+      }
+    },
+    {
+      "name": "nomosmart-local-rustfs-0",
+      "uid": "2724f173-a167-4e5e-b427-17a8786a8f71",
+      "ready": true,
+      "restarts": {
+        "rustfs": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-worker-56557dcd64-k6mq7",
+      "uid": "e1feecb2-2702-4c97-be1e-fdb05d381e47",
+      "ready": true,
+      "restarts": {
+        "worker": 205
+      }
+    }
+  ],
+  "final_acceptance_pods": [
+    {
+      "name": "nomosmart-local-backend-6d6bfbd467-8d8xt",
+      "uid": "18f0d601-06a5-42ec-80de-1e020fbf8717",
+      "ready": true,
+      "restarts": {
+        "backend": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-beat-7f6955cb54-shr4p",
+      "uid": "9f5e1e45-04b5-40eb-b4f8-e2c57d600957",
+      "ready": true,
+      "restarts": {
+        "beat": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-frontend-784546679c-6n2dg",
+      "uid": "d9a1be2e-22f0-4b2d-9e3b-28d370c82475",
+      "ready": true,
+      "restarts": {
+        "frontend": 3
+      }
+    },
+    {
+      "name": "nomosmart-local-keycloak-7bfb457bc9-v2bnz",
+      "uid": "16c11d92-61ff-4cc2-8e56-05a10434c4ab",
+      "ready": true,
+      "restarts": {
+        "keycloak": 8
+      }
+    },
+    {
+      "name": "nomosmart-local-neo4j-0",
+      "uid": "2dad9e11-ddf6-427e-a733-ef609fb71cf0",
+      "ready": true,
+      "restarts": {
+        "neo4j": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-opensearch-0",
+      "uid": "5bfa09d3-b69e-48b0-a8bc-b9ad31e6aa7b",
+      "ready": true,
+      "restarts": {
+        "opensearch": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-postgresql-0",
+      "uid": "83e48efc-56e4-4cda-81da-e9117acb9ef6",
+      "ready": true,
+      "restarts": {
+        "postgresql": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-0",
+      "uid": "45d22a7c-4378-4ca1-be97-6879235a7446",
+      "ready": true,
+      "restarts": {
+        "redis": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-1",
+      "uid": "bf66c8f4-ee03-4589-b7ba-f4e8d31b0ade",
+      "ready": true,
+      "restarts": {
+        "redis": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-2",
+      "uid": "cd238b6a-bdc5-4a8d-9279-091ea6a24503",
+      "ready": true,
+      "restarts": {
+        "redis": 7
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-dgj4r",
+      "uid": "4cfa7ab8-9572-4aac-9e23-944b8a623ada",
+      "ready": true,
+      "restarts": {
+        "sentinel": 28
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-frxzp",
+      "uid": "0dfafae1-42e6-4daa-acaa-ebe9276820d2",
+      "ready": true,
+      "restarts": {
+        "sentinel": 191
+      }
+    },
+    {
+      "name": "nomosmart-local-redis-sentinel-6c9d8ddd7c-qhgsb",
+      "uid": "0baae7e1-25a3-4072-af5c-5e200b251158",
+      "ready": true,
+      "restarts": {
+        "sentinel": 38
+      }
+    },
+    {
+      "name": "nomosmart-local-rustfs-0",
+      "uid": "2724f173-a167-4e5e-b427-17a8786a8f71",
+      "ready": true,
+      "restarts": {
+        "rustfs": 4
+      }
+    },
+    {
+      "name": "nomosmart-local-worker-56557dcd64-k6mq7",
+      "uid": "e1feecb2-2702-4c97-be1e-fdb05d381e47",
+      "ready": true,
+      "restarts": {
+        "worker": 205
+      }
+    }
+  ],
+  "protected": {
+    "before_sha256": "446a14c7a60a177f19e97de6375a5810027424e4a8fee0c61491a10ce4e77613",
+    "after_sha256": "446a14c7a60a177f19e97de6375a5810027424e4a8fee0c61491a10ce4e77613",
+    "equal": true,
+    "kindnet": {
+      "uid": "58f87511-54ac-4d1e-ae09-0cd2e40f779e",
+      "generation": 1,
+      "spec_sha256": "0a31b6f84cc90a656a4c60b15ee8a8c9bd0250c413bcc95b5d33050fc0656f35",
+      "ready": 3
+    },
+    "preflight_compatible_cluster_snapshot": {
+      "backend_pods": [
+        {
+          "images": [
+            {
+              "image_id": "docker.io/nomosmart/backend@sha256:465a14eee6601d91a419840a951e9cb0347c4c9d7099c4891bd0c78bdf8fcff5",
+              "name": "backend",
+              "ready": true
+            }
+          ],
+          "name": "nomosmart-local-backend-6d6bfbd467-8d8xt",
+          "phase": "Running",
+          "uid": "18f0d601-06a5-42ec-80de-1e020fbf8717"
+        }
+      ],
+      "configmaps": [
+        {
+          "data_sha256": "da5463607dae1e4d71531f3bd9d6222b7e39bf57412d0a09bded560e19143fe8",
+          "name": "nomosmart-local-compatibility",
+          "uid": "a14758be-0bbb-4980-8509-38edd7c09db9"
+        },
+        {
+          "data_sha256": "80b691149df1e77c2d87869a1e9dac6b8da54b6d6e56048f38283fb5c4752c41",
+          "name": "nomosmart-local-config",
+          "uid": "0feaa1d2-d161-4647-bdfd-62466aae8d18"
+        },
+        {
+          "data_sha256": "29dd3f850577de1e7fbfd6270d8c0b4d72f5336aa52ad4ce7444d8ece2d352e0",
+          "name": "nomosmart-local-postgresql-init",
+          "uid": "7134b716-8a4b-4f14-a935-bca385e8484e"
+        }
+      ],
+      "image_ids": {
+        "nomosmart/backend:0.1.0-chg292": "sha256:1576f33a536227708f33d02d488533efd66abe2b0425e51d1dd2e17e898eeea1",
+        "nomosmart/frontend:0.1.0-chg292": "sha256:82df26d3807ebc3904826135ae61f10aaf3a6a2a6a5464d2d822638a7935bbd9",
+        "nomosmart/migrations:0.1.0-chg288": "sha256:bf9cb98e13bc396210a0a82bd785e602bde14ae4e240ca5f81fc9b9c0d4dafab"
+      },
+      "ingresses": [
+        {
+          "allowlist": "127.0.0.1/32,10.244.0.0/16",
+          "annotations_sha256": "723f81be5ab5f7bbbbce530f9adafb35db0b55b0cba78b81a803be643f6260ab",
+          "name": "nomosmart-local",
+          "spec_sha256": "8cc65a5bef0fed176ec7317d85cd67746ff7d73abcf069be26686ec0144efc4f",
+          "uid": "ca265ba3-b664-4dd7-ac66-fe50962dfdb2"
+        },
+        {
+          "allowlist": "127.0.0.1/32,10.244.0.0/16",
+          "annotations_sha256": "175187d9c3563ca0a823b5708dd149b7b4aea40ee6f9e9cd35e16f00f819daea",
+          "name": "nomosmart-local-keycloak-admin",
+          "spec_sha256": "74d01b4c2a78de589e2867bead155ee739b9ca126039d08abe4bb8c440e55061",
+          "uid": "fafc437c-9685-4e2f-ba12-59991ef496fa"
+        }
+      ],
+      "jobs": [
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-10",
+          "spec_sha256": "c0f7142bee1685e3357019ffee9a2a3b532f9656b6955dad65abb43f585c1329",
+          "succeeded": 1,
+          "uid": "75083744-f182-4ea9-879f-dc3693c88ad2"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-11",
+          "spec_sha256": "6a12285c0fc7fddb70d25cebd3a4c93c862cf99dd96a975b72b7aee166c23046",
+          "succeeded": 1,
+          "uid": "c5ad534b-32af-46c9-85f6-9e46a3e02165"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-12",
+          "spec_sha256": "95634bab4c05f28d79bfca761c70cc1408bbaa43609a6712a6a70f53c8306989",
+          "succeeded": 1,
+          "uid": "51fd3507-f4cc-4a7b-8203-b5ebdcff8dec"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-13",
+          "spec_sha256": "131d71a808e3d4fbf5d255d0cf3103f4c3d8430243ea417e46c00c2d3658c0b0",
+          "succeeded": 1,
+          "uid": "815d4854-11c6-4897-8758-568d910a4e96"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-14",
+          "spec_sha256": "b157c6327d189d223f5e0be750587df61d9555a457ece84dc5468e7c83eb6cda",
+          "succeeded": 1,
+          "uid": "379c57fc-c0ff-4f13-91ed-54e684eb8839"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-15",
+          "spec_sha256": "119e8b9088b832450c774e10c372e34befadbfdc570006abf5d1d429659c1dd1",
+          "succeeded": 1,
+          "uid": "1b27d90f-b725-4f98-b8a7-a787794c9f9c"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-16",
+          "spec_sha256": "f9b9e88ff5307c63552abc9c6e88967547e982a39c8ce90f1f4a9e6d9cd5fbcb",
+          "succeeded": 1,
+          "uid": "4ec16681-2608-426b-a884-8be9d02f1c27"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-17",
+          "spec_sha256": "15477aa93eceef06cc6382ee0e583a30ca1b7729fd4b3930043ae7e4081c4979",
+          "succeeded": 1,
+          "uid": "ce7ff3f7-a26d-4695-ba8e-99c0cb3bd6bd"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-18",
+          "spec_sha256": "5374eec42c4fa6a24f7c5f675eb7ffce12320dc1c6d675c79eea6d6df5e6d8be",
+          "succeeded": 1,
+          "uid": "a3bcc57c-2fdb-4b43-a58b-be369f181351"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-19",
+          "spec_sha256": "68985722e0bb51256c71b02cfe836b46ca3fb6d76cfec7a1b445dbf4634d5d22",
+          "succeeded": 1,
+          "uid": "57f3de2e-fd5f-4f9f-b2f3-70f69c010c70"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-20",
+          "spec_sha256": "f5cd3517913114ae6e40c7e8315c742adf85de706cf8f7af99e27c5742f6ae27",
+          "succeeded": 1,
+          "uid": "4b42de7e-569d-412c-8339-e0cee95e949f"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-21",
+          "spec_sha256": "deda7e67fcd79b79d13fd776ec5b37f27f1d6a95460b426a0b1a306f12f85541",
+          "succeeded": 1,
+          "uid": "0b96687e-7a64-44e5-b284-e7a4c51322fa"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-23",
+          "spec_sha256": "c6dcbcb4bded6e73ce0191ae6634191c1c0e92a3b02c79d7d4cb84e4a4c5e567",
+          "succeeded": 1,
+          "uid": "b842ebb4-c43a-452b-9a6b-e3f55663e6fe"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-24",
+          "spec_sha256": "d89d0e01156cb8854051e57f711846cfbb83daa7d5a4521998acf3ecf49354e7",
+          "succeeded": 1,
+          "uid": "0fb70e83-1c1a-4de9-bb2d-eae96b64133b"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-25",
+          "spec_sha256": "a997a31f03b93b5e5b31e5032c902bc5ad41687169a722b3b949916b980d4bde",
+          "succeeded": 1,
+          "uid": "5d17b29d-a1bb-4993-96b5-7a042673e1b7"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-26",
+          "spec_sha256": "2948827401abccc27b15633d64671aae07a8a3d4e11211ac6b3b0232ea95b290",
+          "succeeded": 1,
+          "uid": "2121d3fa-8424-4621-ab1f-972b0a338159"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-27",
+          "spec_sha256": "a1bc10878c027aa22bda26426cddacfc533441273d719693581fec3af6c70500",
+          "succeeded": 1,
+          "uid": "6fd52699-c696-48a7-b995-722ba5509a0a"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-28",
+          "spec_sha256": "5ef5981d8ac0a767c71beccf859547c256266192286ef22c3b418b2cd38d6c87",
+          "succeeded": 1,
+          "uid": "79204c92-42ac-49e3-8121-2c74f3a04d29"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-29",
+          "spec_sha256": "70917574cedf4e8970304d092042ab0af17da560663bf1293e165d4c524fea74",
+          "succeeded": 1,
+          "uid": "a05e7de4-36ea-44b7-babe-223103de94e2"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-30",
+          "spec_sha256": "47f78c69d5c959ad63e16ba9d833923d35dc70445714b101855aa4750a1e52f7",
+          "succeeded": 1,
+          "uid": "db57139b-e7ce-45f8-a09c-56c0d2b954f1"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-31",
+          "spec_sha256": "512c23cc9664e38bf311674f822dafb20ff29b0a7dca0678bbf0818396a1e408",
+          "succeeded": 1,
+          "uid": "4dd7be46-eeae-4096-87f1-88e0ce5c6d33"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-32",
+          "spec_sha256": "c8cb829ef48c4eefe26d402f6c7f0ae2aed515a055dca44fa936db598d71a4ae",
+          "succeeded": 1,
+          "uid": "7d295018-f5a9-4017-921d-f796da95e38c"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-33",
+          "spec_sha256": "41dade64b370aa97b80be482712e9db9ff261a486d6a7315d1afa9ad6291d565",
+          "succeeded": 1,
+          "uid": "fbf4d1d3-7070-487a-b6ba-cdaecd778663"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-34",
+          "spec_sha256": "58072add7124eaa442d79a3196eb867df376964e1cc4166bbe04103c08f2d51c",
+          "succeeded": 1,
+          "uid": "5acb8f7d-29b5-4845-b7a6-050cc73fb338"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-35",
+          "spec_sha256": "7e6c0e9604a4d87841efa4b2e962e7754e52a1138a61f57fa2c6a3a19163262f",
+          "succeeded": 1,
+          "uid": "62d3d409-d870-4ddb-b314-33f00118a577"
+        },
+        {
+          "active": 0,
+          "failed": 4,
+          "name": "nomosmart-local-bootstrap-5",
+          "spec_sha256": "6718256e1c887710bf9cd677ee9938becdf7e4b96da3ecb467156874499fa0d1",
+          "succeeded": 0,
+          "uid": "764b7fa8-8b72-40aa-a6a5-b1c1b51cf598"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-8",
+          "spec_sha256": "a6173f51694d2e5e9baf5bce10c3a2a924195399c686f4023341385f5498834e",
+          "succeeded": 1,
+          "uid": "b71d516f-1c26-4a4c-be96-cb75587ced2e"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-bootstrap-9",
+          "spec_sha256": "c48438db46449a9044f6c7804dea97c8a0aa25cab25b81d1c2fcb0e21e291006",
+          "succeeded": 1,
+          "uid": "97a178d4-2bcd-4cef-9e99-5787fcda5df8"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-10",
+          "spec_sha256": "ee56cce35b8078997fd479af613002caf88b26aedb917b87b92ad05cadd23683",
+          "succeeded": 1,
+          "uid": "a9de4621-ab36-4721-bfec-7a9275c18ebc"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-11",
+          "spec_sha256": "63574e1d738ff1860337c0d29b3f03f19d1e329526463a5a2918ab8e6b21915f",
+          "succeeded": 1,
+          "uid": "1e8bb4af-b63a-47cf-b7d2-c1ddc4ba491f"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-12",
+          "spec_sha256": "45dcbb312b4836f98d9f375eb20802e70dc4d420b8a29475525235db68500594",
+          "succeeded": 1,
+          "uid": "21503b76-1be8-44dc-8950-3025f3cf7cae"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-13",
+          "spec_sha256": "8ef9f47445750d56ba0dda7a2ed11bbe9862555514903a0a4a2f32daab0d0660",
+          "succeeded": 1,
+          "uid": "2bca7147-7a33-47b7-b8ed-288218feadc0"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-14",
+          "spec_sha256": "7f9386b69164b9af9063ef95af42bdd786ee05a1785e1238c6a2f9bb74da2590",
+          "succeeded": 1,
+          "uid": "33643e96-702e-4736-bdd1-85b33fb80a02"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-15",
+          "spec_sha256": "8528cc5a1482869c37f3a45a0e5b4607ec4da77b5c666c807c0127ea6c884cf0",
+          "succeeded": 1,
+          "uid": "e3a9d81d-b128-42da-8571-e0a52ec20c50"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-16",
+          "spec_sha256": "45b22dde0640e7a46b433e998991efd24e09b2a1a68bddf05b079b76de392c84",
+          "succeeded": 1,
+          "uid": "07e3189f-f7a3-455b-8322-c66790248bf0"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-17",
+          "spec_sha256": "51279010ace77cb46701075fbb44eec7b3f14e98db0033d3848b4ca149632493",
+          "succeeded": 1,
+          "uid": "06271668-4acf-423e-bb56-2b167f2c440c"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-18",
+          "spec_sha256": "86e45d00adf64cde091319f9c07d1d8e7490359c421c0ac0dd3e05ed8eec6653",
+          "succeeded": 1,
+          "uid": "cc6e7601-bf75-44e4-b252-089e98f8a0f4"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-19",
+          "spec_sha256": "557eaa1b0887a692b70cd65b1735f57dfb4d095492238e376eba051b3c62e4a0",
+          "succeeded": 1,
+          "uid": "1fc4ee16-893d-4f80-9b86-920cb1dfe8c1"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-20",
+          "spec_sha256": "07211f2d57a9d4133043897d62ef799fb08dc0779b9bcc84d431659b412b3c8b",
+          "succeeded": 1,
+          "uid": "39db77b5-bb57-4f2d-93a0-cd28f2c116c8"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-21",
+          "spec_sha256": "a1e80fb4509dc9d5e609360ca209c9cc94f517c62df155091c91861b29a1b551",
+          "succeeded": 1,
+          "uid": "9890b8d3-6e13-4a21-bdab-3f9bbde961f1"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-23",
+          "spec_sha256": "dbb51bdb122c8c50fb48f833571ddb4a7232d791c2ff6ac703b2bfcd53b819d9",
+          "succeeded": 1,
+          "uid": "789ce63c-d699-4811-ae23-7da151dcce33"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-24",
+          "spec_sha256": "6f9763fce85eae9c17693a8f6b7b5256293a090021b0899cd3116f10fa0e98be",
+          "succeeded": 1,
+          "uid": "83a15c39-4cf6-4944-9076-2a76ce602e7f"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-25",
+          "spec_sha256": "163c449d878c9911b1d5299ade36a01e7f4d39235fa3b2c80e78e0e0011807d7",
+          "succeeded": 1,
+          "uid": "88a60cde-c188-49ef-a487-d50a7fb5a93d"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-26",
+          "spec_sha256": "13ef56b3ce197d36bcbd40a7470d090d4c853d7ce248697bba5dbc09b25af573",
+          "succeeded": 1,
+          "uid": "4f900d91-7a28-481b-8b23-a9aaa658f5ea"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-27",
+          "spec_sha256": "45ea81b417716c6387cd5c85c2ff8f6aa6f696f15ec1e5e9d34bd776ece00bdc",
+          "succeeded": 1,
+          "uid": "88cb0b51-22a1-449b-8437-9ea928353c80"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-28",
+          "spec_sha256": "aa607ba9941807a468a5e0beb4847388b7a36450786e8cd5a35dc45f1c7f4eab",
+          "succeeded": 1,
+          "uid": "75a48744-b25a-4e35-89bd-a9a6ed60310c"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-29",
+          "spec_sha256": "5189a85eb96004e56105b6ba95520a1bb8679a0a30220827b17b918f52dff230",
+          "succeeded": 1,
+          "uid": "2dbed507-ad43-42ab-bd50-57ae9c8232b6"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-30",
+          "spec_sha256": "1d6e2312101473af111b4eab0492c9b0f88556824777a34ff8c8b16d054a5c38",
+          "succeeded": 1,
+          "uid": "e8e15c62-2097-4864-8b72-f2db9f1d10a1"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-31",
+          "spec_sha256": "c0ed93e575bbb1b43575183c757edfa8af55434071f40ed1e8c9b70db1e411da",
+          "succeeded": 1,
+          "uid": "5957c16c-daa6-41ce-ba7e-7fe50d1f7670"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-32",
+          "spec_sha256": "92a42efb60a22f6b771443b564e603f31ef8371a68520ee05cc31a2abe6c91de",
+          "succeeded": 1,
+          "uid": "59d4baaf-0959-4732-b32c-896bde5b3a67"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-33",
+          "spec_sha256": "af6646eedc548c9ae1fcee456aba02a964524338dbec39beec4db8aaabbbc6b1",
+          "succeeded": 1,
+          "uid": "3d3cb2f5-b0e3-4446-8914-d52512008887"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-34",
+          "spec_sha256": "b0b15291d68ecff4ce208423f2e9115383523a92c1d93d6903845a05174865b6",
+          "succeeded": 1,
+          "uid": "511a113f-c5c7-4fc6-baa3-660e59fc580c"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-35",
+          "spec_sha256": "534d0b04f9f1da817c62884cd18c0ba179a67b2aef79cda558b39e4d26be2fc0",
+          "succeeded": 1,
+          "uid": "6508be23-f50e-4036-ba84-dfa2d53ad5d1"
+        },
+        {
+          "active": 0,
+          "failed": 2,
+          "name": "nomosmart-local-migration-5",
+          "spec_sha256": "9ca782afc287b188ee516fa044b850225bcc867e8f62604cb3e5c2c5bbfba3a0",
+          "succeeded": 0,
+          "uid": "a3f54138-d662-4a5e-be7d-646c0505284d"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-6",
+          "spec_sha256": "063119caadd919a740c8154d643ecad422ca0cbffa4405725e740a3383fbf0a7",
+          "succeeded": 1,
+          "uid": "83485777-17a6-44d8-b1b9-773dc1c6c6ff"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-7",
+          "spec_sha256": "63304ea1e7df23f85a292f9e1e0c47363e0db45b5096a767d71689ef4e56637e",
+          "succeeded": 1,
+          "uid": "0648cd7b-b0a3-452e-95af-46d094a76886"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-8",
+          "spec_sha256": "e1b58ff822420af337627a4a7b96e195cf598f90795ef7b8de9487a90ba76e3e",
+          "succeeded": 1,
+          "uid": "9b21c654-e93f-4dbe-8667-2022259a493b"
+        },
+        {
+          "active": 0,
+          "failed": 0,
+          "name": "nomosmart-local-migration-9",
+          "spec_sha256": "ed98a291183f317e2e779238a1fa8acc2e467d2de75efbca06bb597907fa6646",
+          "succeeded": 1,
+          "uid": "d176b28e-7b97-4195-985b-ac3091648e47"
+        }
+      ],
+      "mode": "read_only",
+      "observed_at": "2026-09-09T14:38:42.051062+00:00",
+      "protected_resources_sha256": "3663917ffdeb0337847683471c5aaaf8d9b55b6ed77ab791e4f41c45a936f505",
+      "pvc_pv": [
+        {
+          "pv_name": "pvc-1ce542d8-6959-4219-9e29-a09cfbfe9d03",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "113d6cff4ac05e926fc851d292b70ee85c34cd4495abd1badf0e7eab50786c01",
+          "pv_uid": "a3b7f7d5-496c-4500-82c7-f1360ce49611",
+          "pvc_name": "data-nomosmart-local-neo4j-0",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "6e36b47e9c57d63cc1498625b6e3045dadfb774ca73096025d8b0ddd6534a0d3",
+          "pvc_uid": "1ce542d8-6959-4219-9e29-a09cfbfe9d03"
+        },
+        {
+          "pv_name": "pvc-77442aee-1cfb-4d05-9f58-a77340da7934",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "aac585e2f4f0fd4dc8e98560d5bcb5fa966a96c42e14f06dd20c8fa2980a251f",
+          "pv_uid": "09e51433-d6c2-4a0c-abaf-cfd192cc66f3",
+          "pvc_name": "data-nomosmart-local-opensearch-0",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "6aec2a99860cb25ac6280cd763a2e2e150e9c78b73e9bd3ff94003f16b7de2eb",
+          "pvc_uid": "77442aee-1cfb-4d05-9f58-a77340da7934"
+        },
+        {
+          "pv_name": "pvc-ba4557f1-8eb8-4931-8fc7-f119453eff4e",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "c3e0539bce7951c29fd785138d206805d9d81b2e413a003d14113ad08e00f50d",
+          "pv_uid": "17d67f1c-3efc-45bb-91ad-900137d1a3fe",
+          "pvc_name": "data-nomosmart-local-postgresql-0",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "e9a6c5c337a3d7bc42d7427b4aa13af7a9f4552439e99f92b955452f365c5558",
+          "pvc_uid": "ba4557f1-8eb8-4931-8fc7-f119453eff4e"
+        },
+        {
+          "pv_name": "pvc-f90f5d48-770e-471f-9e1d-515cc8cdc63b",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "f246abecd557f763adfc8f50b79ceb88196b58ea17682f49207e32fdd3c4e5f2",
+          "pv_uid": "026b5600-f79c-42a9-bbf0-184f6cb772fe",
+          "pvc_name": "data-nomosmart-local-redis-0",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "a0374c7be59029a4297adf652d4224afd119da897d99211ddc3f2ca31f92723d",
+          "pvc_uid": "f90f5d48-770e-471f-9e1d-515cc8cdc63b"
+        },
+        {
+          "pv_name": "pvc-08916bbd-5f85-465d-95d3-5a542a754f72",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "af4bf0c05f2c20d14f3643b58486891010cc17d8a3c06dcfbdcd80de4d75f8f4",
+          "pv_uid": "b2648d1d-4cc0-45cc-928a-1650bd1f395e",
+          "pvc_name": "data-nomosmart-local-redis-1",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "80d185ea94969c1102040cef1becf3992a60d5880f6f45775577f796c4d0a29c",
+          "pvc_uid": "08916bbd-5f85-465d-95d3-5a542a754f72"
+        },
+        {
+          "pv_name": "pvc-97b811d8-0d82-46d5-9dcd-29a4fefa53a8",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "bef5fed377e33d93f642befd4f0a09e7abd6071e44bc53a90b94993c8acf971b",
+          "pv_uid": "4dde3ccd-0804-4520-bf3c-11cc4709af46",
+          "pvc_name": "data-nomosmart-local-redis-2",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "716e1e3081aaccc6336ee1294f8250b301d50fe823c70c5e9a5db59bfe2a2d7f",
+          "pvc_uid": "97b811d8-0d82-46d5-9dcd-29a4fefa53a8"
+        },
+        {
+          "pv_name": "pvc-2ad76d06-e62c-43ab-b94e-51768c5f691e",
+          "pv_phase": "Bound",
+          "pv_spec_sha256": "b53f62a68d7b55778e840e765cb04b19df3417fc9e086717d9ce85ef8d00f738",
+          "pv_uid": "7a3005ff-e58e-4fcd-808a-61109e0cb3c2",
+          "pvc_name": "data-nomosmart-local-rustfs-0",
+          "pvc_phase": "Bound",
+          "pvc_spec_sha256": "8e59c280fa318c863fd744a5a972290690cb933b346e485c541335806539d6d2",
+          "pvc_uid": "2ad76d06-e62c-43ab-b94e-51768c5f691e"
+        }
+      ],
+      "pvc_pv_sha256": "55080d5ad353b80a91655dd05c0fdbc257b153a8b59032749431aac469e5531e",
+      "release": {
+        "bootstrap": {
+          "activeDeadlineSeconds": 1200,
+          "backoffLimit": 3,
+          "deploymentPhase": "factory_acceptance",
+          "keycloakMode": "manage",
+          "waitSeconds": 600
+        },
+        "compatibility": {
+          "applicationContract": "nomosmart-1",
+          "publicApiContract": "v1-scoped-graph-idempotent",
+          "schemaContract": "forward-v047",
+          "securityContract": "chg260-mounted-secrets-password-only"
+        },
+        "revision": 35,
+        "status": "deployed",
+        "values_sha256": "019eeed496ad5f6034258caaa2c1b09ad43c8e294b61fbddcce62bf46f469c57"
+      },
+      "secrets": [
+        {
+          "data_sha256": "adbac7aa08730888a960573b2b67c1973bd8bb4ab27a93bac21797da44d6703e",
+          "name": "nomosmart-directory-ca",
+          "type": "Opaque",
+          "uid": "01bc761f-3a47-423b-9095-e3846a778a3f"
+        },
+        {
+          "data_sha256": "c5882876a22837d3bd197de252039296784dea00a4ad400aa0d435d23cc1587f",
+          "name": "nomosmart-local-secrets",
+          "type": "Opaque",
+          "uid": "1c97c03f-a53e-4bae-9ad5-c1c22d9aecca"
+        },
+        {
+          "data_sha256": "d9e82c435a807414362718153c112c7615264b55f09d7b8b329a3abc89ca560d",
+          "name": "nomosmart-opensearch-tls",
+          "type": "Opaque",
+          "uid": "4585f964-5c90-431d-8c49-204d99062f2e"
+        },
+        {
+          "data_sha256": "25ecde6c6fd39f4418443b5a6508c0251008c67d6fc6355ddfa570620c6879f7",
+          "name": "nomosmart-redis-tls",
+          "type": "Opaque",
+          "uid": "63d284e7-8583-474f-9b46-60c82e549cb8"
+        },
+        {
+          "data_sha256": "1246fa607c6538c943a5f7e6270e75b9e6344322adbbf9f148b75bf5f3f2942b",
+          "name": "nomosmart-rustfs-tls",
+          "type": "Opaque",
+          "uid": "92a7d4c6-2fee-4b0d-a798-1a1fb6250c73"
+        }
+      ],
+      "workloads": [
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "deployment-readiness"
+            },
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "backend"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-backend",
+          "ready": 1,
+          "spec_sha256": "c1678e870754a035782bd29270e66bd5a1b07c8eed57f30dcebfcf7787084902",
+          "uid": "eacc0392-3841-4d05-9bcf-0059f4a277c2"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "deployment-evidence"
+            },
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "beat"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-beat",
+          "ready": 1,
+          "spec_sha256": "3ff17362952ce3ab9bad64f981a2d8807c1cead7b8d68300245041fd17010418",
+          "uid": "af994cdb-aaee-4f69-adc9-79592d47321f"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "backend-readiness"
+            },
+            {
+              "image": "nomosmart/frontend:0.1.0-chg291",
+              "name": "frontend"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-frontend",
+          "ready": 1,
+          "spec_sha256": "c7a65f17cb3b8e53d9755a240fed1b946f178512ca50f616771652bfbc43271d",
+          "uid": "f868a705-c387-4db6-9496-e340228b9879"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/keycloak:26.0.8",
+              "name": "keycloak"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-keycloak",
+          "ready": 1,
+          "spec_sha256": "2b3cbdb22003fb251e3be1b082c9850b91f39d162bcd98c7a740b489edb7b4a4",
+          "uid": "c6c02c7e-d610-4c08-9625-ee39afdd9991"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "neo4j:5.26.4-community",
+              "name": "neo4j"
+            }
+          ],
+          "kind": "StatefulSet",
+          "name": "nomosmart-local-neo4j",
+          "ready": 1,
+          "spec_sha256": "3b4173c7db45a1732fa8f51c8ac3f3deaa2f5d8663363616084b476ee72760c9",
+          "uid": "0b1750bd-7833-4da1-bed0-3b966b8eee50"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/opensearch:2.19.6-repository-s3",
+              "name": "opensearch"
+            }
+          ],
+          "kind": "StatefulSet",
+          "name": "nomosmart-local-opensearch",
+          "ready": 1,
+          "spec_sha256": "24aab6a9ce8b1ed02730277e3dedfaf4bdd903ce81cc87cbdaadc2498ea04aa6",
+          "uid": "7571a65f-20b5-4ea8-a8b6-d040302d7c9e"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/postgresql:18.4",
+              "name": "postgresql"
+            }
+          ],
+          "kind": "StatefulSet",
+          "name": "nomosmart-local-postgresql",
+          "ready": 1,
+          "spec_sha256": "e5dd45363f6cea3fb8c225325c29e117721f967540fceb7e291c351f47fd3c65",
+          "uid": "9e24daa1-67b1-47bb-b34a-be357abd9e29"
+        },
+        {
+          "desired": 3,
+          "images": [
+            {
+              "image": "redis:7.4.2-alpine",
+              "name": "redis"
+            }
+          ],
+          "kind": "StatefulSet",
+          "name": "nomosmart-local-redis",
+          "ready": 3,
+          "spec_sha256": "f74195579db072f3b5495861a440f4e967d9f0735f1822a469f0d15afebf515a",
+          "uid": "27c1f8f4-c193-4dff-99bf-b0327bfe7e69"
+        },
+        {
+          "desired": 3,
+          "images": [
+            {
+              "image": "redis:7.4.2-alpine",
+              "name": "sentinel"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-redis-sentinel",
+          "ready": 3,
+          "spec_sha256": "0b775b9a667f0fd498481f59596d588ddd5926e3c2fc247ee1802f4495fc5d7f",
+          "uid": "48cad742-418d-4d92-9687-1b659e292457"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/rustfs:1.0.0-beta.10",
+              "name": "rustfs"
+            }
+          ],
+          "kind": "StatefulSet",
+          "name": "nomosmart-local-rustfs",
+          "ready": 1,
+          "spec_sha256": "2a83f8e918b70bcff18f9ea654346f13a1023a071c15c7faaa55cf0ed2ddf649",
+          "uid": "0db32319-1c60-46df-bb23-e9225bab2846"
+        },
+        {
+          "desired": 1,
+          "images": [
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "deployment-evidence"
+            },
+            {
+              "image": "nomosmart/backend:0.1.0-chg291",
+              "name": "worker"
+            }
+          ],
+          "kind": "Deployment",
+          "name": "nomosmart-local-worker",
+          "ready": 1,
+          "spec_sha256": "042a85e267416f4b4f2093590cd73686e9652f82a9fd9065d5b0337549aa097c",
+          "uid": "84cf2775-8ad4-459c-bb4a-a1a49e1ec7ee"
+        }
+      ]
+    }
+  },
+  "data": {
+    "first_successful_recovery_snapshot_at": "2026-09-09T14:33:15.820917+00:00",
+    "final_snapshot_at": "2026-09-09T14:38:54.037342+00:00",
+    "postgres_all_tables_equal": true,
+    "postgres_all_tables_sha256": "9dd711fbc65901f6869dccadde63b9ba77c33b4549ea6fa41456bea6eff94364",
+    "business_tables_sha256": "2f558246ff5c7251c36ba7cde7702550f34a6ad4dc5e6d17c90fd308e5d3b4c4",
+    "tables": {
+      "active_version_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "ai_model_usage_events": {
+        "full_rows_md5": "dd47a710e1cf9abdeb79e712b0df9fe1",
+        "rows": 84
+      },
+      "ai_models": {
+        "full_rows_md5": "5a07e4cbb2a06a58ec85a42d138f845d",
+        "rows": 5
+      },
+      "approval_evidence_manifests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_requests": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "approval_tasks": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "audit_logs": {
+        "full_rows_md5": "e49491f7acd56728de19d8e4080211bf",
+        "rows": 342
+      },
+      "chat_feedback_events": {
+        "full_rows_md5": "c0d7dfd40a95052370b451688f687660",
+        "rows": 2
+      },
+      "chat_records": {
+        "full_rows_md5": "4f30ad8212e7014d2a3d74d62c5a8809",
+        "rows": 11
+      },
+      "chunk_tags": {
+        "full_rows_md5": "179b3bd22ab7204a7a26b50f8edb2727",
+        "rows": 164
+      },
+      "chunks": {
+        "full_rows_md5": "710cdca87f41d578c1b4ee0f40bbdd30",
+        "rows": 38
+      },
+      "data_connections": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "data_sync_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "deployment_bootstrap_evidence": {
+        "full_rows_md5": "10ad94e4cce6a82e68278bb4dfb49208",
+        "rows": 28
+      },
+      "document_reference_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_references": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "document_version_tags": {
+        "full_rows_md5": "e7b42dfa48d7b7eadce6da0e3bb7ea6a",
+        "rows": 16
+      },
+      "document_versions": {
+        "full_rows_md5": "a1becb286596aa23dbbc7314b88879bb",
+        "rows": 3
+      },
+      "documents": {
+        "full_rows_md5": "bf95cfc558006e0bb218ab89c9917181",
+        "rows": 3
+      },
+      "embedding_build_vectors": {
+        "full_rows_md5": "767e853bbef2d1cafbd471e685214cee",
+        "rows": 113
+      },
+      "embedding_builds": {
+        "full_rows_md5": "1b10ecf89e8853b2b1240c3eff9f2222",
+        "rows": 5
+      },
+      "embedding_profiles": {
+        "full_rows_md5": "7bbb11eee2ca82ac7e84c28f0c636d94",
+        "rows": 2
+      },
+      "external_group_role_mappings": {
+        "full_rows_md5": "f2b6fe0fcba84b9cc87e47d77ae77b2f",
+        "rows": 1
+      },
+      "external_group_users": {
+        "full_rows_md5": "1f9730ec7546f5dc238a9df8a13cad80",
+        "rows": 10
+      },
+      "external_groups": {
+        "full_rows_md5": "15f83ae804bc084353629bb1cd5e8b49",
+        "rows": 8
+      },
+      "file_scan_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "graph_sync_jobs": {
+        "full_rows_md5": "2abdbc5d4a142505020c2bfdd58ab9d5",
+        "rows": 3
+      },
+      "idempotency_keys": {
+        "full_rows_md5": "56ebd70af955ecd65d741b92265d44b1",
+        "rows": 6
+      },
+      "identity_reauth_flows": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_settings": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "identity_sync_provider_results": {
+        "full_rows_md5": "0ab734012eeffa6d447935810b2a308b",
+        "rows": 27
+      },
+      "identity_sync_runs": {
+        "full_rows_md5": "73f7d71a062ed382510c7c0ec9747aed",
+        "rows": 124
+      },
+      "identity_unlock_grants": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_client_project_scopes": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "integration_clients": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notification_events": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "notifications": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "outbox_events": {
+        "full_rows_md5": "727879390feb87f0373bf2d4c1d18acf",
+        "rows": 33
+      },
+      "pipeline_run_steps": {
+        "full_rows_md5": "0ad2f85b649fc3a9e244839022bf8dd7",
+        "rows": 48
+      },
+      "pipeline_runs": {
+        "full_rows_md5": "e16976681e59f12a6dfc5daf30182c47",
+        "rows": 3
+      },
+      "project_archive_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "project_members": {
+        "full_rows_md5": "15678e13086bbaffa13ceb03e4008bfb",
+        "rows": 3
+      },
+      "project_owners": {
+        "full_rows_md5": "13caa5eaa68ffc2e69b277b4c74105db",
+        "rows": 1
+      },
+      "projects": {
+        "full_rows_md5": "fcc4d75dd6894b70b6a2fbd26c2215cc",
+        "rows": 1
+      },
+      "public_api_request_logs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "review_records": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "revoked_auth_tokens": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "role_permissions": {
+        "full_rows_md5": "ace69722219251ac1e9397a3473fe91f",
+        "rows": 33
+      },
+      "role_users": {
+        "full_rows_md5": "ba26c209a63d506297613b74f7625836",
+        "rows": 3
+      },
+      "roles": {
+        "full_rows_md5": "5533387584b66511a25bb42477238585",
+        "rows": 2
+      },
+      "session_expired_form_drafts": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "system_parameters": {
+        "full_rows_md5": "cbdc85b4dbcaaab4322bc419a63bfc88",
+        "rows": 4
+      },
+      "system_prompt_versions": {
+        "full_rows_md5": "9eb96e305eca0f98c64a3cc680c21cad",
+        "rows": 3
+      },
+      "system_prompts": {
+        "full_rows_md5": "e08b91843440dfb5d760abd9abe4b002",
+        "rows": 3
+      },
+      "tags": {
+        "full_rows_md5": "938b8519f76c8cf32b783fa13eb68f1c",
+        "rows": 115
+      },
+      "users": {
+        "full_rows_md5": "aa78ecd337d97cd95c723952a0c7a97b",
+        "rows": 8
+      },
+      "validation_questions": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_run_items": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      },
+      "validation_runs": {
+        "full_rows_md5": "d41d8cd98f00b204e9800998ecf8427e",
+        "rows": 0
+      }
+    },
+    "key_counts": [
+      {
+        "active_chunks": 37,
+        "active_groups": 8,
+        "active_users": 8,
+        "distinct_project_members": 2,
+        "documents": 3,
+        "projects": 1,
+        "published_versions": 0,
+        "undeleted_models": 4,
+        "versions": 3
+      }
+    ],
+    "neo4j": {
+      "constraints": [],
+      "edges": [
+        {
+          "count": 107,
+          "relation": "CHUNK_HAS_TAG"
+        },
+        {
+          "count": 1,
+          "relation": "DOCUMENT_HAS_VERSION"
+        },
+        {
+          "count": 1,
+          "relation": "PROJECT_HAS_DOCUMENT"
+        },
+        {
+          "count": 26,
+          "relation": "VERSION_HAS_CHUNK"
+        },
+        {
+          "count": 8,
+          "relation": "VERSION_HAS_TAG"
+        }
+      ],
+      "indexes": [
+        {
+          "entityType": "NODE",
+          "labelsOrTypes": null,
+          "name": "index_343aff4e",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        },
+        {
+          "entityType": "RELATIONSHIP",
+          "labelsOrTypes": null,
+          "name": "index_f7700477",
+          "properties": null,
+          "state": "ONLINE",
+          "type": "LOOKUP"
+        }
+      ],
+      "nodes": [
+        {
+          "count": 26,
+          "labels": [
+            "Chunk"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Document"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "DocumentVersion"
+          ]
+        },
+        {
+          "count": 1,
+          "labels": [
+            "Project"
+          ]
+        },
+        {
+          "count": 81,
+          "labels": [
+            "Tag"
+          ]
+        }
+      ]
+    },
+    "neo4j_sha256": "430dfbd5d005a5172e5633acc9bcdd8089b6523c84afd1c57d6af0b9ae138dc7",
+    "opensearch": [
+      {
+        "aliases_sha256": "ef03bcb000da961bfed2510e17a141b88026b430c5710879ec21e297899bd69d",
+        "count": 26,
+        "docs.count": "26",
+        "docs.deleted": "0",
+        "health": "yellow",
+        "index": "nomosmart-staging-p9e1d3e43-v98050420",
+        "mapping_sha256": "07362a90a8eab6892d2a4173d0c1e08f7bbcc2e0e09a4223c19637d07c8de6d2",
+        "sequence_numbers": {
+          "indices": {
+            "nomosmart-staging-p9e1d3e43-v98050420": {
+              "shards": {
+                "0": [
+                  {
+                    "seq_no": {
+                      "global_checkpoint": 25,
+                      "local_checkpoint": 25,
+                      "max_seq_no": 25
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "settings_sha256": "09382a602d59a8bf2db92fca1b254109dbdecf016de37f88da208672b0b58b45",
+        "status": "open",
+        "uuid": "y9N0ThJdQlyujWvz344KxA"
+      },
+      {
+        "aliases_sha256": "3376c176cec16e206f14251f733600dc01e5a81ae247f35bc2f4d7f8e739eded",
+        "count": 11,
+        "docs.count": "11",
+        "docs.deleted": "0",
+        "health": "yellow",
+        "index": "nomosmart-staging-p9e1d3e43-vce1c4c6a",
+        "mapping_sha256": "a11e0a4fac38a7d0c04f709b4277148f2fd6c66d6643058e1246f9b31cc758cb",
+        "sequence_numbers": {
+          "indices": {
+            "nomosmart-staging-p9e1d3e43-vce1c4c6a": {
+              "shards": {
+                "0": [
+                  {
+                    "seq_no": {
+                      "global_checkpoint": 10,
+                      "local_checkpoint": 10,
+                      "max_seq_no": 10
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        "settings_sha256": "9cc9202a050fad026b06085e8ad122a3384cb3b527f804a230029f613140d3cb",
+        "status": "open",
+        "uuid": "41mhbFFZSAqe6HcomzDrDQ"
+      }
+    ],
+    "opensearch_sha256": "136a8f44c4ff6c5fd98fea7ee6150b5516dbb16bc543f49417f55a4d688d450e",
+    "broker": {
+      "nonmaintenance_task_types": [],
+      "queue_lengths": {
+        "0": 0,
+        "3": 0,
+        "6": 0,
+        "9": 0
+      },
+      "queued_task_types": [],
+      "unacked": 0,
+      "unacked_index": 0
+    }
+  },
+  "other_checks": {
+    "frontend_loopback": 200,
+    "frontend_to_backend_health": 200,
+    "frontend_to_backend_ready": 200,
+    "oidc_discovery": 200,
+    "backend_to_frontend_denied_as_expected": true,
+    "http_redirect": 308,
+    "tls_verification_disabled": false,
+    "default_dns_seconds": 5.00436,
+    "ipv4_dns_seconds": 0.0034,
+    "ipv4_https_total_seconds": 0.048381,
+    "metrics_api": "unavailable"
+  },
+  "limitations": [
+    "Bounded recovery observation, not indefinite uptime guarantee",
+    "Underlying Docker Desktop/kindnet recurrence trigger not established",
+    "Default host name lookup delays roughly five seconds; no DNS changes made",
+    "Full CHG-292 release and authenticated Browser/Provider acceptance remain open"
+  ]
+}

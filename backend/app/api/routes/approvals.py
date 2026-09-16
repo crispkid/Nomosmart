@@ -535,6 +535,7 @@ def switch_document_version_active(
         impact_confirmed=payload.impact_confirmed,
         audit_reason=payload.audit_reason,
         request_id=request.state.request_id,
+        settings=request.app.state.settings,
     )
     result = PublishResult(document_version_id=version.id, status=version.status, active_manifest_id=manifest.id, publication_generation=manifest.publication_generation, opensearch_index="", graph_sync_job_id=graph_job.id)
     _complete_idempotent_operation(idempotency_record, result.model_dump(mode="json"))
@@ -697,7 +698,7 @@ def _task_page(
             namespace=namespace,
             payload={"filter": filter_hash, "submitted_at": last.submitted_at.isoformat(), "id": str(last.id)},
         )
-    return ApprovalTaskPage(items=[_approval_task_response(session, row) for row in rows], next_cursor=next_cursor)
+    return ApprovalTaskPage(items=[_approval_task_response(session, row) for row in rows], next_cursor=next_cursor, has_more=has_more)
 
 
 def _request_page(
@@ -769,7 +770,7 @@ def _request_page(
             namespace="approval-my-submissions",
             payload={"filter": filter_hash, "submitted_at": last.submitted_at.isoformat(), "id": str(last.id)},
         )
-    return ApprovalRequestPage(items=[_approval_request_response(session, row) for row in rows], next_cursor=next_cursor)
+    return ApprovalRequestPage(items=[_approval_request_response(session, row) for row in rows], next_cursor=next_cursor, has_more=has_more)
 
 
 def _pending_publish_response(

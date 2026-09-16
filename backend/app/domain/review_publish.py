@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import ssl
 import urllib.error
 import urllib.request
@@ -14,7 +15,7 @@ from uuid import UUID
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings, neo4j_driver_options
+from app.core.config import Settings, get_settings, neo4j_driver_options
 from app.core.errors import AppError
 from app.db.models import (
     ActiveVersionManifest,
@@ -34,7 +35,7 @@ from app.db.models import (
     ReviewRecord,
     User,
 )
-from app.domain.embeddings import load_canonical_embeddings, resolve_index_retrieval_text
+from app.domain.embeddings import EmbeddingBatch, load_canonical_embeddings, load_published_embeddings, resolve_index_retrieval_text
 from app.domain.graph_sync_jobs import enqueue_graph_sync, notify_graph_failure
 from app.domain.notifications import emit_notification_event
 from app.domain.search import vector_document_id
@@ -76,6 +77,76 @@ class GraphSyncAdapter(Protocol):
 class LiveOpenSearchPublishedAdapter:
     def __init__(self, settings: Settings) -> None:
         self.settings = settings
+
+    def verify_published_build(self, *, document: Document, version: DocumentVersion,
+                               chunks: list[Chunk], batch: EmbeddingBatch) -> None:
+        """Bounded, read-only evidence checks; no refresh, mapping or index writes.
+
+        Other versions may share this concrete index. Count all documents for the
+        target version (including wrong-profile extras), then read exact expected
+        IDs. OpenSearch is a point-in-time check, not a distributed transaction.
+        """
+        index = batch.build.index_name or ""
+        if not re.fullmatch(r"[a-z0-9][a-z0-9._-]*", index):
+            _invalid_published_evidence()
+        mapping = self._read_evidence(index, "_mapping")
+        if set(mapping) != {index}:
+            _invalid_published_evidence()
+        properties = mapping.get(index, {}).get("mappings", {}).get("properties", {})
+        expected = _vector_index_mapping(batch.profile)["mappings"]["properties"]
+        for name in ("index_scope", "project_id", "document_id", "document_version_id", "chunk_id",
+                     "embedding_profile_id", "embedding_content_hash", "retrieval_text", "embedding_vector"):
+            actual = properties.get(name, {})
+            if (actual.get("type") != expected[name]["type"] or actual.get("index") is False
+                    or (name == "embedding_vector" and actual.get("dimension") != batch.profile.vector_dimension)):
+                _invalid_published_evidence()
+        count = self._read_evidence(index, "_count", {"query": {"term": {"document_version_id": str(version.id)}}})
+        if count.get("count") != len(chunks) or count.get("_shards", {}).get("failed", 0):
+            _invalid_published_evidence()
+        for start in range(0, len(chunks), 100):
+            subset, vectors = chunks[start:start + 100], batch.vectors[start:start + 100]
+            ids = [vector_document_id(batch.profile.id, version.id, chunk.id) for chunk in subset]
+            payload = self._read_evidence(index, "_mget", {"ids": ids})
+            rows = payload.get("docs")
+            if not isinstance(rows, list) or len(rows) != len(subset):
+                _invalid_published_evidence()
+            for row, chunk, vector, doc_id in zip(rows, subset, vectors, ids, strict=True):
+                strategy = chunk.chunk_strategy or {}
+                expected_source = {
+                    "index_scope": "published", "project_id": str(version.project_id),
+                    "document_id": str(document.id), "document_version_id": str(version.id),
+                    "chunk_id": str(chunk.id), "chunk_index": chunk.chunk_index,
+                    "embedding_profile_id": str(batch.profile.id), "embedding_model_id": str(batch.model.id),
+                    "vector_dimension": batch.profile.vector_dimension, "mapping_version": batch.profile.mapping_version,
+                    "version_status": "published", "embedding_content_hash": chunk.embedding_content_hash,
+                    "retrieval_text": resolve_index_retrieval_text(chunk, profile=batch.profile),
+                    "embedding_vector": vector,
+                    **{key: strategy.get(key) for key in ("parser_version", "chunker_version", "normalizer_version", "tokenizer_version")},
+                }
+                source = row.get("_source", {})
+                if (row.get("found") is not True or row.get("_id") != doc_id or row.get("_index") != index
+                        or not isinstance(source, dict) or any(source.get(key) != value for key, value in expected_source.items())):
+                    _invalid_published_evidence()
+
+    def _read_evidence(self, index: str, operation: str, payload: dict | None = None) -> dict:
+        body = json.dumps(payload).encode("utf-8") if payload is not None else b""
+        request = self._request_with_auth("POST" if payload is not None else "GET",
+            f"{self.settings.opensearch_url.rstrip('/')}/{index}/{operation}", body, content_type="application/json")
+        try:
+            with urllib.request.urlopen(request, timeout=10, context=self.settings.opensearch_ssl_context) as response:  # noqa: S310 - configured isolated/operator endpoint
+                data = response.read(32 * 1024 * 1024 + 1)
+            if len(data) > 32 * 1024 * 1024:
+                _invalid_published_evidence()
+            result = json.loads(data)
+            if not isinstance(result, dict):
+                _invalid_published_evidence()
+            return result
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                raise AppError("published_index_not_ready", "Published index data is not ready for this version", status_code=409) from exc
+            raise AppError("opensearch_published_write_failed", "OpenSearch published verification failed", status_code=502) from exc
+        except (OSError, ValueError) as exc:
+            raise AppError("opensearch_published_unavailable", "OpenSearch published verification is unavailable", status_code=503) from exc
 
     def write_published_chunks(self, *, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk], vectors: list[list[float]] | None = None, profile: EmbeddingProfile | None = None) -> PublishedIndexResult:
         if version.embedding_profile_id is None:
@@ -529,37 +600,53 @@ def switch_active_version(
     impact_confirmed: bool,
     audit_reason: str,
     request_id: str | None,
+    settings: Settings | None = None,
 ) -> tuple[ActiveVersionManifest, GraphSyncJob]:
-    project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update().execution_options(populate_existing=True))
-    if project is None or project.status != "active":
-        raise AppError("project_archived", "Archived projects cannot switch document versions", status_code=409)
-    session.refresh(version, with_for_update=True)
-    if not impact_confirmed:
-        raise AppError("impact_confirmation_required", "Active version switch requires impact confirmation", status_code=422)
-    if not audit_reason.strip():
-        raise AppError("switch_reason_required", "Active version switch requires an audit reason", status_code=422)
-    if version.lock_version != lock_version:
-        raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
-    if version.status not in {"inactive", "active"} or version.published_at is None:
-        raise AppError("version_not_switchable", "Only previously published versions can be switched active", status_code=409)
-    if version.embedding_profile_id is None:
-        raise AppError("embedding_profile_required", "Embedding profile is required before switch", status_code=409)
-    existing_manifest = session.scalar(select(ActiveVersionManifest).where(ActiveVersionManifest.document_id == document.id).with_for_update())
-    if existing_manifest is None or not existing_manifest.index_ready:
-        raise AppError("active_manifest_required", "Current active manifest is required before switching", status_code=409)
-    if existing_manifest.document_version_id == version.id:
-        raise AppError("version_already_active", "Document version is already active", status_code=409)
-    if existing_manifest.embedding_profile_id != version.embedding_profile_id:
-        raise AppError("embedding_profile_incompatible", "Embedding profile is incompatible with the active manifest", status_code=409)
-    build = session.scalar(select(EmbeddingBuild).where(EmbeddingBuild.document_version_id == version.id, EmbeddingBuild.embedding_profile_id == version.embedding_profile_id, EmbeddingBuild.status == "published").order_by(desc(EmbeddingBuild.build_revision)).limit(1))
-    if build is None or not build.index_name:
-        raise AppError("published_index_not_ready", "Published index data is not ready for this version", status_code=409)
-    chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id).order_by(Chunk.chunk_index)))
-    if not chunks:
-        raise AppError("publish_chunks_required", "Switchable version requires chunks", status_code=409)
+    with session.no_autoflush:
+        project = session.scalar(select(Project).where(Project.id == version.project_id).with_for_update().execution_options(populate_existing=True))
+        if project is None or project.status != "active":
+            raise AppError("project_archived", "Archived projects cannot switch document versions", status_code=409)
+        # Same parent-first order as edits/archive/reconciliation; refresh after waits.
+        document = session.scalar(select(Document).where(Document.id == document.id,
+            Document.project_id == project.id).with_for_update().execution_options(populate_existing=True))
+        if document is None or document.is_deleted or document.status == "deleted":
+            raise AppError("document_not_found", "Document was not found", status_code=404)
+        session.refresh(version, with_for_update=True)
+        if version.project_id != project.id or version.document_id != document.id:
+            raise AppError("document_version_not_found", "Document version was not found", status_code=404)
+        if not impact_confirmed:
+            raise AppError("impact_confirmation_required", "Active version switch requires impact confirmation", status_code=422)
+        if not audit_reason.strip():
+            raise AppError("switch_reason_required", "Active version switch requires an audit reason", status_code=422)
+        if version.lock_version != lock_version:
+            raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
+        if version.status not in {"inactive", "active"} or version.published_at is None:
+            raise AppError("version_not_switchable", "Only previously published versions can be switched active", status_code=409)
+        if version.embedding_profile_id is None:
+            raise AppError("embedding_profile_required", "Embedding profile is required before switch", status_code=409)
+        existing_manifest = session.scalar(select(ActiveVersionManifest).where(ActiveVersionManifest.document_id == document.id).with_for_update().execution_options(populate_existing=True))
+        if existing_manifest is None or existing_manifest.project_id != project.id or not existing_manifest.index_ready:
+            raise AppError("active_manifest_required", "Current active manifest is required before switching", status_code=409)
+        if existing_manifest.document_version_id == version.id:
+            raise AppError("version_already_active", "Document version is already active", status_code=409)
+        if existing_manifest.embedding_profile_id != version.embedding_profile_id:
+            raise AppError("embedding_profile_incompatible", "Embedding profile is incompatible with the active manifest", status_code=409)
+        build = session.scalar(select(EmbeddingBuild).where(EmbeddingBuild.document_version_id == version.id, EmbeddingBuild.embedding_profile_id == version.embedding_profile_id, EmbeddingBuild.status == "published").order_by(desc(EmbeddingBuild.build_revision)).limit(1).execution_options(populate_existing=True))
+        if build is None:
+            raise AppError("canonical_embedding_build_required", "A published canonical embedding build is required", status_code=409)
+        if not build.index_name:
+            raise AppError("published_index_not_ready", "Published index data is not ready for this version", status_code=409)
+        chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id, Chunk.status == "active")
+            .order_by(Chunk.chunk_index).execution_options(populate_existing=True)))
+        if not chunks:
+            raise AppError("publish_chunks_required", "Switchable version requires chunks", status_code=409)
+        batch = load_published_embeddings(session, project=project, version=version, chunks=chunks, build=build)
+        LiveOpenSearchPublishedAdapter(settings or get_settings()).verify_published_build(
+            document=document, version=version, chunks=chunks, batch=batch)
 
-    now = datetime.now(UTC)
-    old_version = session.get(DocumentVersion, existing_manifest.document_version_id)
+        old_version = session.get(DocumentVersion, existing_manifest.document_version_id, populate_existing=True, with_for_update=True)
+        if old_version is None or old_version.project_id != project.id or old_version.document_id != document.id:
+            raise AppError("active_manifest_required", "Current active manifest scope is invalid", status_code=409)
     if old_version and old_version.id != version.id:
         old_version.status = "inactive"
         old_version.inactive_reason = "superseded"
@@ -585,6 +672,10 @@ def switch_active_version(
     _notify(session, actor_user_id, version.project_id, "document.active_switched", "生效版本已切換", f"文件版本 {version.version_label} 已切換為正式生效版本", {"document_version_id": str(version.id), "manifest_id": str(existing_manifest.id)})
     add_audit(session, actor_user_id=actor_user_id, action="document_version.switch_active", resource_type="document_version", resource_id=version.id, result="success", request_id=request_id, summary={"manifest_id": str(existing_manifest.id), "generation": existing_manifest.publication_generation, "graph_sync_job_id": str(graph_job.id), "reason": audit_reason})
     return existing_manifest, graph_job
+
+
+def _invalid_published_evidence() -> None:
+    raise AppError("published_index_evidence_invalid", "Published index evidence does not match this version", status_code=409)
 
 
 def published_index_name(prefix: str, embedding_profile_id: UUID) -> str:
