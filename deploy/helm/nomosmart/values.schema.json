@@ -25,6 +25,16 @@
         },
         "knownCredentialRiskAccepted": {
           "type": "boolean"
+        },
+        "credentialMode": {
+          "type": "string",
+          "enum": [
+            "public-defaults",
+            "generated"
+          ]
+        },
+        "dnsOverTcp": {
+          "type": "boolean"
         }
       },
       "required": [
@@ -211,57 +221,12 @@
             "memory",
             "storage"
           ]
-        },
-        "longhorn": {
-          "type": "object",
-          "additionalProperties": false,
-          "properties": {
-            "namespace": {
-              "const": "longhorn-system"
-            },
-            "provisioner": {
-              "const": "driver.longhorn.io"
-            },
-            "requiredReplicaCount": {
-              "const": 1
-            },
-            "allowedDataLocality": {
-              "type": "array",
-              "minItems": 2,
-              "uniqueItems": true,
-              "items": {
-                "enum": [
-                  "disabled",
-                  "best-effort"
-                ]
-              },
-              "allOf": [
-                {
-                  "contains": {
-                    "const": "disabled"
-                  }
-                },
-                {
-                  "contains": {
-                    "const": "best-effort"
-                  }
-                }
-              ]
-            }
-          },
-          "required": [
-            "namespace",
-            "provisioner",
-            "requiredReplicaCount",
-            "allowedDataLocality"
-          ]
         }
       },
       "required": [
         "enabled",
         "minimumNodeAllocatable",
-        "reservePercent",
-        "longhorn"
+        "reservePercent"
       ]
     },
     "compatibility": {
@@ -453,17 +418,37 @@
         },
         "requiredChecksum": {
           "oneOf": [
-            {"type": "string", "pattern": "^$|^-?[0-9]+$", "maxLength": 11},
-            {"type": "integer", "minimum": -2147483648, "maximum": 2147483647}
+            {
+              "type": "string",
+              "pattern": "^$|^-?[0-9]+$",
+              "maxLength": 11
+            },
+            {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
           ]
         },
         "baselineChecksum": {
           "oneOf": [
-            {"type": "string", "pattern": "^$|^-?[0-9]+$", "maxLength": 11},
-            {"type": "integer", "minimum": -2147483648, "maximum": 2147483647}
+            {
+              "type": "string",
+              "pattern": "^$|^-?[0-9]+$",
+              "maxLength": 11
+            },
+            {
+              "type": "integer",
+              "minimum": -2147483648,
+              "maximum": 2147483647
+            }
           ]
         },
-        "checkTimeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 60},
+        "checkTimeoutSeconds": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 60
+        },
         "jdbcUrl": {
           "type": "string",
           "pattern": "^$|^jdbc:postgresql://"
@@ -656,15 +641,24 @@
       "type": "object",
       "properties": {
         "resources": {
-          "type": ["object", "null"],
+          "type": [
+            "object",
+            "null"
+          ],
           "additionalProperties": false,
           "properties": {
             "requests": {
               "type": "object",
               "additionalProperties": {
                 "anyOf": [
-                  {"type": "string", "minLength": 1},
-                  {"type": "number", "minimum": 0}
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  }
                 ]
               }
             },
@@ -672,8 +666,14 @@
               "type": "object",
               "additionalProperties": {
                 "anyOf": [
-                  {"type": "string", "minLength": 1},
-                  {"type": "number", "minimum": 0}
+                  {
+                    "type": "string",
+                    "minLength": 1
+                  },
+                  {
+                    "type": "number",
+                    "minimum": 0
+                  }
                 ]
               }
             }
@@ -740,15 +740,25 @@
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "requestMaxSizeMiB": { "type": "integer", "minimum": 2, "maximum": 10241 }
+            "requestMaxSizeMiB": {
+              "type": "integer",
+              "minimum": 2,
+              "maximum": 10241
+            }
           }
         },
         "publicApi": {
           "type": "object",
           "additionalProperties": false,
           "properties": {
-            "enabled": { "type": "boolean" },
-            "readTimeoutSeconds": { "type": "integer", "minimum": 1, "maximum": 3600 }
+            "enabled": {
+              "type": "boolean"
+            },
+            "readTimeoutSeconds": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 3600
+            }
           }
         },
         "enabled": {
@@ -780,6 +790,23 @@
       },
       "required": [
         "enabled"
+      ]
+    },
+    "storageValidation": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "type": "string",
+          "enum": [
+            "dynamic",
+            "static-pv",
+            "external"
+          ]
+        }
+      },
+      "required": [
+        "mode"
       ]
     }
   },
@@ -831,15 +858,15 @@
       "then": {
         "properties": {
           "deploymentProfile": {
-            "const": "bundled"
+            "enum": [
+              "bundled",
+              "external-services"
+            ]
           },
           "localDevelopment": {
             "properties": {
               "platform": {
                 "const": "docker-desktop"
-              },
-              "knownCredentialRiskAccepted": {
-                "const": true
               }
             }
           },
@@ -864,107 +891,6 @@
               }
             }
           },
-          "secrets": {
-            "properties": {
-              "existingSecret": {
-                "maxLength": 0
-              },
-              "data": {
-                "properties": {
-                  "APP_ENCRYPTION_KEY": {
-                    "type": "string",
-                    "minLength": 64,
-                    "not": {
-                      "pattern": "CHANGE_ME|P@ssw0rd"
-                    }
-                  },
-                  "OIDC_CLIENT_SECRET": {
-                    "type": "string",
-                    "minLength": 32,
-                    "not": {
-                      "pattern": "CHANGE_ME|P@ssw0rd"
-                    }
-                  },
-                  "KEYCLOAK_SYNC_CLIENT_SECRET": {
-                    "type": "string",
-                    "minLength": 32,
-                    "not": {
-                      "pattern": "CHANGE_ME|P@ssw0rd"
-                    }
-                  },
-                  "OPENSEARCH_ADMIN_PASSWORD": {
-                    "type": "string",
-                    "minLength": 16,
-                    "not": {
-                      "pattern": "CHANGE_ME|P@ssw0rd"
-                    }
-                  },
-                  "OPENSEARCH_PASSWORD": {
-                    "type": "string",
-                    "minLength": 16,
-                    "not": {
-                      "pattern": "CHANGE_ME|P@ssw0rd"
-                    }
-                  }
-                },
-                "required": [
-                  "APP_ENCRYPTION_KEY",
-                  "OIDC_CLIENT_SECRET",
-                  "KEYCLOAK_SYNC_CLIENT_SECRET",
-                  "OPENSEARCH_ADMIN_PASSWORD",
-                  "OPENSEARCH_PASSWORD"
-                ]
-              }
-            }
-          },
-          "redis": {
-            "properties": {
-              "tolerations": {
-                "type": "array",
-                "contains": {
-                  "type": "object",
-                  "properties": {
-                    "key": {
-                      "const": "node-role.kubernetes.io/control-plane"
-                    },
-                    "operator": {
-                      "const": "Exists"
-                    },
-                    "effect": {
-                      "const": "NoSchedule"
-                    }
-                  },
-                  "required": [
-                    "key",
-                    "operator",
-                    "effect"
-                  ]
-                }
-              },
-              "cluster": {
-                "properties": {
-                  "enabled": {
-                    "const": true
-                  },
-                  "replicas": {
-                    "const": 3
-                  },
-                  "sentinelReplicas": {
-                    "const": 3
-                  },
-                  "sentinelQuorum": {
-                    "const": 2
-                  }
-                },
-                "required": [
-                  "enabled",
-                  "replicas",
-                  "sentinelReplicas",
-                  "sentinelQuorum"
-                ]
-              }
-            }
-          },
           "keycloak": {
             "properties": {
               "cache": {
@@ -986,7 +912,184 @@
               }
             }
           }
-        }
+        },
+        "allOf": [
+          {
+            "if": {
+              "properties": {
+                "localDevelopment": {
+                  "properties": {
+                    "credentialMode": {
+                      "const": "generated"
+                    }
+                  },
+                  "required": [
+                    "credentialMode"
+                  ]
+                }
+              },
+              "required": [
+                "localDevelopment"
+              ]
+            },
+            "then": {
+              "properties": {
+                "localDevelopment": {
+                  "properties": {
+                    "knownCredentialRiskAccepted": {
+                      "const": false
+                    }
+                  }
+                },
+                "secrets": {
+                  "properties": {
+                    "existingSecret": {
+                      "minLength": 1
+                    }
+                  }
+                }
+              }
+            },
+            "else": {
+              "properties": {
+                "deploymentProfile": {
+                  "const": "bundled"
+                },
+                "localDevelopment": {
+                  "properties": {
+                    "knownCredentialRiskAccepted": {
+                      "const": true
+                    }
+                  }
+                },
+                "secrets": {
+                  "properties": {
+                    "existingSecret": {
+                      "maxLength": 0
+                    },
+                    "data": {
+                      "properties": {
+                        "APP_ENCRYPTION_KEY": {
+                          "type": "string",
+                          "minLength": 64,
+                          "not": {
+                            "pattern": "CHANGE_ME|P@ssw0rd"
+                          }
+                        },
+                        "OIDC_CLIENT_SECRET": {
+                          "type": "string",
+                          "minLength": 32,
+                          "not": {
+                            "pattern": "CHANGE_ME|P@ssw0rd"
+                          }
+                        },
+                        "KEYCLOAK_SYNC_CLIENT_SECRET": {
+                          "type": "string",
+                          "minLength": 32,
+                          "not": {
+                            "pattern": "CHANGE_ME|P@ssw0rd"
+                          }
+                        },
+                        "OPENSEARCH_ADMIN_PASSWORD": {
+                          "type": "string",
+                          "minLength": 16,
+                          "not": {
+                            "pattern": "CHANGE_ME|P@ssw0rd"
+                          }
+                        },
+                        "OPENSEARCH_PASSWORD": {
+                          "type": "string",
+                          "minLength": 16,
+                          "not": {
+                            "pattern": "CHANGE_ME|P@ssw0rd"
+                          }
+                        }
+                      },
+                      "required": [
+                        "APP_ENCRYPTION_KEY",
+                        "OIDC_CLIENT_SECRET",
+                        "KEYCLOAK_SYNC_CLIENT_SECRET",
+                        "OPENSEARCH_ADMIN_PASSWORD",
+                        "OPENSEARCH_PASSWORD"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          {
+            "if": {
+              "properties": {
+                "redis": {
+                  "properties": {
+                    "mode": {
+                      "const": "bundled"
+                    }
+                  },
+                  "required": [
+                    "mode"
+                  ]
+                }
+              },
+              "required": [
+                "redis"
+              ]
+            },
+            "then": {
+              "properties": {
+                "redis": {
+                  "properties": {
+                    "tolerations": {
+                      "type": "array",
+                      "contains": {
+                        "type": "object",
+                        "properties": {
+                          "key": {
+                            "const": "node-role.kubernetes.io/control-plane"
+                          },
+                          "operator": {
+                            "const": "Exists"
+                          },
+                          "effect": {
+                            "const": "NoSchedule"
+                          }
+                        },
+                        "required": [
+                          "key",
+                          "operator",
+                          "effect"
+                        ]
+                      }
+                    },
+                    "cluster": {
+                      "properties": {
+                        "enabled": {
+                          "const": true
+                        },
+                        "replicas": {
+                          "const": 3
+                        },
+                        "sentinelReplicas": {
+                          "const": 3
+                        },
+                        "sentinelQuorum": {
+                          "const": 2
+                        }
+                      },
+                      "required": [
+                        "enabled",
+                        "replicas",
+                        "sentinelReplicas",
+                        "sentinelQuorum"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
       }
     },
     {
@@ -1800,6 +1903,36 @@
           }
         }
       }
+    },
+    {
+      "if": {
+        "properties": {
+          "localDevelopment": {
+            "properties": {
+              "dnsOverTcp": {
+                "const": true
+              }
+            },
+            "required": [
+              "dnsOverTcp"
+            ]
+          }
+        },
+        "required": [
+          "localDevelopment"
+        ]
+      },
+      "then": {
+        "properties": {
+          "localDevelopment": {
+            "properties": {
+              "enabled": {
+                "const": true
+              }
+            }
+          }
+        }
+      }
     }
   ],
   "definitions": {
@@ -1938,10 +2071,26 @@
               "type": "object",
               "additionalProperties": false,
               "properties": {
-                "timeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 60},
-                "connectTimeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 30},
-                "maxTimeSeconds": {"type": "integer", "minimum": 1, "maximum": 60},
-                "readinessWaitSeconds": {"type": "integer", "minimum": 1, "maximum": 30}
+                "timeoutSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                },
+                "connectTimeoutSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                },
+                "maxTimeSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 60
+                },
+                "readinessWaitSeconds": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 30
+                }
               }
             },
             "service": {

@@ -10,7 +10,7 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.1.0` packages the NomoSmart application, installation tools, SQL, configuration templates, and documentation. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using the references in [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json). Full installation acceptance is pending; prepare an isolated environment for this release.
+Release `0.1.1` includes installation fixes, tools, SQL, configuration templates, and documentation. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json). Prepare an isolated environment following the selected installation method.
 
 ## 2. Key Features
 
@@ -59,7 +59,7 @@ Before the application reports that it is ready, setup jobs create or update the
 | Search | OpenSearch 2.19 | Keyword, vector, hybrid, and staging indexes |
 | Graph | Neo4j 5.26 Community | Knowledge relationships and traversal |
 | Identity | Keycloak 26.0.8, OIDC, LDAP/AD federation | Authentication, directory synchronization, and role mapping |
-| Deployment | Docker Compose v2, Helm chart 0.1.0 | Single-host and Kubernetes deployment |
+| Deployment | Docker Compose v2, Helm chart 0.1.1 | Single-host and Kubernetes deployment |
 
 ## 5. Project Structure
 
@@ -78,6 +78,8 @@ Nomosmart/
 ```
 
 ## 6. Getting Started
+
+Release `0.1.1` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
 
 ### 6.1 Select an installation method
 
@@ -113,23 +115,23 @@ The table lists a version only when the Repository sets one.
 
 Install the tools for the selected method using the platform-specific guides: [Git](https://git-scm.com/downloads/), [GitHub CLI](https://github.com/cli/cli#installation), [Docker](https://docs.docker.com/engine/install/), [Python](https://www.python.org/downloads/), [Node.js](https://nodejs.org/en/download), [uv](https://docs.astral.sh/uv/getting-started/installation/), [kubectl](https://kubernetes.io/docs/tasks/tools/), and [Helm](https://helm.sh/docs/intro/install/). Select the versions in the table, open a new terminal, and run each applicable check command before continuing.
 
-Kubernetes production installation requires at least three Ready schedulable nodes, the capacity defined by the rendered production plan, an IngressClass, the approved Longhorn StorageClass, public DNS, trusted TLS material, registry access, and an enterprise directory or preconfigured Keycloak identity provider.
+Kubernetes production installation requires at least three Ready schedulable nodes, the capacity defined by the rendered production plan, an IngressClass, an operator-selected StorageClass with explicit PV/CSI capacity evidence, public DNS, trusted TLS material, registry access, and an enterprise directory or preconfigured Keycloak identity provider.
 
 The repository is private. A GitHub account with repository access is required for cloning and downloading the Release; image pulls also need access to the NomoSmart GHCR packages. Authenticate Git with your credential manager. Keep access tokens out of configuration examples and command-line arguments.
 
-For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.1.0 Release:
+For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.1.1 Release:
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.0"
-gh release download v0.1.0 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.0.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.0"
-tar -xzf "$HOME/nomosmart-downloads/0.1.0/nomosmart-0.1.0.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.0"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.0/nomosmart-0.1.0"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.1.1"
+gh release download v0.1.1 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.1.1.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.1.1"
+tar -xzf "$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.1.1"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1"
 ```
 
 Use a new download directory for each release. Follow Section 8.2 to check the extracted package before use. GitHub access and GHCR pull access are separate: provide a registry credential with package-read permission through the installer’s `registry_pull_secret`. The full profile also needs network access to Docker Hub, Quay, GHCR, OpenSearch artifacts, and the upstream CloudNativePG/Barman download locations listed in the lock file.
@@ -158,19 +160,18 @@ Docker Compose is the simplest way to run the complete platform on one machine. 
 Clone the Repository and enter its root directory:
 
 ```bash
-git clone --branch v0.1.0 --single-branch https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
 
-Confirm the checked-out 0.1.0 source:
+Record the reviewed source revision containing the installation fixes:
 
 ```bash
-git describe --tags --exact-match
 git rev-parse HEAD
 ```
 
-The tag must be `v0.1.0`. Keep the displayed commit SHA with the installation record.
+Keep the exact commit SHA with the installation record. Use the `v0.1.1` source tag to reproduce this release.
 
 ### 7.2 Verify host tools
 
@@ -220,6 +221,7 @@ The following command creates `deploy/docker/nomosmart.env` and the local Secret
 ```bash
 ./deploy/package/nomosmart-package init \
   --target compose \
+  --random-initial-credentials \
   --profile factory_acceptance \
   --app-env development \
   --public-host nomosmart.local \
@@ -305,7 +307,7 @@ Import `deploy/docker/generated/current/tls/active/edge-ca.crt` into the worksta
 https://nomosmart.local
 ```
 
-The factory profile creates the temporary first-use administrator `nomosmart` with password `nomosmart`. Sign in, complete the required password update, and sign in again.
+With the command above, the temporary first-use administrator is `nomosmart`; its random password is in the mode-0600 file `deploy/docker/generated/current/break_glass_initial_password`. Complete the required password change when performing first-use onboarding. Installation validation ends at successful health/readiness; the product/model steps below are separate functional acceptance.
 
 In **System Management → Models**:
 
@@ -330,6 +332,8 @@ docker compose --env-file deploy/docker/nomosmart.env down
 <a id="method-2-kubernetes-bundled"></a>
 
 ## 8. Method 2: Kubernetes `bundled`
+
+For isolated Docker Desktop validation, follow the [local PV/ingress and staged Helm guide](deploy/local/README.md). The released-package procedure below remains specific to that published release.
 
 The `bundled` profile installs NomoSmart and all supported services in one release. Before starting, the operator prepares the Kubernetes cluster, IngressClass, StorageClass, DNS, image registry access, TLS files, capacity, and directory service.
 
@@ -356,7 +360,7 @@ Download the package from this repository's GitHub Release. Keep the extracted p
   --purpose installation-validation
 ```
 
-Success returns exit code `0` and `status: verified`. The command checks file hashes, the complete file list, dependency references, and release metadata. Prepare an isolated installation environment for 0.1.0; full installation acceptance is pending.
+Success returns exit code `0` and `status: verified`. The command checks file hashes, the complete file list, dependency references, and release metadata. Prepare an isolated installation environment and select the installation-validation purpose explicitly.
 
 ### 8.3 Verify tools and target identity
 
@@ -534,6 +538,8 @@ Complete the model-service and project validation described in Section 7.8.
 
 ## 9. Method 3: Kubernetes `external-services`
 
+For isolated Docker Desktop validation, follow the [local PV/ingress and staged Helm guide](deploy/local/README.md). The released-package procedure below remains specific to that published release.
+
 The `external-services` profile installs only the NomoSmart application and setup jobs. PostgreSQL, Redis, S3-compatible storage, OpenSearch, Neo4j, and Keycloak must already be available and remain managed by their existing operators.
 
 ### 9.1 Define and verify installation inputs
@@ -691,6 +697,8 @@ kubectl --context "$NOMOSMART_KUBE_CONTEXT" --namespace "$NOMOSMART_NAMESPACE" \
 
 Create the registry and directory inputs from Section 8.6 when those references are configured.
 
+For private HTTPS Keycloak, configure `keycloak.external.caSecretName/caKey` with a CA bundle containing all required roots. Check discovery at the actual external issuer, without assuming /identity on the application host. CA files use read-only subPath mounts; recreate Pods after rotation. Use server-side apply for large bundles to avoid annotation limits. The external-services application chart owns no PVCs: select `storage_mode = "external"`, `storage_class = ""` and omit the PV manifest.
+
 ### 9.6 Run and approve the read-only plan
 
 ```bash
@@ -736,7 +744,7 @@ Source development runs the Frontend, Backend, Worker, and Beat directly on a de
 ### 10.1 Install source dependencies
 
 ```bash
-git clone --branch v0.1.0 --single-branch https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -761,6 +769,12 @@ cp -i frontend/.env.example frontend/.env.local
 
 Replace every placeholder in `backend/.env` and `frontend/.env.local`. Keep both files outside version control. At minimum, configure database, Redis/Celery, S3, OpenSearch, Neo4j, OIDC, Keycloak synchronization, encryption key, Frontend origin, Backend proxy, and OIDC client values.
 
+
+
+Python commands use `uv run --env-file .env` so SSL_CERT_FILE also reaches the real process environment. Replace all placeholders, match certificate SANs to actual endpoints, and retain PostgreSQL verify-full, Redis rediss, and verified S3/OpenSearch/Neo4j TLS. The source template includes factory_acceptance setup, random initial credentials and the migration contract. Set DEPLOYMENT_KEYCLOAK_MODE=verify for operator-preconfigured Keycloak; otherwise provide separate bootstrap administrator credentials. For private Node CA trust, set `export NODE_EXTRA_CA_CERTS="/absolute/path/to/identity-ca-bundle.crt"` before startup; placing it only in .env.local does not initialize Node TLS trust. [Node.js documentation](https://nodejs.org/api/cli.html#node_extra_ca_certsfile).
+
+When using Kubernetes port-forward to live local dependencies, restart a disconnected tunnel. If connection resets repeatedly end port-forward, use a real TCP passthrough proxy in the dedicated test namespace before forwarding. Keep host settings and TLS verification intact. Use the tested [TCP tunnel example](deploy/local/source-tunnel.example.json): replace the dedicated dependency namespace and six actual Service/Redis primary Pod IPs, apply the ConfigMap/Deployment, then forward deployment/source-tcp-gateway on loopback ports 15432, 16379, 19000, 19200, 17687 and 18443. Configure the native endpoints to use those ports and certificates whose SANs cover the loopback connection names, plus host.docker.internal when Flyway runs in Docker. This proxy passes TCP to the original services without terminating or skipping TLS.
+
 ### 10.4 Apply database migrations
 
 From the Repository root, set the database hostname reachable from the Flyway container, migration account, and trusted PostgreSQL CA. The database and account must already exist, and the account must have permission to create the application's schema objects. Enter the password at the hidden prompt:
@@ -773,7 +787,7 @@ export FLYWAY_PASSWORD="$(python3 -c 'import getpass; print(getpass.getpass("Dat
 export NOMOSMART_FLYWAY_IMAGE="$(python3 -c 'import json; print(json.load(open("deploy/release/external-dependencies.lock.json"))["images"]["migration"]["reference"])')"
 docker run --rm \
   -e FLYWAY_URL -e FLYWAY_USER -e FLYWAY_PASSWORD \
-  -e FLYWAY_BASELINE_ON_MIGRATE=false \
+  -e FLYWAY_BASELINE_ON_MIGRATE=false -e FLYWAY_CONNECT_RETRIES=10 \
   -v "$PWD/sql/migrations:/flyway/sql:ro" \
   -v "$NOMOSMART_POSTGRES_CA:/run/nomosmart/postgresql-ca.crt:ro" \
   "$NOMOSMART_FLYWAY_IMAGE" migrate
@@ -794,7 +808,7 @@ MIGRATION_BASELINE_CHECKSUM=1904638595
 
 ```bash
 cd backend
-uv run python -m app.deployment.bootstrap --mode ensure
+uv run --locked --all-extras --env-file .env python -m app.deployment.bootstrap --mode ensure --wait-seconds 180
 cd ..
 ```
 
@@ -808,28 +822,28 @@ Backend:
 
 ```bash
 cd backend
-uv run uvicorn main:app --host 127.0.0.1 --port 8000
+uv run --locked --all-extras --env-file .env uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 Worker:
 
 ```bash
 cd backend
-uv run celery -A app.worker:celery_app worker --concurrency 2 --loglevel INFO
+uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app worker --concurrency 2 --loglevel INFO
 ```
 
 Beat:
 
 ```bash
 cd backend
-uv run celery -A app.worker:celery_app beat --loglevel INFO
+uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app beat --loglevel INFO
 ```
 
 Frontend:
 
 ```bash
 cd frontend
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 
 ### 10.7 Verify the development runtime
@@ -837,10 +851,11 @@ npm run dev
 ```bash
 curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/health
 curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready
-curl --fail --silent --show-error http://127.0.0.1:3000/login
+curl --fail --silent --show-error http://127.0.0.1:3000/
+curl --fail --silent --show-error http://127.0.0.1:3000/api/backend/ready
 ```
 
-Expected Backend process health is `{"status":"healthy"}`. Readiness must report `"status":"ready"`. Open `http://127.0.0.1:3000`, complete OIDC login, and perform the model and project validation from Section 7.8.
+Expected Backend process health is `{"status":"healthy"}`. Readiness must report `"status":"ready"`. Frontend and its `/api/backend/ready` proxy must also respond successfully. Check Worker with `uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app inspect ping` from backend/. Product login/model/project acceptance is separate from these installation checks. Stop all four terminals after each disposable validation round.
 
 ## 11. Configuration Reference
 
@@ -1226,7 +1241,7 @@ Use a directory account for this verification; the local emergency account verif
 | Process health | `/api/v1/health` | Returns `{"status":"healthy"}` |
 | Dependency readiness | `/api/v1/ready` | Returns `ready` details or HTTP 503 |
 
-The FastAPI application version is `0.1.0`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
+The FastAPI application version is `0.1.1`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
 
 ### 12.2 Public chat example
 
@@ -1263,7 +1278,7 @@ A successful response contains `response_id`, `answer`, `citations`, `status`, s
 ```bash
 cd frontend
 npm ci
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 npm run lint
 npm run build
 ```

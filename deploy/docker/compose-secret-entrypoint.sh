@@ -121,6 +121,18 @@ fi
 umask "$previous_umask"
 export NOMOSMART_SECRET_ROOT="$private/secrets"
 if [ "$profile" = postgresql ]; then
+  # Docker Desktop bind mounts may report executable access for a mode-0644
+  # script but reject execve. Stage our one initialization script as a
+  # non-executable file so upstream reliably sources it as the postgres user.
+  init=/docker-entrypoint-initdb.d
+  [ -d "$init" ] && [ ! -L "$init" ] && mountpoint -q "$init" || fail "private PostgreSQL init mount is required"
+  [ "$(stat -f -c %T "$init")" = tmpfs ] && [ "$(stat -c %u "$init")" = 0 ] || fail "private PostgreSQL init mount must be root-owned tmpfs"
+  chown "0:$gid" "$init"
+  chmod 0750 "$init"
+  [ -f /opt/nomosmart/postgresql-init.sh ] && [ ! -L /opt/nomosmart/postgresql-init.sh ] || fail "PostgreSQL init source is unavailable" 66
+  cp /opt/nomosmart/postgresql-init.sh "$init/10-nomosmart.sh"
+  chown "0:$gid" "$init/10-nomosmart.sh"
+  chmod 0440 "$init/10-nomosmart.sh"
   # Upstream initializes PGDATA as root, then drops to postgres itself.
   exec /opt/nomosmart/secret-env-entrypoint.sh "$@"
 elif [ "$drop" = su-exec ]; then

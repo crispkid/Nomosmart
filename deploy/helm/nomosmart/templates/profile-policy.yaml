@@ -12,11 +12,13 @@
   {{- if ne .Values.localDevelopment.platform "docker-desktop" -}}
     {{- fail "localDevelopment requires platform=docker-desktop" -}}
   {{- end -}}
-  {{- if not .Values.localDevelopment.knownCredentialRiskAccepted -}}
-    {{- fail "localDevelopment requires explicit knownCredentialRiskAccepted=true" -}}
-  {{- end -}}
-  {{- if ne $profile "bundled" -}}
-    {{- fail "Docker Desktop local development requires deploymentProfile=bundled" -}}
+  {{- $generated := eq .Values.localDevelopment.credentialMode "generated" -}}
+  {{- if $generated -}}
+    {{- if or (not .Values.secrets.existingSecret) .Values.localDevelopment.knownCredentialRiskAccepted -}}
+      {{- fail "generated local credentials require an existing runtime Secret and no known-credential acceptance" -}}
+    {{- end -}}
+  {{- else if not .Values.localDevelopment.knownCredentialRiskAccepted -}}
+    {{- fail "public-defaults requires explicit knownCredentialRiskAccepted=true" -}}
   {{- end -}}
   {{- if ne .Values.backend.env.APP_ENV "development" -}}
     {{- fail "Docker Desktop local development requires APP_ENV=development" -}}
@@ -24,24 +26,26 @@
   {{- if ne .Values.bootstrap.deploymentPhase "factory_acceptance" -}}
     {{- fail "Docker Desktop local development requires deploymentPhase=factory_acceptance" -}}
   {{- end -}}
-  {{- if .Values.secrets.existingSecret -}}
-    {{- fail "Docker Desktop local development requires a fresh Helm-owned runtime Secret" -}}
+  {{- if and (not $generated) .Values.secrets.existingSecret -}}
+    {{- fail "public-defaults requires a fresh Helm-owned runtime Secret" -}}
   {{- end -}}
-  {{- if or (not .Values.redis.cluster.enabled) (ne (int .Values.redis.cluster.replicas) 3) (ne (int .Values.redis.cluster.sentinelReplicas) 3) (ne (int .Values.redis.cluster.sentinelQuorum) 2) -}}
-    {{- fail "Docker Desktop local development requires Redis 3 data / 3 Sentinel / quorum 2" -}}
+  {{- if and (eq .Values.redis.mode "bundled") (or (not .Values.redis.cluster.enabled) (ne (int .Values.redis.cluster.replicas) 3) (ne (int .Values.redis.cluster.sentinelReplicas) 3) (ne (int .Values.redis.cluster.sentinelQuorum) 2)) -}}
+    {{- fail "Docker Desktop bundled Redis requires 3 data / 3 Sentinel / quorum 2" -}}
   {{- end -}}
   {{- if or (ne (int .Values.keycloak.cluster.replicas) 1) (ne .Values.keycloak.cache.mode "local") .Values.keycloak.cache.stack -}}
     {{- fail "Docker Desktop local development requires one Keycloak replica with local cache and no cache stack" -}}
   {{- end -}}
+  {{- if not $generated -}}
   {{- range $key := list "DATABASE_MIGRATION_PASSWORD" "POSTGRES_ADMIN_PASSWORD" "POSTGRES_PASSWORD" "POSTGRES_MIGRATION_PASSWORD" "KEYCLOAK_DB_PASSWORD" "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD" "S3_SECRET_ACCESS_KEY" "REDIS_PASSWORD" "REDIS_REPLICATION_PASSWORD" "REDIS_SENTINEL_PASSWORD" "NEO4J_ADMIN_PASSWORD" "NEO4J_PASSWORD" "BREAK_GLASS_INITIAL_PASSWORD" -}}
     {{- if ne (index $.Values.secrets.data $key) "P@ssw0rd" -}}
       {{- fail (printf "Docker Desktop local development requires public fixed credential for %s" $key) -}}
     {{- end -}}
   {{- end -}}
+  {{- end -}}
   {{- if or (ne .Values.redis.auth.username "nomosmart") (ne .Values.redis.auth.replicationUsername "nomosmart") (ne .Values.redis.auth.sentinelUsername "nomosmart") -}}
     {{- fail "Docker Desktop local development requires the shared Redis username nomosmart" -}}
   {{- end -}}
-  {{- if eq (index .Values.secrets.data "OPENSEARCH_ADMIN_PASSWORD") (index .Values.secrets.data "OPENSEARCH_PASSWORD") -}}
+  {{- if and (not $generated) (eq (index .Values.secrets.data "OPENSEARCH_ADMIN_PASSWORD") (index .Values.secrets.data "OPENSEARCH_PASSWORD")) -}}
     {{- fail "OpenSearch admin and service passwords must be distinct" -}}
   {{- end -}}
 {{- end -}}

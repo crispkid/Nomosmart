@@ -53,7 +53,10 @@ class Kubernetes:
     def json(
         self, *arguments: str, namespace: bool | str = False
     ) -> dict[str, Any]:
-        result = self.run(*arguments, "-o", "json", namespace=namespace)
+        # Raw API responses are already JSON; kubectl rejects output flags
+        # together with --raw (used for the node filesystem capacity check).
+        output = [] if "--raw" in arguments else ["-o", "json"]
+        result = self.run(*arguments, *output, namespace=namespace)
         try:
             payload = json.loads(result.stdout)
         except json.JSONDecodeError as exc:
@@ -193,40 +196,24 @@ class Kubernetes:
                 denied.append(f"{verb}:{resource}")
         if denied:
             raise PreconditionError("operator RBAC is incomplete: " + ", ".join(denied))
-        longhorn_namespace = "longhorn-system"
-        longhorn_checks = (
-            ("list", "nodes.longhorn.io"),
-            ("list", "volumes.longhorn.io"),
-            ("list", "replicas.longhorn.io"),
-        )
-        longhorn_denied = []
-        for verb, resource in longhorn_checks:
-            result = self.run(
-                "auth",
-                "can-i",
-                verb,
-                resource,
-                namespace=longhorn_namespace,
-            )
-            if result.stdout.strip().lower() != "yes":
-                longhorn_denied.append(f"{verb}:{resource}")
+        capacity_denied = []
         for verb, resource in (
             ("get", "persistentvolumes"),
             ("list", "persistentvolumes"),
         ):
             result = self.run("auth", "can-i", verb, resource)
             if result.stdout.strip().lower() != "yes":
-                longhorn_denied.append(f"{verb}:{resource}")
+                capacity_denied.append(f"{verb}:{resource}")
         for resource in ("pods", "deployments.apps"):
             result = self.run(
                 "auth", "can-i", "list", resource, "--all-namespaces"
             )
             if result.stdout.strip().lower() != "yes":
-                longhorn_denied.append(f"list-all-namespaces:{resource}")
-        if longhorn_denied:
+                capacity_denied.append(f"list-all-namespaces:{resource}")
+        if capacity_denied:
             raise PreconditionError(
                 "capacity inventory RBAC is incomplete: "
-                + ", ".join(longhorn_denied)
+                + ", ".join(capacity_denied)
             )
 
     def validate_nodes(self, minimum: int = 3) -> list[str]:
@@ -244,7 +231,8 @@ class Kubernetes:
         return sorted(ready)
 
     def validate_platform_classes(self) -> None:
-        self.run("get", "storageclass", self.config.application.storage_class)
+        if self.config.application.storage_mode != "external":
+            self.run("get", "storageclass", self.config.application.storage_class)
         self.run("get", "ingressclass", self.config.application.ingress_class)
 
     def validate_ingress_controller(self) -> list[str]:

@@ -54,6 +54,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
     ("backend", (".env.example",)),
     ("frontend", (".env.example",)),
     ("deploy", ("README.md",)),
+    ("deploy/local", ("README.md", "README.zh-TW.md", "prepare-static-pvs.py", "prepare-helm.py", "prepare-ingress.py", "source-tunnel.example.json")),
     ("deploy/docker", (
         "15-public-api-config.sh", "16-document-upload-config.sh", "nginx.conf.template",
         "nomosmart.env.example", "compose-secret-entrypoint.sh", "secret-env-entrypoint.sh",

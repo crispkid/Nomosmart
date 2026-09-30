@@ -132,7 +132,9 @@ spec:
           args:
             - |
               test -d /usr/share/opensearch/plugins/opensearch-security
-              cp -a /usr/share/opensearch/plugins/. /work/plugins/
+              # The fsGroup-writable mount root is owned by root. Copy the
+              # official files without attempting to restore its timestamps.
+              cp -R /usr/share/opensearch/plugins/. /work/plugins/
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
           volumeMounts:
             - {name: official-plugins, mountPath: /work/plugins}
@@ -166,6 +168,7 @@ spec:
             - {name: snapshot-keystore, mountPath: /work}
             - {name: snapshot-truststore, mountPath: /truststore}
       {{- end }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: opensearch
           image: {{ $image | quote }}

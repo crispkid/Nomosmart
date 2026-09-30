@@ -593,20 +593,40 @@
           "additionalProperties": false
         },
         "fresh_installation": {
-          "type": "object",
-          "properties": {
-            "status": {
-              "const": "deferred_by_user"
+          "oneOf": [
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "deferred_by_user"
+                },
+                "reason": {
+                  "const": "Run only after separate user authorization."
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
             },
-            "reason": {
-              "const": "Run only after separate user authorization."
+            {
+              "type": "object",
+              "properties": {
+                "status": {
+                  "const": "external_receipt"
+                },
+                "reason": {
+                  "const": "Final-artifact installation results are delivered in installation-verification.json."
+                }
+              },
+              "required": [
+                "status",
+                "reason"
+              ],
+              "additionalProperties": false
             }
-          },
-          "required": [
-            "status",
-            "reason"
-          ],
-          "additionalProperties": false
+          ]
         },
         "ldap_ad_acceptance": {
           "type": "object",

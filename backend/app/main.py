@@ -15,7 +15,7 @@ from app.core.middleware import RequestIdMiddleware
 def create_app(settings: Settings | None = None) -> FastAPI:
     effective_settings = settings or get_settings()
     configure_logging(effective_settings.log_level, effective_settings.log_format)
-    application = FastAPI(title="NomoSmart API", version="0.1.0")
+    application = FastAPI(title="NomoSmart API", version="0.1.1")
     application.state.settings = effective_settings
     application.add_middleware(RequestIdMiddleware)
     application.add_middleware(

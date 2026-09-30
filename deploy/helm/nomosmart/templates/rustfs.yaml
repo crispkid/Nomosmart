@@ -82,6 +82,7 @@ spec:
                     {{- include "nomosmart.selectorLabels" . | nindent 20 }}
                     app.kubernetes.io/component: rustfs
                 topologyKey: {{ .Values.rustfs.cluster.topologyKey }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: rustfs
           image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"

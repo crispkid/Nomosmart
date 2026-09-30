@@ -53,6 +53,9 @@ deploy/release/releases/
 deploy/release/*.tar
 deploy/release/*.tar.gz
 deploy/release/*.sig
+deploy/release/*signing-key*.asc
+# Local verification receipts are not publication payloads.
+deploy/local/VALIDATION.md
 deploy/vault/generated/
 deploy/vault/custody/
 deploy/vault/*-init*.json

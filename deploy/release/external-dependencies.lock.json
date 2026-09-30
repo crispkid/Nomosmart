@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "release_version": "0.1.0",
+  "release_version": "0.1.1",
   "images": {
     "migration": {
       "reference": "flyway/flyway:13.6-alpine@sha256:25aff2f6105c984fcc98e2599da36acb33af5bde4a4e5c4f75b5e8b6cc47caba",

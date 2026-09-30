@@ -188,6 +188,8 @@ def _tls_evidence(config: InstallConfig, runner: Runner) -> dict[str, str]:
             }
         )
     evidence: dict[str, str] = {}
+    if config.local_installation and config.deployment_profile == "bundled":
+        expected_hosts["postgresql"] = (f"{config.helm_fullname}-postgresql",)
     for component, hostnames in expected_hosts.items():
         certificate = directory / f"{component}.crt"
         private_key = directory / f"{component}.key"
@@ -430,7 +432,7 @@ def build_plan(config: InstallConfig, runner: Runner, kube: Kubernetes) -> dict[
     capacity_plan = rendered_capacity_plan(rendered_output)
     identity = kube.validate_identity()
     kube.validate_rbac()
-    if config.deployment_profile == "external-services":
+    if config.deployment_profile == "external-services" or config.local_installation:
         cloudnativepg = {
             "action": "not-required",
             "profile": "external-services",
@@ -442,7 +444,7 @@ def build_plan(config: InstallConfig, runner: Runner, kube: Kubernetes) -> dict[
     else:
         cloudnativepg = CloudNativePG(config, kube).prepare()
         barman_cloud = BarmanCloud(config, kube).prepare()
-    nodes = kube.validate_nodes(3)
+    nodes = kube.validate_nodes(1 if config.local_installation else 3)
     kube.validate_platform_classes()
     capacity = validate_live_capacity(kube, capacity_plan, nodes)
     ingress_controller_pods = kube.validate_ingress_controller()

@@ -1,7 +1,29 @@
 {{- define "nomosmart.internalCaVolumeMount" -}}
+{{- $files := list }}
+{{- if or (eq .Values.rustfs.mode "bundled") .Values.rustfs.external.caSecretName }}
+{{- $files = append $files "rustfs-ca.crt" }}
+{{- end }}
+{{- if or (eq .Values.postgresql.mode "bundled") .Values.postgresql.external.caSecretName }}
+{{- $files = append $files "postgresql-ca.crt" }}
+{{- end }}
+{{- if or (and (eq .Values.redis.mode "bundled") .Values.redis.cluster.enabled) .Values.redis.external.caSecretName }}
+{{- $files = append $files "redis-ca.crt" }}
+{{- end }}
+{{- if or (eq .Values.opensearch.mode "bundled") .Values.opensearch.external.caSecretName }}
+{{- $files = append $files "opensearch-ca.crt" }}
+{{- end }}
+{{- if and (eq .Values.neo4j.mode "external") .Values.neo4j.external.caSecretName }}
+{{- $files = append $files "neo4j-ca.crt" }}
+{{- end }}
+{{- if and (eq .Values.keycloak.mode "external") .Values.keycloak.external.caSecretName }}
+{{- $files = append $files "keycloak-ca.crt" }}
+{{- end }}
+{{- range $file := $files }}
 - name: internal-ca
-  mountPath: /etc/nomosmart/tls
+  mountPath: /etc/nomosmart/tls/{{ $file }}
+  subPath: {{ $file }}
   readOnly: true
+{{- end }}
 {{- end -}}
 
 {{- define "nomosmart.internalCaVolume" -}}
@@ -19,7 +41,7 @@
           items:
             - {key: {{ .Values.rustfs.external.caKey }}, path: rustfs-ca.crt}
       {{- end }}
-      {{- if and (eq .Values.postgresql.mode "bundled") .Values.postgresql.operator.enabled }}
+      {{- if eq .Values.postgresql.mode "bundled" }}
       - secret:
           name: {{ .Values.postgresql.tls.secretName }}
           items:
@@ -57,5 +79,11 @@
           name: {{ .Values.neo4j.external.caSecretName }}
           items:
             - {key: {{ .Values.neo4j.external.caKey }}, path: neo4j-ca.crt}
+      {{- end }}
+      {{- if and (eq .Values.keycloak.mode "external") .Values.keycloak.external.caSecretName }}
+      - secret:
+          name: {{ .Values.keycloak.external.caSecretName }}
+          items:
+            - {key: {{ .Values.keycloak.external.caKey | default "ca.crt" }}, path: keycloak-ca.crt}
       {{- end }}
 {{- end -}}

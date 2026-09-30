@@ -359,17 +359,17 @@ class Installer:
         return self.package.create_secrets()
 
     def _cloudnativepg_stage(self) -> dict[str, Any]:
-        if self.config.deployment_profile == "external-services":
+        if self.config.deployment_profile == "external-services" or self.config.local_installation:
             return {
-                "status": "skipped",
+                "status": "not-required",
                 "reason": "external-services profile owns PostgreSQL",
             }
         return self.cloudnativepg.ensure()
 
     def _barman_cloud_stage(self) -> dict[str, Any]:
-        if self.config.deployment_profile == "external-services":
+        if self.config.deployment_profile == "external-services" or self.config.local_installation:
             return {
-                "status": "skipped",
+                "status": "not-required",
                 "reason": "external-services profile owns backup storage",
             }
         return self.barman_cloud.ensure()
@@ -387,7 +387,7 @@ class Installer:
             "status": "not-managed",
             "reason": "external-services profile owns PostgreSQL backup storage",
         }
-        if self.config.deployment_profile != "external-services":
+        if self.config.deployment_profile != "external-services" and not self.config.local_installation:
             backup_bucket_job = (
                 f"{self._fullname()}-postgresql-backup-bucket-{revision}"
             )
@@ -400,7 +400,7 @@ class Installer:
         }
 
     def _application(self) -> dict[str, Any]:
-        if self.config.deployment_profile == "external-services":
+        if self.config.deployment_profile == "external-services" or self.config.local_installation:
             postgresql: dict[str, Any] = {
                 "mode": "external",
                 "status": "operator-owned",
@@ -425,7 +425,7 @@ class Installer:
         status = self.helm.status()
         if status["status"] != "deployed":
             raise InstallerError("application Helm revision is not deployed")
-        if self.config.deployment_profile == "external-services":
+        if self.config.deployment_profile == "external-services" or self.config.local_installation:
             postgresql_backup: dict[str, Any] = {
                 "status": "operator-owned",
             }
@@ -444,11 +444,15 @@ class Installer:
         }
 
     def _directory(self) -> dict[str, Any]:
+        if self.config.local_installation:
+            return {"status": "not-required", "scope": "isolated-installation", "functional_acceptance": "not-performed"}
         provider = self.directory.configure()
         mapping = self.directory.reconcile_application_mapping()
         return {"provider": provider, "application_mapping": mapping}
 
     def _identity_checkpoint(self) -> dict[str, Any]:
+        if self.config.local_installation:
+            return {"status": "not-required", "scope": "isolated-installation", "production_identity_checkpoint": "not-performed"}
         try:
             return {
                 "federated_administrator": (
@@ -473,6 +477,8 @@ class Installer:
         self,
         application_revision: int | None,
     ) -> dict[str, Any]:
+        if self.config.local_installation:
+            return {"status": "installation-ready", "deployment_phase": "factory_acceptance", "production_finalization": "not-performed"}
         if (
             application_revision is None
             or application_revision < 1
@@ -661,10 +667,10 @@ class Installer:
                 raise PreconditionError(
                     "completed application Helm release is not deployed"
                 )
-        if "directory-integration" in state.completed_stages:
+        if "directory-integration" in state.completed_stages and not self.config.local_installation:
             self.directory.verify_provider()
             self.directory.verify_application_mapping()
-        if "identity-checkpoint" in state.completed_stages:
+        if "identity-checkpoint" in state.completed_stages and not self.config.local_installation:
             allow_disabled_break_glass = (
                 state.current_stage == "operational-finalization"
                 or "operational-finalization" in state.completed_stages
@@ -685,7 +691,7 @@ class Installer:
             )
             if (
                 str((configmap.get("data") or {}).get("DEPLOYMENT_PHASE") or "")
-                != "operational"
+                != ("factory_acceptance" if self.config.local_installation else "operational")
             ):
                 raise PreconditionError(
                     "completed finalization is no longer operational"

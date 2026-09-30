@@ -42,6 +42,7 @@ spec:
       {{- end }}
       initContainers:
         {{- include "nomosmart.bootstrapInitContainer" . | nindent 8 }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: backend
           image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"

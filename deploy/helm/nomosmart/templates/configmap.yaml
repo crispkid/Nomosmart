@@ -42,6 +42,7 @@ data:
   DEPLOYMENT_PHASE: {{ .Values.bootstrap.deploymentPhase | quote }}
   LOCAL_DEVELOPMENT_PLATFORM: {{ ternary .Values.localDevelopment.platform "disabled" .Values.localDevelopment.enabled | quote }}
   KNOWN_LOCAL_CREDENTIAL_RISK_ACCEPTED: {{ .Values.localDevelopment.knownCredentialRiskAccepted | quote }}
+  LOCAL_CREDENTIAL_MODE: {{ .Values.localDevelopment.credentialMode | quote }}
   ONBOARDING_ADMIN_ALLOW_CIDR: {{ .Values.bootstrap.onboardingAdminAllowCidr | quote }}
   NEO4J_COMMUNITY_ADMIN_EQUIVALENT_ACCEPTED: {{ .Values.acceptedRisks.neo4jCommunityAdminEquivalent | quote }}
   KUBERNETES_SECRET_MOUNT_ROOT: "/var/run/nomosmart-secrets"
@@ -79,6 +80,10 @@ data:
   OIDC_JWKS_URL: {{ .Values.keycloak.external.jwksUrl | quote }}
   KEYCLOAK_ADMIN_API_URL: {{ .Values.keycloak.external.adminApiUrl | quote }}
   KEYCLOAK_ADMIN_INTERNAL_URL: {{ .Values.keycloak.external.adminApiUrl | quote }}
+  {{- if .Values.keycloak.external.caSecretName }}
+  SSL_CERT_FILE: "/etc/nomosmart/tls/keycloak-ca.crt"
+  NODE_EXTRA_CA_CERTS: "/etc/nomosmart/tls/keycloak-ca.crt"
+  {{- end }}
   {{- end }}
   {{- if eq .Values.rustfs.mode "bundled" }}
   S3_ENDPOINT_URL: {{ printf "https://%s-rustfs:%v" (include "nomosmart.fullname" .) .Values.rustfs.service.port | quote }}

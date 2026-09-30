@@ -35,7 +35,7 @@ PG_IMAGE = "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6
 LABEL = "nomosmart.v049.backup-test"
 MAX_STREAM = 512 * 1024 * 1024
 SOURCE_LIMIT = 256 * 1024 * 1024
-BACKUP_ROOT = Path("/Users/peter/NomoSmartBackups/V049")
+BACKUP_ROOT = ROOT / ".operator" / "chg291-v049-live-backup"
 TEST_FILE = ROOT / "backend/tests/test_chg291_v049_live_backup.py"
 RESTRICT_KEY = "V049SchemaComparisonOnlyNotExecuted"
 PSQL = ("-X", "-qAt", "-v", "ON_ERROR_STOP=1")

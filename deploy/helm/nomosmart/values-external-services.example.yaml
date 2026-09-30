@@ -9,6 +9,9 @@
 # input Secret, not a value to commit to this repository.
 deploymentProfile: external-services
 
+storageValidation:
+  mode: external
+
 secrets:
   existingSecret: nomosmart-runtime-secrets
 
@@ -63,6 +66,9 @@ keycloak:
   mode: external
   external:
     issuerUrl: https://identity.external.example.test/realms/nomosmart
+    # Optional for a private CA; supply a complete operator trust bundle.
+    caSecretName: ""
+    caKey: ca.crt
     internalIssuerUrl: https://identity.external.example.test/realms/nomosmart
     adminApiUrl: https://identity.external.example.test
     discoveryUrl: https://identity.external.example.test/realms/nomosmart/.well-known/openid-configuration

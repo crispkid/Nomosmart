@@ -51,6 +51,7 @@ spec:
                   app.kubernetes.io/component: keycloak
               topologyKey: {{ .Values.keycloak.cluster.topologyKey }}
       {{- end }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: keycloak
           image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"

@@ -154,11 +154,15 @@ podAntiAffinity:
 
 {{- define "nomosmart.runtimeSecretEnv" -}}
 {{- range $key := list "APP_ENCRYPTION_KEY" "DATABASE_URL" "REDIS_URL" "REDIS_SENTINEL_PASSWORD" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY" "OPENSEARCH_PASSWORD" "NEO4J_PASSWORD" "OIDC_CLIENT_SECRET" "KEYCLOAK_SYNC_CLIENT_SECRET" }}
+{{- $secretKey := $key }}
+{{- if and (eq $key "REDIS_SENTINEL_PASSWORD") (eq $.Values.redis.mode "bundled") (eq $.Values.redis.auth.username $.Values.redis.auth.replicationUsername) (eq $.Values.redis.auth.username $.Values.redis.auth.sentinelUsername) }}
+{{- $secretKey = $.Values.redis.auth.passwordSecretKey }}
+{{- end }}
 - name: {{ $key }}
   valueFrom:
     secretKeyRef:
       name: {{ include "nomosmart.secretName" $ }}
-      key: {{ $key }}
+      key: {{ $secretKey }}
 {{- end }}
 {{- end -}}
 
@@ -188,4 +192,14 @@ workload, and "application" for the one-shot migration/bootstrap revision.
 {{- define "nomosmart.applicationJobsEnabled" -}}
 {{- $stage := default "operational" .Values.installer.deploymentStage -}}
 {{- if and (eq $stage "application") (not .Values.bootstrap.finalize.enabled) -}}true{{- end -}}
+{{- end -}}
+
+{{/* Real TCP DNS is opt-in for the isolated local profile only. */}}
+{{- define "nomosmart.localPodDnsConfig" -}}
+{{- if .Values.localDevelopment.dnsOverTcp }}
+dnsConfig:
+  options:
+    - {name: ndots, value: "1"}
+    - {name: use-vc}
+{{- end }}
 {{- end -}}

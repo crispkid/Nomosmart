@@ -26,11 +26,7 @@ productionCapacity:
     cpu: 20
     memory: 20
     storage: 25
-  longhorn:
-    namespace: longhorn-system
-    provisioner: driver.longhorn.io
-    requiredReplicaCount: 1
-    allowedDataLocality: [disabled, best-effort]
+
 
 compatibility:
   applicationContract: nomosmart-1

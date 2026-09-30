@@ -9,9 +9,12 @@ global:
 deploymentProfile: auto
 
 localDevelopment:
+  # Isolated local profile only: use real TCP DNS without editing cluster DNS.
+  dnsOverTcp: false
   enabled: false
   platform: docker-desktop
   knownCredentialRiskAccepted: false
+  credentialMode: public-defaults
 
 installer:
   deploymentStage: foundation
@@ -35,10 +38,12 @@ highAvailability:
   terminationGracePeriodSeconds: 60
 
 # Production preflight consumes the rendered capacity plan and compares it
-# with live Kubernetes/Longhorn evidence before any stateful data is created.
-# Application-level replication is already provided by PostgreSQL, Redis,
-# RustFS and OpenSearch; the selected Longhorn class must therefore use
-# one physical replica instead of multiplying every application replica again.
+# with live Kubernetes PV/CSI evidence before stateful data is created.
+# Select a platform StorageClass or pre-created static PVs; no storage vendor
+# is required by this chart. The installer checks the chosen capacity contract.
+storageValidation:
+  mode: dynamic
+
 productionCapacity:
   enabled: false
   minimumNodeAllocatable:
@@ -48,11 +53,7 @@ productionCapacity:
     cpu: 20
     memory: 20
     storage: 25
-  longhorn:
-    namespace: longhorn-system
-    provisioner: driver.longhorn.io
-    requiredReplicaCount: 1
-    allowedDataLocality: [disabled, best-effort]
+
 
 compatibility:
   applicationContract: nomosmart-1
@@ -63,11 +64,11 @@ compatibility:
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.1.0"
+    tag: "0.1.1"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.1.0"
+    tag: "0.1.1"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway
@@ -220,7 +221,7 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.1.0 target from deploy/migrations/release-contract.json.
+  # NomoSmart 0.1.1 target from deploy/migrations/release-contract.json.
   requiredVersion: "051"
   requiredChecksum: "1782483375"
   baselineChecksum: "1904638595"
@@ -251,7 +252,7 @@ secrets:
   data:
     APP_ENCRYPTION_KEY: CHANGE_ME_64_HEX_CHARACTERS
     DATABASE_URL: postgresql+psycopg2://nomosmart:CHANGE_ME_POSTGRES_PASSWORD@postgresql:5432/nomosmart
-    DATABASE_MIGRATION_USER: nomosmart
+    DATABASE_MIGRATION_USER: nomosmart_migration
     DATABASE_MIGRATION_PASSWORD: CHANGE_ME_POSTGRES_MIGRATION_PASSWORD
     POSTGRES_ADMIN_PASSWORD: CHANGE_ME_POSTGRES_ADMIN_PASSWORD
     POSTGRES_PASSWORD: CHANGE_ME_POSTGRES_PASSWORD
@@ -323,10 +324,10 @@ postgresql:
     database: nomosmart
     username: nomosmart
     passwordSecretKey: POSTGRES_PASSWORD
-    migrationUsername: nomosmart
+    migrationUsername: nomosmart_migration
     migrationPasswordSecretKey: POSTGRES_MIGRATION_PASSWORD
     keycloakDatabase: keycloak
-    keycloakUsername: nomosmart
+    keycloakUsername: keycloak
     keycloakPasswordSecretKey: KEYCLOAK_DB_PASSWORD
     superuserSecretName: nomosmart-postgresql-superuser
     ownerSecretName: nomosmart-postgresql-migration

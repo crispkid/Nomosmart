@@ -35,6 +35,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: finalize
           image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"

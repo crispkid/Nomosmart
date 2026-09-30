@@ -17,11 +17,11 @@
 # operator-owned PostgreSQL, Redis, S3, OpenSearch, Neo4j or Keycloak services.
 api_version = "install.nomosmart.io/v1alpha1"
 deployment_profile = "external-services"
-# Running --init-config from a 0.1.0 Release sets v1alpha2, image references and
+# Running --init-config from a 0.1.1 Release sets v1alpha2, image references and
 # the release settings below. Confirm the isolated target before changing
 # isolated_environment_acknowledged to true. Keep the extracted package unchanged.
 # [release]
-# package_dir = "/opt/nomosmart/releases/nomosmart-0.1.0"
+# package_dir = "/opt/nomosmart/releases/nomosmart-0.1.1"
 # purpose = "installation-validation"
 # isolated_environment_acknowledged = false
 
@@ -37,7 +37,9 @@ public_host = "nomosmart.example.test"
 ingress_class = "nginx"
 ingress_controller_namespace = "ingress-nginx"
 ingress_controller_name = "ingress-nginx-controller"
-storage_class = "nomosmart-longhorn-r3"
+platform_profile = "production"
+storage_mode = "external"
+storage_class = ""
 chart = "../helm/nomosmart"
 values = ["../helm/nomosmart/values-prod.yaml", "../helm/nomosmart/values-external-services.example.yaml"]
 package_dir = "/secure/nomosmart/package"
@@ -54,8 +56,8 @@ break_glass_runbook_uri = "https://runbooks.example.test/nomosmart/break-glass"
 break_glass_alerting_evidence = "REPLACE_WITH_ALERT_ROUTE_EVIDENCE"
 
 [images]
-frontend = "registry.example.test/nomosmart/frontend:0.1.0@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-backend = "registry.example.test/nomosmart/backend:0.1.0@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+frontend = "registry.example.test/nomosmart/frontend:0.1.1@sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+backend = "registry.example.test/nomosmart/backend:0.1.1@sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
 migration = "flyway/flyway:13.6-alpine@sha256:25aff2f6105c984fcc98e2599da36acb33af5bde4a4e5c4f75b5e8b6cc47caba"
 postgresql = "ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1"
 redis = "redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952"

@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "release_version": "0.1.0",
+  "release_version": "0.1.1",
   "required_version": "051",
   "targets": {
     "SQL": {

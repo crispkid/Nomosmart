@@ -28,6 +28,10 @@ DEFERRED_GATES = frozenset({
     "frontend_full_suite", "backend_full_suite", "installer_full_suite", "e2e",
     "frontend_coverage", "backend_coverage", "fresh_installation", "ldap_ad_acceptance",
 })
+INSTALLATION_RECEIPT = {
+    "status": "external_receipt",
+    "reason": "Final-artifact installation results are delivered in installation-verification.json.",
+}
 FILE_REFERENCES = ("external_dependencies", "external_advisory", "migration_contract")
 
 
@@ -120,7 +124,8 @@ def validate_manifest(payload: dict[str, Any]) -> None:
     deferred = payload["deferred_validation"]
     if not isinstance(deferred, dict) or set(deferred) != DEFERRED_GATES or any(
         row != {"status": "deferred_by_user", "reason": "Run only after separate user authorization."}
-        for row in deferred.values()
+        and not (name == "fresh_installation" and row == INSTALLATION_RECEIPT)
+        for name, row in deferred.items()
     ):
         raise ReleaseContractError("deferred acceptance must remain explicit and cannot be marked passed")
 

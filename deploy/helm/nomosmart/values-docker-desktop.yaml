@@ -1,13 +1,14 @@
-# Docker Desktop-only development/factory profile (DEPLOY-020).
-# The known credentials below are public local defaults, not production
-# secrets. OpenSearch and cryptographic placeholders must be replaced from
-# owner-only package files before Helm is allowed to render this profile.
+# Isolated Docker Desktop installation-validation profile.
+# Generate random credentials into an existing owner-only runtime Secret.
+# Static PV names, nodes and paths are operator-supplied.
 deploymentProfile: bundled
 
 localDevelopment:
+  dnsOverTcp: true
   enabled: true
   platform: docker-desktop
-  knownCredentialRiskAccepted: true
+  knownCredentialRiskAccepted: false
+  credentialMode: generated
 
 installer:
   deploymentStage: foundation
@@ -20,14 +21,18 @@ replicaCount:
 highAvailability:
   enabled: false
 
+storageValidation:
+  mode: static-pv
+
 productionCapacity:
-  enabled: false
+  enabled: true
+  minimumNodeAllocatable: {cpu: 1000m, memory: 4Gi}
 
 image:
   frontend:
-    tag: "0.1.0"
+    tag: "0.1.1"
   backend:
-    tag: "0.1.0"
+    tag: "0.1.1"
 
 backend:
   env:
@@ -51,38 +56,15 @@ ingress:
     nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32,10.244.0.0/16
 
 secrets:
-  existingSecret: ""
-  data:
-    APP_ENCRYPTION_KEY: CHANGE_ME_LOCAL_RANDOM_APP_ENCRYPTION_KEY
-    DATABASE_URL: postgresql+psycopg2://nomosmart:P%40ssw0rd@nomosmart-local-postgresql:5432/nomosmart
-    DATABASE_MIGRATION_USER: nomosmart
-    DATABASE_MIGRATION_PASSWORD: P@ssw0rd
-    POSTGRES_ADMIN_PASSWORD: P@ssw0rd
-    POSTGRES_PASSWORD: P@ssw0rd
-    POSTGRES_MIGRATION_PASSWORD: P@ssw0rd
-    KEYCLOAK_DB_PASSWORD: P@ssw0rd
-    KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME: nomosmart
-    KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD: P@ssw0rd
-    S3_ACCESS_KEY_ID: nomosmart
-    S3_SECRET_ACCESS_KEY: P@ssw0rd
-    REDIS_PASSWORD: P@ssw0rd
-    REDIS_REPLICATION_PASSWORD: P@ssw0rd
-    REDIS_SENTINEL_PASSWORD: P@ssw0rd
-    REDIS_URL: sentinel://nomosmart:P%40ssw0rd@nomosmart-local-redis-sentinel:26379/0
-    CELERY_BROKER_URL: sentinel://nomosmart:P%40ssw0rd@nomosmart-local-redis-sentinel:26379/0
-    CELERY_RESULT_BACKEND: sentinel://nomosmart:P%40ssw0rd@nomosmart-local-redis-sentinel:26379/1
-    OPENSEARCH_ADMIN_PASSWORD: CHANGE_ME_LOCAL_RANDOM_OPENSEARCH_ADMIN_PASSWORD
-    OPENSEARCH_PASSWORD: CHANGE_ME_LOCAL_RANDOM_OPENSEARCH_SERVICE_PASSWORD
-    NEO4J_ADMIN_PASSWORD: P@ssw0rd
-    NEO4J_PASSWORD: P@ssw0rd
-    NEO4J_AUTH: neo4j/P@ssw0rd
-    OIDC_CLIENT_SECRET: CHANGE_ME_LOCAL_RANDOM_OIDC_CLIENT_SECRET
-    KEYCLOAK_SYNC_CLIENT_SECRET: CHANGE_ME_LOCAL_RANDOM_KEYCLOAK_SYNC_CLIENT_SECRET
-    BREAK_GLASS_INITIAL_PASSWORD: P@ssw0rd
+  existingSecret: nomosmart-runtime-secrets
+  data: {}
 
 postgresql:
   operator:
     enabled: false
+  backup:
+    enabled: false
+    prepareBucket: false
   persistence:
     enabled: true
     size: 5Gi

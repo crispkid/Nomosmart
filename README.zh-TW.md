@@ -10,7 +10,7 @@ NomoSmart 會讀取檔案與已連接的資料來源，必要時執行 OCR，再
 
 平台適合知識負責人、編輯者、審核者、系統管理員、整合開發者與一般使用者。PostgreSQL 保存應用程式資料；Redis 與 Celery 處理背景工作；S3 相容儲存空間保存原始檔與產出內容；OpenSearch 負責搜尋；Neo4j 保存知識關係；Keycloak 提供登入與企業目錄整合。
 
-`0.1.0` 包含 NomoSmart 應用程式、安裝工具、SQL、設定範本與文件。本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。完整安裝驗收尚待完成，請先準備隔離環境使用本版。
+`0.1.1` 包含安裝修正、工具、SQL、設定範本與文件。本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。請依選定的安裝方式準備隔離環境。
 
 ## 2. 核心功能
 
@@ -59,7 +59,7 @@ Next.js Frontend -----------> FastAPI Backend
 | Search | OpenSearch 2.19 | Keyword、Vector、Hybrid 與 Staging Index |
 | Graph | Neo4j 5.26 Community | 知識關係與 Traversal |
 | Identity | Keycloak 26.0.8、OIDC、LDAP/AD Federation | 認證、目錄同步與角色映射 |
-| Deployment | Docker Compose v2、Helm Chart 0.1.0 | 單機與 Kubernetes 部署 |
+| Deployment | Docker Compose v2、Helm Chart 0.1.1 | 單機與 Kubernetes 部署 |
 
 ## 5. 專案結構
 
@@ -78,6 +78,8 @@ Nomosmart/
 ```
 
 ## 6. 開始使用
+
+`0.1.1` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
 
 ### 6.1 選擇安裝方法
 
@@ -113,23 +115,23 @@ Nomosmart/
 
 依選定方法，使用各工具的作業系統安裝指南：[Git](https://git-scm.com/downloads/)、[GitHub CLI](https://github.com/cli/cli#installation)、[Docker](https://docs.docker.com/engine/install/)、[Python](https://www.python.org/downloads/)、[Node.js](https://nodejs.org/en/download)、[uv](https://docs.astral.sh/uv/getting-started/installation/)、[kubectl](https://kubernetes.io/docs/tasks/tools/) 與 [Helm](https://helm.sh/docs/intro/install/)。選擇表列版本，安裝完成後開啟新的終端機，逐項執行適用的檢查指令再繼續。
 
-Kubernetes Production 安裝需要至少三個 Ready 且可排程的 Node、符合 Production Plan 的容量、IngressClass、核准的 Longhorn StorageClass、Public DNS、可信任 TLS Material、Registry 存取權限，以及企業目錄或已設定完成的 Keycloak Identity Provider。
+Kubernetes Production 安裝需要至少三個 Ready 且可排程的 Node、符合 Production Plan 的容量、IngressClass、operator 選定且具備明確 PV／CSI 容量證據的 StorageClass、Public DNS、可信任 TLS Material、Registry 存取權限，以及企業目錄或已設定完成的 Keycloak Identity Provider。
 
 Repository 為私有。Clone 與下載 Release 需要具備存取權限的 GitHub 帳號，拉取映像也需要 NomoSmart GHCR Package 的存取權限。Git 認證請使用 Credential Manager；Token 保存在受保護的認證工具中，不填入設定範例或命令參數。
 
-使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.1.0 Release 安裝包：
+使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.1.1 Release 安裝包：
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.0"
-gh release download v0.1.0 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.0.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.0"
-tar -xzf "$HOME/nomosmart-downloads/0.1.0/nomosmart-0.1.0.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.0"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.0/nomosmart-0.1.0"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.1.1"
+gh release download v0.1.1 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.1.1.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.1.1"
+tar -xzf "$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.1.1"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1"
 ```
 
 每個版本使用新的下載目錄，解壓後依第 8.2 節檢查完整性。GitHub Repository 與 GHCR 拉取權限分開管理；安裝器的 `registry_pull_secret` 應指向具有 Package 讀取權限的 Registry Credential。整包模式也需要連線至 Docker Hub、Quay、GHCR、OpenSearch artifacts，以及 lock 檔列出的 CloudNativePG／Barman 官方下載位置。
@@ -158,19 +160,18 @@ Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它�
 Clone Repository 並進入根目錄：
 
 ```bash
-git clone --branch v0.1.0 --single-branch https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
 
-確認取得的 Tag 與 Commit：
+記錄包含安裝修正的已審查原始碼版本：
 
 ```bash
-git describe --tags --exact-match
 git rev-parse HEAD
 ```
 
-Tag 應為 `v0.1.0`，Commit SHA 應與該 Release 的來源一致。
+保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.1.1` 原始碼 Tag 重現本版。
 
 ### 7.2 驗證主機工具
 
@@ -220,6 +221,7 @@ lsof -nP -iTCP:443 -sTCP:LISTEN
 ```bash
 ./deploy/package/nomosmart-package init \
   --target compose \
+  --random-initial-credentials \
   --profile factory_acceptance \
   --app-env development \
   --public-host nomosmart.local \
@@ -305,7 +307,7 @@ Readiness 成功時，Response 會包含 `"status":"ready"` 與 Healthy Dependen
 https://nomosmart.local
 ```
 
-Factory Profile 會建立首次使用的暫時管理帳號 `nomosmart`，密碼為 `nomosmart`。登入後完成必要的密碼更新，再重新登入。
+上述指令建立暫時管理帳號 `nomosmart`，隨機密碼保存在權限 0600 的 `deploy/docker/generated/current/break_glass_initial_password`。進行首次使用 onboarding 時完成必要的密碼變更。安裝驗證到 health／readiness 成功即完成；以下產品／模型步驟屬於另行安排的功能驗收。
 
 進入 **系統管理 → 模型**：
 
@@ -330,6 +332,8 @@ docker compose --env-file deploy/docker/nomosmart.env down
 <a id="method-2-kubernetes-bundled"></a>
 
 ## 8. 方法二：Kubernetes `bundled`
+
+在 Docker Desktop 進行隔離安裝驗證時，依 [本機 PV／Ingress 與分階段 Helm 指南](deploy/local/README.zh-TW.md) 執行；下列發布包步驟適用於該發布版本的正式流程。
 
 `bundled` Profile 會在同一個 Release 中安裝 NomoSmart 與所有支援的周邊服務。開始前，管理人員需先準備 Kubernetes Cluster、IngressClass、StorageClass、DNS、Image Registry 存取權限、TLS 檔案、足夠容量與企業目錄服務。
 
@@ -356,7 +360,7 @@ export NOMOSMART_PUBLIC_URL="https://<public-host>"
   --purpose installation-validation
 ```
 
-成功時結束碼為 `0`，並回傳 `status: verified`。指令會檢查檔案雜湊、完整檔案清單、相依服務參照及版本資料。0.1.0 請先使用隔離的安裝環境；完整安裝驗收尚待完成。
+成功時結束碼為 `0`，並回傳 `status: verified`。指令會檢查檔案雜湊、完整檔案清單、相依服務參照及版本資料。請準備隔離的安裝環境，並明確選擇 installation-validation 用途。
 
 ### 8.3 驗證工具與 Target Identity
 
@@ -534,6 +538,8 @@ curl --fail --silent --show-error "$NOMOSMART_PUBLIC_URL/api/backend/ready"
 
 ## 9. 方法三：Kubernetes `external-services`
 
+在 Docker Desktop 進行隔離安裝驗證時，依 [本機 PV／Ingress 與分階段 Helm 指南](deploy/local/README.zh-TW.md) 執行；下列發布包步驟適用於該發布版本的正式流程。
+
 `external-services` Profile 只安裝 NomoSmart 應用程式與初始化 Job。PostgreSQL、Redis、S3 相容儲存空間、OpenSearch、Neo4j 與 Keycloak 必須先準備完成，並繼續由原本的管理單位維護。
 
 ### 9.1 定義並驗證安裝 Input
@@ -691,6 +697,8 @@ kubectl --context "$NOMOSMART_KUBE_CONTEXT" --namespace "$NOMOSMART_NAMESPACE" \
 
 已設定 Registry 與 Directory Reference 時，使用第 8.6 節的指令建立對應 Input。
 
+私有 HTTPS Keycloak 可設定 `keycloak.external.caSecretName/caKey`，Secret 需含所有必要根憑證的 CA bundle。Discovery 應檢查實際外部 issuer；不假設它存在於應用 host 的 /identity。CA 使用逐檔唯讀 subPath 掛載，輪替後必須重建 Pod。大型 bundle 用 server-side apply 避免 annotation 大小限制。External-services 的應用 chart 不建立 PVC：設定 `storage_mode = "external"`、空白 `storage_class` 並省略 PV manifest。
+
 ### 9.6 執行並核准 Read-only Plan
 
 ```bash
@@ -736,7 +744,7 @@ Source Development 會直接在開發者電腦上執行 Frontend、Backend、Wor
 ### 10.1 安裝 Source Dependency
 
 ```bash
-git clone --branch v0.1.0 --single-branch https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -761,6 +769,12 @@ cp -i frontend/.env.example frontend/.env.local
 
 替換 `backend/.env` 與 `frontend/.env.local` 的所有 Placeholder，並維持兩個檔案不進入版本控制。至少設定 Database、Redis/Celery、S3、OpenSearch、Neo4j、OIDC、Keycloak Synchronization、Encryption Key、Frontend Origin、Backend Proxy 與 OIDC Client。
 
+
+
+Python 程序使用 `uv run --env-file .env`，讓 SSL_CERT_FILE 同時成為真正的 process environment。替換所有 placeholder，確認每個 TLS 憑證 SAN 與實際 endpoint 相符，保留 PostgreSQL verify-full、Redis rediss 與 S3／OpenSearch／Neo4j 的 CA／hostname 驗證。Source 範本包含 factory_acceptance 初始化、隨機首次密碼與 migration 契約；operator 預先設定 Keycloak 時改用 DEPLOYMENT_KEYCLOAK_MODE=verify，否則提供獨立 bootstrap 管理帳密。私有 CA 的 Node 信任要在啟動前以 `export NODE_EXTRA_CA_CERTS="/absolute/path/to/identity-ca-bundle.crt"` 設定；只放在 .env.local 不會初始化 Node 的 TLS 信任。 參閱 [Node.js 官方文件](https://nodejs.org/api/cli.html#node_extra_ca_certsfile)。
+
+使用本機 Kubernetes port-forward 連到真實依賴時，斷線後須重新啟動通道。若連線重設會反覆讓 port-forward 結束，可在專用測試 namespace 使用真正的 TCP passthrough proxy 再轉送；不修改主機設定，也不關閉 TLS 驗證。 使用已實測結構的 [TCP tunnel 範例](deploy/local/source-tunnel.example.json)：替換專用依賴 namespace 與六個實際 Service／Redis primary Pod IP，套用 ConfigMap／Deployment，再對 deployment/source-tcp-gateway 以 loopback 轉送 15432、16379、19000、19200、17687、18443。Backend endpoint 使用對應的本機埠，憑證 SAN 必須覆蓋本機連線名稱；Flyway 在 Docker 中使用 host.docker.internal 時也需對應 SAN。例子以原有服務做 TCP passthrough，不終止或跳過 TLS。
+
 ### 10.4 套用 Database Migration
 
 從 Repository 根目錄執行。先填入 Flyway Container 可連線的資料庫主機、Migration 帳號及 PostgreSQL CA 路徑。資料庫與帳號需事先建立，該帳號須有建立應用程式 Schema 物件的權限；密碼在隱藏輸入提示中輸入：
@@ -773,7 +787,7 @@ export FLYWAY_PASSWORD="$(python3 -c 'import getpass; print(getpass.getpass("Dat
 export NOMOSMART_FLYWAY_IMAGE="$(python3 -c 'import json; print(json.load(open("deploy/release/external-dependencies.lock.json"))["images"]["migration"]["reference"])')"
 docker run --rm \
   -e FLYWAY_URL -e FLYWAY_USER -e FLYWAY_PASSWORD \
-  -e FLYWAY_BASELINE_ON_MIGRATE=false \
+  -e FLYWAY_BASELINE_ON_MIGRATE=false -e FLYWAY_CONNECT_RETRIES=10 \
   -v "$PWD/sql/migrations:/flyway/sql:ro" \
   -v "$NOMOSMART_POSTGRES_CA:/run/nomosmart/postgresql-ca.crt:ro" \
   "$NOMOSMART_FLYWAY_IMAGE" migrate
@@ -794,7 +808,7 @@ MIGRATION_BASELINE_CHECKSUM=1904638595
 
 ```bash
 cd backend
-uv run python -m app.deployment.bootstrap --mode ensure
+uv run --locked --all-extras --env-file .env python -m app.deployment.bootstrap --mode ensure --wait-seconds 180
 cd ..
 ```
 
@@ -808,28 +822,28 @@ Backend：
 
 ```bash
 cd backend
-uv run uvicorn main:app --host 127.0.0.1 --port 8000
+uv run --locked --all-extras --env-file .env uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 Worker：
 
 ```bash
 cd backend
-uv run celery -A app.worker:celery_app worker --concurrency 2 --loglevel INFO
+uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app worker --concurrency 2 --loglevel INFO
 ```
 
 Beat：
 
 ```bash
 cd backend
-uv run celery -A app.worker:celery_app beat --loglevel INFO
+uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app beat --loglevel INFO
 ```
 
 Frontend：
 
 ```bash
 cd frontend
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 ```
 
 ### 10.7 驗證 Development Runtime
@@ -837,10 +851,11 @@ npm run dev
 ```bash
 curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/health
 curl --fail --silent --show-error http://127.0.0.1:8000/api/v1/ready
-curl --fail --silent --show-error http://127.0.0.1:3000/login
+curl --fail --silent --show-error http://127.0.0.1:3000/
+curl --fail --silent --show-error http://127.0.0.1:3000/api/backend/ready
 ```
 
-Backend Process Health 的預期結果為 `{"status":"healthy"}`，Readiness 應回報 `"status":"ready"`。開啟 `http://127.0.0.1:3000`，完成 OIDC Login，並執行第 7.8 節的 Model 與 Project 驗證。
+Backend Process Health 的預期結果為 `{"status":"healthy"}`，Readiness 應回報 `"status":"ready"`。Frontend 與 `/api/backend/ready` 代理也應成功回應。在 backend/ 執行 `uv run --locked --all-extras --env-file .env celery -A app.worker:celery_app inspect ping` 確認 Worker。產品登入／模型／專案驗收與安裝檢查分開；每輪完成後停止四個終端程序。
 
 ## 11. 設定參考
 
@@ -1226,7 +1241,7 @@ Windows AD 使用相同欄位，並調整下列目錄設定：
 | Process Health | `/api/v1/health` | 回傳 `{"status":"healthy"}` |
 | Dependency Readiness | `/api/v1/ready` | 回傳 `ready` Detail 或 HTTP 503 |
 
-FastAPI 應用程式版本為 `0.1.0`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
+FastAPI 應用程式版本為 `0.1.1`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
 
 ### 12.2 Public Chat 範例
 
@@ -1263,7 +1278,7 @@ curl --fail --silent --show-error \
 ```bash
 cd frontend
 npm ci
-npm run dev
+npm run dev -- --hostname 127.0.0.1
 npm run lint
 npm run build
 ```

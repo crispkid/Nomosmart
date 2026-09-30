@@ -84,7 +84,7 @@ def validate_dependencies(payload: Any, *, version: str) -> dict[str, Any]:
     return payload
 
 
-def load_dependencies(path: Path = LOCK_PATH, *, version: str = "0.1.0") -> dict[str, Any]:
+def load_dependencies(path: Path = LOCK_PATH, *, version: str = "0.1.1") -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:

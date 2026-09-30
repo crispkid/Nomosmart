@@ -41,6 +41,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: neo4j
           image: "{{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}"

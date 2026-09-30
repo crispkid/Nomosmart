@@ -267,6 +267,9 @@ class ApplicationConfig:
     onboarding_admin_allow_cidr: str
     break_glass_runbook_uri: str
     break_glass_alerting_evidence: str
+    platform_profile: str = "production"
+    storage_mode: str = "dynamic"
+    static_pv_manifest_file: Path | None = None
 
 
 @dataclass(frozen=True)
@@ -349,6 +352,10 @@ class InstallConfig:
     source_path: Path
 
     @property
+    def local_installation(self) -> bool:
+        return self.application.platform_profile == "docker-desktop"
+
+    @property
     def digest(self) -> str:
         payload = asdict(self)
         payload.pop("source_path", None)
@@ -360,6 +367,11 @@ class InstallConfig:
                 for path in self.application.values
             ],
         }
+        if self.application.static_pv_manifest_file is not None:
+            source_artifacts["static_pv_manifest_sha256"] = _file_digest(
+                self.application.static_pv_manifest_file,
+                context="application.static_pv_manifest_file",
+            )
         if self.application.trusted_tls_dir is not None:
             tls_names = (
                 ("edge.crt", "edge.key", "edge-ca.crt")
@@ -444,10 +456,20 @@ class InstallConfig:
                 text = path.read_text(encoding="utf-8")
             except OSError:
                 continue
+            if path.suffix == ".json":
+                try:
+                    values = json.loads(text)
+                except ValueError as exc:
+                    raise ConfigError("external Helm JSON values are invalid") from exc
+                for component in ("postgresql", "redis", "rustfs", "opensearch", "neo4j", "keycloak"):
+                    reference = ((values.get(component) or {}).get("external") or {}).get("caSecretName")
+                    if reference:
+                        names.add(_dns_label(reference, context=f"{component}.external.caSecretName"))
+                continue
             names.update(
                 match.group(1)
                 for match in re.finditer(
-                    r"^\s*caSecretName:\s*([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)\s*(?:#.*)?$",
+                    r"^\s*caSecretName:\s*[\"']?([a-z0-9](?:[-a-z0-9]*[a-z0-9])?)[\"']?\s*(?:#.*)?$",
                     text,
                     flags=re.MULTILINE,
                 )
@@ -575,6 +597,22 @@ class InstallConfig:
                 "caKey": self.identity.ca_secret_key,
             },
         }
+        values["storageValidation"] = {"mode": self.application.storage_mode}
+        if self.local_installation:
+            values["backend"]["env"]["APP_ENV"] = "development"
+            values["bootstrap"]["deploymentPhase"] = "factory_acceptance"
+            values["localDevelopment"] = {
+                "enabled": True,
+                "platform": "docker-desktop",
+                "credentialMode": "generated",
+                "knownCredentialRiskAccepted": False,
+            }
+            values["productionCapacity"] = {
+                "enabled": True,
+                "minimumNodeAllocatable": {"cpu": "1000m", "memory": "4Gi"},
+            }
+            values["postgresql"]["backup"]["enabled"] = False
+            values["postgresql"]["backup"]["prepareBucket"] = False
         if self.application.registry_pull_secret:
             values["imagePullSecrets"] = [
                 {"name": self.application.registry_pull_secret}
@@ -591,6 +629,8 @@ class InstallConfig:
                 getattr(self.images, component)
             )
             if component == "postgresql":
+                if self.local_installation:
+                    values["postgresql"]["image"] = rendered_image
                 values.setdefault("postgresql", {}).setdefault(
                     "cluster", {}
                 )["image"] = rendered_image
@@ -681,6 +721,9 @@ def load_config(path: Path) -> InstallConfig:
             "ingress_controller_namespace",
             "ingress_controller_name",
             "storage_class",
+            "platform_profile",
+            "storage_mode",
+            "static_pv_manifest_file",
             "chart",
             "values",
             "package_dir",
@@ -721,7 +764,7 @@ def load_config(path: Path) -> InstallConfig:
             ),
             context="application.ingress_controller_name",
         ),
-        storage_class=_string(app_raw, "storage_class", context="application"),
+        storage_class=_optional_string(app_raw, "storage_class", context="application"),
         chart=_path(_string(app_raw, "chart", context="application"), base, context="application.chart"),
         values=tuple(_path(item, base, context="application.values") for item in values_raw),
         package_dir=_path(_string(app_raw, "package_dir", context="application"), base, context="application.package_dir"),
@@ -769,6 +812,13 @@ def load_config(path: Path) -> InstallConfig:
             app_raw,
             "break_glass_alerting_evidence",
             context="application",
+        ),
+        platform_profile=_string(app_raw, "platform_profile", context="application", default="production"),
+        storage_mode=_string(app_raw, "storage_mode", context="application", default="dynamic"),
+        static_pv_manifest_file=(
+            _path(_optional_string(app_raw, "static_pv_manifest_file", context="application"), base,
+                  context="application.static_pv_manifest_file")
+            if _optional_string(app_raw, "static_pv_manifest_file", context="application") else None
         ),
     )
     if application.runtime_secret_mode not in RUNTIME_SECRET_MODES:
@@ -857,6 +907,21 @@ def load_config(path: Path) -> InstallConfig:
         purpose=release_purpose,
         isolated_environment_acknowledged=isolated_acknowledged,
     )
+    if application.platform_profile not in {"production", "docker-desktop"}:
+        raise ConfigError("application.platform_profile must be production or docker-desktop")
+    if application.platform_profile == "docker-desktop" and (
+        release.purpose != "installation-validation" or not release.isolated_environment_acknowledged
+    ):
+        raise ConfigError("docker-desktop requires isolated installation-validation")
+    if application.storage_mode not in {"dynamic", "static-pv", "external"}:
+        raise ConfigError("application.storage_mode must be dynamic, static-pv or external")
+    if application.storage_mode == "external":
+        if deployment_profile != "external-services" or application.storage_class:
+            raise ConfigError("external storage requires external-services and an empty storage_class")
+    elif not application.storage_class:
+        raise ConfigError("dynamic/static-pv storage requires application.storage_class")
+    if (application.storage_mode == "static-pv") != (application.static_pv_manifest_file is not None):
+        raise ConfigError("static_pv_manifest_file must be supplied only for static-pv storage")
 
     if deployment_profile == "external-services" and application.runtime_secret_mode != "existing":
         raise ConfigError(

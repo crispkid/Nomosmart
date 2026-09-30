@@ -34,9 +34,9 @@ class PackageManager:
             "--target",
             "helm",
             "--profile",
-            "production",
+            "factory_acceptance" if self.config.local_installation else "production",
             "--app-env",
-            "production",
+            "development" if self.config.local_installation else "production",
             "--output-dir",
             str(self.config.application.package_dir),
             "--public-host",
@@ -49,13 +49,16 @@ class PackageManager:
             self.config.target.namespace,
             "--no-display",
         ]
+        if self.config.local_installation:
+            command.extend(["--random-initial-credentials", "--postgresql-standalone"])
         if self.config.application.trusted_tls_dir is not None:
             command.extend(["--trusted-tls-dir", str(self.config.application.trusted_tls_dir)])
         if self.config.deployment_profile == "external-services":
             command.append("--external-services")
         self.runner.run(command, timeout=300)
         manifest = self._manifest()
-        if manifest.get("target") != "helm" or manifest.get("profile") != "production":
+        expected_profile = "factory_acceptance" if self.config.local_installation else "production"
+        if manifest.get("target") != "helm" or manifest.get("profile") != expected_profile:
             raise DriftError("generated package target/profile does not match")
         certificate_host = str((manifest.get("certificates") or {}).get("public_host") or "")
         if certificate_host != self.config.application.public_host:
@@ -83,8 +86,8 @@ class PackageManager:
     ) -> None:
         if (
             manifest.get("target") != "helm"
-            or manifest.get("profile") != "production"
-            or manifest.get("app_env") != "production"
+            or manifest.get("profile") != ("factory_acceptance" if self.config.local_installation else "production")
+            or manifest.get("app_env") != ("development" if self.config.local_installation else "production")
             or str(manifest.get("helm_release") or "nomosmart")
             != self.config.target.release
             or str(manifest.get("helm_fullname") or "nomosmart")
@@ -103,6 +106,8 @@ class PackageManager:
             if self.config.deployment_profile == "external-services"
             else {"operator_provided"}
         )
+        if self.config.local_installation:
+            allowed_tls_sources.add("bundled_self_signed")
         if (
             not isinstance(certificates, dict)
             or certificates.get("public_host")
@@ -287,7 +292,8 @@ class PackageManager:
         inventory: list[dict[str, Any]] = []
         usernames = manifest.get("usernames") if isinstance(manifest.get("usernames"), dict) else {}
         postgresql_endpoint = (
-            f"{self.config.helm_fullname}-postgresql-rw:5432"
+            f"{self.config.helm_fullname}-postgresql:5432" if self.config.local_installation
+            else f"{self.config.helm_fullname}-postgresql-rw:5432"
         )
         redis_endpoint = (
             f"{self.config.helm_fullname}-redis-sentinel:26379"
@@ -478,7 +484,7 @@ class PackageManager:
                 self._protected_file("POSTGRES_ADMIN_PASSWORD"),
             ),
             f"{self.config.helm_fullname}-postgresql-migration": (
-                "nomosmart",
+                "nomosmart_migration",
                 self._protected_file("POSTGRES_MIGRATION_PASSWORD"),
             ),
             f"{self.config.helm_fullname}-postgresql-app": (
@@ -486,7 +492,7 @@ class PackageManager:
                 self._protected_file("POSTGRES_PASSWORD"),
             ),
             f"{self.config.helm_fullname}-postgresql-keycloak": (
-                "nomosmart",
+                "keycloak",
                 self._protected_file("KEYCLOAK_DB_PASSWORD"),
             ),
         }

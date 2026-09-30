@@ -66,8 +66,8 @@ USERNAMES: Final[dict[str, str]] = {
     "break_glass": "nomosmart",
     "postgres_admin": "postgres",
     "postgres_app": "nomosmart",
-    "postgres_migration": "nomosmart",
-    "keycloak_db": "nomosmart",
+    "postgres_migration": "nomosmart_migration",
+    "keycloak_db": "keycloak",
     "keycloak_bootstrap": "nomosmart",
     "keycloak_sync": "nomosmart-sync",
     "rustfs": "nomosmart",
@@ -283,6 +283,7 @@ def _validate_certificate_set(
     helm_fullname: str,
     helm_release: str,
     helm_namespace: str,
+    postgresql_standalone: bool = False,
 ) -> dict[str, dict[str, str]]:
     rustfs_host = f"{helm_fullname}-rustfs" if target == "helm" else "rustfs"
     opensearch_host = (
@@ -291,7 +292,7 @@ def _validate_certificate_set(
         else "opensearch"
     )
     postgresql_host = (
-        f"{helm_fullname}-postgresql-rw" if target == "helm" else "postgresql"
+        (f"{helm_fullname}-postgresql" if postgresql_standalone else f"{helm_fullname}-postgresql-rw") if target == "helm" else "postgresql"
     )
     redis_host = (
         f"{helm_fullname}-redis-sentinel" if target == "helm" else "redis"
@@ -406,6 +407,7 @@ def _generate_bundled_tls(
     helm_fullname: str,
     helm_release: str,
     helm_namespace: str,
+    postgresql_standalone: bool = False,
 ) -> dict[str, dict[str, str]]:
     _ensure_private_directory(directory)
     work = directory / ".work"
@@ -463,7 +465,7 @@ def _generate_bundled_tls(
             f"{helm_fullname}-rustfs" if target == "helm" else "rustfs"
         )
         postgresql_host = (
-            f"{helm_fullname}-postgresql-rw" if target == "helm" else "postgresql"
+            (f"{helm_fullname}-postgresql" if postgresql_standalone else f"{helm_fullname}-postgresql-rw") if target == "helm" else "postgresql"
         )
         postgresql_base = (
             f"{helm_fullname}-postgresql" if target == "helm" else "postgresql"
@@ -481,14 +483,18 @@ def _generate_bundled_tls(
             "edge": (public_host, f"DNS:{public_host},DNS:localhost,IP:127.0.0.1"),
             "rustfs": (
                 rustfs_host,
-                f"DNS:rustfs,DNS:{rustfs_host},DNS:{rustfs_host}-headless,"
+                f"DNS:rustfs,DNS:{rustfs_host},DNS:{rustfs_host}.{helm_namespace},"
+                f"DNS:{rustfs_host}.{helm_namespace}.svc,DNS:{rustfs_host}.{helm_namespace}.svc.cluster.local,"
+                f"DNS:{rustfs_host}-headless,"
                 f"DNS:*.{rustfs_host}-headless,DNS:*.{rustfs_host}-headless.{helm_namespace},"
                 f"DNS:*.{rustfs_host}-headless.{helm_namespace}.svc,"
                 f"DNS:*.{rustfs_host}-headless.{helm_namespace}.svc.cluster.local",
             ),
             "postgresql": (
                 postgresql_host,
-                f"DNS:postgresql,DNS:{postgresql_host},DNS:{postgresql_base}-r,"
+                f"DNS:postgresql,DNS:{postgresql_host},DNS:{postgresql_base},"
+                f"DNS:{postgresql_base}.{helm_namespace},DNS:{postgresql_base}.{helm_namespace}.svc,"
+                f"DNS:{postgresql_base}.{helm_namespace}.svc.cluster.local,DNS:{postgresql_base}-r,"
                 f"DNS:{postgresql_base}-ro,DNS:{postgresql_base}-rw.{helm_namespace},"
                 f"DNS:{postgresql_base}-rw.{helm_namespace}.svc,"
                 f"DNS:{postgresql_base}-rw.{helm_namespace}.svc.cluster.local,"
@@ -500,7 +506,9 @@ def _generate_bundled_tls(
             ),
             "redis": (
                 redis_host,
-                f"DNS:redis,DNS:{redis_host},DNS:{redis_base}-headless,"
+                f"DNS:redis,DNS:{redis_host},DNS:{redis_host}.{helm_namespace},"
+                f"DNS:{redis_host}.{helm_namespace}.svc,DNS:{redis_host}.{helm_namespace}.svc.cluster.local,"
+                f"DNS:{redis_base}-headless,"
                 f"DNS:*.{redis_base}-headless,DNS:*.{redis_base}-headless.{helm_namespace},"
                 f"DNS:*.{redis_base}-headless.{helm_namespace}.svc,"
                 f"DNS:*.{redis_base}-headless.{helm_namespace}.svc.cluster.local",
@@ -636,6 +644,7 @@ def _generate_bundled_tls(
             helm_fullname=helm_fullname,
             helm_release=helm_release,
             helm_namespace=helm_namespace,
+            postgresql_standalone=postgresql_standalone,
         )
     finally:
         shutil.rmtree(work, ignore_errors=True)
@@ -674,6 +683,7 @@ def _prepare_tls(
     helm_fullname: str,
     helm_release: str,
     helm_namespace: str,
+    postgresql_standalone: bool = False,
 ) -> dict[str, object]:
     tls_root = staging / "tls"
     _ensure_private_directory(tls_root)
@@ -685,6 +695,7 @@ def _prepare_tls(
         helm_fullname=helm_fullname,
         helm_release=helm_release,
         helm_namespace=helm_namespace,
+        postgresql_standalone=postgresql_standalone,
     )
     active_source = "bundled_self_signed"
     active_input = bundled
@@ -717,6 +728,7 @@ def _prepare_tls(
             helm_fullname=helm_fullname,
             helm_release=helm_release,
             helm_namespace=helm_namespace,
+            postgresql_standalone=postgresql_standalone,
         )
         active_source = "operator_provided"
         active_input = operator
@@ -730,6 +742,7 @@ def _prepare_tls(
         helm_fullname=helm_fullname,
         helm_release=helm_release,
         helm_namespace=helm_namespace,
+        postgresql_standalone=postgresql_standalone,
     )
     return {
         "active_source": active_source,
@@ -756,12 +769,18 @@ def _build_values(
     first_use: bool,
     helm_fullname: str = "nomosmart",
     docker_desktop_local: bool = False,
+    random_initial_credentials: bool = False,
+    postgresql_standalone: bool = False,
 ) -> dict[str, str]:
     values = {name: _random_secret() for name in PRIMITIVE_SECRET_NAMES}
-    if first_use:
+    if first_use and not random_initial_credentials:
         for name in KNOWN_PERIPHERAL_SECRET_NAMES:
             values[name] = "P@ssw0rd"
-    if target == "compose" or docker_desktop_local:
+    if len({USERNAMES[key] for key in ("redis_service", "redis_replication", "redis_sentinel")}) == 1:
+        # A shared ACL username is one identity, including after rotation.
+        values["redis_replication_password"] = values["redis_password"]
+        values["redis_sentinel_password"] = values["redis_password"]
+    if target == "compose" or docker_desktop_local or random_initial_credentials:
         values["opensearch_admin_password"] = _random_opensearch_password()
         values["opensearch_service_password"] = _random_opensearch_password()
         while values["opensearch_service_password"] == values["opensearch_admin_password"]:
@@ -769,7 +788,9 @@ def _build_values(
     elif not first_use:
         values["opensearch_admin_password"] = _random_opensearch_password()
     values["break_glass_initial_password"] = (
-        "P@ssw0rd"
+        _random_secret()
+        if random_initial_credentials
+        else "P@ssw0rd"
         if first_use and docker_desktop_local
         else "nomosmart"
         if first_use
@@ -788,7 +809,7 @@ def _build_values(
     postgres_app_password_uri = quote(postgres_app_password, safe="")
     redis_password_uri = quote(redis_password, safe="")
     postgres_host = (
-        f"{helm_fullname}-postgresql-rw"
+        f"{helm_fullname}-postgresql" if postgresql_standalone or docker_desktop_local else f"{helm_fullname}-postgresql-rw"
         if target == "helm"
         else "postgresql"
     )
@@ -912,6 +933,7 @@ def _write_compose_env(
     public_host: str,
     runbook_uri: str,
     alerting_evidence: str,
+    random_initial_credentials: bool = False,
 ) -> None:
     docker_dir = Path(__file__).resolve().parents[1] / "docker"
     env_path = docker_dir / "nomosmart.env"
@@ -926,6 +948,7 @@ def _write_compose_env(
             "COMPOSE_PROFILES=postgresql,redis,rustfs,opensearch,neo4j,keycloak",
             f"APP_ENV={app_env}",
             f"DEPLOYMENT_PHASE={deployment_phase}",
+            f"LOCAL_CREDENTIAL_MODE={'generated' if random_initial_credentials else 'public-defaults'}",
             "DEPLOYMENT_BOOTSTRAP_RELEASE=compose-initial",
             *(f"{name}={value}" for name, value in migration_environment().items()),
             f"NOMOSMART_PUBLIC_HOST={public_host}",
@@ -954,8 +977,8 @@ def _write_compose_env(
             f"BREAK_GLASS_RUNBOOK_URI={runbook_uri}",
             f"BREAK_GLASS_ALERTING_EVIDENCE={alerting_evidence}",
             "POSTGRES_USER=nomosmart",
-            "DATABASE_MIGRATION_USER=nomosmart",
-            "KEYCLOAK_DB_USER=nomosmart",
+            "DATABASE_MIGRATION_USER=nomosmart_migration",
+            "KEYCLOAK_DB_USER=keycloak",
             "KEYCLOAK_ADMIN=nomosmart",
             "S3_ACCESS_KEY_ID=nomosmart",
             "OPENSEARCH_USERNAME=nomosmart",
@@ -978,6 +1001,14 @@ def _output_root(args: argparse.Namespace) -> Path:
 def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
     _validate_profile(args.profile, args.app_env)
     docker_desktop_local = bool(getattr(args, "docker_desktop_local", False))
+    random_initial_credentials = bool(getattr(args, "random_initial_credentials", False))
+    postgresql_standalone = bool(getattr(args, "postgresql_standalone", False))
+    if postgresql_standalone and (args.target != "helm" or args.profile != FACTORY_PROFILE):
+        raise PackageError("postgresql-standalone requires a local Helm factory_acceptance package")
+    if random_initial_credentials and (
+        args.profile != FACTORY_PROFILE or args.app_env != "development" or docker_desktop_local
+    ):
+        raise PackageError("random-initial-credentials requires factory_acceptance/development without docker-desktop-local")
     if docker_desktop_local and (
         rotating
         or args.target != "helm"
@@ -1041,6 +1072,8 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
         first_use=first_use,
         helm_fullname=helm_fullname,
         docker_desktop_local=docker_desktop_local,
+        random_initial_credentials=random_initial_credentials,
+        postgresql_standalone=postgresql_standalone,
     )
     trusted_tls_dir = args.trusted_tls_dir
     if (
@@ -1064,6 +1097,7 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
             _validate_dns_label(args.helm_namespace or "nomosmart", context="Helm namespace")
             if args.target == "helm" else "nomosmart"
         ),
+        postgresql_standalone=postgresql_standalone or docker_desktop_local,
     )
     deployment_state = str(existing_payload.get("deployment_state", "onboarding")) if existing_payload else "onboarding"
     payload = _manifest(
@@ -1077,6 +1111,8 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
         first_use=first_use,
         docker_desktop_local=docker_desktop_local,
     )
+    if random_initial_credentials:
+        payload["credential_mode"] = "initial_random"
     if args.target == "helm":
         payload["helm_fullname"] = helm_fullname
         payload["helm_release"] = helm_release
@@ -1116,6 +1152,7 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
                 public_host=public_host,
                 runbook_uri=runbook_uri,
                 alerting_evidence=alerting_evidence,
+                random_initial_credentials=random_initial_credentials,
             )
         if not args.no_display:
             _display_once(values, args.profile)
@@ -1301,6 +1338,10 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--profile", choices=(FACTORY_PROFILE, PRODUCTION_PROFILE), required=True)
     init_parser.add_argument("--app-env", choices=("development", "production"), required=True)
     init_parser.add_argument("--no-display", action="store_true")
+    init_parser.add_argument("--random-initial-credentials", action="store_true",
+                             help="generate random first-use local credentials in protected files")
+    init_parser.add_argument("--postgresql-standalone", action="store_true",
+                             help="use the local standalone PostgreSQL service DNS name")
     init_parser.add_argument("--public-host", default=DEFAULT_PUBLIC_HOST)
     init_parser.add_argument("--trusted-tls-dir", default="")
     init_parser.add_argument(

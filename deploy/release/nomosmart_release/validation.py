@@ -11,7 +11,7 @@ from typing import Any
 from . import __version__
 from .contract import ReleaseContractError, _bounded_file, _load_json, sha256_file, verify_release_package
 from .contract_v3 import (
-    DEFERRED_GATES, INTEGRITY, PACKAGE_TYPE, PURPOSE, REQUIRED_GATES,
+    DEFERRED_GATES, INTEGRITY, INSTALLATION_RECEIPT, PACKAGE_TYPE, PURPOSE, REQUIRED_GATES,
     SCHEMA_VERSION, _reference, validate_manifest,
 )
 from .publication import inspect_publication_files, validate_application_images
@@ -128,7 +128,8 @@ def assemble_validation_release(
             },
             "application_images": images, "gates": gates,
             "deferred_validation": {
-                name: {"status": "deferred_by_user", "reason": "Run only after separate user authorization."}
+                name: dict(INSTALLATION_RECEIPT) if name == "fresh_installation" else
+                {"status": "deferred_by_user", "reason": "Run only after separate user authorization."}
                 for name in sorted(DEFERRED_GATES)
             },
             "files": _payload_inventory(staging),

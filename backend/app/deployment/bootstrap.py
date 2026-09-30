@@ -80,6 +80,7 @@ class DeploymentBootstrapSettings(Settings):
     deployment_phase: Literal["onboarding", "operational", "factory_acceptance"] = "operational"
     local_development_platform: str = "disabled"
     known_local_credential_risk_accepted: bool = False
+    local_credential_mode: str = "public-defaults"
     deployment_bootstrap_wait_seconds: int = Field(default=0, ge=0, le=3600)
     deployment_finalization_admin_username: str = ""
     deployment_finalization_admin_group: str = ""
@@ -88,6 +89,11 @@ class DeploymentBootstrapSettings(Settings):
     def validate_first_use_profile(self) -> "DeploymentBootstrapSettings":
         initial_password = self.break_glass_initial_password.get_secret_value()
         docker_desktop_local = self.local_development_platform == "docker-desktop"
+        if self.local_credential_mode not in {"public-defaults", "generated"}:
+            raise ValueError("local credential mode is unsupported")
+        generated_local = self.local_credential_mode == "generated"
+        if generated_local and (self.app_env != "development" or self.deployment_phase != "factory_acceptance"):
+            raise ValueError("generated local credentials require development factory_acceptance")
         if self.deployment_phase == "factory_acceptance" and self.app_env != "development":
             raise ValueError("factory_acceptance requires APP_ENV=development")
         if self.app_env == "production" and self.deployment_phase == "factory_acceptance":
@@ -95,7 +101,7 @@ class DeploymentBootstrapSettings(Settings):
         if docker_desktop_local and (
             self.app_env != "development"
             or self.deployment_phase != "factory_acceptance"
-            or not self.known_local_credential_risk_accepted
+            or (not self.known_local_credential_risk_accepted and not generated_local)
         ):
             raise ValueError(
                 "Docker Desktop local credentials require development factory_acceptance with explicit risk acceptance"
@@ -103,9 +109,12 @@ class DeploymentBootstrapSettings(Settings):
         expected_first_use_password = "P@ssw0rd" if docker_desktop_local else "nomosmart"
         if (
             self.deployment_phase in {"onboarding", "factory_acceptance"}
+            and not generated_local
             and initial_password != expected_first_use_password
         ):
             raise ValueError("first-use break-glass password does not match the approved deployment profile")
+        if generated_local and (len(initial_password) < 16 or initial_password in {"nomosmart", "P@ssw0rd"}):
+            raise ValueError("generated local first-use password must be a strong non-public value")
         if self.deployment_phase == "operational" and initial_password in {"nomosmart", "P@ssw0rd"}:
             raise ValueError("operational break-glass password must be rotated")
         if self.app_env == "production" and self.deployment_phase == "onboarding":

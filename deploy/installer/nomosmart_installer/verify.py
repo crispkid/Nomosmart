@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import json
 from pathlib import Path
 from typing import Any
@@ -45,7 +46,38 @@ class Verifier:
         self.helm = helm
         self.directory = directory
 
+    def installation_workloads(self) -> dict[str, Any]:
+        selector = f"app.kubernetes.io/instance={self.config.target.release}"
+        rows = []
+        components = set()
+        for kind in ("deployments", "statefulsets"):
+            for item in self.kube.json("get", kind, "-l", selector, namespace=True).get("items") or []:
+                desired = int((item.get("spec") or {}).get("replicas") or 0)
+                status = item.get("status") or {}
+                ready = int(status.get("readyReplicas") or 0)
+                if desired < 1 or ready != desired or status.get("observedGeneration", 0) < item["metadata"]["generation"]:
+                    raise InstallerError(f"{kind}/{item['metadata']['name']} is not Ready")
+                component = item["metadata"].get("labels", {}).get("app.kubernetes.io/component", "")
+                components.add(component)
+                rows.append({"kind": kind, "name": item["metadata"]["name"], "uid": item["metadata"]["uid"], "desired": desired, "ready": ready, "component": component})
+        required = {"frontend", "backend", "worker", "beat"}
+        if self.config.deployment_profile == "bundled":
+            required.update({"postgresql", "redis", "rustfs", "opensearch", "neo4j", "keycloak"})
+        if not required <= components:
+            raise InstallerError("installation is missing required workload components: " + ", ".join(sorted(required-components)))
+        claims = self.kube.json("get", "pvc", namespace=True).get("items") or []
+        if self.config.deployment_profile == "external-services" and claims:
+            raise InstallerError("external-services application unexpectedly owns PVCs")
+        for claim in claims:
+            if (claim.get("status") or {}).get("phase") != "Bound":
+                raise InstallerError(f"PVC/{claim['metadata']['name']} is not Bound")
+        evidence = {"workloads": rows, "claims": [{"name": row["metadata"]["name"], "uid": row["metadata"]["uid"], "volume": row["spec"]["volumeName"]} for row in claims]}
+        evidence["fingerprint"] = sha256_bytes(json.dumps(evidence, sort_keys=True).encode())
+        return evidence
+
     def workloads(self) -> dict[str, Any]:
+        if self.config.local_installation:
+            return self.installation_workloads()
         external_profile = self.config.deployment_profile == "external-services"
         selector = f"app.kubernetes.io/instance={self.config.target.release}"
         deployments = self.kube.json(
@@ -530,11 +562,48 @@ class Verifier:
             ),
         }
         result: dict[str, Any] = {}
+        oidc_url = None
+        external_client = client
+        if self.config.deployment_profile == "external-services":
+            configuration = self.kube.json("get", "configmap", f"{self._fullname()}-config", namespace=True).get("data") or {}
+            issuer = str(configuration.get("OIDC_ISSUER_URL") or "")
+            if not issuer.startswith("https://"):
+                raise InstallerError("external identity issuer must use HTTPS")
+            oidc_url = issuer.rstrip("/") + "/.well-known/openid-configuration"
+            if self.config.local_installation:
+                # The isolated dependency's DNS may exist only in Kubernetes.
+                # Use the real Backend network and mounted trust bundle.
+                script = """import json, os, ssl, urllib.request
+url = os.environ.get('OIDC_DISCOVERY_URL') or os.environ['OIDC_ISSUER_URL'].rstrip('/') + '/.well-known/openid-configuration'
+if not url.startswith('https://'): raise SystemExit('external_discovery_requires_https')
+context = ssl.create_default_context(cafile=os.environ.get('SSL_CERT_FILE') or None)
+with urllib.request.urlopen(url, context=context, timeout=15) as response:
+    payload = json.load(response)
+    if payload.get('issuer') != os.environ['OIDC_ISSUER_URL']: raise SystemExit('external_issuer_mismatch')
+    print(json.dumps({'status': response.status, 'content_type': response.headers.get_content_type(), 'issuer': payload['issuer'], 'verification': 'real_backend_https'}))
+"""
+                response = self.kube.run("exec", f"deployment/{self._fullname()}-backend", "-c", "backend", "--", "python", "-c", script, namespace=True, timeout=30)
+                result["oidc_discovery"] = json.loads(response.stdout)
+                if result["oidc_discovery"]["status"] != 200:
+                    raise InstallerError("external identity discovery is unavailable")
+                paths.pop("oidc_discovery")
+            else:
+                external_client = TLSClient(ca_file=str(ca_file), timeout=30)
+                external_client.context.load_default_certs()
+                deployment = self.kube.json("get", "deployment", f"{self._fullname()}-backend", namespace=True)
+                for volume in deployment["spec"]["template"]["spec"].get("volumes") or []:
+                    for source in (volume.get("projected") or {}).get("sources") or []:
+                        secret = source.get("secret") or {}
+                        for item in secret.get("items") or []:
+                            if item.get("path") == "keycloak-ca.crt":
+                                material = self.kube.json("get", "secret", secret["name"], namespace=True)
+                                external_client.context.load_verify_locations(cadata=base64.b64decode(material["data"][item["key"]]).decode())
         for name, path in paths.items():
             try:
-                response = client.request(
+                request_client = external_client if name == "oidc_discovery" else client
+                response = request_client.request(
                     "GET",
-                    f"https://{self.config.application.public_host}{path}",
+                    oidc_url if name == "oidc_discovery" and oidc_url else f"https://{self.config.application.public_host}{path}",
                     headers={"Accept": "application/json,text/html"},
                     content_types=(
                         ("text/html",)
@@ -563,6 +632,9 @@ class Verifier:
                             "public Backend readiness is not ready"
                         )
                     result[name]["application_status"] = "ready"
+                if name == "oidc_discovery" and oidc_url:
+                    if json.loads(response.body).get("issuer", "").rstrip("/") + "/.well-known/openid-configuration" != oidc_url:
+                        raise InstallerError("external identity discovery issuer mismatch")
             except TLSClientError as exc:
                 raise InstallerError(f"public endpoint {name} is unavailable") from exc
             if result[name]["status"] != 200:
@@ -582,14 +654,13 @@ class Verifier:
                     self.config.application.rustfs_tls_secret,
                     self.config.application.opensearch_tls_secret,
                     f"{self._fullname()}-postgresql-tls",
-                    f"{self._fullname()}-postgresql-replication-tls",
                     f"{self._fullname()}-redis-tls",
-                    f"{self._fullname()}-postgresql-superuser",
-                    f"{self._fullname()}-postgresql-migration",
-                    f"{self._fullname()}-postgresql-app",
-                    f"{self._fullname()}-postgresql-keycloak",
+
                 }
             )
+        if not self.config.local_installation and self.config.deployment_profile != "external-services":
+            names.add(f"{self._fullname()}-postgresql-replication-tls")
+            names.update(f"{self._fullname()}-postgresql-{role}" for role in ("superuser", "migration", "app", "keycloak"))
         if self.config.identity.mode != "preconfigured":
             names.add(self.config.identity.bind_secret_name)
             names.add(self.config.identity.ca_secret_name)
@@ -611,10 +682,17 @@ class Verifier:
             namespace=True,
         )
         deployment_phase = str((phase.get("data") or {}).get("DEPLOYMENT_PHASE") or "")
-        if deployment_phase != "operational":
+        if deployment_phase != ("factory_acceptance" if self.config.local_installation else "operational"):
             raise DriftError(
                 "deployed release is no longer in the operational phase"
             )
+        if self.config.local_installation:
+            return {"schema_version": 1, "verified_at": now(), "status": "installation-ready",
+                    "scope": "isolated-installation", "production_ready": False,
+                    "functional_acceptance": "not-performed", "config_digest": self.config.digest,
+                    "target": target, "deployment_phase": deployment_phase, "helm": helm,
+                    "resource_evidence": self.installation_workloads(),
+                    "secret_fingerprints": self.secret_fingerprints(), "public_https": self.public_endpoints()}
         directory = self.directory.verify_provider()
         directory_mapping = self.directory.verify_application_mapping()
         workload = self.workloads()

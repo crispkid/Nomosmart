@@ -33,6 +33,7 @@ spec:
       {{- end }}
       initContainers:
         {{- include "nomosmart.bootstrapEvidenceInitContainer" . | nindent 8 }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: beat-agent
           image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"

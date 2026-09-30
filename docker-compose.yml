@@ -230,7 +230,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.1.0}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.1.1}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -268,7 +268,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -317,7 +317,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -346,7 +346,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -383,7 +383,7 @@ services:
       - database_migration_password
     command:
       - -url=${FLYWAY_JDBC_URL:-jdbc:postgresql://postgresql:5432/nomosmart}
-      - -user=${DATABASE_MIGRATION_USER:-nomosmart}
+      - -user=${DATABASE_MIGRATION_USER:-nomosmart_migration}
       - -connectRetries=30
       - -baselineOnMigrate=false
       - -locations=filesystem:/flyway/sql
@@ -402,7 +402,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -448,7 +448,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -469,7 +469,9 @@ services:
     entrypoint: ["/opt/nomosmart/compose-secret-entrypoint.sh", "postgresql", "docker-entrypoint.sh"]
     # A Compose entrypoint override clears the image CMD; preserve it explicitly.
     command: ["postgres"]
-    tmpfs: ["/run/nomosmart:rw,noexec,nosuid,nodev,size=16m,mode=0700"]
+    tmpfs:
+      - /run/nomosmart:rw,noexec,nosuid,nodev,size=16m,mode=0700
+      - /docker-entrypoint-initdb.d:rw,noexec,nosuid,nodev,size=1m,mode=0750
     profiles: ["postgresql"]
     image: ${POSTGRES_IMAGE:-postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382}
     env_file: *nomosmart_env_file
@@ -480,10 +482,10 @@ services:
       NOMOSMART_DB: ${POSTGRES_DB:-nomosmart}
       NOMOSMART_DB_USER: ${POSTGRES_USER:-nomosmart}
       NOMOSMART_DB_PASSWORD_FILE: /run/secrets/postgres_app_password
-      NOMOSMART_MIGRATION_USER: ${DATABASE_MIGRATION_USER:-nomosmart}
+      NOMOSMART_MIGRATION_USER: ${DATABASE_MIGRATION_USER:-nomosmart_migration}
       NOMOSMART_MIGRATION_PASSWORD_FILE: /run/secrets/postgres_migration_password
       KEYCLOAK_DB: ${KEYCLOAK_DB:-keycloak}
-      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-nomosmart}
+      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-keycloak}
       KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
     secrets:
       - postgres_admin_password
@@ -495,7 +497,7 @@ services:
       - postgres_data:/var/lib/postgresql
       - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
       - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
-      - ./deploy/docker/postgresql-init.sh:/docker-entrypoint-initdb.d/10-nomosmart.sh:ro
+      - ./deploy/docker/postgresql-init.sh:/opt/nomosmart/postgresql-init.sh:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_ADMIN_USER:-postgres} -d ${POSTGRES_ADMIN_DATABASE:-postgres}"]
       interval: 10s
@@ -644,7 +646,7 @@ services:
       NOMOSMART_SECRET_EXPORTS: KC_BOOTSTRAP_ADMIN_PASSWORD:/run/secrets/keycloak_bootstrap_admin_password,KC_DB_PASSWORD:/run/secrets/keycloak_db_password
       KC_DB: postgres
       KC_DB_URL: ${KEYCLOAK_DB_URL:-jdbc:postgresql://postgresql:5432/keycloak}
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-nomosmart}
+      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
       KC_HOSTNAME: ${NOMOSMART_PUBLIC_ORIGIN:-https://nomosmart.local}/identity
       KC_HTTP_RELATIVE_PATH: /identity
       KC_PROXY_HEADERS: xforwarded

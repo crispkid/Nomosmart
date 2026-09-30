@@ -1,6 +1,6 @@
 # NomoSmart deployment operations
 
-Operational configuration for NomoSmart 0.1.0. Start with the complete installation
+Operational configuration for NomoSmart 0.1.1. Start with the complete installation
 guide in [English](../README.md) or [繁體中文](../README.zh-TW.md).
 Record the target context, Namespace, release, image digests, migration contract,
 and recovery procedure before changing an existing deployment.
@@ -192,7 +192,7 @@ runtime checks remain in place.
 
 ### Migration contract
 
-NomoSmart 0.1.0 delivers [B051](../sql/migrations/B051__nomosmart_0_1_0.sql) for
+NomoSmart 0.1.1 delivers [B051](../sql/migrations/B051__nomosmart_0_1_0.sql) for
 empty databases and preserves V001–V051 for databases with existing migration
 history. Official Flyway applies B051 once on an empty database. The source-bound
 [migration contract](migrations/release-contract.json) defines the accepted version,
