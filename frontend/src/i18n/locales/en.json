@@ -62,7 +62,7 @@
   "loginAccountHeading": "Sign in with your enterprise account",
   "loginAccountHelp": "Enter your enterprise account and password to continue.",
   "loginAccountLabel": "Enterprise account",
-  "loginAccountPlaceholder": "For example, peter.wang",
+  "loginAccountPlaceholder": "For example, member.user",
   "loginAccountRequired": "Enter your enterprise account.",
   "loginPasswordLabel": "Password",
   "loginPasswordPlaceholder": "Enter your password",

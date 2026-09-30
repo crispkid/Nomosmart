@@ -19,8 +19,8 @@ deployment_profile = "bundled"
 [target]
 # context 是 kubeconfig 內的 context 名稱；可用 `kubectl config get-contexts` 查詢；範例：rke2-uat。
 context = "rke2-uat"
-# api_server 是該 context 實際使用的 Kubernetes API HTTPS 位址；可用 `kubectl --context rke2-uat config view --minify -o jsonpath='{.clusters[0].cluster.server}'` 查詢；範例：https://10.168.1.160:6443。
-api_server = "https://10.168.1.160:6443"
+# api_server 是該 context 實際使用的 Kubernetes API HTTPS 位址；可用 `kubectl --context rke2-uat config view --minify -o jsonpath='{.clusters[0].cluster.server}'` 查詢；範例：https://192.0.2.10:6443。
+api_server = "https://192.0.2.10:6443"
 # cluster_uid 是 kube-system Namespace 的 UID，用來避免誤裝到同名但不同的 Cluster；可用 `kubectl --context rke2-uat get namespace kube-system -o jsonpath='{.metadata.uid}'` 查詢；以下 UUID 只是範例，必須替換。
 cluster_uid = "00000000-0000-0000-0000-000000000000"
 # namespace 是 NomoSmart 所有 namespaced resource 的安裝位置；必須是合法 Kubernetes DNS label；範例：nomosmart。
@@ -103,8 +103,8 @@ realm = "nomosmart"
 provider_name = "freeipa-uat"
 # mapper_name 是 Keycloak LDAP group mapper 的唯一名稱；範例：freeipa-uat-groups。
 mapper_name = "freeipa-uat-groups"
-# admin_username 是完成 OIDC 密碼登入、外部群組與 NomoSmart system-admin 映射驗證的指定非 break-glass 管理者帳號；範例：peter。
-admin_username = "peter"
+# admin_username 是完成 OIDC 密碼登入、外部群組與 NomoSmart system-admin 映射驗證的指定非 break-glass 管理者帳號；範例：installation-admin。
+admin_username = "installation-admin"
 # external_group_name 是企業目錄內授予 NomoSmart 管理權限的群組名稱；installer 不會建立或修改此群組；範例：nomosmart-uat-admins。
 external_group_name = "nomosmart-uat-admins"
 # local_role_name 是該外部群組要映射的 NomoSmart 本機角色；目前 production finalization 固定要求 system-admin。

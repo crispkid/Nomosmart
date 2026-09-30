@@ -62,7 +62,7 @@
   "loginAccountHeading": "使用企業帳號登入",
   "loginAccountHelp": "輸入企業帳號與密碼以繼續驗證。",
   "loginAccountLabel": "企業帳號",
-  "loginAccountPlaceholder": "例如 peter.wang",
+  "loginAccountPlaceholder": "例如 member.user",
   "loginAccountRequired": "請輸入企業帳號。",
   "loginPasswordLabel": "密碼",
   "loginPasswordPlaceholder": "請輸入密碼",

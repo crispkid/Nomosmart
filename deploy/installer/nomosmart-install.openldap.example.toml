@@ -16,8 +16,8 @@ deployment_profile = "bundled"
 [target]
 # context 是 kubeconfig 內的 context 名稱；可用 `kubectl config get-contexts` 查詢；範例：rke2-uat。
 context = "rke2-uat"
-# api_server 是該 context 實際使用的 Kubernetes API HTTPS 位址；可用 `kubectl --context rke2-uat config view --minify -o jsonpath='{.clusters[0].cluster.server}'` 查詢；範例：https://10.168.1.160:6443。
-api_server = "https://10.168.1.160:6443"
+# api_server 是該 context 實際使用的 Kubernetes API HTTPS 位址；可用 `kubectl --context rke2-uat config view --minify -o jsonpath='{.clusters[0].cluster.server}'` 查詢；範例：https://192.0.2.10:6443。
+api_server = "https://192.0.2.10:6443"
 # cluster_uid 是 kube-system Namespace 的 UID，用來避免誤裝到同名但不同的 Cluster；可用 `kubectl --context rke2-uat get namespace kube-system -o jsonpath='{.metadata.uid}'` 查詢；以下 UUID 只是範例，必須替換。
 cluster_uid = "00000000-0000-0000-0000-000000000000"
 # namespace 是 NomoSmart 所有 namespaced resource 的安裝位置；必須是合法 Kubernetes DNS label；範例：nomosmart。
