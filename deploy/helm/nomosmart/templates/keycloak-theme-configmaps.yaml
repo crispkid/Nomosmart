@@ -1,0 +1,17 @@
+{{- if eq .Values.keycloak.mode "bundled" }}
+{{- $root := . }}
+{{- $files := .Files.Glob "files/theme/**" }}
+{{- if eq (len $files) 0 }}{{ fail "Keycloak theme assets are required in the chart" }}{{ end }}
+{{- range $path, $_ := $files }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" $root | trunc 44 | trimSuffix "-" }}-theme-{{ $path | sha256sum | trunc 12 }}
+  labels:
+    {{- include "nomosmart.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+data:
+  content: {{ $root.Files.Get $path | quote }}
+{{- end }}
+{{- end }}

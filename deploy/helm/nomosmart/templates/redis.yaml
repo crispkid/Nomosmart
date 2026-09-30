@@ -1,0 +1,269 @@
+{{- if and (eq .Values.redis.mode "bundled") .Values.redis.cluster.enabled }}
+{{- $name := printf "%s-redis" (include "nomosmart.fullname" .) }}
+{{- $sharedIdentity := and (eq .Values.redis.auth.username .Values.redis.auth.replicationUsername) (eq .Values.redis.auth.username .Values.redis.auth.sentinelUsername) }}
+{{- $replicationPasswordKey := ternary .Values.redis.auth.passwordSecretKey .Values.redis.auth.replicationPasswordSecretKey $sharedIdentity }}
+{{- $sentinelPasswordKey := ternary .Values.redis.auth.passwordSecretKey .Values.redis.auth.sentinelPasswordSecretKey $sharedIdentity }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-headless
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - {name: redis-tls, port: {{ .Values.redis.service.port }}, targetPort: redis-tls}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+    app.kubernetes.io/role: data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $name }}-sentinel
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - {name: sentinel-tls, port: {{ .Values.redis.service.sentinelPort }}, targetPort: sentinel-tls}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-sentinel
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ $name }}-headless
+  replicas: {{ .Values.redis.cluster.replicas }}
+  podManagementPolicy: Parallel
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+      app.kubernetes.io/role: data
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+        app.kubernetes.io/role: data
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "nomosmart.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: redis
+                  app.kubernetes.io/role: data
+              topologyKey: {{ .Values.redis.cluster.topologyKey }}
+      {{- with .Values.redis.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              umask 077
+              {{- if $sharedIdentity }}
+              printf 'user default off\nuser %s on >%s ~* &* +@all -@admin -flushall -flushdb -keys -migrate -restore -shutdown -debug -module -monitor +psync +replconf +ping +multi +slaveof +replicaof +exec +subscribe +config|rewrite +role +publish +info +client|setname +client|kill +script|kill\n' \
+                "$REDIS_USERNAME" "$REDIS_PASSWORD" > /data/users.acl
+              {{- else }}
+              printf 'user default off\nuser %s on >%s ~* &* +@all -@admin -flushall -flushdb -keys -migrate -restore -shutdown -debug -module -monitor\nuser %s on >%s +psync +replconf +ping\nuser %s on >%s allchannels +multi +slaveof +replicaof +ping +exec +subscribe +config|rewrite +role +publish +info +client|setname +client|kill +script|kill\n' \
+                "$REDIS_USERNAME" "$REDIS_PASSWORD" \
+                "$REDIS_REPLICATION_USERNAME" "$REDIS_REPLICATION_PASSWORD" \
+                "$REDIS_SENTINEL_USERNAME" "$REDIS_SENTINEL_PASSWORD" > /data/users.acl
+              {{- end }}
+              if [ ! -s /data/redis.conf ]; then
+                cat > /data/redis.conf <<EOF
+              port 0
+              tls-port {{ .Values.redis.service.port }}
+              tls-cert-file /tls/tls.crt
+              tls-key-file /tls/tls.key
+              tls-ca-cert-file /tls/{{ .Values.redis.tls.caKey }}
+              tls-auth-clients no
+              tls-replication yes
+              aclfile /data/users.acl
+              appendonly yes
+              appendfsync everysec
+              protected-mode yes
+              masteruser $REDIS_REPLICATION_USERNAME
+              masterauth $REDIS_REPLICATION_PASSWORD
+              replica-announce-ip $POD_NAME.{{ $name }}-headless.{{ .Release.Namespace }}.svc.cluster.local
+              replica-announce-port {{ .Values.redis.service.port }}
+              EOF
+                case "$POD_NAME" in
+                  *-0) ;;
+                  *) printf 'replicaof %s-0.%s-headless.{{ .Release.Namespace }}.svc.cluster.local %s\n' "{{ $name }}" "{{ $name }}" "{{ .Values.redis.service.port }}" >> /data/redis.conf ;;
+                esac
+              fi
+              sed -i "s|^replica-announce-ip .*|replica-announce-ip $POD_NAME.{{ $name }}-headless.{{ .Release.Namespace }}.svc.cluster.local|" /data/redis.conf
+              sed -i -E "s|^(replicaof [^[:space:]]+\\.{{ $name }}-headless)([[:space:]])|\\1.{{ .Release.Namespace }}.svc.cluster.local\\2|" /data/redis.conf
+              exec redis-server /data/redis.conf
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: redis-tls, containerPort: 6379}]
+          env:
+            - {name: POD_NAME, valueFrom: {fieldRef: {fieldPath: metadata.name}}}
+            - {name: REDIS_USERNAME, value: {{ .Values.redis.auth.username | quote }}}
+            - {name: REDIS_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.redis.auth.passwordSecretKey }}}}}
+            - {name: REDIS_REPLICATION_USERNAME, value: {{ .Values.redis.auth.replicationUsername | quote }}}
+            - {name: REDIS_REPLICATION_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ $replicationPasswordKey }}}}}
+            - {name: REDIS_SENTINEL_USERNAME, value: {{ .Values.redis.auth.sentinelUsername | quote }}}
+            - {name: REDIS_SENTINEL_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ $sentinelPasswordKey }}}}}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tls, mountPath: /tls, readOnly: true}
+          readinessProbe:
+            exec: {command: ["/bin/sh", "-ec", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli --tls --cacert /tls/{{ .Values.redis.tls.caKey }} --user $REDIS_USERNAME -p {{ .Values.redis.service.port }} ping | grep -q PONG"]}
+            periodSeconds: 10
+          livenessProbe:
+            exec: {command: ["/bin/sh", "-ec", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli --tls --cacert /tls/{{ .Values.redis.tls.caKey }} --user $REDIS_USERNAME -p {{ .Values.redis.service.port }} ping | grep -q PONG"]}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - {name: tls, secret: {secretName: {{ .Values.redis.tls.secretName }}}}
+        {{- if not .Values.redis.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.redis.persistence.storageClass }}
+        storageClassName: {{ .Values.redis.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.redis.persistence.size }}}}
+  {{- end }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $name }}-sentinel
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-sentinel
+spec:
+  replicas: {{ .Values.redis.cluster.sentinelReplicas }}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 1, maxSurge: 1}}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis-sentinel
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis-sentinel
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "nomosmart.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: redis-sentinel
+              topologyKey: {{ .Values.redis.cluster.topologyKey }}
+      {{- with .Values.redis.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: sentinel
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              umask 077
+              cat > /tmp/sentinel.conf <<EOF
+              port 0
+              tls-port {{ .Values.redis.service.sentinelPort }}
+              tls-cert-file /tls/tls.crt
+              tls-key-file /tls/tls.key
+              tls-ca-cert-file /tls/{{ .Values.redis.tls.caKey }}
+              tls-auth-clients no
+              tls-replication yes
+              protected-mode yes
+              user default off
+              user $REDIS_SENTINEL_USERNAME on >$REDIS_SENTINEL_PASSWORD allchannels +@all
+              sentinel resolve-hostnames yes
+              sentinel announce-hostnames yes
+              sentinel monitor {{ .Values.redis.cluster.masterName }} {{ $name }}-0.{{ $name }}-headless.{{ .Release.Namespace }}.svc.cluster.local {{ .Values.redis.service.port }} {{ .Values.redis.cluster.sentinelQuorum }}
+              sentinel auth-user {{ .Values.redis.cluster.masterName }} $REDIS_SENTINEL_USERNAME
+              sentinel auth-pass {{ .Values.redis.cluster.masterName }} $REDIS_SENTINEL_PASSWORD
+              sentinel down-after-milliseconds {{ .Values.redis.cluster.masterName }} 10000
+              sentinel failover-timeout {{ .Values.redis.cluster.masterName }} 60000
+              sentinel parallel-syncs {{ .Values.redis.cluster.masterName }} 1
+              EOF
+              exec redis-server /tmp/sentinel.conf --sentinel
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: sentinel-tls, containerPort: 26379}]
+          env:
+            - {name: REDIS_SENTINEL_USERNAME, value: {{ .Values.redis.auth.sentinelUsername | quote }}}
+            - {name: REDIS_SENTINEL_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ $sentinelPasswordKey }}}}}
+          volumeMounts: [{name: tls, mountPath: /tls, readOnly: true}]
+          readinessProbe:
+            exec: {command: ["/bin/sh", "-ec", "REDISCLI_AUTH=$REDIS_SENTINEL_PASSWORD redis-cli --tls --cacert /tls/{{ .Values.redis.tls.caKey }} --user $REDIS_SENTINEL_USERNAME -p {{ .Values.redis.service.sentinelPort }} ping | grep -q PONG"]}
+            periodSeconds: 10
+          livenessProbe:
+            exec: {command: ["/bin/sh", "-ec", "REDISCLI_AUTH=$REDIS_SENTINEL_PASSWORD redis-cli --tls --cacert /tls/{{ .Values.redis.tls.caKey }} --user $REDIS_SENTINEL_USERNAME -p {{ .Values.redis.service.sentinelPort }} ping | grep -q PONG"]}
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - {name: tls, secret: {secretName: {{ .Values.redis.tls.secretName }}}}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  minAvailable: {{ .Values.redis.cluster.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+      app.kubernetes.io/role: data
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}-sentinel
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis-sentinel
+spec:
+  minAvailable: {{ .Values.redis.cluster.sentinelPodDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis-sentinel
+{{- end }}

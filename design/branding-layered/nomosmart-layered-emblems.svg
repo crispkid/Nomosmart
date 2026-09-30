@@ -1,0 +1,158 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1500" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart layered emblem concepts</title>
+  <desc id="desc">Three sophisticated logo systems with layered architecture, interwoven intelligence, and a governed knowledge constellation.</desc>
+  <defs>
+    <linearGradient id="pageBg" x1="0" y1="0" x2="2400" y2="1500" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#10271F"/>
+      <stop offset="1" stop-color="#173A2E"/>
+    </linearGradient>
+    <linearGradient id="greenStroke" x1="20" y1="20" x2="220" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1E5B43"/>
+      <stop offset="1" stop-color="#6AB58F"/>
+    </linearGradient>
+    <linearGradient id="blueStroke" x1="30" y1="210" x2="210" y2="30" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4D9EB5"/>
+      <stop offset="1" stop-color="#86CFDA"/>
+    </linearGradient>
+    <linearGradient id="goldCore" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E8D584"/>
+      <stop offset="1" stop-color="#C7A948"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="22" stdDeviation="28" flood-color="#071711" flood-opacity=".27"/>
+    </filter>
+    <filter id="emblemGlow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="13" flood-color="#19392D" flood-opacity=".18"/>
+    </filter>
+
+    <!-- Knowledge Vault -->
+    <g id="emblem-vault">
+      <path d="M34 188V104C34 55 72 24 120 24S206 55 206 104V188"
+            fill="none" stroke="url(#greenStroke)" stroke-width="18" stroke-linecap="round"/>
+      <path d="M65 188V109C65 76 90 54 120 54S175 76 175 109V188"
+            fill="none" stroke="#70BFD0" stroke-width="16" stroke-linecap="round"/>
+      <path d="M94 188V118C94 100 105 88 120 88S146 100 146 118V188"
+            fill="none" stroke="#A9D7C2" stroke-width="14" stroke-linecap="round"/>
+      <path d="M24 188H216M44 211H196" fill="none" stroke="#245F46" stroke-width="13" stroke-linecap="round"/>
+      <circle cx="120" cy="24" r="9" fill="#D6BB5C" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="34" cy="104" r="8" fill="#6AB58F" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="206" cy="104" r="8" fill="#70BFD0" stroke="#FCFDFB" stroke-width="4"/>
+      <rect x="107" y="107" width="26" height="26" rx="7" transform="rotate(45 120 120)"
+            fill="url(#goldCore)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+
+    <!-- Cognitive Weave -->
+    <g id="emblem-weave">
+      <rect x="45" y="45" width="150" height="150" rx="52" fill="none" stroke="#245F46" stroke-width="20"/>
+      <rect x="45" y="45" width="150" height="150" rx="52" transform="rotate(60 120 120)"
+            fill="none" stroke="#FCFDFB" stroke-width="30"/>
+      <rect x="45" y="45" width="150" height="150" rx="52" transform="rotate(60 120 120)"
+            fill="none" stroke="#62AF89" stroke-width="20"/>
+      <rect x="45" y="45" width="150" height="150" rx="52" transform="rotate(120 120 120)"
+            fill="none" stroke="#FCFDFB" stroke-width="30"/>
+      <rect x="45" y="45" width="150" height="150" rx="52" transform="rotate(120 120 120)"
+            fill="none" stroke="#67BDD0" stroke-width="20"/>
+      <circle cx="120" cy="120" r="34" fill="#FCFDFB"/>
+      <rect x="105" y="105" width="30" height="30" rx="8" transform="rotate(45 120 120)"
+            fill="url(#goldCore)"/>
+      <circle cx="120" cy="120" r="6" fill="#FCFDFB" opacity=".85"/>
+    </g>
+
+    <!-- Governed Constellation -->
+    <g id="emblem-constellation">
+      <path d="M120 20L203 68V164L120 212L37 164V68Z"
+            fill="#F5FAF7" stroke="#245F46" stroke-width="13" stroke-linejoin="round"/>
+      <ellipse cx="120" cy="116" rx="70" ry="45" transform="rotate(-18 120 116)"
+               fill="none" stroke="#77C5D8" stroke-width="9" stroke-linecap="round"/>
+      <ellipse cx="120" cy="116" rx="70" ry="45" transform="rotate(58 120 116)"
+               fill="none" stroke="#BFDCCE" stroke-width="8" stroke-linecap="round"/>
+      <path d="M68 75L120 116L177 82M120 116L76 164M120 116L169 159"
+            fill="none" stroke="#2F7D57" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="68" cy="75" r="11" fill="#245F46" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="177" cy="82" r="11" fill="#77C5D8" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="76" cy="164" r="10" fill="#5FAE88" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="169" cy="159" r="10" fill="#D6BB5C" stroke="#FCFDFB" stroke-width="4"/>
+      <rect x="106" y="102" width="28" height="28" rx="7" transform="rotate(45 120 116)"
+            fill="url(#goldCore)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="1500" fill="url(#pageBg)"/>
+  <circle cx="2230" cy="40" r="300" fill="#5FAE88" opacity=".08"/>
+  <path d="M0 290C420 150 700 345 1050 235S1760 130 2400 320" fill="none" stroke="#BFDCCE" stroke-opacity=".06" stroke-width="2"/>
+
+  <text x="90" y="90" fill="#A7D5BD" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="16" font-weight="700" letter-spacing="5">NOMOSMART · LAYERED EMBLEM STUDY</text>
+  <text x="90" y="164" fill="#FCFDFB" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="50" font-weight="700">提高結構密度，讓 Logo 成為一枚可被探索的品牌徽記</text>
+  <text x="92" y="215" fill="#BFDCCE" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="21">主徽記承載知識、治理與 AI 的多層關係 · 縮小時保留清楚核心輪廓</text>
+
+  <!-- Card 01 -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="290" width="700" height="1010" rx="28" fill="#FCFDFB"/>
+  </g>
+  <text x="135" y="345" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">EMBLEM 01 · ARCHITECTURAL</text>
+  <rect x="135" y="385" width="610" height="470" rx="24" fill="#EAF4EF"/>
+  <g transform="translate(285 475) scale(1.25)" filter="url(#emblemGlow)">
+    <use href="#emblem-vault"/>
+  </g>
+  <text x="135" y="930" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">知識殿堂</text>
+  <text x="135" y="972" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2.4">KNOWLEDGE VAULT</text>
+  <text x="135" y="1030" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">三層拱門代表資料、治理與智慧；</text>
+  <text x="135" y="1063" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">中央核心象徵被守護、可使用的知識。</text>
+  <line x1="135" y1="1115" x2="745" y2="1115" stroke="#DCE5E0"/>
+  <g transform="translate(135 1145) scale(.32)"><use href="#emblem-vault"/></g>
+  <text x="230" y="1195" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="232" y="1225" fill="#7B8884" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">GOVERNED KNOWLEDGE</text>
+  <text x="720" y="1224" fill="#2F7D57" text-anchor="end" font-family="PingFang TC, sans-serif" font-size="15" font-weight="650">莊重 · 穩定 · 企業感</text>
+
+  <!-- Card 02 -->
+  <g filter="url(#cardShadow)">
+    <rect x="850" y="290" width="700" height="1010" rx="28" fill="#FCFDFB"/>
+  </g>
+  <text x="895" y="345" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">EMBLEM 02 · INTERWOVEN</text>
+  <rect x="895" y="385" width="610" height="470" rx="24" fill="#EEF6F7"/>
+  <g transform="translate(1045 475) scale(1.25)" filter="url(#emblemGlow)">
+    <use href="#emblem-weave"/>
+  </g>
+  <text x="895" y="930" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">智識織結</text>
+  <text x="895" y="972" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2.4">COGNITIVE WEAVE</text>
+  <text x="895" y="1030" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">三條相互穿越的迴路代表治理、AI 與人；</text>
+  <text x="895" y="1063" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">交織後形成一個持續運作的知識核心。</text>
+  <line x1="895" y1="1115" x2="1505" y2="1115" stroke="#DCE5E0"/>
+  <g transform="translate(895 1145) scale(.32)"><use href="#emblem-weave"/></g>
+  <text x="990" y="1195" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="992" y="1225" fill="#7B8884" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">INTELLIGENCE, INTERWOVEN</text>
+  <text x="1480" y="1224" fill="#2F7D57" text-anchor="end" font-family="PingFang TC, sans-serif" font-size="15" font-weight="650">流動 · 科技 · 動態感</text>
+
+  <!-- Card 03 -->
+  <g filter="url(#cardShadow)">
+    <rect x="1610" y="290" width="700" height="1010" rx="28" fill="#FCFDFB"/>
+  </g>
+  <text x="1655" y="345" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="3">EMBLEM 03 · NETWORKED</text>
+  <rect x="1655" y="385" width="610" height="470" rx="24" fill="#EDF5F6"/>
+  <g transform="translate(1805 465) scale(1.25)" filter="url(#emblemGlow)">
+    <use href="#emblem-constellation"/>
+  </g>
+  <text x="1655" y="930" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="36" font-weight="700">知識星圖</text>
+  <text x="1655" y="972" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2.4">KNOWLEDGE CONSTELLATION</text>
+  <text x="1655" y="1030" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">六角邊界建立治理範圍，軌道與節點形成</text>
+  <text x="1655" y="1063" fill="#43524E" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif" font-size="19">知識圖譜，所有關係最終指向可信核心。</text>
+  <line x1="1655" y1="1115" x2="2265" y2="1115" stroke="#DCE5E0"/>
+  <g transform="translate(1655 1145) scale(.32)"><use href="#emblem-constellation"/></g>
+  <text x="1750" y="1195" fill="#263438" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="1752" y="1225" fill="#7B8884" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE, CONNECTED</text>
+  <text x="2240" y="1224" fill="#2F7D57" text-anchor="end" font-family="PingFang TC, sans-serif" font-size="15" font-weight="650">細節 · 圖譜 · 平台感</text>
+
+  <!-- Variant strip -->
+  <rect x="90" y="1350" width="2220" height="95" rx="10" fill="#0D211A" stroke="#315D4B"/>
+  <text x="135" y="1408" fill="#9FCDB7" font-family="Avenir Next, sans-serif" font-size="13" font-weight="700" letter-spacing="3">PRIMARY EMBLEM + SIMPLIFIED SMALL MARK</text>
+  <g transform="translate(920 1370) scale(.22)"><use href="#emblem-vault"/></g>
+  <g transform="translate(1190 1370) scale(.22)"><use href="#emblem-weave"/></g>
+  <g transform="translate(1460 1370) scale(.22)"><use href="#emblem-constellation"/></g>
+  <text x="2250" y="1408" fill="#8EB6A3" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="15" text-anchor="end">大尺寸呈現完整故事，24–32px 使用簡化核心版</text>
+</svg>

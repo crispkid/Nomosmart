@@ -1,0 +1,193 @@
+{{- if and (eq .Values.postgresql.mode "bundled") .Values.postgresql.operator.enabled }}
+{{- $name := printf "%s-postgresql" (include "nomosmart.fullname" .) }}
+apiVersion: postgresql.cnpg.io/v1
+kind: Cluster
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+  annotations:
+    nomosmart.io/operator-version: {{ .Values.postgresql.operator.version | quote }}
+spec:
+  instances: {{ .Values.postgresql.cluster.instances }}
+  imageName: "{{ .Values.postgresql.cluster.image.repository }}:{{ .Values.postgresql.cluster.image.tag }}"
+  imagePullPolicy: {{ .Values.postgresql.cluster.image.pullPolicy }}
+  primaryUpdateStrategy: unsupervised
+  enableSuperuserAccess: true
+  superuserSecret:
+    name: {{ .Values.postgresql.auth.superuserSecretName }}
+  bootstrap:
+    initdb:
+      database: {{ .Values.postgresql.auth.database | quote }}
+      owner: {{ .Values.postgresql.auth.migrationUsername | quote }}
+      secret:
+        name: {{ .Values.postgresql.auth.ownerSecretName }}
+      dataChecksums: true
+      encoding: UTF8
+  certificates:
+    serverCASecret: {{ .Values.postgresql.tls.secretName }}
+    serverTLSSecret: {{ .Values.postgresql.tls.secretName }}
+    clientCASecret: {{ .Values.postgresql.tls.replicationSecretName }}
+    replicationTLSSecret: {{ .Values.postgresql.tls.replicationSecretName }}
+  {{- if .Values.postgresql.backup.enabled }}
+  plugins:
+    - name: {{ .Values.postgresql.backup.pluginName | quote }}
+      isWALArchiver: true
+      parameters:
+        barmanObjectName: {{ printf "%s-postgresql-backup" (include "nomosmart.fullname" .) | quote }}
+  {{- end }}
+  postgresql:
+    parameters:
+      password_encryption: scram-sha-256
+      ssl_min_protocol_version: TLSv1.2
+      synchronous_commit: "on"
+      wal_level: replica
+    pg_hba:
+      - hostnossl all all all reject
+      - hostssl all all all scram-sha-256
+    {{- if gt (int .Values.postgresql.cluster.synchronousReplicas) 0 }}
+    synchronous:
+      method: any
+      number: {{ .Values.postgresql.cluster.synchronousReplicas }}
+      dataDurability: required
+      failoverQuorum: true
+    {{- end }}
+  affinity:
+    enablePodAntiAffinity: true
+    topologyKey: {{ .Values.postgresql.cluster.topologyKey }}
+    podAntiAffinityType: required
+  enablePDB: false
+  storage:
+    size: {{ .Values.postgresql.persistence.size }}
+    resizeInUseVolumes: true
+    {{- if .Values.postgresql.persistence.storageClass }}
+    storageClass: {{ .Values.postgresql.persistence.storageClass | quote }}
+    {{- end }}
+  resources:
+    {{- toYaml .Values.postgresql.resources | nindent 4 }}
+  inheritedMetadata:
+    labels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+      nomosmart.io/data-owner: {{ .Release.Name | quote }}
+    annotations:
+      helm.sh/resource-policy: keep
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: {{ $name }}-app
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  cluster: {name: {{ $name }}}
+  name: {{ .Values.postgresql.auth.username | quote }}
+  login: true
+  superuser: false
+  createdb: false
+  createrole: false
+  inherit: true
+  databaseRoleReclaimPolicy: retain
+  passwordSecret: {name: {{ .Values.postgresql.auth.appSecretName }}}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: DatabaseRole
+metadata:
+  name: {{ $name }}-keycloak
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  cluster: {name: {{ $name }}}
+  name: {{ .Values.postgresql.auth.keycloakUsername | quote }}
+  login: true
+  superuser: false
+  createdb: false
+  createrole: false
+  inherit: true
+  databaseRoleReclaimPolicy: retain
+  passwordSecret: {name: {{ .Values.postgresql.auth.keycloakSecretName }}}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: Database
+metadata:
+  name: {{ $name }}-keycloak
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  cluster: {name: {{ $name }}}
+  name: {{ .Values.postgresql.auth.keycloakDatabase | quote }}
+  owner: {{ .Values.postgresql.auth.keycloakUsername | quote }}
+  ensure: present
+  databaseReclaimPolicy: retain
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $name }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  minAvailable: {{ .Values.postgresql.cluster.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      cnpg.io/cluster: {{ $name }}
+{{- if and (eq .Values.postgresql.mode "bundled") .Values.postgresql.backup.enabled }}
+---
+apiVersion: barmancloud.cnpg.io/v1
+kind: ObjectStore
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql-backup
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql-backup
+  annotations:
+    nomosmart.io/plugin-version: {{ .Values.postgresql.backup.pluginVersion | quote }}
+spec:
+  configuration:
+    destinationPath: {{ printf "s3://%s/%s" .Values.postgresql.backup.bucket (.Values.postgresql.backup.destinationPrefix | trimAll "/") | quote }}
+    endpointURL: {{ .Values.postgresql.backup.endpointURL | quote }}
+    endpointCA:
+      name: {{ .Values.postgresql.backup.caSecretName }}
+      key: {{ .Values.postgresql.backup.caKey }}
+    s3Credentials:
+      accessKeyId:
+        name: {{ .Values.postgresql.backup.credentialSecretName }}
+        key: {{ .Values.postgresql.backup.accessKeyKey }}
+      secretAccessKey:
+        name: {{ .Values.postgresql.backup.credentialSecretName }}
+        key: {{ .Values.postgresql.backup.secretKeyKey }}
+    data:
+      compression: {{ .Values.postgresql.backup.compression | quote }}
+      encryption: {{ .Values.postgresql.backup.encryption | quote }}
+    wal:
+      compression: {{ .Values.postgresql.backup.compression | quote }}
+      encryption: {{ .Values.postgresql.backup.encryption | quote }}
+    tags:
+      nomosmart-change: CHG-252
+      nomosmart-purpose: postgresql-backup
+  retentionPolicy: {{ .Values.postgresql.backup.retentionPolicy | quote }}
+---
+apiVersion: postgresql.cnpg.io/v1
+kind: ScheduledBackup
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql-backup
+spec:
+  schedule: {{ .Values.postgresql.backup.schedule | quote }}
+  immediate: {{ .Values.postgresql.backup.immediate }}
+  backupOwnerReference: self
+  target: {{ .Values.postgresql.backup.target | quote }}
+  method: plugin
+  pluginConfiguration:
+    name: {{ .Values.postgresql.backup.pluginName | quote }}
+  cluster:
+    name: {{ $name }}
+{{- end }}
+{{- end }}

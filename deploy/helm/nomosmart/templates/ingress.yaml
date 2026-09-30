@@ -1,0 +1,82 @@
+{{- if .Values.ingress.enabled -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "nomosmart.fullname" . }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+  {{- if or .Values.ingress.annotations (ne .Values.bootstrap.deploymentPhase "operational") }}
+  annotations:
+    {{- with .Values.ingress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- if ne .Values.bootstrap.deploymentPhase "operational" }}
+    nginx.ingress.kubernetes.io/whitelist-source-range: {{ .Values.bootstrap.onboardingAdminAllowCidr | quote }}
+    {{- end }}
+  {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          {{- range .paths }}
+          {{- if or (ne .service "keycloak") (eq $.Values.keycloak.mode "bundled") }}
+          - path: {{ .path }}
+            pathType: {{ .pathType }}
+            backend:
+              service:
+                name: {{ include "nomosmart.fullname" $ }}-{{ .service }}
+                port:
+                  name: http
+          {{- end }}
+          {{- end }}
+    {{- end }}
+{{- if and (eq .Values.keycloak.mode "bundled") .Values.keycloak.adminIngress.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-keycloak-admin
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+  annotations:
+    {{- with .Values.ingress.adminAnnotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+    {{- with .Values.keycloak.adminIngress.annotations }}
+    {{- toYaml . | nindent 4 }}
+    {{- end }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  tls:
+    {{- toYaml .Values.ingress.tls | nindent 4 }}
+  rules:
+    - host: {{ .Values.global.publicHost | quote }}
+      http:
+        paths:
+          - path: {{ printf "%s/admin" .Values.global.keycloakPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nomosmart.fullname" . }}-keycloak
+                port:
+                  name: http
+          - path: {{ printf "%s/realms/master" .Values.global.keycloakPath }}
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nomosmart.fullname" . }}-keycloak
+                port:
+                  name: http
+{{- end }}
+{{- end }}

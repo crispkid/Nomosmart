@@ -1,0 +1,129 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2200 1400" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart professional logo proposal</title>
+  <desc id="desc">A minimal professional logo system based on a knowledge gateway and verified core.</desc>
+  <defs>
+    <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="16" stdDeviation="24" flood-color="#254739" flood-opacity=".09"/>
+    </filter>
+  </defs>
+
+  <rect width="2200" height="1400" fill="#F6F8F7"/>
+  <rect x="0" y="0" width="2200" height="14" fill="#245F46"/>
+
+  <text x="110" y="105" fill="#2F7D57" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="17" font-weight="700" letter-spacing="4.4">NOMOSMART IDENTITY · V3</text>
+  <text x="110" y="180" fill="#29373B" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="50" font-weight="700">專業、簡單、清楚、明確</text>
+  <text x="112" y="230" fill="#65736F" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="22">單一符號、單一焦點；在 24px、黑白與深色背景都保持辨識度。</text>
+
+  <!-- Primary presentation -->
+  <rect x="110" y="300" width="1980" height="470" rx="28" fill="#FCFDFB" stroke="#DCE5E0" filter="url(#softShadow)"/>
+  <text x="165" y="355" fill="#74817D" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2.5">PRIMARY LOGO</text>
+
+  <g transform="translate(190 418) scale(2.15)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+          fill="none" stroke="#245F46" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+          fill="none" stroke="#5FAE88" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+    <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)"
+          fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+  </g>
+  <text x="515" y="580" fill="#29373B"
+        font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="98" font-weight="650" letter-spacing="-4">NomoSmart</text>
+  <text x="522" y="632" fill="#6D7B78"
+        font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="20" font-weight="600" letter-spacing="5">ENTERPRISE KNOWLEDGE CENTER</text>
+
+  <line x1="1420" y1="390" x2="1420" y2="680" stroke="#DCE5E0"/>
+  <g font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif">
+    <text x="1490" y="430" fill="#29373B" font-size="26" font-weight="700">Knowledge Gateway</text>
+    <text x="1490" y="472" fill="#65736F" font-size="19">一個清楚、可直接理解的知識中心符號。</text>
+
+    <rect x="1490" y="520" width="16" height="54" rx="8" fill="#245F46"/>
+    <text x="1530" y="542" fill="#29373B" font-size="21" font-weight="650">治理邊界</text>
+    <text x="1530" y="570" fill="#65736F" font-size="17">資訊有範圍、有規則、有責任。</text>
+
+    <rect x="1490" y="606" width="16" height="54" rx="8" fill="#5FAE88"/>
+    <text x="1530" y="628" fill="#29373B" font-size="21" font-weight="650">可信核心</text>
+    <text x="1530" y="656" fill="#65736F" font-size="17">中心只保留可驗證、可使用的知識。</text>
+  </g>
+
+  <!-- Applications -->
+  <text x="110" y="845" fill="#74817D" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2.5">LOGO SYSTEM</text>
+
+  <rect x="110" y="885" width="450" height="350" rx="24" fill="#FCFDFB" stroke="#DCE5E0"/>
+  <text x="150" y="930" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2">APP ICON</text>
+  <rect x="150" y="970" width="170" height="170" rx="38" fill="#EAF7F1"/>
+  <g transform="translate(171 990)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+          fill="none" stroke="#245F46" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+          fill="none" stroke="#5FAE88" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+    <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)" fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+  </g>
+  <text x="350" y="1035" fill="#29373B" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="20" font-weight="650">獨立圖標</text>
+  <text x="350" y="1068" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">App、favicon</text>
+  <text x="350" y="1096" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">頭像與產品章印</text>
+
+  <rect x="590" y="885" width="450" height="350" rx="24" fill="#245F46"/>
+  <text x="630" y="930" fill="#BFDCCE" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2">DARK SURFACE</text>
+  <g transform="translate(630 972)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+          fill="none" stroke="#BFDCCE" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+          fill="none" stroke="#74C09A" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+    <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)" fill="#D8C77A" stroke="#245F46" stroke-width="4"/>
+  </g>
+  <text x="790" y="1050" fill="#FCFDFB" font-family="Avenir Next, sans-serif" font-size="34" font-weight="650" letter-spacing="-1">NomoSmart</text>
+  <text x="790" y="1083" fill="#BFDCCE" font-family="Avenir Next, sans-serif" font-size="12" font-weight="650" letter-spacing="2">KNOWLEDGE CENTER</text>
+
+  <rect x="1070" y="885" width="450" height="350" rx="24" fill="#FCFDFB" stroke="#DCE5E0"/>
+  <text x="1110" y="930" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2">MONOCHROME</text>
+  <g transform="translate(1120 985)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6"
+          fill="none" stroke="#29373B" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6"
+          fill="none" stroke="#29373B" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="15" fill="#29373B"/>
+  </g>
+  <text x="1275" y="1055" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="31" font-weight="650">NomoSmart</text>
+  <text x="1275" y="1087" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="15">文件、印刷、雷雕皆適用</text>
+
+  <rect x="1550" y="885" width="540" height="350" rx="24" fill="#FCFDFB" stroke="#DCE5E0"/>
+  <text x="1590" y="930" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2">SMALL-SIZE TEST</text>
+  <g transform="translate(1605 995) scale(.5)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6" fill="none" stroke="#245F46" stroke-width="16" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6" fill="none" stroke="#5FAE88" stroke-width="16" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="17" fill="#DCEFF3"/>
+    <rect x="54" y="54" width="20" height="20" rx="5" transform="rotate(45 64 64)" fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+  </g>
+  <text x="1690" y="1052" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="19" font-weight="650">32 px</text>
+
+  <g transform="translate(1785 1008) scale(.375)">
+    <path d="M48 25H42C30 25 21 34 21 46v36c0 12 9 21 21 21h6" fill="none" stroke="#245F46" stroke-width="18" stroke-linecap="round"/>
+    <path d="M80 25h6c12 0 21 9 21 21v36c0 12-9 21-21 21h-6" fill="none" stroke="#5FAE88" stroke-width="18" stroke-linecap="round"/>
+    <circle cx="64" cy="64" r="18" fill="#D8C77A"/>
+  </g>
+  <text x="1855" y="1052" fill="#29373B" font-family="Avenir Next, sans-serif" font-size="19" font-weight="650">24 px</text>
+  <line x1="1590" y1="1120" x2="2050" y2="1120" stroke="#DCE5E0"/>
+  <text x="1590" y="1160" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">最小使用尺寸：24px</text>
+  <text x="1810" y="1160" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">無細線、無複雜節點</text>
+
+  <!-- Footer -->
+  <line x1="110" y1="1305" x2="2090" y2="1305" stroke="#D7E1DC"/>
+  <text x="110" y="1350" fill="#29373B" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="20" font-weight="650">品牌語意：治理形成邊界，可信知識位於中心，AI 讓核心被真正使用。</text>
+  <g transform="translate(1680 1325)">
+    <rect width="22" height="22" rx="6" fill="#245F46"/>
+    <text x="31" y="17" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14">#245F46</text>
+    <rect x="132" width="22" height="22" rx="6" fill="#5FAE88"/>
+    <text x="163" y="17" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14">#5FAE88</text>
+    <rect x="264" width="22" height="22" rx="6" fill="#D8C77A"/>
+    <text x="295" y="17" fill="#65736F" font-family="Avenir Next, sans-serif" font-size="14">#D8C77A</text>
+  </g>
+</svg>

@@ -1,0 +1,306 @@
+{{- if eq .Values.opensearch.mode "bundled" }}
+{{- $fullname := include "nomosmart.fullname" . -}}
+{{- $headless := printf "%s-opensearch-headless" $fullname -}}
+{{- $replicas := int .Values.opensearch.cluster.replicas -}}
+{{- /* Keep defaults here so old --reuse-values releases need no new keys.
+      The optional schema rejects explicit null/zero rather than treating it as absent. */ -}}
+{{- $probes := dict "timeoutSeconds" 10 "connectTimeoutSeconds" 2 "maxTimeSeconds" 8 "readinessWaitSeconds" 5 -}}
+{{- if hasKey .Values.opensearch "probes" -}}
+{{- $probes = mergeOverwrite $probes .Values.opensearch.probes -}}
+{{- end -}}
+{{- if or (gt (int $probes.connectTimeoutSeconds) (int $probes.maxTimeSeconds)) (ge (int $probes.maxTimeSeconds) (int $probes.timeoutSeconds)) (ge (int $probes.readinessWaitSeconds) (int $probes.maxTimeSeconds)) -}}
+{{- fail "opensearch.probes requires connectTimeoutSeconds <= maxTimeSeconds < timeoutSeconds and readinessWaitSeconds < maxTimeSeconds" -}}
+{{- end -}}
+{{- $production := eq .Values.backend.env.APP_ENV "production" -}}
+{{- $image := printf "%s:%s" .Values.opensearch.image.repository .Values.opensearch.image.tag -}}
+{{- if and .Values.opensearch.image.digest (contains "@" .Values.opensearch.image.tag) -}}
+{{- if ne (last (splitList "@" .Values.opensearch.image.tag)) .Values.opensearch.image.digest -}}
+{{- fail "OpenSearch tag digest and image.digest must identify the same official image" -}}
+{{- end -}}
+{{- end -}}
+{{- if and .Values.opensearch.image.digest (not (contains "@" .Values.opensearch.image.tag)) -}}
+{{- $image = printf "%s@%s" .Values.opensearch.image.repository .Values.opensearch.image.digest -}}
+{{- end -}}
+{{- if and $production (ne $replicas 3) -}}
+{{- fail "production bundled OpenSearch requires exactly three replicas" -}}
+{{- end -}}
+{{- if and $production (not (or (regexMatch "^.+@sha256:[a-f0-9]{64}$" .Values.opensearch.image.tag) (and (not (contains "@" .Values.opensearch.image.tag)) (regexMatch "^sha256:[a-f0-9]{64}$" .Values.opensearch.image.digest)))) -}}
+{{- fail "production bundled OpenSearch requires a sha256 image digest" -}}
+{{- end -}}
+{{- if and $production (ne .Values.opensearch.cluster.topologyKey "kubernetes.io/hostname") -}}
+{{- fail "production bundled OpenSearch requires hard kubernetes.io/hostname separation" -}}
+{{- end -}}
+{{- if and $production (lt (int .Values.opensearch.cluster.podDisruptionBudget.minAvailable) 2) -}}
+{{- fail "production bundled OpenSearch requires PDB minAvailable>=2" -}}
+{{- end -}}
+{{- if and $production (not .Values.opensearch.tls.enforceHostnameVerification) -}}
+{{- fail "production bundled OpenSearch requires transport hostname verification" -}}
+{{- end -}}
+{{- if and $production (not .Values.opensearch.snapshot.enabled) -}}
+{{- fail "production bundled OpenSearch requires the native snapshot repository" -}}
+{{- end -}}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $fullname }}-opensearch
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  type: ClusterIP
+  ports:
+    - {name: https, port: {{ .Values.opensearch.service.port }}, targetPort: https}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $headless }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - {name: transport, port: {{ .Values.opensearch.service.transportPort }}, targetPort: transport}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+{{- if gt $replicas 1 }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ $fullname }}-opensearch
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  minAvailable: {{ .Values.opensearch.cluster.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch
+{{- end }}
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ $fullname }}-opensearch
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: opensearch
+spec:
+  serviceName: {{ $headless }}
+  podManagementPolicy: Parallel
+  replicas: {{ $replicas }}
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: opensearch
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: opensearch
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.opensearch.cluster.terminationGracePeriodSeconds }}
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      {{- if gt $replicas 1 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - topologyKey: {{ .Values.opensearch.cluster.topologyKey | quote }}
+              labelSelector:
+                matchLabels:
+                  {{- include "nomosmart.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: opensearch
+      {{- end }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        - name: official-default-plugins
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              test -d /usr/share/opensearch/plugins/opensearch-security
+              cp -a /usr/share/opensearch/plugins/. /work/plugins/
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          volumeMounts:
+            - {name: official-plugins, mountPath: /work/plugins}
+        - name: official-repository-s3
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+          command: ["/bin/sh", "/opt/nomosmart/install-repository-s3.sh"]
+          env:
+            - {name: OPENSEARCH_REPOSITORY_S3_URL, value: {{ .Values.opensearch.repositoryS3.url | quote }}}
+            - {name: OPENSEARCH_REPOSITORY_S3_SHA256, value: {{ .Values.opensearch.repositoryS3.sha256 | quote }}}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          volumeMounts:
+            - {name: official-plugins, mountPath: /usr/share/opensearch/plugins}
+            - {name: plugin-script, mountPath: /opt/nomosmart, readOnly: true}
+      {{- if .Values.opensearch.snapshot.enabled }}
+        - name: snapshot-keystore
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              install -m 0600 /usr/share/opensearch/config/opensearch.keystore /work/opensearch.keystore
+              OPENSEARCH_PATH_CONF=/work /usr/share/opensearch/bin/opensearch-keystore add -f -x s3.client.default.access_key < /snapshot-credentials/access-key
+              OPENSEARCH_PATH_CONF=/work /usr/share/opensearch/bin/opensearch-keystore add -f -x s3.client.default.secret_key < /snapshot-credentials/secret-key
+              install -m 0600 "${JAVA_HOME}/lib/security/cacerts" /truststore/cacerts
+              keytool -importcert -noprompt -storepass changeit -keystore /truststore/cacerts -alias nomosmart-rustfs -file /rustfs-ca/ca.crt
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          volumeMounts:
+            - {name: snapshot-credentials, mountPath: /snapshot-credentials, readOnly: true}
+            - {name: rustfs-ca, mountPath: /rustfs-ca, readOnly: true}
+            - {name: snapshot-keystore, mountPath: /work}
+            - {name: snapshot-truststore, mountPath: /truststore}
+      {{- end }}
+      containers:
+        - name: opensearch
+          image: {{ $image | quote }}
+          imagePullPolicy: {{ .Values.opensearch.image.pullPolicy }}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports:
+            - {name: https, containerPort: 9200}
+            - {name: transport, containerPort: 9300}
+          env:
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - {name: cluster.name, value: {{ .Values.opensearch.cluster.name | quote }}}
+            - {name: node.name, value: "$(POD_NAME)"}
+            - {name: node.roles, value: {{ join "," .Values.opensearch.cluster.roles | quote }}}
+            - {name: network.host, value: "0.0.0.0"}
+            - {name: transport.publish_host, value: "$(POD_NAME).{{ $headless }}.$(POD_NAMESPACE).svc.cluster.local"}
+            {{- if eq .Values.opensearch.cluster.bootstrapMode "single-node" }}
+            - {name: discovery.type, value: single-node}
+            {{- else }}
+            - {name: discovery.seed_hosts, value: {{ printf "%s.%s.svc.cluster.local" $headless .Release.Namespace | quote }}}
+            {{- if eq .Values.opensearch.cluster.bootstrapMode "fresh" }}
+            - name: cluster.initial_cluster_manager_nodes
+              value: {{ printf "%s-opensearch-0,%s-opensearch-1,%s-opensearch-2" $fullname $fullname $fullname | quote }}
+            {{- end }}
+            {{- end }}
+            - {name: plugins.security.ssl.http.enabled, value: "true"}
+            - {name: plugins.security.ssl.http.pemcert_filepath, value: tls/http.crt}
+            - {name: plugins.security.ssl.http.pemkey_filepath, value: tls/http.key}
+            - {name: plugins.security.ssl.http.pemtrustedcas_filepath, value: tls/ca.crt}
+            - {name: plugins.security.ssl.transport.pemcert_filepath, value: tls/transport.crt}
+            - {name: plugins.security.ssl.transport.pemkey_filepath, value: tls/transport.key}
+            - {name: plugins.security.ssl.transport.pemtrustedcas_filepath, value: tls/ca.crt}
+            - {name: plugins.security.ssl.transport.enforce_hostname_verification, value: {{ .Values.opensearch.tls.enforceHostnameVerification | quote }}}
+            - {name: plugins.security.ssl.transport.resolve_hostname, value: {{ .Values.opensearch.tls.resolveHostname | quote }}}
+            - {name: plugins.security.nodes_dn, value: {{ list .Values.opensearch.tls.nodeDn | toJson | quote }}}
+            {{- if .Values.opensearch.snapshot.enabled }}
+            - {name: s3.client.default.endpoint, value: {{ trimPrefix "https://" .Values.opensearch.snapshot.endpoint | quote }}}
+            - {name: s3.client.default.protocol, value: https}
+            - {name: s3.client.default.region, value: {{ .Values.opensearch.snapshot.region | quote }}}
+            - {name: s3.client.default.path_style_access, value: {{ .Values.opensearch.snapshot.pathStyleAccess | quote }}}
+            {{- end }}
+            - name: OPENSEARCH_JAVA_OPTS
+              value: {{ printf "%s%s" .Values.opensearch.javaOpts (ternary " -Djavax.net.ssl.trustStore=/usr/share/opensearch/config/snapshot-truststore/cacerts -Djavax.net.ssl.trustStorePassword=changeit" "" .Values.opensearch.snapshot.enabled) | quote }}
+            - name: OPENSEARCH_INITIAL_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.opensearch.auth.adminPasswordSecretKey }}}}
+          volumeMounts:
+            - {name: data, mountPath: /usr/share/opensearch/data}
+            - {name: official-plugins, mountPath: /usr/share/opensearch/plugins, readOnly: true}
+            - {name: tls, mountPath: /usr/share/opensearch/config/tls, readOnly: true}
+            {{- if .Values.opensearch.snapshot.enabled }}
+            - {name: snapshot-keystore, mountPath: /usr/share/opensearch/config/opensearch.keystore, subPath: opensearch.keystore, readOnly: true}
+            - {name: snapshot-truststore, mountPath: /usr/share/opensearch/config/snapshot-truststore, readOnly: true}
+            {{- end }}
+          startupProbe:
+            timeoutSeconds: {{ $probes.timeoutSeconds }}
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - >-
+                  printf 'user = "admin:%s"\n' "$OPENSEARCH_INITIAL_ADMIN_PASSWORD" |
+                  curl --config - --cacert /usr/share/opensearch/config/tls/ca.crt
+                  --connect-timeout {{ $probes.connectTimeoutSeconds }} --max-time {{ $probes.maxTimeSeconds }}
+                  --resolve {{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}:127.0.0.1
+                  -fsS https://{{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}/ >/dev/null
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            timeoutSeconds: {{ $probes.timeoutSeconds }}
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - >-
+                  printf 'user = "admin:%s"\n' "$OPENSEARCH_INITIAL_ADMIN_PASSWORD" |
+                  curl --config - --cacert /usr/share/opensearch/config/tls/ca.crt
+                  --connect-timeout {{ $probes.connectTimeoutSeconds }} --max-time {{ $probes.maxTimeSeconds }}
+                  --resolve {{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}:127.0.0.1
+                  -fsS 'https://{{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}/_cluster/health?wait_for_status=yellow&timeout={{ $probes.readinessWaitSeconds }}s' >/dev/null
+            periodSeconds: 15
+            failureThreshold: 12
+          livenessProbe:
+            timeoutSeconds: {{ $probes.timeoutSeconds }}
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - >-
+                  printf 'user = "admin:%s"\n' "$OPENSEARCH_INITIAL_ADMIN_PASSWORD" |
+                  curl --config - --cacert /usr/share/opensearch/config/tls/ca.crt
+                  --connect-timeout {{ $probes.connectTimeoutSeconds }} --max-time {{ $probes.maxTimeSeconds }}
+                  --resolve {{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}:127.0.0.1
+                  -fsS https://{{ $fullname }}-opensearch:{{ .Values.opensearch.service.port }}/ >/dev/null
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            failureThreshold: 5
+          resources:
+            {{- toYaml .Values.opensearch.resources | nindent 12 }}
+      volumes:
+        - {name: official-plugins, emptyDir: {sizeLimit: 2Gi}}
+        - name: plugin-script
+          configMap:
+            name: {{ include "nomosmart.fullname" . }}-opensearch-plugin
+        - name: tls
+          secret:
+            secretName: {{ .Values.opensearch.tls.secretName }}
+            items:
+              - {key: {{ .Values.opensearch.tls.httpCertificateKey }}, path: http.crt}
+              - {key: {{ .Values.opensearch.tls.httpPrivateKeyKey }}, path: http.key}
+              - {key: {{ .Values.opensearch.tls.transportCertificateKey }}, path: transport.crt}
+              - {key: {{ .Values.opensearch.tls.transportPrivateKeyKey }}, path: transport.key}
+              - {key: {{ .Values.opensearch.tls.caKey }}, path: ca.crt}
+        {{- if .Values.opensearch.snapshot.enabled }}
+        - name: snapshot-credentials
+          secret:
+            secretName: {{ .Values.opensearch.snapshot.credentialSecretName }}
+            items:
+              - {key: {{ .Values.opensearch.snapshot.accessKeyKey }}, path: access-key}
+              - {key: {{ .Values.opensearch.snapshot.secretKeyKey }}, path: secret-key}
+        - name: rustfs-ca
+          secret:
+            secretName: {{ .Values.opensearch.snapshot.caSecretName }}
+            items:
+              - {key: {{ .Values.opensearch.snapshot.caKey }}, path: ca.crt}
+        - {name: snapshot-keystore, emptyDir: {medium: Memory}}
+        - {name: snapshot-truststore, emptyDir: {medium: Memory}}
+        {{- end }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.opensearch.persistence.storageClass }}
+        storageClassName: {{ .Values.opensearch.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.opensearch.persistence.size }}}}
+{{- end }}

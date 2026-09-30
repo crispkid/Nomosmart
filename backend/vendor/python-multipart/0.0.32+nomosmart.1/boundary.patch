@@ -1,0 +1,130 @@
+--- a/python_multipart/multipart.py
++++ b/python_multipart/multipart.py
+@@ -110,6 +110,8 @@
+     PART_DATA_END = 10
+     END_BOUNDARY = 11
+     END = 12
++    CLOSING_BOUNDARY = 13
++    CLOSING_BOUNDARY_CR = 14
+ 
+ 
+ # Flags for the multipart parser.
+@@ -997,6 +999,7 @@
+         max_size: The maximum size of body to parse.  Defaults to infinity - i.e. unbounded.
+         max_header_count: The maximum number of headers allowed per part.
+         max_header_size: The maximum size of a single header line (excluding the trailing CRLF).
++        max_boundary_padding_size: Finite closing-delimiter space/tab lookahead limit.
+     """  # noqa: E501
+ 
+     def __init__(
+@@ -1007,6 +1010,7 @@
+         *,
+         max_header_count: int = DEFAULT_MAX_HEADER_COUNT,
+         max_header_size: int = DEFAULT_MAX_HEADER_SIZE,
++        max_boundary_padding_size: int = 16384,
+     ) -> None:
+         # Initialize parser state.
+         super().__init__()
+@@ -1035,6 +1039,12 @@
+         if len(boundary) > MAX_BOUNDARY_LENGTH:
+             raise FormParserError(f"Boundary length {len(boundary)} exceeds maximum of {MAX_BOUNDARY_LENGTH}")
+         self.boundary = b"\r\n--" + boundary
++        if type(max_boundary_padding_size) is not int or not 0 <= max_boundary_padding_size <= 65536:
++            raise ValueError("max_boundary_padding_size must be an integer from 0 to 65536")
++        self.max_boundary_padding_size = max_boundary_padding_size
++        self._closing = bytearray()
++        self._closing_padding = 0
++        self._closing_part = False
+ 
+     def write(self, data: bytes) -> int:
+         """Write some data to the parser, which will perform size verification,
+@@ -1443,11 +1453,15 @@
+                         if c == HYPHEN:
+                             # We have identified a boundary, callback for any data before it.
+                             data_callback("part_data", i - index)
+-                            # Callback to end the current part, and then the
+-                            # message.
+-                            self.callback("part_end")
+-                            self.callback("end")
+-                            state = MultipartState.END
++                            # A suffix may still make this ordinary file data.
++                            # Withhold only the bounded candidate, not the file body.
++                            self._closing = bytearray(boundary + b"--")
++                            self._closing_padding = 0
++                            self._closing_part = True
++                            index = flags = 0
++                            state = MultipartState.CLOSING_BOUNDARY
++                            i += 1
++                            continue
+                         else:
+                             # No match, so reset index.
+                             index = 0
+@@ -1470,9 +1484,42 @@
+                         msg = "Did not find - at end of boundary (%d)" % (i,)
+                         self.logger.warning(msg)
+                         raise MultipartParseError(msg, offset=i)
+-                    index += 1
++                    index = flags = 0
++                    self._closing = bytearray(boundary[2:] + b"--")
++                    self._closing_padding = 0
++                    self._closing_part = False
++                    state = MultipartState.CLOSING_BOUNDARY
++
++            elif state in (MultipartState.CLOSING_BOUNDARY, MultipartState.CLOSING_BOUNDARY_CR):
++                if state == MultipartState.CLOSING_BOUNDARY and c in (SPACE, 9):
++                    if self._closing_padding >= self.max_boundary_padding_size:
++                        raise MultipartParseError("Maximum closing boundary padding exceeded", offset=i)
++                    self._closing_padding += 1
++                    self._closing.append(c)
++                elif state == MultipartState.CLOSING_BOUNDARY and c == CR:
++                    self._closing.append(c)
++                    state = MultipartState.CLOSING_BOUNDARY_CR
++                elif state == MultipartState.CLOSING_BOUNDARY_CR and c == LF:
++                    self._closing.clear()
++                    if self._closing_part:
++                        self.callback("part_end")
+                     self.callback("end")
+                     state = MultipartState.END
++                else:
++                    if not self._closing_part:
++                        raise MultipartParseError("Invalid empty multipart closing boundary", offset=i)
++                    # All candidate bytes except a trailing CR are known body data.
++                    # Keep that CR in the existing boundary lookbehind so an
++                    # overlapping delimiter is found, even across write calls.
++                    trailing_cr = state == MultipartState.CLOSING_BOUNDARY_CR
++                    replay = bytes(self._closing)
++                    self.callback("part_data", replay, 0, len(replay) - int(trailing_cr))
++                    self._closing.clear()
++                    index = int(trailing_cr)
++                    flags = 0
++                    self.marks["part_data"] = i - index
++                    state = MultipartState.PART_DATA
++                    i -= 1
+ 
+             elif state == MultipartState.END:
+                 # Silently discard any epilogue data (RFC 2046 section 5.1.1 allows a CRLF and optional
+@@ -1513,15 +1560,15 @@
+         return length
+ 
+     def finalize(self) -> None:
+-        """Finalize this parser, which signals to that we are finished parsing.
+-
+-        Note: It does not currently, but in the future, it will verify that we
+-        are in the final state of the parser (i.e. the end of the multipart
+-        message is well-formed), and, if not, throw an error.
+-        """
+-        # TODO: verify that we're in the state MultipartState.END, otherwise throw an
+-        # error or otherwise state that we're not finished parsing.
+-        pass
++        """Accept a complete closing delimiter at EOF, never a truncated body."""
++        if self.state == MultipartState.CLOSING_BOUNDARY:
++            self._closing.clear()
++            if self._closing_part:
++                self.callback("part_end")
++            self.callback("end")
++            self.state = MultipartState.END
++        elif self.state != MultipartState.END:
++            raise MultipartParseError("Incomplete multipart message", offset=0)
+ 
+     def __repr__(self) -> str:
+         return f"{self.__class__.__name__}(boundary={self.boundary!r})"

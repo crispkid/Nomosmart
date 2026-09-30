@@ -1,0 +1,28 @@
+global:
+  publicHost: nomosmart.local
+  publicOrigin: https://nomosmart.local
+
+backend:
+  env:
+    APP_ENV: development
+    OPENSEARCH_VERIFY_TLS: "true"
+    S3_USE_SSL: "true"
+    S3_VERIFY_TLS: "true"
+
+bootstrap:
+  deploymentPhase: factory_acceptance
+
+secrets:
+  data:
+    BREAK_GLASS_INITIAL_PASSWORD: nomosmart
+
+ingress:
+  enabled: true
+  hosts:
+    - host: nomosmart.local
+      paths:
+        - {path: /identity, pathType: Prefix, service: keycloak}
+        - {path: /, pathType: Prefix, service: frontend}
+  tls:
+    - secretName: nomosmart-ingress-tls
+      hosts: [nomosmart.local]

@@ -1,0 +1,178 @@
+global:
+  publicHost: nomosmart.local
+  publicOrigin: https://nomosmart.local
+
+replicaCount:
+  frontend: 2
+  backend: 2
+  worker: 2
+
+highAvailability:
+  enabled: true
+  topologyKey: kubernetes.io/hostname
+  podDisruptionBudget:
+    minAvailable: 1
+  rollingUpdate:
+    maxUnavailable: 0
+    maxSurge: 1
+  terminationGracePeriodSeconds: 60
+
+productionCapacity:
+  enabled: true
+  minimumNodeAllocatable:
+    cpu: 7000m
+    memory: 28Gi
+  reservePercent:
+    cpu: 20
+    memory: 20
+    storage: 25
+  longhorn:
+    namespace: longhorn-system
+    provisioner: driver.longhorn.io
+    requiredReplicaCount: 1
+    allowedDataLocality: [disabled, best-effort]
+
+compatibility:
+  applicationContract: nomosmart-1
+  schemaContract: forward-v042
+  publicApiContract: v1-scoped-graph-idempotent
+  securityContract: chg260-mounted-secrets-password-only
+
+backend:
+  env:
+    APP_ENV: production
+    LOG_LEVEL: INFO
+    CORS_ALLOWED_ORIGINS: https://nomosmart.local
+    FRONTEND_APP_ORIGIN: https://nomosmart.local
+    S3_USE_SSL: "true"
+    S3_VERIFY_TLS: "true"
+    OPENSEARCH_VERIFY_TLS: "true"
+    OPENSEARCH_INDEX_PREFIX: nomosmart
+    OPENSEARCH_STAGING_LIVE_WRITE: "true"
+    BREAK_GLASS_RUNBOOK_URI: https://runbooks.example.com/nomosmart/break-glass
+    BREAK_GLASS_ALERTING_EVIDENCE: CHANGE_ME_ALERT_ROUTE_EVIDENCE
+    REDIS_HA_MODE: sentinel
+    REDIS_SENTINEL_MASTER_NAME: nomosmart
+    REDIS_SENTINEL_USERNAME: nomosmart
+    REDIS_TLS_CA_CERT_PATH: /etc/nomosmart/tls/redis-ca.crt
+
+postgresql:
+  operator:
+    enabled: true
+  backup:
+    enabled: true
+    prepareBucket: false
+    pluginName: barman-cloud.cloudnative-pg.io
+    pluginVersion: "0.13.0"
+    bucket: nomosmart-postgresql-backups
+    destinationPrefix: production
+    endpointURL: https://nomosmart-rustfs:9000
+    schedule: "0 0 2 * * *"
+    immediate: true
+    retentionPolicy: 30d
+    encryption: AES256
+    compression: gzip
+    target: prefer-standby
+  cluster:
+    image:
+      repository: ghcr.io/cloudnative-pg/postgresql
+      tag: "18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1"
+      pullPolicy: IfNotPresent
+    instances: 3
+    synchronousReplicas: 1
+    minSyncReplicas: 1
+    maxSyncReplicas: 1
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      minAvailable: 2
+
+redis:
+  cluster:
+    enabled: true
+    replicas: 3
+    sentinelReplicas: 3
+    sentinelQuorum: 2
+    masterName: nomosmart
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      minAvailable: 2
+    sentinelPodDisruptionBudget:
+      minAvailable: 2
+
+beat:
+  haEnabled: true
+  replicas: 2
+  lease:
+    name: nomosmart-celery-beat
+    durationSeconds: 30
+    renewSeconds: 10
+    retrySeconds: 5
+  podDisruptionBudget:
+    minAvailable: 1
+
+rustfs:
+  cluster:
+    enabled: true
+    replicas: 4
+    dataShards: 2
+    parityShards: 2
+    topologyKey: kubernetes.io/hostname
+    maxSkew: 1
+    podDisruptionBudget:
+      minAvailable: 3
+
+keycloak:
+  cluster:
+    replicas: 3
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      minAvailable: 2
+
+opensearch:
+  image:
+    digest: sha256:e321cb03c643874c42240458a618db56bc1e4fc143b10c41bec653542bc6851b
+  cluster:
+    name: nomosmart-opensearch
+    replicas: 3
+    bootstrapMode: fresh
+    shardReplicas: 1
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      minAvailable: 2
+  tls:
+    enforceHostnameVerification: true
+    resolveHostname: true
+  snapshot:
+    enabled: true
+
+bootstrap:
+  deploymentPhase: onboarding
+
+frontend:
+  env:
+    NEXT_PUBLIC_APP_ORIGIN: https://nomosmart.local
+    NEXT_PUBLIC_API_BASE_URL: /api/backend
+    NEXT_PUBLIC_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
+    NEXT_PUBLIC_OIDC_CLIENT_ID: nomosmart-frontend
+    NEXT_PUBLIC_OIDC_AUDIENCE: nomosmart-backend
+    FRONTEND_APP_ORIGIN: https://nomosmart.local
+    FRONTEND_PUBLIC_API_BASE_URL: /api/backend
+    FRONTEND_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
+    FRONTEND_OIDC_CLIENT_ID: nomosmart-frontend
+    FRONTEND_OIDC_AUDIENCE: nomosmart-backend
+
+secrets:
+  existingSecret: nomosmart-runtime-secrets
+  data: {}
+
+ingress:
+  enabled: true
+  className: nginx
+  hosts:
+    - host: nomosmart.local
+      paths:
+        - {path: /identity, pathType: Prefix, service: keycloak}
+        - {path: /, pathType: Prefix, service: frontend}
+  tls:
+    - secretName: nomosmart-ingress-tls
+      hosts: [nomosmart.local]

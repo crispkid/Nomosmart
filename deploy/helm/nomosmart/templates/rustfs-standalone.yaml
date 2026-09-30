@@ -1,0 +1,85 @@
+{{- if and (eq .Values.rustfs.mode "bundled") (not .Values.rustfs.cluster.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-rustfs
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  type: ClusterIP
+  ports:
+    - {name: s3, port: {{ .Values.rustfs.service.port }}, targetPort: s3}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-rustfs
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: rustfs
+spec:
+  serviceName: {{ include "nomosmart.fullname" . }}-rustfs
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: rustfs
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: rustfs
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 10001, runAsGroup: 10001, fsGroup: 10001, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: rustfs
+          image: "{{ .Values.rustfs.image.repository }}:{{ .Values.rustfs.image.tag }}"
+          imagePullPolicy: {{ .Values.rustfs.image.pullPolicy }}
+          args: ["/data"]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: s3, containerPort: 9000}]
+          env:
+            - {name: RUSTFS_ACCESS_KEY, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: S3_ACCESS_KEY_ID}}}
+            - {name: RUSTFS_SECRET_KEY, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: S3_SECRET_ACCESS_KEY}}}
+            - {name: RUSTFS_TLS_PATH, value: /opt/rustfs-tls}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+            - {name: tls, mountPath: /opt/rustfs-tls, readOnly: true}
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -ec
+                - {{ printf "curl --cacert /opt/rustfs-tls/rustfs_ca.pem --resolve %s-rustfs:%v:127.0.0.1 -fsS https://%s-rustfs:%v/health >/dev/null" (include "nomosmart.fullname" .) .Values.rustfs.service.port (include "nomosmart.fullname" .) .Values.rustfs.service.port | quote }}
+            periodSeconds: 10
+            failureThreshold: 12
+          livenessProbe: {tcpSocket: {port: s3}, initialDelaySeconds: 30, periodSeconds: 20}
+          resources:
+            {{- toYaml .Values.rustfs.resources | nindent 12 }}
+      volumes:
+        - name: tls
+          secret:
+            secretName: {{ .Values.rustfs.tls.secretName }}
+            items:
+              - {key: tls.crt, path: rustfs_cert.pem}
+              - {key: tls.key, path: rustfs_key.pem}
+              - {key: {{ .Values.rustfs.tls.caKey }}, path: rustfs_ca.pem}
+        {{- if not .Values.rustfs.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if .Values.rustfs.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.rustfs.persistence.storageClass }}
+        storageClassName: {{ .Values.rustfs.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.rustfs.persistence.size }}}}
+  {{- end }}
+{{- end }}

@@ -1,0 +1,22 @@
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.pytest_cache
+.mypy_cache
+.ruff_cache
+coverage.json
+.coverage
+htmlcov
+*.log
+.env
+.env.*
+!.env.example
+# Only product source is installed; historical evidence and retired tooling are not delivery inputs.
+scripts
+tests
+pdf_executor
+pdf_coordinator
+pdf_start_guard
+pdf_profile_recipe

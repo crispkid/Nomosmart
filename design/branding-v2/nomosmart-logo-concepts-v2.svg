@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1800 1200" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart creative logo concepts</title>
+  <desc id="desc">Three original symbol directions without using the letter N: Knowledge Core, Governance Weave, and Intelligence Beacon.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1800" y2="1200" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#102B24"/>
+      <stop offset=".55" stop-color="#173B31"/>
+      <stop offset="1" stop-color="#102820"/>
+    </linearGradient>
+    <linearGradient id="corePanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DDF4E8"/>
+      <stop offset="1" stop-color="#E8F6F7"/>
+    </linearGradient>
+    <linearGradient id="weavePanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#DDEFF1"/>
+      <stop offset="1" stop-color="#E9F4EB"/>
+    </linearGradient>
+    <linearGradient id="beaconPanel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFF5D8"/>
+      <stop offset="1" stop-color="#F8ECE7"/>
+    </linearGradient>
+    <linearGradient id="wordGreen" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#2B6F51"/>
+      <stop offset="1" stop-color="#58A982"/>
+    </linearGradient>
+    <linearGradient id="weaveGreen" x1="-100" y1="-100" x2="100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#245F46"/>
+      <stop offset="1" stop-color="#66B28D"/>
+    </linearGradient>
+    <linearGradient id="weaveBlue" x1="100" y1="-100" x2="-100" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4BA9C1"/>
+      <stop offset="1" stop-color="#8FD0DB"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-12%" y="-12%" width="124%" height="140%">
+      <feDropShadow dx="0" dy="22" stdDeviation="24" flood-color="#061B15" flood-opacity=".24"/>
+    </filter>
+    <filter id="symbolShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#1D4C3B" flood-opacity=".18"/>
+    </filter>
+    <filter id="glow" x="-100%" y="-100%" width="300%" height="300%">
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <rect width="1800" height="1200" fill="url(#bg)"/>
+  <circle cx="1605" cy="90" r="260" fill="#5FAE88" opacity=".08"/>
+  <circle cx="140" cy="1110" r="250" fill="#77C5D8" opacity=".06"/>
+  <path d="M0 300C350 170 520 330 780 215s505-82 1020 85" fill="none" stroke="#FCFDFB" stroke-opacity=".035" stroke-width="2"/>
+
+  <text x="90" y="85" fill="#A7D8C0" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="17" font-weight="700" letter-spacing="4.5">NOMOSMART · CREATIVE EXPLORATION 02</text>
+  <text x="90" y="155" fill="#FCFDFB" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="48" font-weight="700">不從字母出發，從「知識如何產生價值」出發</text>
+  <text x="92" y="202" fill="#BFDCCE" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="21">三個完全不同的符號方向 · 都能獨立成為 App icon、產品章印與品牌動態識別</text>
+
+  <!-- Concept A -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="270" width="500" height="820" rx="34" fill="#FCFDFB"/>
+    <rect x="112" y="292" width="456" height="385" rx="26" fill="url(#corePanel)"/>
+  </g>
+  <text x="138" y="335" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.5">DIRECTION 01</text>
+  <text x="518" y="335" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">DYNAMIC</text>
+
+  <g transform="translate(340 486)" filter="url(#symbolShadow)">
+    <circle r="132" fill="#FCFDFB" opacity=".78"/>
+    <circle r="43" fill="#D8C77A" opacity=".18" filter="url(#glow)"/>
+    <g>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#245F46"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#5FAE88" transform="rotate(72)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#77C5D8" transform="rotate(144)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#E98B87" transform="rotate(216)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#BFDCCE" transform="rotate(288)"/>
+    </g>
+    <circle r="27" fill="#FCFDFB"/>
+    <circle r="17" fill="#D8C77A"/>
+    <circle r="6" fill="#FCFDFB" opacity=".86"/>
+  </g>
+
+  <text x="138" y="740" fill="#2E3A42" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="30" font-weight="700">知識光核</text>
+  <text x="138" y="777" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2">KNOWLEDGE CORE</text>
+  <text x="138" y="831" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">多元知識向中心匯聚，經治理後</text>
+  <text x="138" y="861" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">轉化成可被 AI 使用的可靠洞察。</text>
+  <g font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="14" font-weight="600">
+    <rect x="138" y="905" width="92" height="34" rx="17" fill="#EAF7F1"/><text x="184" y="928" fill="#2F7D57" text-anchor="middle">匯聚</text>
+    <rect x="240" y="905" width="92" height="34" rx="17" fill="#E8F5F8"/><text x="286" y="928" fill="#397E90" text-anchor="middle">轉化</text>
+    <rect x="342" y="905" width="92" height="34" rx="17" fill="#FFF3D0"/><text x="388" y="928" fill="#8A7425" text-anchor="middle">洞察</text>
+  </g>
+  <g transform="translate(138 990)">
+    <circle cx="22" cy="22" r="22" fill="#EFF7F3"/>
+    <g transform="translate(22 22) scale(.16)">
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#245F46"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#5FAE88" transform="rotate(72)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#77C5D8" transform="rotate(144)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#E98B87" transform="rotate(216)"/>
+      <path d="M0-111C35-111 67-96 88-72L31-24C22-16 12-12 0-12Z" fill="#BFDCCE" transform="rotate(288)"/>
+      <circle r="24" fill="#D8C77A"/>
+    </g>
+    <text x="62" y="18" fill="#2E3A42" font-family="Avenir Next, sans-serif" font-size="21" font-weight="650">NomoSmart</text>
+    <text x="62" y="40" fill="#7B8885" font-family="Avenir Next, sans-serif" font-size="12" font-weight="600" letter-spacing="1.2">KNOWLEDGE IN MOTION</text>
+  </g>
+
+  <!-- Concept B -->
+  <g filter="url(#cardShadow)">
+    <rect x="650" y="270" width="500" height="820" rx="34" fill="#FCFDFB"/>
+    <rect x="672" y="292" width="456" height="385" rx="26" fill="url(#weavePanel)"/>
+  </g>
+  <text x="698" y="335" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.5">DIRECTION 02</text>
+  <text x="1078" y="335" fill="#397E90" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">DISTINCTIVE</text>
+
+  <g transform="translate(900 486)" filter="url(#symbolShadow)">
+    <circle r="132" fill="#FCFDFB" opacity=".76"/>
+    <path d="M-88-36C-42-87 35-92 84-43C110-17 110 16 84 43C36 91-42 87-88 36"
+          fill="none" stroke="#FCFDFB" stroke-width="36" stroke-linecap="round"/>
+    <path d="M-88-36C-42-87 35-92 84-43C110-17 110 16 84 43C36 91-42 87-88 36"
+          fill="none" stroke="url(#weaveGreen)" stroke-width="24" stroke-linecap="round"/>
+    <path d="M-36-88C-87-42-92 35-43 84C-17 110 16 110 43 84C91 36 87-42 36-88"
+          fill="none" stroke="#FCFDFB" stroke-width="36" stroke-linecap="round"/>
+    <path d="M-36-88C-87-42-92 35-43 84C-17 110 16 110 43 84C91 36 87-42 36-88"
+          fill="none" stroke="url(#weaveBlue)" stroke-width="24" stroke-linecap="round"/>
+    <rect x="-18" y="-18" width="36" height="36" rx="11" transform="rotate(45)" fill="#D8C77A" stroke="#FCFDFB" stroke-width="7"/>
+  </g>
+
+  <text x="698" y="740" fill="#2E3A42" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="30" font-weight="700">治理織印</text>
+  <text x="698" y="777" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2">GOVERNANCE WEAVE</text>
+  <text x="698" y="831" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">治理與 AI 兩條能力彼此交織，</text>
+  <text x="698" y="861" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">形成持續運作、可追溯的知識循環。</text>
+  <g font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="14" font-weight="600">
+    <rect x="698" y="905" width="92" height="34" rx="17" fill="#EAF7F1"/><text x="744" y="928" fill="#2F7D57" text-anchor="middle">治理</text>
+    <rect x="800" y="905" width="92" height="34" rx="17" fill="#E8F5F8"/><text x="846" y="928" fill="#397E90" text-anchor="middle">協作</text>
+    <rect x="902" y="905" width="92" height="34" rx="17" fill="#FFF3D0"/><text x="948" y="928" fill="#8A7425" text-anchor="middle">可信</text>
+  </g>
+  <g transform="translate(698 990)">
+    <circle cx="22" cy="22" r="22" fill="#EFF7F3"/>
+    <g transform="translate(22 22) scale(.17)">
+      <path d="M-88-36C-42-87 35-92 84-43C110-17 110 16 84 43C36 91-42 87-88 36" fill="none" stroke="#2F7D57" stroke-width="28" stroke-linecap="round"/>
+      <path d="M-36-88C-87-42-92 35-43 84C-17 110 16 110 43 84C91 36 87-42 36-88" fill="none" stroke="#77C5D8" stroke-width="28" stroke-linecap="round"/>
+      <rect x="-22" y="-22" width="44" height="44" rx="11" transform="rotate(45)" fill="#D8C77A"/>
+    </g>
+    <text x="62" y="18" fill="#2E3A42" font-family="Avenir Next, sans-serif" font-size="21" font-weight="650">NomoSmart</text>
+    <text x="62" y="40" fill="#7B8885" font-family="Avenir Next, sans-serif" font-size="12" font-weight="600" letter-spacing="1.2">TRUSTED KNOWLEDGE SYSTEM</text>
+  </g>
+
+  <!-- Concept C -->
+  <g filter="url(#cardShadow)">
+    <rect x="1210" y="270" width="500" height="820" rx="34" fill="#FCFDFB"/>
+    <rect x="1232" y="292" width="456" height="385" rx="26" fill="url(#beaconPanel)"/>
+  </g>
+  <text x="1258" y="335" fill="#A77D2B" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.5">DIRECTION 03</text>
+  <text x="1638" y="335" fill="#C16B68" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" text-anchor="end">HUMAN</text>
+
+  <g transform="translate(1460 482)" filter="url(#symbolShadow)">
+    <circle r="132" fill="#FCFDFB" opacity=".8"/>
+    <circle cy="-74" r="28" fill="#D8C77A" opacity=".2" filter="url(#glow)"/>
+    <path d="M0-106c2 15 10 23 25 25-15 2-23 10-25 25-2-15-10-23-25-25 15-2 23-10 25-25Z"
+          fill="#D8C77A"/>
+    <path d="M-52-25Q0 22 52-25" fill="none" stroke="#77C5D8" stroke-width="18" stroke-linecap="round"/>
+    <path d="M-76 12Q0 77 76 12" fill="none" stroke="#5FAE88" stroke-width="20" stroke-linecap="round"/>
+    <path d="M-100 52Q0 132 100 52" fill="none" stroke="#245F46" stroke-width="22" stroke-linecap="round"/>
+    <circle cx="-52" cy="-25" r="7" fill="#E98B87"/>
+    <circle cx="76" cy="12" r="7" fill="#D8C77A"/>
+  </g>
+
+  <text x="1258" y="740" fill="#2E3A42" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="30" font-weight="700">智慧燈塔</text>
+  <text x="1258" y="777" fill="#687773" font-family="Avenir Next, sans-serif" font-size="16" font-weight="700" letter-spacing="2">INTELLIGENCE BEACON</text>
+  <text x="1258" y="831" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">層層知識承接一個可信答案，</text>
+  <text x="1258" y="861" fill="#475852" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="18">像燈塔一樣讓每個人找到方向。</text>
+  <g font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="14" font-weight="600">
+    <rect x="1258" y="905" width="92" height="34" rx="17" fill="#FFF3D0"/><text x="1304" y="928" fill="#8A7425" text-anchor="middle">指引</text>
+    <rect x="1360" y="905" width="92" height="34" rx="17" fill="#EAF7F1"/><text x="1406" y="928" fill="#2F7D57" text-anchor="middle">知識</text>
+    <rect x="1462" y="905" width="92" height="34" rx="17" fill="#FCEAE7"/><text x="1508" y="928" fill="#A95F5C" text-anchor="middle">人本</text>
+  </g>
+  <g transform="translate(1258 990)">
+    <circle cx="22" cy="22" r="22" fill="#FFF7E4"/>
+    <g transform="translate(22 20) scale(.18)">
+      <path d="M0-106c2 15 10 23 25 25-15 2-23 10-25 25-2-15-10-23-25-25 15-2 23-10 25-25Z" fill="#D8C77A"/>
+      <path d="M-52-25Q0 22 52-25" fill="none" stroke="#77C5D8" stroke-width="18" stroke-linecap="round"/>
+      <path d="M-76 12Q0 77 76 12" fill="none" stroke="#5FAE88" stroke-width="20" stroke-linecap="round"/>
+      <path d="M-100 52Q0 132 100 52" fill="none" stroke="#245F46" stroke-width="22" stroke-linecap="round"/>
+    </g>
+    <text x="62" y="18" fill="#2E3A42" font-family="Avenir Next, sans-serif" font-size="21" font-weight="650">NomoSmart</text>
+    <text x="62" y="40" fill="#7B8885" font-family="Avenir Next, sans-serif" font-size="12" font-weight="600" letter-spacing="1.2">KNOWLEDGE THAT GUIDES</text>
+  </g>
+
+  <text x="90" y="1153" fill="#BFDCCE" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="17">共同原則：不使用字母縮寫 · 不使用 AI 腦袋 · 保留原品牌綠，加入藍、金與珊瑚色點綴</text>
+  <text x="1710" y="1153" fill="#6FA68E" font-family="Avenir Next, sans-serif" font-size="14" text-anchor="end">VECTOR CONCEPTS · 1800 × 1200</text>
+</svg>

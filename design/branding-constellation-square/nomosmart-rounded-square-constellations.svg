@@ -1,0 +1,196 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1500" viewBox="0 0 2400 1500" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart 圓角方形知識星圖 Logo 提案</title>
+  <desc id="desc">四款以圓角方形為輪廓，結合知識軌道、節點、治理框架與稜角核心的企業級 Logo。</desc>
+
+  <defs>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="130%">
+      <feDropShadow dx="0" dy="14" stdDeviation="18" flood-color="#173B2D" flood-opacity=".10"/>
+    </filter>
+    <filter id="iconShadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="10" stdDeviation="10" flood-color="#143B2B" flood-opacity=".16"/>
+    </filter>
+    <linearGradient id="solidGreen" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#347A5B"/>
+      <stop offset=".52" stop-color="#245F46"/>
+      <stop offset="1" stop-color="#173F30"/>
+    </linearGradient>
+    <linearGradient id="mintSurface" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FCFDFB"/>
+      <stop offset="1" stop-color="#EAF7F1"/>
+    </linearGradient>
+    <linearGradient id="blueOrbit" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#9AD9E5"/>
+      <stop offset="1" stop-color="#55AEC3"/>
+    </linearGradient>
+    <linearGradient id="goldCore" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#F1DC84"/>
+      <stop offset="1" stop-color="#C8A343"/>
+    </linearGradient>
+
+    <symbol id="mark-outline" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="48" fill="url(#mintSurface)" stroke="#245F46" stroke-width="12"/>
+      <rect x="34" y="34" width="172" height="172" rx="35" fill="none" stroke="#BFDCCE" stroke-width="4"/>
+      <ellipse cx="120" cy="120" rx="72" ry="40" transform="rotate(-23 120 120)" fill="none" stroke="url(#blueOrbit)" stroke-width="8"/>
+      <ellipse cx="120" cy="120" rx="70" ry="39" transform="rotate(57 120 120)" fill="none" stroke="#77B99B" stroke-width="7"/>
+      <path d="M66 83 120 120 178 82M120 120 78 172M120 120 170 165" fill="none" stroke="#245F46" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="66" cy="83" r="10" fill="#245F46" stroke="#FCFDFB" stroke-width="5"/>
+      <circle cx="178" cy="82" r="10" fill="#61B5C8" stroke="#FCFDFB" stroke-width="5"/>
+      <circle cx="78" cy="172" r="10" fill="#5FAE88" stroke="#FCFDFB" stroke-width="5"/>
+      <circle cx="170" cy="165" r="10" fill="#D8C77A" stroke="#FCFDFB" stroke-width="5"/>
+      <path d="M120 96 145 120 120 144 95 120Z" fill="url(#goldCore)" stroke="#FCFDFB" stroke-width="6"/>
+      <circle cx="120" cy="120" r="7" fill="#245F46"/>
+    </symbol>
+
+    <symbol id="mark-solid" viewBox="0 0 240 240">
+      <rect x="12" y="12" width="216" height="216" rx="52" fill="url(#solidGreen)"/>
+      <path d="M52 73 120 38 188 73 202 147 151 200 75 191 38 130Z" fill="none" stroke="#FFFFFF" stroke-opacity=".16" stroke-width="5"/>
+      <ellipse cx="120" cy="120" rx="75" ry="41" transform="rotate(-23 120 120)" fill="none" stroke="#7DCCDC" stroke-width="8"/>
+      <ellipse cx="120" cy="120" rx="72" ry="40" transform="rotate(57 120 120)" fill="none" stroke="#A8D7C2" stroke-width="7"/>
+      <path d="M63 82 120 120 181 79M120 120 77 174M120 120 172 165" fill="none" stroke="#FCFDFB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+      <circle cx="63" cy="82" r="11" fill="#EAF7F1" stroke="#245F46" stroke-width="5"/>
+      <circle cx="181" cy="79" r="11" fill="#77C5D8" stroke="#245F46" stroke-width="5"/>
+      <circle cx="77" cy="174" r="11" fill="#5FAE88" stroke="#245F46" stroke-width="5"/>
+      <circle cx="172" cy="165" r="11" fill="#E5CD68" stroke="#245F46" stroke-width="5"/>
+      <path d="M120 94 147 120 120 146 93 120Z" fill="url(#goldCore)" stroke="#FCFDFB" stroke-width="6"/>
+      <circle cx="120" cy="120" r="8" fill="#245F46"/>
+    </symbol>
+
+    <symbol id="mark-layered" viewBox="0 0 240 240">
+      <rect x="14" y="14" width="212" height="212" rx="45" fill="#FCFDFB" stroke="#245F46" stroke-width="11"/>
+      <rect x="35" y="35" width="170" height="170" rx="28" fill="#EAF7F1" stroke="#64B4C8" stroke-width="8"/>
+      <path d="M120 47 186 84 186 156 120 193 54 156 54 84Z" fill="none" stroke="#7EB99D" stroke-width="5" stroke-linejoin="round"/>
+      <path d="M120 47V193M54 84 186 156M186 84 54 156" fill="none" stroke="#B5D8C8" stroke-width="4"/>
+      <ellipse cx="120" cy="120" rx="68" ry="38" transform="rotate(-22 120 120)" fill="none" stroke="#57ADC1" stroke-width="7"/>
+      <circle cx="65" cy="85" r="9" fill="#245F46" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="178" cy="82" r="9" fill="#64B4C8" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="80" cy="172" r="9" fill="#5FAE88" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="173" cy="163" r="9" fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+      <path d="M120 95 145 120 120 145 95 120Z" fill="#245F46" stroke="#FCFDFB" stroke-width="6"/>
+      <path d="M120 105 135 120 120 135 105 120Z" fill="url(#goldCore)"/>
+    </symbol>
+
+    <symbol id="mark-faceted" viewBox="0 0 240 240">
+      <rect x="13" y="13" width="214" height="214" rx="43" fill="url(#mintSurface)"/>
+      <path d="M88 27H152L204 66 219 118 198 176 151 213H88L40 183 21 124 39 69Z" fill="none" stroke="#245F46" stroke-width="11" stroke-linejoin="round"/>
+      <path d="M120 43 177 63 200 111 187 167 148 197 91 194 49 159 42 104 68 61Z" fill="none" stroke="#77C5D8" stroke-width="6" stroke-linejoin="round"/>
+      <path d="M68 61 120 120 177 63M120 120 49 159M120 120 187 167M120 43V120" fill="none" stroke="#9ECDB7" stroke-width="4" stroke-linecap="round"/>
+      <ellipse cx="120" cy="120" rx="71" ry="37" transform="rotate(-20 120 120)" fill="none" stroke="#5FAE88" stroke-width="7"/>
+      <circle cx="68" cy="61" r="9" fill="#245F46" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="177" cy="63" r="9" fill="#64B4C8" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="49" cy="159" r="9" fill="#5FAE88" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="187" cy="167" r="9" fill="#D8C77A" stroke="#FCFDFB" stroke-width="4"/>
+      <path d="M120 93 148 120 120 147 92 120Z" fill="url(#goldCore)" stroke="#FCFDFB" stroke-width="6"/>
+      <path d="M120 104 137 120 120 136 103 120Z" fill="#245F46"/>
+    </symbol>
+  </defs>
+
+  <rect width="2400" height="1500" fill="#F3F7F5"/>
+  <rect width="2400" height="18" fill="#245F46"/>
+  <circle cx="2228" cy="116" r="54" fill="none" stroke="#BFDCCE" stroke-width="2"/>
+  <circle cx="2228" cy="116" r="31" fill="none" stroke="#77C5D8" stroke-width="2"/>
+  <path d="M2185 94 2228 116 2271 91M2228 116 2257 153" fill="none" stroke="#5FAE88" stroke-width="3"/>
+  <circle cx="2185" cy="94" r="6" fill="#245F46"/>
+  <circle cx="2271" cy="91" r="6" fill="#64B4C8"/>
+  <circle cx="2257" cy="153" r="6" fill="#D8C77A"/>
+
+  <text x="90" y="102" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="4">NOMOSMART BRAND EXPLORATION · 04</text>
+  <text x="90" y="172" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="58" font-weight="700">圓角方形 × 知識星圖</text>
+  <text x="90" y="216" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="24">穩定的企業容器，承載流動的知識軌道；圓角親和，內部稜角清楚而可信。</text>
+
+  <!-- Card 01 -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="270" width="1080" height="520" rx="28" fill="#FCFDFB"/>
+  </g>
+  <rect x="90" y="270" width="10" height="520" rx="5" fill="#5FAE88"/>
+  <text x="134" y="325" fill="#7B8882" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3">01 · OUTLINE SQUIRCLE</text>
+  <g filter="url(#iconShadow)">
+    <use href="#mark-outline" x="145" y="358" width="340" height="340"/>
+  </g>
+  <text x="548" y="400" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="44" font-weight="700">星圖線框</text>
+  <text x="548" y="445" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">清楚、開放、可信</text>
+  <line x1="548" y1="474" x2="1100" y2="474" stroke="#E2EAE6" stroke-width="2"/>
+  <text x="548" y="520" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">雙層圓角框象徵治理邊界，</text>
+  <text x="548" y="556" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">交錯軌道代表知識被連結、驗證與使用。</text>
+  <g transform="translate(548 606)">
+    <rect width="154" height="48" rx="24" fill="#EAF7F1"/>
+    <text x="77" y="31" text-anchor="middle" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">品牌主識別</text>
+    <rect x="170" width="154" height="48" rx="24" fill="#E9F5F8"/>
+    <text x="247" y="31" text-anchor="middle" fill="#347F91" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">文件與簡報</text>
+  </g>
+  <use href="#mark-outline" x="1014" y="628" width="92" height="92"/>
+  <text x="1060" y="746" text-anchor="middle" fill="#7B8882" font-family="Arial, sans-serif" font-size="15">48 PX TEST</text>
+
+  <!-- Card 02 -->
+  <g filter="url(#cardShadow)">
+    <rect x="1230" y="270" width="1080" height="520" rx="28" fill="#FCFDFB"/>
+  </g>
+  <rect x="1230" y="270" width="10" height="520" rx="5" fill="#245F46"/>
+  <text x="1274" y="325" fill="#7B8882" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3">02 · SOLID SQUIRCLE</text>
+  <g filter="url(#iconShadow)">
+    <use href="#mark-solid" x="1285" y="358" width="340" height="340"/>
+  </g>
+  <text x="1688" y="400" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="44" font-weight="700">星圖實印</text>
+  <text x="1688" y="445" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">集中、成熟、數位原生</text>
+  <line x1="1688" y1="474" x2="2240" y2="474" stroke="#E2EAE6" stroke-width="2"/>
+  <text x="1688" y="520" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">深綠底把節點收進統一知識中心，</text>
+  <text x="1688" y="556" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">縮小後仍有最強輪廓，適合產品圖示。</text>
+  <g transform="translate(1688 606)">
+    <rect width="154" height="48" rx="24" fill="#EAF7F1"/>
+    <text x="77" y="31" text-anchor="middle" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">App icon</text>
+    <rect x="170" width="154" height="48" rx="24" fill="#F5F0D9"/>
+    <text x="247" y="31" text-anchor="middle" fill="#786720" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">瀏覽器圖示</text>
+  </g>
+  <use href="#mark-solid" x="2154" y="628" width="92" height="92"/>
+  <text x="2200" y="746" text-anchor="middle" fill="#7B8882" font-family="Arial, sans-serif" font-size="15">48 PX TEST</text>
+
+  <!-- Card 03 -->
+  <g filter="url(#cardShadow)">
+    <rect x="90" y="830" width="1080" height="520" rx="28" fill="#FCFDFB"/>
+  </g>
+  <rect x="90" y="830" width="10" height="520" rx="5" fill="#64B4C8"/>
+  <text x="134" y="885" fill="#7B8882" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3">03 · LAYERED FRAME</text>
+  <g filter="url(#iconShadow)">
+    <use href="#mark-layered" x="145" y="918" width="340" height="340"/>
+  </g>
+  <text x="548" y="960" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="44" font-weight="700">雙層星框</text>
+  <text x="548" y="1005" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">結構、層次、企業治理</text>
+  <line x1="548" y1="1034" x2="1100" y2="1034" stroke="#E2EAE6" stroke-width="2"/>
+  <text x="548" y="1080" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">圓角框內再建立六角知識結構，</text>
+  <text x="548" y="1116" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">呈現多來源匯入、治理與知識圖譜關係。</text>
+  <g transform="translate(548 1166)">
+    <rect width="154" height="48" rx="24" fill="#E9F5F8"/>
+    <text x="77" y="31" text-anchor="middle" fill="#347F91" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">企業治理</text>
+    <rect x="170" width="154" height="48" rx="24" fill="#EAF7F1"/>
+    <text x="247" y="31" text-anchor="middle" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">知識圖譜</text>
+  </g>
+  <use href="#mark-layered" x="1014" y="1188" width="92" height="92"/>
+  <text x="1060" y="1306" text-anchor="middle" fill="#7B8882" font-family="Arial, sans-serif" font-size="15">48 PX TEST</text>
+
+  <!-- Card 04 -->
+  <g filter="url(#cardShadow)">
+    <rect x="1230" y="830" width="1080" height="520" rx="28" fill="#FCFDFB"/>
+  </g>
+  <rect x="1230" y="830" width="10" height="520" rx="5" fill="#D8C77A"/>
+  <text x="1274" y="885" fill="#7B8882" font-family="Arial, sans-serif" font-size="19" font-weight="700" letter-spacing="3">04 · FACETED CORE</text>
+  <g filter="url(#iconShadow)">
+    <use href="#mark-faceted" x="1285" y="918" width="340" height="340"/>
+  </g>
+  <text x="1688" y="960" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="44" font-weight="700">切面星核</text>
+  <text x="1688" y="1005" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">精準、辨識、技術深度</text>
+  <line x1="1688" y1="1034" x2="2240" y2="1034" stroke="#E2EAE6" stroke-width="2"/>
+  <text x="1688" y="1080" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">柔和方框包住不規則切面與核心，</text>
+  <text x="1688" y="1116" fill="#263438" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="22">最能呼應「圓形輪廓中仍保留稜角」。</text>
+  <g transform="translate(1688 1166)">
+    <rect width="154" height="48" rx="24" fill="#F5F0D9"/>
+    <text x="77" y="31" text-anchor="middle" fill="#786720" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">技術品牌</text>
+    <rect x="170" width="154" height="48" rx="24" fill="#EAF7F1"/>
+    <text x="247" y="31" text-anchor="middle" fill="#245F46" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="18" font-weight="700">AI 核心</text>
+  </g>
+  <use href="#mark-faceted" x="2154" y="1188" width="92" height="92"/>
+  <text x="2200" y="1306" text-anchor="middle" fill="#7B8882" font-family="Arial, sans-serif" font-size="15">48 PX TEST</text>
+
+  <line x1="90" y1="1409" x2="2310" y2="1409" stroke="#D8E3DE" stroke-width="2"/>
+  <text x="90" y="1452" fill="#245F46" font-family="Arial, sans-serif" font-size="24" font-weight="700" letter-spacing="1">NomoSmart</text>
+  <text x="250" y="1452" fill="#66746E" font-family="Noto Sans TC, PingFang TC, Arial, sans-serif" font-size="20">治理，讓知識可信；AI，讓知識可用。</text>
+  <text x="2310" y="1452" text-anchor="end" fill="#7B8882" font-family="Arial, sans-serif" font-size="16" letter-spacing="2">ROUNDED-SQUARE CONSTELLATION STUDY</text>
+</svg>

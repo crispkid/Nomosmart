@@ -1,0 +1,11 @@
+--- a/anyio/to_process.py
++++ b/anyio/to_process.py
+@@ -149,7 +149,7 @@
+         else:
+             command = [sys.executable, "-u", "-m", __name__]
+             process = await open_process(
+-                command, stdin=subprocess.PIPE, stdout=subprocess.PIPE
++                command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+             )
+             try:
+                 stdin = cast(ByteSendStream, process.stdin)

@@ -1,0 +1,839 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>NomoSmart Knowledge Graph Style Explorations</title>
+  <style>
+    :root {
+      --fresh-mint: #eaf7f1;
+      --soft-sage: #bfdcce;
+      --calm-green: #5fae88;
+      --deep-green: #2f7d57;
+      --soft-coral: #e98b87;
+      --cloud-white: #fcfdfb;
+      --cool-gray: #e6ebef;
+      --slate: #2e3a42;
+      --muted: #65717a;
+      --gold: #d8c77a;
+      --page-bg: #f7faf8;
+      --project: #2f7d57;
+      --document: #47738c;
+      --chunk: #5fae88;
+      --tag: #9a7b17;
+      --edge: #9bb4aa;
+      --shadow: 0 16px 38px rgba(46, 58, 66, 0.08);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--page-bg);
+      color: var(--slate);
+      font-family: "Noto Sans TC", Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.5;
+    }
+
+    main {
+      max-width: 1520px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+
+    h1, h2, h3, p { margin: 0; }
+
+    .page-head {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    .title-stack {
+      display: grid;
+      gap: 6px;
+      max-width: 860px;
+    }
+
+    .eyebrow {
+      color: var(--deep-green);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    h1 {
+      font-size: 28px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    .caption,
+    .muted,
+    .style-meta,
+    .zoom-chip small,
+    .detail-list small,
+    .node-label .sub {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .legend span,
+    .zoom-chip,
+    .mini-stat {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: var(--cloud-white);
+      color: var(--slate);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .node-icon {
+      display: inline-grid;
+      place-items: center;
+      width: 24px;
+      height: 24px;
+      color: #fff;
+    }
+
+    .project-shape { border-radius: 999px; background: var(--project); }
+    .document-shape { border-radius: 5px; background: var(--document); clip-path: polygon(0 0, 74% 0, 100% 26%, 100% 100%, 0 100%); }
+    .chunk-shape { width: 34px; border-radius: 999px; background: var(--chunk); }
+    .tag-shape { background: var(--tag); clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%); }
+
+    .icon-stroke {
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .svg-icon { color: #fff; }
+
+    .style-grid {
+      display: grid;
+      gap: 18px;
+    }
+
+    .style-card {
+      display: grid;
+      grid-template-rows: auto minmax(520px, auto) auto;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: var(--cloud-white);
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .style-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: start;
+      padding: 17px 18px 14px;
+      border-bottom: 1px solid var(--cool-gray);
+      background: #fff;
+    }
+
+    .style-head h2 {
+      font-size: 20px;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    .style-meta {
+      display: grid;
+      gap: 3px;
+      min-width: 180px;
+      text-align: right;
+    }
+
+    .style-meta strong {
+      color: var(--deep-green);
+      font-size: 13px;
+    }
+
+    .mockup {
+      position: relative;
+      min-height: 560px;
+      overflow: hidden;
+      background:
+        linear-gradient(var(--cool-gray) 1px, transparent 1px),
+        linear-gradient(90deg, var(--cool-gray) 1px, transparent 1px),
+        #fbfdfc;
+      background-size: 32px 32px;
+    }
+
+    .mockup.clean {
+      background:
+        linear-gradient(rgba(230, 235, 239, 0.72) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(230, 235, 239, 0.72) 1px, transparent 1px),
+        #fbfdfc;
+      background-size: 36px 36px;
+    }
+
+    .professional-network {
+      background-color: #fbfdfc;
+    }
+
+    .professional-network::before {
+      content: "";
+      position: absolute;
+      inset: 82px 40px 44px;
+      border: 1px solid rgba(191, 220, 206, 0.55);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.44);
+      pointer-events: none;
+    }
+
+    .professional-network::after {
+      content: "Structure layer";
+      position: absolute;
+      left: 52px;
+      top: 90px;
+      z-index: 3;
+      padding: 5px 9px;
+      border: 1px solid var(--soft-sage);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.96);
+      color: var(--deep-green);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .mockup.matrix {
+      background:
+        linear-gradient(90deg, rgba(230, 235, 239, 0.55) 1px, transparent 1px),
+        #fbfdfc;
+      background-size: 96px 100%;
+    }
+
+    .mockup.dark {
+      background: #26343b;
+      color: #f7faf8;
+    }
+
+    .mock-toolbar {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 10;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .tool-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .tool,
+    .seg {
+      min-height: 34px;
+      padding: 7px 10px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.96);
+      color: var(--slate);
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .seg.active {
+      border-color: var(--calm-green);
+      background: var(--fresh-mint);
+      color: var(--deep-green);
+    }
+
+    .dark .tool,
+    .dark .seg {
+      border-color: rgba(191, 220, 206, 0.28);
+      background: rgba(252, 253, 251, 0.08);
+      color: #eaf7f1;
+    }
+
+    .dark .seg.active {
+      border-color: var(--soft-sage);
+      background: rgba(95, 174, 136, 0.22);
+      color: #fff;
+    }
+
+    svg.graph {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .edge {
+      fill: none;
+      stroke: var(--edge);
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      opacity: 0.5;
+    }
+
+    .edge.primary { stroke: var(--deep-green); stroke-width: 2.6; opacity: 0.82; }
+    .edge.tag { stroke: var(--gold); stroke-width: 2; opacity: 0.78; }
+    .edge.semantic { stroke: var(--soft-coral); stroke-width: 2; stroke-dasharray: 7 7; opacity: 0.7; }
+    .edge.dim { opacity: 0.18; }
+    .dark .edge { stroke: rgba(191, 220, 206, 0.52); }
+    .dark .edge.primary { stroke: #8fd2b3; }
+
+    .node-mark {
+      filter: drop-shadow(0 6px 12px rgba(46, 58, 66, 0.1));
+    }
+
+    .professional-network .node-mark {
+      filter: drop-shadow(0 6px 12px rgba(46, 58, 66, 0.09));
+    }
+
+    .professional-network .node-ring {
+      fill: none;
+      stroke: rgba(95, 174, 136, 0.2);
+      stroke-width: 12;
+    }
+
+    .professional-network .node-outline {
+      fill: none;
+      stroke: rgba(252, 253, 251, 0.94);
+      stroke-width: 4;
+    }
+
+    .dark .node-mark {
+      filter: drop-shadow(0 8px 18px rgba(0, 0, 0, 0.28));
+    }
+
+    .node-label rect {
+      fill: rgba(252, 253, 251, 0.96);
+      stroke: var(--cool-gray);
+      rx: 8;
+    }
+
+    .professional-network .node-label rect {
+      fill: rgba(252, 253, 251, 0.98);
+      stroke: rgba(191, 220, 206, 0.8);
+      stroke-width: 1;
+      rx: 7;
+    }
+
+    .dark .node-label rect {
+      fill: rgba(38, 52, 59, 0.92);
+      stroke: rgba(191, 220, 206, 0.28);
+    }
+
+    .node-label text {
+      fill: var(--slate);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0;
+    }
+
+    .professional-network .node-label text {
+      font-size: 11.5px;
+      font-weight: 800;
+    }
+
+    .dark .node-label text { fill: #f7faf8; }
+    .node-label .sub {
+      fill: var(--muted);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .professional-network .node-label .sub {
+      font-size: 9.5px;
+    }
+
+    .professional-network .type-mark {
+      fill: rgba(252, 253, 251, 0.92);
+      stroke: rgba(230, 235, 239, 0.95);
+      stroke-width: 1;
+    }
+    .dark .node-label .sub { fill: #bfdcce; }
+
+    .style-foot {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      padding: 14px 18px 17px;
+      border-top: 1px solid var(--cool-gray);
+      background: #fff;
+    }
+
+    .style-foot div {
+      display: grid;
+      gap: 4px;
+      padding: 10px 12px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: #fbfdfc;
+      font-size: 12px;
+    }
+
+    .style-foot strong { color: var(--deep-green); }
+
+    .side-panel {
+      position: absolute;
+      right: 16px;
+      top: 68px;
+      z-index: 8;
+      display: grid;
+      gap: 10px;
+      width: 250px;
+      padding: 12px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.96);
+      box-shadow: 0 12px 26px rgba(46, 58, 66, 0.1);
+    }
+
+    .side-panel h3 {
+      color: var(--deep-green);
+      font-size: 14px;
+    }
+
+    .detail-list {
+      display: grid;
+      gap: 7px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .detail-list li {
+      display: grid;
+      gap: 2px;
+      padding: 8px 9px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: #fff;
+      font-size: 12px;
+    }
+
+    .detail-list strong { color: var(--slate); }
+
+    .overview-band {
+      position: absolute;
+      inset: 92px 40px 64px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr 1fr;
+      gap: 14px;
+      z-index: 2;
+    }
+
+    .overview-column {
+      position: relative;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.72);
+    }
+
+    .overview-column h3 {
+      padding: 12px 13px;
+      border-bottom: 1px solid var(--cool-gray);
+      color: var(--deep-green);
+      font-size: 13px;
+    }
+
+    .tree-node {
+      position: absolute;
+      display: inline-grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      align-items: center;
+      gap: 8px;
+      min-width: 132px;
+      padding: 8px 10px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: #fff;
+      color: var(--slate);
+      box-shadow: 0 8px 18px rgba(46, 58, 66, 0.08);
+      font-size: 12px;
+      font-weight: 800;
+      z-index: 4;
+    }
+
+    .tree-node small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      font-weight: 500;
+    }
+
+    .matrix-wrap {
+      position: absolute;
+      inset: 86px 34px 74px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 14px;
+      z-index: 2;
+    }
+
+    .matrix-grid {
+      display: grid;
+      grid-template-columns: 150px repeat(5, 1fr);
+      align-content: start;
+      overflow: hidden;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: #fff;
+      box-shadow: 0 8px 18px rgba(46, 58, 66, 0.06);
+    }
+
+    .matrix-grid div {
+      min-height: 48px;
+      padding: 9px;
+      border-right: 1px solid var(--cool-gray);
+      border-bottom: 1px solid var(--cool-gray);
+      font-size: 12px;
+    }
+
+    .matrix-grid .head {
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      background: #f8faf9;
+      color: var(--deep-green);
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .matrix-grid .row {
+      display: grid;
+      align-items: center;
+      background: #fbfdfc;
+      color: var(--slate);
+      font-weight: 800;
+    }
+
+    .heat {
+      display: grid;
+      align-items: center;
+      justify-items: center;
+      font-weight: 900;
+    }
+
+    .h0 { background: #fff; color: #a5b0b6; }
+    .h1 { background: #f2f7f5; }
+    .h2 { background: #eaf7f1; }
+    .h3 { background: #cfe9dd; color: var(--deep-green); }
+    .h4 { background: #a9d6c0; color: #174b33; }
+
+    .compact-inspector {
+      display: grid;
+      align-content: start;
+      gap: 10px;
+      padding: 12px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.96);
+      box-shadow: 0 8px 18px rgba(46, 58, 66, 0.06);
+    }
+
+    .path-strip {
+      position: absolute;
+      left: 22px;
+      right: 22px;
+      bottom: 16px;
+      z-index: 6;
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .path-step {
+      display: grid;
+      gap: 2px;
+      padding: 9px 10px;
+      border: 1px solid var(--cool-gray);
+      border-radius: 8px;
+      background: rgba(252, 253, 251, 0.95);
+      font-size: 12px;
+    }
+
+    .path-step strong { color: var(--slate); }
+    .path-step small { color: var(--muted); }
+    .dark .path-step {
+      border-color: rgba(191, 220, 206, 0.28);
+      background: rgba(252, 253, 251, 0.08);
+    }
+    .dark .path-step strong { color: #f7faf8; }
+    .dark .path-step small { color: #bfdcce; }
+
+    @media (max-width: 1080px) {
+      main { padding: 18px; }
+      .page-head,
+      .style-head,
+      .style-foot,
+      .matrix-wrap,
+      .path-strip {
+        grid-template-columns: 1fr;
+      }
+      .legend { justify-content: flex-start; }
+      .style-meta { text-align: left; }
+      .side-panel {
+        position: static;
+        width: auto;
+        margin: 12px;
+      }
+      .mockup { min-height: 700px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="page-head">
+      <div class="title-stack">
+        <div class="eyebrow">NomoSmart · Knowledge Graph Style Exploration</div>
+        <h1>知識圖譜呈現樣式提案</h1>
+        <p class="caption">同一套節點語意，用不同圖譜結構呈現。色系沿用 NomoSmart，icon 全部用 SVG，方便挑選產品方向。</p>
+      </div>
+      <div class="legend">
+        <span><i class="node-icon project-shape"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path class="icon-stroke svg-icon" d="M4 7h16M7 7v13m10-13v13M8 3h8l2 4H6l2-4Z"/></svg></i>專案</span>
+        <span><i class="node-icon document-shape"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path class="icon-stroke svg-icon" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"/><path class="icon-stroke svg-icon" d="M14 2v6h6"/></svg></i>文件</span>
+        <span><i class="node-icon chunk-shape"><svg width="17" height="15" viewBox="0 0 24 24" aria-hidden="true"><path class="icon-stroke svg-icon" d="M4 7h16M4 12h12M4 17h10"/></svg></i>切片</span>
+        <span><i class="node-icon tag-shape"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><path class="icon-stroke svg-icon" d="M20.6 13.1 13 20.7a2 2 0 0 1-2.8 0L3.3 13.8a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h7.4a2 2 0 0 1 1.4.6l7.1 7.1a2 2 0 0 1 0 2.8Z"/><path class="icon-stroke svg-icon" d="M7.5 7.5h.01"/></svg></i>貼標</span>
+      </div>
+    </header>
+
+    <section class="style-grid">
+      <article class="style-card">
+        <div class="style-head">
+          <div class="title-stack">
+            <h2>A. Professional Network Canvas</h2>
+            <p class="caption">最接近正式知識圖譜：大畫布、節點形狀清楚、右側 inspector 承接細節。</p>
+          </div>
+          <div class="style-meta"><strong>推薦正式版</strong><span>探索感 + 可讀性平衡</span></div>
+        </div>
+        <div class="mockup clean professional-network">
+          <div class="mock-toolbar">
+            <div class="tool-group"><button class="tool">全域圖譜</button><button class="tool">目前專案</button><button class="tool">選取範圍</button></div>
+            <div class="tool-group"><button class="seg">45%</button><button class="seg active">90%</button><button class="seg">150%</button></div>
+          </div>
+          <svg class="graph" viewBox="0 0 1000 560" role="img" aria-label="Professional network graph mockup">
+            <defs>
+              <g id="projectIcon"><path class="icon-stroke svg-icon" d="M7 9h10M9 9v9m6-9v9M10 5h4l2 4H8l2-4Z"/></g>
+              <g id="documentIcon"><path class="icon-stroke svg-icon" d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"/><path class="icon-stroke svg-icon" d="M14 3v5h5M8 13h8M8 17h6"/></g>
+              <g id="chunkIcon"><path class="icon-stroke svg-icon" d="M5 8h14M5 12h11M5 16h9"/></g>
+              <g id="tagIcon"><path class="icon-stroke svg-icon" d="M19 13 13 19a2 2 0 0 1-2.8 0L5 13.8A2 2 0 0 1 4.4 12.4V6a2 2 0 0 1 2-2h6.4a2 2 0 0 1 1.4.6L19 9.4a2.5 2.5 0 0 1 0 3.6Z"/><path class="icon-stroke svg-icon" d="M8 8h.01"/></g>
+            </defs>
+            <path class="edge primary" d="M445 278 C360 240 294 212 226 184"/>
+            <path class="edge primary" d="M505 266 C585 210 637 176 704 144"/>
+            <path class="edge primary" d="M504 315 C585 376 640 412 716 454"/>
+            <path class="edge" d="M226 184 C190 246 169 292 140 350"/>
+            <path class="edge" d="M226 184 C266 258 298 314 332 378"/>
+            <path class="edge" d="M704 144 C734 215 755 273 782 338"/>
+            <path class="edge tag" d="M332 378 C448 410 560 438 672 476"/>
+            <path class="edge semantic" d="M140 350 C300 474 498 516 672 476"/>
+
+            <circle class="node-ring" cx="476" cy="292" r="44"/>
+            <circle class="node-mark" cx="476" cy="292" r="36" fill="var(--project)" stroke="#fcfdfb" stroke-width="5"/>
+            <use href="#projectIcon" x="464" y="280" width="24" height="24"/>
+            <g class="node-label"><rect x="414" y="338" width="128" height="42"/><text x="428" y="356">企業級 MaaS</text><text class="sub" x="428" y="371">Project · 4 docs</text></g>
+
+            <path class="node-outline" d="M198 150h49c8 0 15 3 21 9l13 13c5 5 8 12 8 20v28c0 11-8 19-19 19h-72c-14 0-25-11-25-25v-39c0-14 11-25 25-25z"/>
+            <path class="node-mark" d="M201 155h45c7 0 13 3 18 8l12 12c5 5 7 11 7 18v26c0 9-7 16-16 16h-66c-12 0-22-10-22-22v-36c0-12 10-22 22-22z" fill="var(--document)" stroke="rgba(46,58,66,0.12)" stroke-width="1"/>
+            <path d="M246 155c7 0 13 3 18 8l12 12c4 4 6 8 7 11h-27c-6 0-10-4-10-10z" fill="#dfe9ec" stroke="rgba(252,253,251,0.82)" stroke-width="1.8"/>
+            <path d="M202 214h46M202 224h34" fill="none" stroke="rgba(252,253,251,0.7)" stroke-width="1.8" stroke-linecap="round"/>
+            <use href="#documentIcon" x="212" y="177" width="24" height="24"/>
+            <g class="node-label"><rect x="129" y="92" width="158" height="42"/><text x="143" y="110">平台架構規劃書</text><text class="sub" x="143" y="125">Document · v1.0</text></g>
+
+            <path class="node-outline" d="M678 110h49c8 0 15 3 21 9l13 13c5 5 8 12 8 20v28c0 11-8 19-19 19h-72c-14 0-25-11-25-25v-39c0-14 11-25 25-25z"/>
+            <path class="node-mark" d="M681 115h45c7 0 13 3 18 8l12 12c5 5 7 11 7 18v26c0 9-7 16-16 16h-66c-12 0-22-10-22-22v-36c0-12 10-22 22-22z" fill="var(--document)" stroke="rgba(46,58,66,0.12)" stroke-width="1"/>
+            <path d="M726 115c7 0 13 3 18 8l12 12c4 4 6 8 7 11h-27c-6 0-10-4-10-10z" fill="#dfe9ec" stroke="rgba(252,253,251,0.82)" stroke-width="1.8"/>
+            <path d="M682 174h46M682 184h34" fill="none" stroke="rgba(252,253,251,0.7)" stroke-width="1.8" stroke-linecap="round"/>
+            <use href="#documentIcon" x="692" y="137" width="24" height="24"/>
+            <g class="node-label"><rect x="626" y="54" width="148" height="42"/><text x="640" y="72">GPU 推論服務</text><text class="sub" x="640" y="87">Document · active</text></g>
+
+            <path class="node-outline" d="M690 418h49c8 0 15 3 21 9l13 13c5 5 8 12 8 20v28c0 11-8 19-19 19h-72c-14 0-25-11-25-25v-39c0-14 11-25 25-25z"/>
+            <path class="node-mark" d="M693 423h45c7 0 13 3 18 8l12 12c5 5 7 11 7 18v26c0 9-7 16-16 16h-66c-12 0-22-10-22-22v-36c0-12 10-22 22-22z" fill="var(--document)" stroke="rgba(46,58,66,0.12)" stroke-width="1"/>
+            <path d="M738 423c7 0 13 3 18 8l12 12c4 4 6 8 7 11h-27c-6 0-10-4-10-10z" fill="#dfe9ec" stroke="rgba(252,253,251,0.82)" stroke-width="1.8"/>
+            <path d="M694 482h46M694 492h34" fill="none" stroke="rgba(252,253,251,0.7)" stroke-width="1.8" stroke-linecap="round"/>
+            <use href="#documentIcon" x="704" y="445" width="24" height="24"/>
+            <g class="node-label"><rect x="760" y="506" width="130" height="42"/><text x="774" y="524">API 治理準則</text><text class="sub" x="774" y="539">Document</text></g>
+
+            <rect class="node-outline" x="84" y="327" width="112" height="46" rx="23"/>
+            <rect class="node-mark" x="86" y="329" width="108" height="42" rx="21" fill="var(--chunk)" stroke="rgba(46,58,66,0.1)" stroke-width="1"/>
+            <use href="#chunkIcon" x="122" y="338" width="24" height="24"/>
+            <g class="node-label"><rect x="54" y="385" width="112" height="36"/><text x="68" y="403">切片 #7</text><text class="sub" x="68" y="417">零信任</text></g>
+
+            <rect class="node-outline" x="276" y="355" width="112" height="46" rx="23"/>
+            <rect class="node-mark" x="278" y="357" width="108" height="42" rx="21" fill="var(--chunk)" stroke="rgba(46,58,66,0.1)" stroke-width="1"/>
+            <use href="#chunkIcon" x="314" y="366" width="24" height="24"/>
+            <g class="node-label"><rect x="304" y="410" width="116" height="36"/><text x="318" y="428">切片 #4</text><text class="sub" x="318" y="442">控制平面</text></g>
+
+            <rect class="node-outline" x="726" y="315" width="112" height="46" rx="23"/>
+            <rect class="node-mark" x="728" y="317" width="108" height="42" rx="21" fill="var(--chunk)" stroke="rgba(46,58,66,0.1)" stroke-width="1"/>
+            <use href="#chunkIcon" x="764" y="326" width="24" height="24"/>
+            <g class="node-label"><rect x="806" y="364" width="116" height="36"/><text x="820" y="382">切片 #12</text><text class="sub" x="820" y="396">推論部署</text></g>
+
+            <path class="node-outline" d="M672 438l38 38-38 38-38-38z"/>
+            <path class="node-mark" d="M672 442l34 34-34 34-34-34z" fill="var(--tag)" stroke="rgba(46,58,66,0.12)" stroke-width="1"/>
+            <use href="#tagIcon" x="660" y="464" width="24" height="24"/>
+            <g class="node-label"><rect x="694" y="516" width="90" height="36"/><text x="708" y="534">治理</text><text class="sub" x="708" y="548">Tag · LLM</text></g>
+          </svg>
+          <aside class="side-panel">
+            <h3>已選：企業級 MaaS</h3>
+            <ul class="detail-list">
+              <li><strong>4 文件</strong><small>active / referenced</small></li>
+              <li><strong>68 切片</strong><small>Structure zoom 展開代表切片</small></li>
+              <li><strong>23 貼標</strong><small>LLM / manual</small></li>
+            </ul>
+          </aside>
+        </div>
+        <div class="style-foot">
+          <div><strong>適合</strong><span>正式產品主圖譜、探索、拖曳、zoom。</span></div>
+          <div><strong>優點</strong><span>看起來專業，仍保留圖譜感。</span></div>
+          <div><strong>注意</strong><span>大量節點需要聚合與 lazy expansion。</span></div>
+        </div>
+      </article>
+
+      <article class="style-card">
+        <div class="style-head">
+          <div class="title-stack">
+            <h2>B. Layered Evidence Map</h2>
+            <p class="caption">把圖譜拆成 Project / Document / Chunk / Tag 三個主區塊，讓關係方向非常清楚。</p>
+          </div>
+          <div class="style-meta"><strong>最容易閱讀</strong><span>適合審核與查證</span></div>
+        </div>
+        <div class="mockup">
+          <div class="mock-toolbar">
+            <div class="tool-group"><button class="tool">Evidence mode</button><button class="tool">依文件分組</button></div>
+            <div class="tool-group"><button class="seg">Overview</button><button class="seg active">Structure</button><button class="seg">Detail</button></div>
+          </div>
+          <div class="overview-band">
+            <section class="overview-column"><h3>Project / Document</h3></section>
+            <section class="overview-column"><h3>Chunk Evidence</h3></section>
+            <section class="overview-column"><h3>Tags / Semantic Links</h3></section>
+          </div>
+          <svg class="graph" viewBox="0 0 1000 560" aria-label="Layered evidence graph mockup">
+            <path class="edge primary" d="M164 170 C255 170 318 170 403 170"/>
+            <path class="edge primary" d="M164 170 C255 245 318 302 403 365"/>
+            <path class="edge" d="M548 170 C628 150 684 130 758 112"/>
+            <path class="edge tag" d="M548 170 C638 208 698 240 782 278"/>
+            <path class="edge tag" d="M548 365 C645 372 714 380 804 388"/>
+            <path class="edge semantic" d="M458 365 C542 286 638 238 758 112"/>
+          </svg>
+          <div class="tree-node" style="left:70px; top:135px;"><i class="node-icon project-shape"><svg width="15" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M4 7h16M7 7v13m10-13v13M8 3h8l2 4H6l2-4Z"/></svg></i><span>企業級 MaaS<small>Project</small></span></div>
+          <div class="tree-node" style="left:230px; top:135px;"><i class="node-icon document-shape"><svg width="15" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6Z"/></svg></i><span>平台架構規劃書<small>Document</small></span></div>
+          <div class="tree-node" style="left:390px; top:135px;"><i class="node-icon chunk-shape"><svg width="17" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M4 7h16M4 12h12M4 17h10"/></svg></i><span>切片 #4<small>控制平面</small></span></div>
+          <div class="tree-node" style="left:390px; top:330px;"><i class="node-icon chunk-shape"><svg width="17" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M4 7h16M4 12h12M4 17h10"/></svg></i><span>切片 #7<small>零信任</small></span></div>
+          <div class="tree-node" style="left:730px; top:84px;"><i class="node-icon tag-shape"><svg width="15" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M20.6 13.1 13 20.7a2 2 0 0 1-2.8 0L3.3 13.8a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h7.4a2 2 0 0 1 1.4.6l7.1 7.1a2 2 0 0 1 0 2.8Z"/></svg></i><span>治理<small>Tag</small></span></div>
+          <div class="tree-node" style="left:770px; top:250px;"><i class="node-icon tag-shape"><svg width="15" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M20.6 13.1 13 20.7a2 2 0 0 1-2.8 0L3.3 13.8a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h7.4a2 2 0 0 1 1.4.6l7.1 7.1a2 2 0 0 1 0 2.8Z"/></svg></i><span>AI 網關<small>Tag</small></span></div>
+          <div class="tree-node" style="left:790px; top:360px;"><i class="node-icon tag-shape"><svg width="15" height="15" viewBox="0 0 24 24"><path class="icon-stroke svg-icon" d="M20.6 13.1 13 20.7a2 2 0 0 1-2.8 0L3.3 13.8a2 2 0 0 1-.6-1.4V5a2 2 0 0 1 2-2h7.4a2 2 0 0 1 1.4.6l7.1 7.1a2 2 0 0 1 0 2.8Z"/></svg></i><span>資安<small>Tag</small></span></div>
+        </div>
+        <div class="style-foot">
+          <div><strong>適合</strong><span>審核、查證、訓練新使用者。</span></div>
+          <div><strong>優點</strong><span>層級與方向最清楚，不容易誤讀。</span></div>
+          <div><strong>注意</strong><span>圖譜探索感較弱，需要 path mode 補足。</span></div>
+        </div>
+      </article>
+
+      <article class="style-card">
+        <div class="style-head">
+          <div class="title-stack">
+            <h2>C. Relationship Matrix + Focus Graph</h2>
+            <p class="caption">大量資料先用矩陣看強弱，再點格子看右側焦點圖；適合企業資料很多時使用。</p>
+          </div>
+          <div class="style-meta"><strong>最適合大型資料</strong><span>先找熱點，再看圖</span></div>
+        </div>
+        <div class="mockup matrix">
+          <div class="mock-toolbar">
+            <div class="tool-group"><button class="tool">文件 × 貼標</button><button class="tool">文件 × 文件</button><button class="tool">切片相似度</button></div>
+            <div class="tool-group"><button class="seg active">Matrix</button><button class="seg">Graph</button></div>
+          </div>
+          <div class="matrix-wrap">
+            <div class="matrix-grid">
+              <div class="head"></div><div class="head">治理</div><div class="head">AI 網關</div><div class="head">資安</div><div class="head">ROI</div><div class="head">資料服務</div>
+              <div class="row">平台架構規劃書</div><div class="heat h4">11</div><div class="heat h3">8</div><div class="heat h2">4</div><div class="heat h1">2</div><div class="heat h2">5</div>
+              <div class="row">GPU 推論服務</div><div class="heat h2">5</div><div class="heat h4">13</div><div class="heat h1">2</div><div class="heat h3">7</div><div class="heat h1">1</div>
+              <div class="row">API 治理準則</div><div class="heat h3">9</div><div class="heat h1">1</div><div class="heat h4">12</div><div class="heat h0">0</div><div class="heat h2">4</div>
+              <div class="row">資料服務 SLA</div><div class="heat h1">2</div><div class="heat h0">0</div><div class="heat h2">5</div><div class="heat h2">3</div><div class="heat h4">14</div>
+            </div>
+            <aside class="compact-inspector">
+              <h3>已選：平台架構規劃書 × 治理</h3>
+              <p class="caption">11 個關聯，其中 3 個跨文件，2 個語意相似。</p>
+              <ul class="detail-list">
+                <li><strong>切片 #4</strong><small>控制與資料平面分離</small></li>
+                <li><strong>切片 #7</strong><small>零信任與精準問責</small></li>
+                <li><strong>GPU 推論規範</strong><small>共同標籤 · AI 網關</small></li>
+              </ul>
+            </aside>
+          </div>
+        </div>
+        <div class="style-foot">
+          <div><strong>適合</strong><span>節點多、貼標多、要找熱點。</span></div>
+          <div><strong>優點</strong><span>不會被線條淹沒，資訊密度高。</span></div>
+          <div><strong>注意</strong><span>需要搭配焦點圖，否則不像圖譜。</span></div>
+        </div>
+      </article>
+
+      <article class="style-card">
+        <div class="style-head">
+          <div class="title-stack">
+            <h2>D. Dark Operations Map</h2>
+            <p class="caption">偏監控中心感的暗色圖譜，用於大螢幕或進階分析；仍使用 NomoSmart 綠色系。</p>
+          </div>
+          <div class="style-meta"><strong>進階/大螢幕</strong><span>沉浸式、對比強</span></div>
+        </div>
+        <div class="mockup dark">
+          <div class="mock-toolbar">
+            <div class="tool-group"><button class="tool">Operations graph</button><button class="tool">Live scope</button></div>
+            <div class="tool-group"><button class="seg">Overview</button><button class="seg active">Structure</button><button class="seg">Detail</button></div>
+          </div>
+          <svg class="graph" viewBox="0 0 1000 560" aria-label="Dark operations graph mockup">
+            <path class="edge primary" d="M500 285 C395 210 318 170 216 150"/>
+            <path class="edge primary" d="M500 285 C606 218 680 178 784 144"/>
+            <path class="edge primary" d="M500 285 C610 350 690 397 812 430"/>
+            <path class="edge tag" d="M216 150 C310 355 492 455 700 470"/>
+            <path class="edge semantic" d="M158 372 C300 470 494 510 700 470"/>
+            <circle class="node-mark" cx="500" cy="285" r="42" fill="var(--project)"/>
+            <path class="node-mark" d="M176 106h78l28 28v72H176z" fill="var(--document)"/><path d="M254 106v28h28" fill="none" stroke="#fff" stroke-width="2"/>
+            <path class="node-mark" d="M744 104h78l28 28v72H744z" fill="var(--document)"/><path d="M822 104v28h28" fill="none" stroke="#fff" stroke-width="2"/>
+            <path class="node-mark" d="M772 392h78l28 28v72H772z" fill="var(--document)"/><path d="M850 392v28h28" fill="none" stroke="#fff" stroke-width="2"/>
+            <rect class="node-mark" x="104" y="350" width="108" height="42" rx="21" fill="var(--chunk)"/>
+            <rect class="node-mark" x="412" y="430" width="108" height="42" rx="21" fill="var(--chunk)"/>
+            <rect class="node-mark" x="654" y="332" width="108" height="42" rx="21" fill="var(--chunk)"/>
+            <path class="node-mark" d="M700 436l34 34-34 34-34-34z" fill="var(--tag)"/>
+            <g class="node-label"><rect x="430" y="340" width="140" height="44"/><text x="444" y="359">企業級 MaaS</text><text class="sub" x="444" y="375">Project · active graph</text></g>
+            <g class="node-label"><rect x="112" y="218" width="152" height="44"/><text x="126" y="237">平台架構規劃書</text><text class="sub" x="126" y="253">Document</text></g>
+            <g class="node-label"><rect x="744" y="214" width="128" height="44"/><text x="758" y="233">GPU 推論</text><text class="sub" x="758" y="249">Document</text></g>
+          </svg>
+          <div class="path-strip">
+            <div class="path-step"><strong>Project</strong><small>企業級 MaaS</small></div>
+            <div class="path-step"><strong>Document</strong><small>平台架構規劃書</small></div>
+            <div class="path-step"><strong>Chunk</strong><small>切片 #7</small></div>
+            <div class="path-step"><strong>Tag</strong><small>治理 · LLM</small></div>
+          </div>
+        </div>
+        <div class="style-foot">
+          <div><strong>適合</strong><span>大螢幕、營運中心、進階使用者。</span></div>
+          <div><strong>優點</strong><span>視覺集中、關聯線清楚。</span></div>
+          <div><strong>注意</strong><span>一般後台可能太重，建議做成可切換模式。</span></div>
+        </div>
+      </article>
+    </section>
+  </main>
+</body>
+</html>

@@ -1,0 +1,94 @@
+{{- if and (include "nomosmart.applicationStageEnabled" .) .Values.beat.haEnabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-beat
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: beat
+spec:
+  replicas: {{ .Values.beat.replicas }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate: {maxUnavailable: 0, maxSurge: 1}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: beat
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: beat
+      annotations:
+        nomosmart.io/deployment-release: {{ printf "%s-%d" .Release.Name .Release.Revision | quote }}
+    spec:
+      serviceAccountName: {{ include "nomosmart.fullname" . }}-beat
+      terminationGracePeriodSeconds: {{ .Values.highAvailability.terminationGracePeriodSeconds }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      initContainers:
+        {{- include "nomosmart.bootstrapEvidenceInitContainer" . | nindent 8 }}
+      containers:
+        - name: beat-agent
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.beat_leader"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          env:
+            {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
+            - name: POD_NAME
+              valueFrom: {fieldRef: {fieldPath: metadata.name}}
+            - name: POD_UID
+              valueFrom: {fieldRef: {fieldPath: metadata.uid}}
+            - name: POD_NAMESPACE
+              valueFrom: {fieldRef: {fieldPath: metadata.namespace}}
+            - {name: BEAT_LEASE_NAME, value: {{ .Values.beat.lease.name | quote }}}
+            - {name: BEAT_LEASE_DURATION_SECONDS, value: {{ .Values.beat.lease.durationSeconds | quote }}}
+            - {name: BEAT_LEASE_RENEW_SECONDS, value: {{ .Values.beat.lease.renewSeconds | quote }}}
+            - {name: BEAT_LEASE_RETRY_SECONDS, value: {{ .Values.beat.lease.retrySeconds | quote }}}
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+          readinessProbe:
+            exec: {command: ["/bin/sh", "-ec", "test -s /tmp/nomosmart-beat-agent.ready && grep -Eq '^(active|standby)$' /tmp/nomosmart-beat-agent.role"]}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            exec: {command: ["/bin/sh", "-ec", "grep -Eq '^(active|standby|degraded)$' /tmp/nomosmart-beat-agent.role"]}
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 3
+            failureThreshold: 3
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          resources:
+            {{- include "nomosmart.beatResources" . | nindent 12 }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+      {{- if .Values.highAvailability.enabled }}
+      affinity:
+        {{- include "nomosmart.haAffinity" (dict "root" . "component" "beat") | nindent 8 }}
+      {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-beat
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: beat
+spec:
+  minAvailable: {{ .Values.beat.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: beat
+{{- end }}

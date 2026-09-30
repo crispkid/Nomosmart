@@ -1,0 +1,1120 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=1200, initial-scale=1" />
+  <title>NomoSmart 企業級知識中心</title>
+  <style>
+    :root {
+      --mint: #eaf7f1;
+      --sage: #bfdcce;
+      --green: #5fae88;
+      --deep: #2f7d57;
+      --white: #fcfdfb;
+      --gray: #e6ebef;
+      --slate: #2e3a42;
+      --muted: #6f7f78;
+      --blue: #5d8fca;
+      --blue-soft: #edf4fc;
+      --purple: #7e70b2;
+      --purple-soft: #f2effa;
+      --gold: #d8c77a;
+      --gold-soft: #fbf7e8;
+      --coral: #e98b87;
+      --coral-soft: #fdf0ef;
+      --shadow: 0 16px 46px rgba(43, 73, 60, 0.09);
+    }
+
+    * { box-sizing: border-box; }
+
+    html {
+      scrollbar-width: none;
+    }
+
+    html::-webkit-scrollbar,
+    body::-webkit-scrollbar {
+      display: none;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 1200px;
+      background: #eef3f0;
+      color: var(--slate);
+      font-family: "Noto Sans TC", "PingFang TC", "Microsoft JhengHei", system-ui, sans-serif;
+    }
+
+    body {
+      font-size: 18px;
+      line-height: 1.55;
+    }
+
+    .poster {
+      width: 1200px;
+      overflow: hidden;
+      background: var(--white);
+    }
+
+    .section {
+      padding: 76px 84px;
+      position: relative;
+    }
+
+    .eyebrow {
+      margin: 0 0 12px;
+      color: var(--deep);
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+    }
+
+    h1, h2, h3, p { margin-top: 0; }
+
+    h1 {
+      margin-bottom: 20px;
+      font-size: 64px;
+      line-height: 1.17;
+      letter-spacing: -0.045em;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 36px;
+      line-height: 1.25;
+      letter-spacing: -0.025em;
+    }
+
+    h3 {
+      margin-bottom: 8px;
+      font-size: 22px;
+      line-height: 1.35;
+    }
+
+    .section-lead {
+      max-width: 780px;
+      margin-bottom: 36px;
+      color: var(--muted);
+      font-size: 19px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 34px 84px 0;
+      background: linear-gradient(180deg, #f4fbf7 0%, var(--white) 100%);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    .brand-mark {
+      display: grid;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border-radius: 8px;
+      color: white;
+      background: linear-gradient(135deg, var(--deep), #78b897);
+      font-size: 23px;
+      font-weight: 800;
+      box-shadow: 0 8px 22px rgba(47, 125, 87, 0.2);
+    }
+
+    .brand-name {
+      font-size: 25px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+    }
+
+    .brand-sub {
+      display: block;
+      margin-top: -3px;
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    .internal-label {
+      padding: 8px 13px;
+      border: 1px solid var(--sage);
+      border-radius: 999px;
+      color: var(--deep);
+      background: rgba(255,255,255,0.76);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .hero {
+      padding-top: 54px;
+      background:
+        radial-gradient(circle at 88% 7%, rgba(216,199,122,0.15), transparent 22%),
+        linear-gradient(180deg, #f8fcfa 0%, var(--white) 100%);
+    }
+
+    .hero-copy {
+      max-width: 900px;
+    }
+
+    .hero-copy .intro {
+      max-width: 800px;
+      margin-bottom: 42px;
+      color: #55645d;
+      font-size: 22px;
+      line-height: 1.7;
+    }
+
+    .hero-art {
+      height: 530px;
+      margin: 0 -20px;
+      overflow: hidden;
+      border: 1px solid rgba(191, 220, 206, 0.72);
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .hero-art img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .origin-card {
+      display: grid;
+      grid-template-columns: 1fr 280px 1fr;
+      gap: 28px;
+      align-items: center;
+      margin-top: 32px;
+      padding: 38px 42px;
+      border: 1px solid var(--gray);
+      border-radius: 8px;
+      background: rgba(255,255,255,0.96);
+      box-shadow: 0 10px 28px rgba(47, 67, 58, 0.06);
+    }
+
+    .origin-side strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--deep);
+      font-size: 26px;
+    }
+
+    .origin-side small {
+      display: block;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .origin-side.right { text-align: right; }
+
+    .shared-word {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      color: var(--slate);
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.06em;
+    }
+
+    .shared-s {
+      display: grid;
+      width: 58px;
+      height: 58px;
+      margin: 0 3px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--green);
+      font-size: 37px;
+      box-shadow: 0 8px 22px rgba(95,174,136,0.23);
+    }
+
+    .origin-caption {
+      grid-column: 1 / -1;
+      margin: 2px 0 0;
+      padding-top: 24px;
+      border-top: 1px solid var(--gray);
+      text-align: center;
+      color: #4f6158;
+      font-size: 18px;
+      font-weight: 700;
+    }
+
+    .pain {
+      background: white;
+    }
+
+    .pain-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 18px;
+    }
+
+    .pain-card {
+      min-height: 230px;
+      padding: 30px 28px;
+      border: 1px solid var(--gray);
+      border-top: 5px solid var(--accent);
+      border-radius: 8px;
+      background: var(--tint);
+    }
+
+    .pain-card .number {
+      display: block;
+      margin-bottom: 22px;
+      color: var(--accent);
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: 0.1em;
+    }
+
+    .pain-card p {
+      margin-bottom: 0;
+      color: #5b6862;
+      font-size: 16px;
+    }
+
+    .flow {
+      background: var(--mint);
+    }
+
+    .flow-track {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      position: relative;
+      margin-top: 44px;
+    }
+
+    .flow-track::before {
+      content: "";
+      position: absolute;
+      top: 29px;
+      right: 84px;
+      left: 84px;
+      height: 2px;
+      background: linear-gradient(90deg, var(--blue), var(--purple), var(--gold), var(--green));
+      opacity: 0.45;
+    }
+
+    .flow-step {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+    }
+
+    .flow-number {
+      display: grid;
+      width: 60px;
+      height: 60px;
+      margin: 0 auto 18px;
+      place-items: center;
+      border: 5px solid var(--mint);
+      border-radius: 50%;
+      color: white;
+      background: var(--accent);
+      font-size: 17px;
+      font-weight: 800;
+      box-shadow: 0 7px 18px rgba(43, 67, 57, 0.13);
+    }
+
+    .flow-step h3 { font-size: 18px; }
+
+    .flow-step p {
+      margin: 0;
+      color: #64746d;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .capabilities {
+      background: var(--white);
+    }
+
+    .capability-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+
+    .capability {
+      min-height: 248px;
+      padding: 30px;
+      border: 1px solid var(--gray);
+      border-radius: 8px;
+      background: white;
+      box-shadow: 0 8px 22px rgba(45, 67, 58, 0.05);
+    }
+
+    .capability-head {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .capability-icon {
+      display: grid;
+      flex: 0 0 48px;
+      width: 48px;
+      height: 48px;
+      place-items: center;
+      border-radius: 8px;
+      color: var(--accent);
+      background: var(--tint);
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .capability h3 { margin: 0; }
+
+    .capability p {
+      margin-bottom: 20px;
+      color: var(--muted);
+      font-size: 16px;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      padding: 7px 11px;
+      border: 1px solid var(--gray);
+      border-radius: 999px;
+      color: #596860;
+      background: #fafcfb;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .screens {
+      background: #f4f8f6;
+    }
+
+    .screen-stack {
+      display: grid;
+      gap: 22px;
+    }
+
+    .browser-frame {
+      overflow: hidden;
+      border: 1px solid #dbe4df;
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .browser-bar {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      height: 42px;
+      padding: 0 16px;
+      border-bottom: 1px solid var(--gray);
+      background: #f9fbfa;
+    }
+
+    .browser-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #cfd8d3;
+    }
+
+    .address {
+      width: 230px;
+      height: 17px;
+      margin-left: 12px;
+      border-radius: 4px;
+      background: #edf1ef;
+    }
+
+    .ui-dashboard {
+      display: grid;
+      grid-template-columns: 176px 1fr;
+      min-height: 470px;
+    }
+
+    .ui-side {
+      padding: 24px 18px;
+      color: white;
+      background: var(--deep);
+    }
+
+    .ui-logo {
+      margin-bottom: 30px;
+      font-size: 17px;
+      font-weight: 800;
+    }
+
+    .ui-nav {
+      display: grid;
+      gap: 10px;
+    }
+
+    .ui-nav span {
+      padding: 9px 10px;
+      border-radius: 5px;
+      font-size: 12px;
+      opacity: 0.72;
+    }
+
+    .ui-nav span.active {
+      color: var(--deep);
+      background: white;
+      opacity: 1;
+      font-weight: 800;
+    }
+
+    .ui-main {
+      padding: 28px 30px;
+      background: #fbfcfb;
+    }
+
+    .ui-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 24px;
+    }
+
+    .ui-title-row strong { font-size: 20px; }
+
+    .ui-button {
+      padding: 9px 14px;
+      border-radius: 5px;
+      color: white;
+      background: var(--green);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .ui-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .ui-stat {
+      padding: 14px;
+      border: 1px solid var(--gray);
+      border-radius: 6px;
+      background: white;
+    }
+
+    .ui-stat small {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .ui-stat strong {
+      font-size: 23px;
+      color: var(--deep);
+    }
+
+    .ui-projects {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .ui-project {
+      padding: 15px;
+      border: 1px solid var(--gray);
+      border-radius: 6px;
+      background: white;
+    }
+
+    .ui-project .title {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 7px;
+      font-size: 12px;
+      font-weight: 800;
+    }
+
+    .ui-project p {
+      height: 34px;
+      margin-bottom: 12px;
+      color: var(--muted);
+      font-size: 10px;
+    }
+
+    .ui-tag {
+      padding: 4px 7px;
+      border-radius: 999px;
+      color: var(--deep);
+      background: var(--mint);
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    .mini-progress {
+      height: 5px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: #edf1ef;
+    }
+
+    .mini-progress span {
+      display: block;
+      height: 100%;
+      border-radius: inherit;
+      background: var(--green);
+    }
+
+    .screen-caption {
+      padding: 19px 24px 22px;
+      border-top: 1px solid var(--gray);
+    }
+
+    .screen-caption strong {
+      display: block;
+      margin-bottom: 3px;
+      color: var(--deep);
+      font-size: 17px;
+    }
+
+    .screen-caption span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .dual-screens {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 22px;
+    }
+
+    .extract-ui {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      height: 340px;
+      background: white;
+    }
+
+    .document-pane, .chunk-pane {
+      padding: 22px;
+    }
+
+    .document-pane {
+      border-right: 1px solid var(--gray);
+      background: #fafbf9;
+    }
+
+    .pane-label {
+      margin-bottom: 16px;
+      color: var(--deep);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .line {
+      height: 7px;
+      margin-bottom: 8px;
+      border-radius: 3px;
+      background: #dfe6e2;
+    }
+
+    .line.dark { background: #b9c7c0; }
+    .line.green { background: var(--sage); }
+
+    .chunk-card {
+      margin-bottom: 10px;
+      padding: 12px;
+      border: 1px solid var(--sage);
+      border-left: 4px solid var(--green);
+      border-radius: 5px;
+      background: #f7fcf9;
+    }
+
+    .graph-chat-ui {
+      display: grid;
+      grid-template-columns: 1.04fr 0.96fr;
+      height: 340px;
+      background: white;
+    }
+
+    .graph-canvas {
+      position: relative;
+      overflow: hidden;
+      border-right: 1px solid var(--gray);
+      background:
+        linear-gradient(rgba(230,235,239,.55) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(230,235,239,.55) 1px, transparent 1px),
+        #fbfcfc;
+      background-size: 24px 24px;
+    }
+
+    .node {
+      position: absolute;
+      display: grid;
+      place-items: center;
+      border: 5px solid white;
+      border-radius: 50%;
+      color: white;
+      background: var(--node);
+      font-size: 10px;
+      font-weight: 800;
+      box-shadow: 0 5px 14px rgba(43,63,54,.15);
+    }
+
+    .edge {
+      position: absolute;
+      height: 2px;
+      transform-origin: left center;
+      background: #a8c5b7;
+    }
+
+    .chat-pane {
+      display: flex;
+      flex-direction: column;
+      gap: 13px;
+      padding: 22px 18px;
+      background: #f8fbf9;
+    }
+
+    .bubble {
+      max-width: 88%;
+      padding: 10px 12px;
+      border-radius: 7px;
+      font-size: 10px;
+      line-height: 1.5;
+    }
+
+    .bubble.user {
+      align-self: flex-end;
+      color: white;
+      background: var(--green);
+    }
+
+    .bubble.ai {
+      border: 1px solid var(--gray);
+      background: white;
+    }
+
+    .citation {
+      margin-top: 7px;
+      padding-top: 7px;
+      border-top: 1px solid var(--gray);
+      color: var(--deep);
+      font-size: 8px;
+      font-weight: 800;
+    }
+
+    .roles {
+      background: white;
+    }
+
+    .role-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .role {
+      padding: 26px 20px;
+      border: 1px solid var(--gray);
+      border-radius: 8px;
+      text-align: center;
+      background: var(--tint);
+    }
+
+    .role-mark {
+      display: grid;
+      width: 54px;
+      height: 54px;
+      margin: 0 auto 16px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--accent);
+      font-size: 19px;
+      font-weight: 800;
+    }
+
+    .role h3 { font-size: 17px; }
+
+    .role p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .role-note {
+      margin: 24px 0 0;
+      text-align: center;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .trust {
+      background: #f0f7f3;
+    }
+
+    .trust-layout {
+      display: grid;
+      grid-template-columns: 380px 1fr;
+      gap: 44px;
+      align-items: center;
+    }
+
+    .login-crop {
+      position: relative;
+      width: 370px;
+      height: 520px;
+      overflow: hidden;
+      border: 8px solid white;
+      border-radius: 8px;
+      background: white;
+      box-shadow: var(--shadow);
+    }
+
+    .login-crop img {
+      position: absolute;
+      top: -47px;
+      left: -137px;
+      width: 1096px;
+      max-width: none;
+    }
+
+    .real-label {
+      position: absolute;
+      right: 14px;
+      bottom: 14px;
+      padding: 7px 10px;
+      border-radius: 999px;
+      color: white;
+      background: rgba(47,125,87,.92);
+      font-size: 11px;
+      font-weight: 800;
+    }
+
+    .trust-list {
+      display: grid;
+      gap: 13px;
+      margin-top: 24px;
+    }
+
+    .trust-item {
+      display: grid;
+      grid-template-columns: 34px 1fr;
+      gap: 13px;
+      align-items: start;
+      padding: 16px 18px;
+      border: 1px solid rgba(191, 220, 206, 0.9);
+      border-radius: 7px;
+      background: rgba(255,255,255,.78);
+    }
+
+    .check {
+      display: grid;
+      width: 28px;
+      height: 28px;
+      place-items: center;
+      border-radius: 50%;
+      color: white;
+      background: var(--green);
+      font-size: 14px;
+      font-weight: 900;
+    }
+
+    .trust-item strong {
+      display: block;
+      margin-bottom: 2px;
+      font-size: 16px;
+    }
+
+    .trust-item span {
+      display: block;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .cta {
+      padding: 84px;
+      color: white;
+      text-align: center;
+      background:
+        radial-gradient(circle at 15% 25%, rgba(216,199,122,.23), transparent 25%),
+        radial-gradient(circle at 85% 75%, rgba(126,112,178,.17), transparent 28%),
+        var(--deep);
+    }
+
+    .cta .eyebrow { color: #cce7d8; }
+
+    .cta h2 {
+      margin-bottom: 20px;
+      font-size: 43px;
+      color: white;
+    }
+
+    .cta p {
+      max-width: 720px;
+      margin: 0 auto 32px;
+      color: #d8e9e0;
+      font-size: 18px;
+    }
+
+    .cta-button {
+      display: inline-block;
+      padding: 15px 26px;
+      border-radius: 6px;
+      color: var(--deep);
+      background: white;
+      font-size: 16px;
+      font-weight: 800;
+      box-shadow: 0 10px 26px rgba(0,0,0,.12);
+    }
+
+    .footer-note {
+      margin-top: 32px !important;
+      color: #afcfc0 !important;
+      font-size: 12px !important;
+    }
+  </style>
+</head>
+<body>
+  <main class="poster">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">N</span>
+        <span class="brand-name">NomoSmart<span class="brand-sub">Enterprise Knowledge Center</span></span>
+      </div>
+      <span class="internal-label">內部產品介紹</span>
+    </header>
+
+    <section class="section hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Governance × AI</p>
+        <h1>讓企業知識有秩序，<br />也有智慧</h1>
+        <p class="intro">NomoSmart 結合企業知識治理與 AI 能力，將散落於文件、資料服務與系統中的資訊，轉化為可信、可追溯、可持續運用的企業知識。</p>
+      </div>
+
+      <div class="hero-art">
+        <img src="assets/nomosmart-governance-ai.png" alt="治理文件轉化為 AI 知識網路的概念插畫" />
+      </div>
+
+      <div class="origin-card">
+        <div class="origin-side">
+          <strong>Nomos｜νόμος</strong>
+          <small>秩序・規範・治理</small>
+        </div>
+        <div class="shared-word"><span>Nomo</span><span class="shared-s">S</span><span>mart</span></div>
+        <div class="origin-side right">
+          <strong>Smart</strong>
+          <small>理解・連結・應用</small>
+        </div>
+        <p class="origin-caption">Nomos，讓知識有秩序；Smart，讓知識產生智慧。</p>
+      </div>
+    </section>
+
+    <section class="section pain">
+      <p class="eyebrow">Why NomoSmart</p>
+      <h2>企業知識，常卡在三個地方</h2>
+      <p class="section-lead">真正的挑戰不只是找到文件，而是確認內容是否正確、目前是否有效，以及能不能放心使用。</p>
+      <div class="pain-grid">
+        <article class="pain-card" style="--accent: var(--blue); --tint: var(--blue-soft);">
+          <span class="number">01・分散</span>
+          <h3>資料散落各處</h3>
+          <p>文件、資料服務與跨部門內容各自存在，搜尋與重複利用成本高。</p>
+        </article>
+        <article class="pain-card" style="--accent: var(--coral); --tint: var(--coral-soft);">
+          <span class="number">02・難以治理</span>
+          <h3>版本與責任不清</h3>
+          <p>缺少權限、版本、審核與來源依據，知識是否可用往往仰賴個人判斷。</p>
+        </article>
+        <article class="pain-card" style="--accent: var(--purple); --tint: var(--purple-soft);">
+          <span class="number">03・難以驗證</span>
+          <h3>AI 回答缺少脈絡</h3>
+          <p>回答看似快速，卻難以確認引用來源、適用範圍與內容正確性。</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section flow">
+      <p class="eyebrow">Knowledge Lifecycle</p>
+      <h2>從資料進來，到知識被真正使用</h2>
+      <p class="section-lead">NomoSmart 串起知識的完整生命週期，讓每一步都有狀態、依據與可追溯結果。</p>
+      <div class="flow-track">
+        <article class="flow-step">
+          <span class="flow-number" style="--accent: var(--blue);">01</span>
+          <h3>多元匯入</h3>
+          <p>文件、S3／FTP、HTTP API、跨專案引用</p>
+        </article>
+        <article class="flow-step">
+          <span class="flow-number" style="--accent: var(--purple);">02</span>
+          <h3>AI 萃取</h3>
+          <p>OCR、切片、標籤、Embedding、語意關聯</p>
+        </article>
+        <article class="flow-step">
+          <span class="flow-number" style="--accent: var(--gold);">03</span>
+          <h3>審核治理</h3>
+          <p>人工修正、版本管理、主管與 Owner 審核</p>
+        </article>
+        <article class="flow-step">
+          <span class="flow-number" style="--accent: var(--green);">04</span>
+          <h3>發布索引</h3>
+          <p>正式發布、搜尋索引、知識圖譜同步</p>
+        </article>
+        <article class="flow-step">
+          <span class="flow-number" style="--accent: var(--deep);">05</span>
+          <h3>智慧應用</h3>
+          <p>搜尋、RAG 對話、來源驗證、統計報表</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section capabilities">
+      <p class="eyebrow">Core Capabilities</p>
+      <h2>一個中心，串起完整知識工作</h2>
+      <p class="section-lead">不只儲存文件，而是讓知識從建立、治理到應用，都在同一個可管理的工作流程中完成。</p>
+      <div class="capability-grid">
+        <article class="capability" style="--accent: var(--blue); --tint: var(--blue-soft);">
+          <div class="capability-head"><span class="capability-icon">01</span><h3>整合知識來源</h3></div>
+          <p>將不同格式與來源的企業內容帶進專案，建立一致的知識入口。</p>
+          <div class="chips"><span class="chip">檔案上傳</span><span class="chip">FTP／S3</span><span class="chip">HTTP API</span><span class="chip">跨專案引用</span></div>
+        </article>
+        <article class="capability" style="--accent: var(--purple); --tint: var(--purple-soft);">
+          <div class="capability-head"><span class="capability-icon">02</span><h3>建立知識結構</h3></div>
+          <p>透過 AI 處理流程，將原始內容轉化為可搜尋、可連結的知識單元。</p>
+          <div class="chips"><span class="chip">OCR</span><span class="chip">知識切片</span><span class="chip">自動貼標</span><span class="chip">Embedding</span><span class="chip">知識圖譜</span></div>
+        </article>
+        <article class="capability" style="--accent: var(--gold); --tint: var(--gold-soft);">
+          <div class="capability-head"><span class="capability-icon">03</span><h3>確保知識可信</h3></div>
+          <p>透過權限、版本與雙層審核，把「可以參考」轉化為「可以信任」。</p>
+          <div class="chips"><span class="chip">角色權限</span><span class="chip">版本治理</span><span class="chip">主管審核</span><span class="chip">Owner 核准</span><span class="chip">來源追溯</span></div>
+        </article>
+        <article class="capability" style="--accent: var(--green); --tint: var(--mint);">
+          <div class="capability-head"><span class="capability-icon">04</span><h3>讓知識真正被使用</h3></div>
+          <p>讓同仁用熟悉的搜尋、圖譜與問答方式探索知識，並核對回答依據。</p>
+          <div class="chips"><span class="chip">混合搜尋</span><span class="chip">RAG 對話</span><span class="chip">引用檢視</span><span class="chip">人工驗證</span><span class="chip">統計報表</span></div>
+        </article>
+      </div>
+    </section>
+
+    <section class="section screens">
+      <p class="eyebrow">Inside NomoSmart</p>
+      <h2>從畫面看見 NomoSmart 如何工作</h2>
+      <p class="section-lead">清楚的專案脈絡、處理進度與知識內容，讓每位參與者知道目前在哪一步、接下來要做什麼。</p>
+
+      <div class="screen-stack">
+        <article class="browser-frame">
+          <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span><span class="address"></span></div>
+          <div class="ui-dashboard">
+            <aside class="ui-side">
+              <div class="ui-logo">NomoSmart</div>
+              <div class="ui-nav"><span>首頁</span><span class="active">知識專案</span><span>簽核工作台</span><span>統計報表</span></div>
+            </aside>
+            <div class="ui-main">
+              <div class="ui-title-row"><strong>知識專案</strong><span class="ui-button">＋ 新增知識專案</span></div>
+              <div class="ui-stats">
+                <div class="ui-stat"><small>進行中專案</small><strong>12</strong></div>
+                <div class="ui-stat"><small>處理中文件</small><strong>28</strong></div>
+                <div class="ui-stat"><small>待審核項目</small><strong>6</strong></div>
+              </div>
+              <div class="ui-projects">
+                <div class="ui-project"><div class="title"><span>營運規範知識庫</span><span class="ui-tag">進行中</span></div><p>整合跨部門作業規範與標準流程。</p><div class="mini-progress"><span style="width:82%"></span></div></div>
+                <div class="ui-project"><div class="title"><span>產品技術文件中心</span><span class="ui-tag">進行中</span></div><p>產品文件、API 說明與維運知識。</p><div class="mini-progress"><span style="width:64%"></span></div></div>
+                <div class="ui-project"><div class="title"><span>客服案例知識庫</span><span class="ui-tag">已發布</span></div><p>常見問題、處理案例與回覆依據。</p><div class="mini-progress"><span style="width:100%"></span></div></div>
+                <div class="ui-project"><div class="title"><span>新人培訓專案</span><span class="ui-tag">審核中</span></div><p>新人手冊、培訓教材與制度說明。</p><div class="mini-progress"><span style="width:75%"></span></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="screen-caption"><strong>以知識專案管理內容與進度</strong><span>集中掌握文件、處理流程、角色與發布狀態。</span></div>
+        </article>
+
+        <div class="dual-screens">
+          <article class="browser-frame">
+            <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span><span class="address"></span></div>
+            <div class="extract-ui">
+              <div class="document-pane"><div class="pane-label">原始文件／Markdown</div><div class="line dark" style="width:72%"></div><div class="line"></div><div class="line"></div><div class="line" style="width:90%"></div><div class="line green"></div><div class="line green" style="width:82%"></div><div class="line"></div><div class="line" style="width:65%"></div></div>
+              <div class="chunk-pane"><div class="pane-label">AI 知識切片與標籤</div><div class="chunk-card"><div class="line dark" style="width:70%"></div><div class="line" style="width:92%"></div></div><div class="chunk-card"><div class="line dark" style="width:58%"></div><div class="line" style="width:84%"></div></div><div class="chunk-card"><div class="line dark" style="width:64%"></div><div class="line" style="width:76%"></div></div></div>
+            </div>
+            <div class="screen-caption"><strong>原文與知識萃取對照</strong><span>檢視切片、標籤並進行人工修正。</span></div>
+          </article>
+
+          <article class="browser-frame">
+            <div class="browser-bar"><span class="browser-dot"></span><span class="browser-dot"></span><span class="browser-dot"></span><span class="address"></span></div>
+            <div class="graph-chat-ui">
+              <div class="graph-canvas">
+                <span class="edge" style="left:90px;top:105px;width:110px;transform:rotate(18deg)"></span>
+                <span class="edge" style="left:190px;top:137px;width:110px;transform:rotate(-35deg)"></span>
+                <span class="edge" style="left:185px;top:138px;width:100px;transform:rotate(55deg)"></span>
+                <span class="edge" style="left:95px;top:108px;width:98px;transform:rotate(82deg)"></span>
+                <span class="edge" style="left:187px;top:220px;width:88px;transform:rotate(-10deg)"></span>
+                <span class="node" style="--node:var(--deep);left:157px;top:103px;width:72px;height:72px;">核心</span>
+                <span class="node" style="--node:var(--blue);left:54px;top:72px;width:48px;height:48px;">文件</span>
+                <span class="node" style="--node:var(--purple);left:266px;top:55px;width:50px;height:50px;">標籤</span>
+                <span class="node" style="--node:var(--gold);left:265px;top:204px;width:46px;height:46px;">版本</span>
+                <span class="node" style="--node:var(--green);left:72px;top:207px;width:48px;height:48px;">切片</span>
+              </div>
+              <div class="chat-pane">
+                <div class="bubble user">新人報到需要完成哪些流程？</div>
+                <div class="bubble ai">依據目前已發布的新人手冊，需完成帳號申請、資安訓練與部門報到。<div class="citation">查看引用來源・新人手冊 v3.1</div></div>
+                <div class="bubble ai">回答可由使用者標記正確性，並留下修正建議。</div>
+              </div>
+            </div>
+            <div class="screen-caption"><strong>圖譜探索與對話驗證</strong><span>理解關係，也能直接核對 AI 回答來源。</span></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section roles">
+      <p class="eyebrow">Your Role</p>
+      <h2>每位同仁，都能參與知識的建立與使用</h2>
+      <p class="section-lead">NomoSmart 將不同職責放進同一條知識流程，讓內容不再停留在少數人的資料夾裡。</p>
+      <div class="role-grid">
+        <article class="role" style="--accent:var(--blue);--tint:var(--blue-soft);"><span class="role-mark">知</span><h3>知識提供者</h3><p>匯入並整理部門文件與資料來源。</p></article>
+        <article class="role" style="--accent:var(--gold);--tint:var(--gold-soft);"><span class="role-mark">審</span><h3>編輯與審核者</h3><p>確認萃取結果、標籤與內容品質。</p></article>
+        <article class="role" style="--accent:var(--purple);--tint:var(--purple-soft);"><span class="role-mark">用</span><h3>知識使用者</h3><p>搜尋、提問並查看回答引用來源。</p></article>
+        <article class="role" style="--accent:var(--green);--tint:var(--mint);"><span class="role-mark">管</span><h3>Owner／主管</h3><p>治理權限、核准發布並掌握成效。</p></article>
+      </div>
+      <p class="role-note">實際操作範圍依個人權限與專案角色開放。</p>
+    </section>
+
+    <section class="section trust">
+      <div class="trust-layout">
+        <div class="login-crop">
+          <img src="assets/nomosmart-login.png" alt="NomoSmart 企業登入實際畫面" />
+          <span class="real-label">實際介面</span>
+        </div>
+        <div>
+          <p class="eyebrow">Enterprise Ready</p>
+          <h2>企業級，不只是更多功能</h2>
+          <p class="section-lead">而是讓身分、權限、內容與每一次決策，都有清楚的治理依據。</p>
+          <div class="trust-list">
+            <div class="trust-item"><span class="check">✓</span><div><strong>企業身分安全存取</strong><span>透過 Keycloak OIDC 整合企業身分與多因素驗證政策。</span></div></div>
+            <div class="trust-item"><span class="check">✓</span><div><strong>權限與專案角色</strong><span>依使用者權限與 owner、editor、viewer 角色管理資料範圍。</span></div></div>
+            <div class="trust-item"><span class="check">✓</span><div><strong>版本與雙層審核</strong><span>新知識經主管與專案 Owner 審核後，才正式發布使用。</span></div></div>
+            <div class="trust-item"><span class="check">✓</span><div><strong>來源追溯與驗證</strong><span>對話回答保留引用依據，支援人工正確性判定與修正建議。</span></div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <footer class="cta">
+      <p class="eyebrow">NomoSmart</p>
+      <h2>治理，讓知識可信；AI，讓知識可用。</h2>
+      <p>從一個知識專案開始，讓部門經驗、制度與文件，成為整個企業找得到、看得懂、能驗證的共同知識。</p>
+      <span class="cta-button">開始探索 NomoSmart　→</span>
+      <p class="footer-note">NomoSmart Enterprise Knowledge Center・內部使用</p>
+    </footer>
+  </main>
+</body>
+</html>

@@ -1,0 +1,50 @@
+{{- if .Values.ingress.enabled -}}
+{{- $limit := include "nomosmart.documentUploadRequestMiB" . -}}
+{{- $annotations := deepCopy (.Values.ingress.annotations | default dict) -}}
+{{- range $key := list "nginx.ingress.kubernetes.io/rewrite-target" "nginx.ingress.kubernetes.io/use-regex" "nginx.ingress.kubernetes.io/ssl-passthrough" "nginx.ingress.kubernetes.io/configuration-snippet" "nginx.ingress.kubernetes.io/server-snippet" -}}
+{{- if hasKey $annotations $key -}}
+{{- fail (printf "document upload ingress cannot inherit %s; resolve the conflicting ingress configuration" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/proxy-body-size" $limit -}}
+{{- if ne .Values.bootstrap.deploymentPhase "operational" -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/whitelist-source-range" .Values.bootstrap.onboardingAdminAllowCidr -}}
+{{- end -}}
+{{- range .Values.ingress.hosts -}}
+{{- range .paths -}}
+{{- $path := trimSuffix "/" .path -}}
+{{- if or (eq $path "/api/backend/projects") (hasPrefix "/api/backend/projects/" $path) (eq $path "/api/backend") (eq $path "/api") -}}
+{{- fail "document upload ingress owns /api/backend/projects; remove overlapping explicit ingress.hosts paths" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ printf "%s-document-upload" (include "nomosmart.fullname" . | trunc 47 | trimSuffix "-") }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          - path: /api/backend/projects
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nomosmart.fullname" $ }}-frontend
+                port:
+                  name: http
+    {{- end }}
+{{- end }}

@@ -1,0 +1,149 @@
+{{- if eq .Values.keycloak.mode "bundled" }}
+{{- $localCache := eq .Values.keycloak.cache.mode "local" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-keycloak
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+spec:
+  type: ClusterIP
+  ports:
+    - {name: http, port: {{ .Values.keycloak.service.httpPort }}, targetPort: http}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-keycloak
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+spec:
+  replicas: {{ .Values.keycloak.cluster.replicas }}
+  strategy: {type: RollingUpdate, rollingUpdate: {maxUnavailable: 0, maxSurge: 1}}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: keycloak
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.highAvailability.terminationGracePeriodSeconds }}
+      securityContext: {runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: {type: RuntimeDefault}}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- if gt (int .Values.keycloak.cluster.replicas) 1 }}
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  {{- include "nomosmart.selectorLabels" . | nindent 18 }}
+                  app.kubernetes.io/component: keycloak
+              topologyKey: {{ .Values.keycloak.cluster.topologyKey }}
+      {{- end }}
+      containers:
+        - name: keycloak
+          image: "{{ .Values.keycloak.image.repository }}:{{ .Values.keycloak.image.tag }}"
+          imagePullPolicy: {{ .Values.keycloak.image.pullPolicy }}
+          args: ["start", "--http-enabled=true", "--http-port=8080"]
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports:
+            - {name: http, containerPort: 8080}
+            - {name: management, containerPort: 9000}
+            {{- if not $localCache }}
+            - {name: cache, containerPort: 7800}
+            - {name: cache-fd, containerPort: 57800}
+            {{- end }}
+          env:
+            - name: KC_BOOTSTRAP_ADMIN_USERNAME
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.bootstrap.keycloakAdminUsernameKey }}}}
+            - name: KC_BOOTSTRAP_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.bootstrap.keycloakAdminPasswordKey }}}}
+            - {name: KC_DB, value: postgres}
+            - {name: KC_DB_URL, value: {{ printf "jdbc:postgresql://%s:%v/%s" (include "nomosmart.postgresqlHost" .) .Values.postgresql.service.port .Values.postgresql.auth.keycloakDatabase | quote }}}
+            {{- if .Values.postgresql.operator.enabled }}
+            - {name: KC_DB_URL_PROPERTIES, value: "sslmode=verify-full&sslrootcert=/etc/nomosmart/tls/postgresql-ca.crt"}
+            {{- end }}
+            - {name: KC_DB_USERNAME, value: {{ .Values.postgresql.auth.keycloakUsername | quote }}}
+            - name: KC_DB_PASSWORD
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.postgresql.auth.keycloakPasswordSecretKey }}}}
+            - {name: KC_HOSTNAME, value: {{ printf "%s%s" .Values.global.publicOrigin .Values.global.keycloakPath | quote }}}
+            - {name: KC_HTTP_RELATIVE_PATH, value: {{ .Values.global.keycloakPath | quote }}}
+            - {name: KC_HTTP_MANAGEMENT_RELATIVE_PATH, value: "/"}
+            - {name: KC_PROXY_HEADERS, value: xforwarded}
+            - {name: KC_HEALTH_ENABLED, value: "true"}
+            - {name: KC_METRICS_ENABLED, value: "true"}
+            - {name: KC_CACHE, value: {{ .Values.keycloak.cache.mode | quote }}}
+            {{- if not $localCache }}
+            - {name: KC_CACHE_STACK, value: {{ .Values.keycloak.cache.stack | quote }}}
+            - {name: KC_SPI_CACHE_EMBEDDED__DEFAULT__CLUSTER_NAME, value: {{ printf "%s-keycloak" (include "nomosmart.fullname" .) | quote }}}
+            - name: KC_SPI_CACHE_EMBEDDED__DEFAULT__MACHINE_NAME
+              valueFrom: {fieldRef: {fieldPath: spec.nodeName}}
+            {{- end }}
+            {{- if .Values.keycloak.trust.existingSecret }}
+            - {name: KC_TRUSTSTORE_PATHS, value: /opt/keycloak/conf/truststores}
+            {{- end }}
+          startupProbe:
+            httpGet: {path: /health/started, port: management, scheme: HTTP}
+            periodSeconds: 10
+            failureThreshold: 60
+          readinessProbe:
+            httpGet: {path: /health/ready, port: management, scheme: HTTP}
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet: {path: /health/live, port: management, scheme: HTTP}
+            periodSeconds: 30
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.keycloak.resources | nindent 12 }}
+          volumeMounts:
+            - {name: keycloak-theme, mountPath: /opt/keycloak/themes/nomosmart, readOnly: true}
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+          {{- if .Values.keycloak.trust.existingSecret }}
+            - {name: keycloak-trust, mountPath: /opt/keycloak/conf/truststores, readOnly: true}
+          {{- end }}
+      volumes:
+        - name: keycloak-theme
+          projected:
+            defaultMode: 0444
+            sources:
+              {{- range $path, $_ := .Files.Glob "files/theme/**" }}
+              - configMap:
+                  name: {{ include "nomosmart.fullname" $ | trunc 44 | trimSuffix "-" }}-theme-{{ $path | sha256sum | trunc 12 }}
+                  items:
+                    - {key: content, path: {{ trimPrefix "files/theme/" $path | quote }}}
+              {{- end }}
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+      {{- if .Values.keycloak.trust.existingSecret }}
+        - name: keycloak-trust
+          secret:
+            secretName: {{ .Values.keycloak.trust.existingSecret }}
+            items:
+              - {key: {{ .Values.keycloak.trust.caKey }}, path: directory-ca.pem}
+      {{- end }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-keycloak
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: keycloak
+spec:
+  minAvailable: {{ .Values.keycloak.cluster.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: keycloak
+{{- end }}

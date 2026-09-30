@@ -1,0 +1,699 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomosmart.io/schemas/release-manifest-v3.json",
+  "title": "NomoSmart Installation-validation Release Manifest",
+  "type": "object",
+  "properties": {
+    "schema_version": {
+      "const": 3
+    },
+    "package_type": {
+      "const": "nomosmart-installation-validation-release"
+    },
+    "release_id": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "purpose": {
+      "const": "installation-validation"
+    },
+    "production_ready": {
+      "const": false
+    },
+    "created_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "git_sha": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "tree_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "clean": {
+          "const": true
+        },
+        "detached": {
+          "const": true
+        }
+      },
+      "required": [
+        "git_sha",
+        "tree_sha256",
+        "clean",
+        "detached"
+      ],
+      "additionalProperties": false
+    },
+    "compatibility": {
+      "type": "object",
+      "properties": {
+        "application": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "api": {
+          "const": "v1"
+        },
+        "chart_version": {
+          "type": "string",
+          "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+        },
+        "chart_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "application",
+        "api",
+        "chart_version",
+        "chart_sha256"
+      ],
+      "additionalProperties": false
+    },
+    "application_images": {
+      "type": "object",
+      "properties": {
+        "frontend": {
+          "type": "string",
+          "pattern": "^ghcr\\.io/crispkid/nomosmart/frontend:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[0-9a-f]{64}$"
+        },
+        "backend": {
+          "type": "string",
+          "pattern": "^ghcr\\.io/crispkid/nomosmart/backend:[0-9]+\\.[0-9]+\\.[0-9]+@sha256:[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "frontend",
+        "backend"
+      ],
+      "additionalProperties": false
+    },
+    "external_dependencies": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "external_advisory": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "migration_contract": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      },
+      "required": [
+        "path",
+        "sha256"
+      ],
+      "additionalProperties": false
+    },
+    "gates": {
+      "type": "object",
+      "properties": {
+        "governance": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "publication_boundary": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "release_contract": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "migration": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "deployment": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "frontend_build": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "backend_build": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "dependency_cve": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "container_cve": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "license_inventory": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "spdx": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        },
+        "image_digest": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "passed"
+            },
+            "source_sha": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{40}$"
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+            },
+            "evidence_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "required": [
+            "status",
+            "source_sha",
+            "path",
+            "evidence_sha256"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "governance",
+        "publication_boundary",
+        "release_contract",
+        "migration",
+        "deployment",
+        "frontend_build",
+        "backend_build",
+        "dependency_cve",
+        "container_cve",
+        "license_inventory",
+        "spdx",
+        "image_digest"
+      ],
+      "additionalProperties": false
+    },
+    "deferred_validation": {
+      "type": "object",
+      "properties": {
+        "frontend_full_suite": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "backend_full_suite": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "installer_full_suite": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "e2e": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "frontend_coverage": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "backend_coverage": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "fresh_installation": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        },
+        "ldap_ad_acceptance": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "const": "deferred_by_user"
+            },
+            "reason": {
+              "const": "Run only after separate user authorization."
+            }
+          },
+          "required": [
+            "status",
+            "reason"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "required": [
+        "frontend_full_suite",
+        "backend_full_suite",
+        "installer_full_suite",
+        "e2e",
+        "frontend_coverage",
+        "backend_coverage",
+        "fresh_installation",
+        "ldap_ad_acceptance"
+      ],
+      "additionalProperties": false
+    },
+    "files": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string",
+            "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*//)[^\\\\\\u0000-\\u001f]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "path",
+          "sha256",
+          "size"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "integrity": {
+      "type": "object",
+      "properties": {
+        "method": {
+          "const": "sha256"
+        }
+      },
+      "required": [
+        "method"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "schema_version",
+    "package_type",
+    "release_id",
+    "purpose",
+    "production_ready",
+    "created_at",
+    "source",
+    "compatibility",
+    "application_images",
+    "external_dependencies",
+    "external_advisory",
+    "migration_contract",
+    "gates",
+    "deferred_validation",
+    "files",
+    "integrity"
+  ],
+  "additionalProperties": false
+}

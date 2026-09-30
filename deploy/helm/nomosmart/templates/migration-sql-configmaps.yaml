@@ -1,0 +1,21 @@
+{{- if include "nomosmart.applicationJobsEnabled" . }}
+{{- $root := . }}
+{{- $files := .Files.Glob "files/sql/*.sql" }}
+{{- if eq (len $files) 0 }}{{ fail "migration SQL assets are required in the chart" }}{{ end }}
+{{- range $path, $_ := $files }}
+{{- $content := $root.Files.Get $path }}
+{{- if gt (len (toJson (dict "data" (dict (base $path) $content)))) 524288 }}
+{{- fail "migration SQL exceeds the ConfigMap size bound" }}
+{{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" $root | trunc 46 | trimSuffix "-" }}-sql-{{ base $path | sha256sum | trunc 12 }}
+  labels:
+    {{- include "nomosmart.labels" $root | nindent 4 }}
+    app.kubernetes.io/component: migration
+data:
+  {{ base $path }}: {{ $content | quote }}
+{{- end }}
+{{- end }}

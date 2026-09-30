@@ -1,0 +1,111 @@
+{
+  "schema_version": 1,
+  "release_version": "0.1.0",
+  "images": {
+    "migration": {
+      "reference": "flyway/flyway:13.6-alpine@sha256:25aff2f6105c984fcc98e2599da36acb33af5bde4a4e5c4f75b5e8b6cc47caba",
+      "platforms": {
+        "linux/amd64": "sha256:0689ed4bcf1a81de2e6b2de3266799413f27dcb10def838ae0a3c7944baff9fc",
+        "linux/arm64": "sha256:cacd72ebf4f8193b52b69b2318428a23789911304551ad6356d1c4002a3e1883"
+      }
+    },
+    "postgresql": {
+      "reference": "postgres:18.4-bookworm@sha256:882236b897e39051d2368c5ccc6cda944904723506b2dfc97f2a8f5bc9afa382",
+      "platforms": {
+        "linux/amd64": "sha256:7e6103cf85f88f7a0eddb3ec0b1ba8940eba098ed118ade25a729ca9daee5568",
+        "linux/arm64": "sha256:83b9631dbb4121d9235ef910018272798b7d3041ef5b716aa481122d4c49353f"
+      }
+    },
+    "postgresql_operator": {
+      "reference": "ghcr.io/cloudnative-pg/postgresql:18.4-standard-trixie@sha256:f0cc49632b5cc1e51f65ba03658c89bd31d64ea2672b14843a808a8d281417e1",
+      "platforms": {
+        "linux/amd64": "sha256:ae0ec6943c3c24b0de87f93b73ac531a8e546a4cc895655f793547eed2fdbef1",
+        "linux/arm64": "sha256:81bac24ad229186fde0777e2dba180f56817423c8fad5039e3ccdc2ce1f7ab2b"
+      }
+    },
+    "redis": {
+      "reference": "redis:7.4.2-alpine@sha256:02419de7eddf55aa5bcf49efb74e88fa8d931b4d77c07eff8a6b2144472b6952",
+      "platforms": {
+        "linux/amd64": "sha256:519f0189dfdee3bc0bad61fb265fe73d864b5c64020e6579ad48a45c49965635",
+        "linux/arm64": "sha256:90cac51530a49aaa42eaf65712e84005677a0c44191e721e2de756927031fb9d"
+      }
+    },
+    "rustfs": {
+      "reference": "rustfs/rustfs:1.0.0@sha256:8cc9801755448b71a786705ce76692c77e14936cccd87cf2fc31842e58f4d1ff",
+      "platforms": {
+        "linux/amd64": "sha256:ba0a1b53e36f321c0d46f3867104abef169f7bc59c467c664ddac87e7ddc9a8b",
+        "linux/arm64": "sha256:42edb61d588775f9431ff436216d14392d2234d4eb2ed68321569fbf7245b36b"
+      }
+    },
+    "opensearch": {
+      "reference": "opensearchproject/opensearch:2.19.6@sha256:e321cb03c643874c42240458a618db56bc1e4fc143b10c41bec653542bc6851b",
+      "platforms": {
+        "linux/amd64": "sha256:b5facc7814bd250c11afb939bb11611f40088e2436d90f2cbdcd6d9e0b47e8d1",
+        "linux/arm64": "sha256:89a402aa9132286200b8d12aa37fd5b14daa65851193d009355900c0d1d9d59c"
+      }
+    },
+    "neo4j": {
+      "reference": "neo4j:5.26.31-community-ubi10@sha256:14914a90b81ead231c7ae5cffba5199f243a02c24ebb57f3283c7e5cf31d9952",
+      "platforms": {
+        "linux/amd64": "sha256:52d28ba2302e523aaa4902bfd7279e06509c0c6a0d798adcd632cace968aeb16",
+        "linux/arm64": "sha256:77493231df93fb91e1f19d9bcf97f43360e64460865a0ac69dc6d20cd00fbf07"
+      }
+    },
+    "keycloak": {
+      "reference": "quay.io/keycloak/keycloak:26.0.8@sha256:09a381c715ab0b111835b70f2905955274843a219c6f27efb348e4d9f4086858",
+      "platforms": {
+        "linux/amd64": "sha256:ecd43971114b0c764f8a3288dddab73f98cb473daccc4feaffe4dc14adeaf866",
+        "linux/arm64": "sha256:6ef47aef4e2b282b51af60d8ed1df52b8e461c0cc7a0d4250278a5540b6d0cc1"
+      }
+    },
+    "edge": {
+      "reference": "nginx:1.27.5-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10",
+      "platforms": {
+        "linux/amd64": "sha256:62223d644fa234c3a1cc785ee14242ec47a77364226f1c811d2f669f96dc2ac8",
+        "linux/arm64": "sha256:63ffc0d1f14e4082b832c6a42e606e9a0384a526f16ddd720af7c1f018f2f7c4"
+      }
+    },
+    "debug_proxy": {
+      "reference": "alpine/socat:1.8.0.1@sha256:87d88ff79bf42ca723fb360e9585c40e2923a2f4df9b9d148b127568ef6b99e7",
+      "platforms": {
+        "linux/amd64": "sha256:50b7de7ff6c3685d9f85bc83eb80d691b786c0ca79184b60b39ac8d883c3dcf1",
+        "linux/arm64": "sha256:5cde10f44b0cd2dc229066a27cefaa09a1f64878e6acf0598367b11b884c1083"
+      }
+    },
+    "cloudnativepg_operator": {
+      "reference": "ghcr.io/cloudnative-pg/cloudnative-pg:1.30.0@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb",
+      "platforms": {
+        "linux/amd64": "sha256:091d306935cfdf646debfe78010d59ebfb572150eb6eb922b0203873c0c68841",
+        "linux/arm64": "sha256:6c7926147fd23a053dea6605d61c013d43bfd411be3532e7500ef2d2b68bb98c"
+      }
+    },
+    "barman_cloud_plugin": {
+      "reference": "ghcr.io/cloudnative-pg/plugin-barman-cloud:v0.13.0@sha256:71589dbac582333442812b07b31f7ea4d00324a8358aac7ca507dabf9f4b6c96",
+      "platforms": {
+        "linux/amd64": "sha256:417449fe4f6f0a56acdeb30e4131930815f2b46b9afeb808059b57aa8b4c2ef5",
+        "linux/arm64": "sha256:de612e3ad8633a198b91ffbea53848407424155daf2183d656490d843a83b100"
+      }
+    },
+    "barman_cloud_sidecar": {
+      "reference": "ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar:v0.13.0@sha256:990361af3319f9e23aafa0f6d7981f99bf1f69b4e6a85cf1bc7d71d6f09bb288",
+      "platforms": {
+        "linux/amd64": "sha256:15cb1a01e7c5235eedac2061cab8208e5f7c39dbda292f9c2d4ddaa0c1f211e6",
+        "linux/arm64": "sha256:f53e168e341661cd76334215ead9dfd69f06117685d3232206192cf25218da71"
+      }
+    }
+  },
+  "downloads": {
+    "opensearch_repository_s3": {
+      "url": "https://artifacts.opensearch.org/releases/plugins/repository-s3/2.19.6/repository-s3-2.19.6.zip",
+      "sha256": "060a1bef96e6e370aaaaa26b146e0f2eb9c236d21e3c57b5826c7f5cc7bdd0a5"
+    },
+    "cloudnativepg_manifest": {
+      "url": "https://raw.githubusercontent.com/cloudnative-pg/cloudnative-pg/v1.30.0/releases/cnpg-1.30.0.yaml",
+      "sha256": "f8bede43fe4ee0d478c2355b204a36876b2ae4faac60f2a9452280b293da3b88"
+    },
+    "barman_manifest": {
+      "url": "https://github.com/cloudnative-pg/plugin-barman-cloud/releases/download/v0.13.0/manifest.yaml",
+      "sha256": "d2e71e7b06822448f1a421f05781846cfdb9cc621e7ef32eef5e20c5133213b0"
+    }
+  }
+}

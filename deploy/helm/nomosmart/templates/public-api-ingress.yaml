@@ -1,0 +1,57 @@
+{{- if eq (include "nomosmart.publicApiEnabled" .) "true" -}}
+{{- $timeout := 600 -}}
+{{- if hasKey .Values.ingress "publicApi" -}}
+{{- if hasKey .Values.ingress.publicApi "readTimeoutSeconds" -}}
+{{- $timeout = .Values.ingress.publicApi.readTimeoutSeconds -}}
+{{- end -}}
+{{- end -}}
+{{- $annotations := deepCopy (.Values.ingress.annotations | default dict) -}}
+{{/* Rewrites/regex/SSL passthrough would violate the exact public namespace. */}}
+{{- range $key := list "nginx.ingress.kubernetes.io/rewrite-target" "nginx.ingress.kubernetes.io/use-regex" "nginx.ingress.kubernetes.io/ssl-passthrough" "nginx.ingress.kubernetes.io/configuration-snippet" "nginx.ingress.kubernetes.io/server-snippet" -}}
+{{- if hasKey $annotations $key -}}
+{{- fail (printf "public API ingress cannot inherit %s; resolve the conflicting ingress configuration before enabling it" $key) -}}
+{{- end -}}
+{{- end -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/proxy-buffering" "off" -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/proxy-next-upstream" "off" -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/proxy-read-timeout" (printf "%v" $timeout) -}}
+{{- if ne .Values.bootstrap.deploymentPhase "operational" -}}
+{{- $_ := set $annotations "nginx.ingress.kubernetes.io/whitelist-source-range" .Values.bootstrap.onboardingAdminAllowCidr -}}
+{{- end -}}
+{{- range .Values.ingress.hosts -}}
+{{- range .paths -}}
+{{- if or (eq .path "/api/public/v1") (hasPrefix "/api/public/v1/" .path) -}}
+{{- fail "public API ingress owns /api/public/v1; remove conflicting paths from ingress.hosts before enabling it" -}}
+{{- end -}}
+{{- end -}}
+{{- end -}}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ printf "%s-public-api" (include "nomosmart.fullname" . | trunc 52 | trimSuffix "-") }}
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+  annotations:
+    {{- toYaml $annotations | nindent 4 }}
+spec:
+  {{- if .Values.ingress.className }}
+  ingressClassName: {{ .Values.ingress.className }}
+  {{- end }}
+  {{- with .Values.ingress.tls }}
+  tls:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+  rules:
+    {{- range .Values.ingress.hosts }}
+    - host: {{ .host | quote }}
+      http:
+        paths:
+          - path: /api/public/v1
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "nomosmart.fullname" $ }}-backend
+                port:
+                  name: http
+    {{- end }}
+{{- end }}

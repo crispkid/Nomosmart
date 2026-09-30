@@ -1,0 +1,73 @@
+{{- if eq .Values.neo4j.mode "bundled" }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-neo4j
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: neo4j
+spec:
+  type: ClusterIP
+  ports:
+    - {name: http, port: {{ .Values.neo4j.service.httpPort }}, targetPort: http}
+    - {name: bolt, port: {{ .Values.neo4j.service.boltPort }}, targetPort: bolt}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: neo4j
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-neo4j
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: neo4j
+spec:
+  serviceName: {{ include "nomosmart.fullname" . }}-neo4j
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: neo4j
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: neo4j
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 7474, runAsGroup: 7474, fsGroup: 7474, seccompProfile: {type: RuntimeDefault}}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: neo4j
+          image: "{{ .Values.neo4j.image.repository }}:{{ .Values.neo4j.image.tag }}"
+          imagePullPolicy: {{ .Values.neo4j.image.pullPolicy }}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports:
+            - {name: http, containerPort: 7474}
+            - {name: bolt, containerPort: 7687}
+          env:
+            {{- if .Values.neo4j.licenseAgreement }}
+            - {name: NEO4J_ACCEPT_LICENSE_AGREEMENT, value: {{ .Values.neo4j.licenseAgreement | quote }}}
+            {{- end }}
+            - name: NEO4J_AUTH
+              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: NEO4J_AUTH}}
+            - {name: NEO4J_server_memory_heap_initial__size, value: 512m}
+            - {name: NEO4J_server_memory_heap_max__size, value: 512m}
+          volumeMounts: [{name: data, mountPath: /data}]
+          readinessProbe: {httpGet: {path: /, port: http}, initialDelaySeconds: 20, periodSeconds: 20, failureThreshold: 12}
+          livenessProbe: {tcpSocket: {port: bolt}, initialDelaySeconds: 40, periodSeconds: 30}
+          resources:
+            {{- toYaml .Values.neo4j.resources | nindent 12 }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.neo4j.persistence.storageClass }}
+        storageClassName: {{ .Values.neo4j.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.neo4j.persistence.size }}}}
+{{- end }}

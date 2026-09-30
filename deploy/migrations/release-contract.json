@@ -1,0 +1,17 @@
+{
+  "schema_version": 1,
+  "release_version": "0.1.0",
+  "required_version": "051",
+  "targets": {
+    "SQL": {
+      "file": "V051__file_processing_task_claims.sql",
+      "checksum": 1782483375,
+      "sha256": "9650a30298bfcb4fb809c63a5a57f915fce3c215024bb1ae96bf36da0d736f6a"
+    },
+    "SQL_BASELINE": {
+      "file": "B051__nomosmart_0_1_0.sql",
+      "checksum": 1904638595,
+      "sha256": "65b48c73b2a26236b43318b49b4ad6b87da731658e23123672e4d043af95a245"
+    }
+  }
+}

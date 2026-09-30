@@ -1,0 +1,118 @@
+{{- if and (eq .Values.postgresql.mode "bundled") (not .Values.postgresql.operator.enabled) }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql-init
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+data:
+  10-databases.sh: |
+    #!/usr/bin/env sh
+    set -eu
+    psql --set=ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
+      --set=nomosmart_database="$NOMOSMART_DB" \
+      --set=nomosmart_user="$NOMOSMART_DB_USER" \
+      --set=nomosmart_password="$NOMOSMART_DB_PASSWORD" \
+      --set=nomosmart_migration_user="$NOMOSMART_MIGRATION_USER" \
+      --set=nomosmart_migration_password="$NOMOSMART_MIGRATION_PASSWORD" \
+      --set=keycloak_database="$KEYCLOAK_DB" \
+      --set=keycloak_user="$KEYCLOAK_DB_USER" \
+      --set=keycloak_password="$KEYCLOAK_DB_PASSWORD" <<-'SQL'
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L NOSUPERUSER NOCREATEDB NOCREATEROLE', :'nomosmart_migration_user', :'nomosmart_migration_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'nomosmart_migration_user')\gexec
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'nomosmart_user', :'nomosmart_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'nomosmart_user')\gexec
+    SELECT format('CREATE DATABASE %I OWNER %I', :'nomosmart_database', :'nomosmart_migration_user')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'nomosmart_database')\gexec
+    SELECT format('CREATE ROLE %I LOGIN PASSWORD %L', :'keycloak_user', :'keycloak_password')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'keycloak_user')\gexec
+    SELECT format('CREATE DATABASE %I OWNER %I', :'keycloak_database', :'keycloak_user')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'keycloak_database')\gexec
+    SELECT format('GRANT CONNECT ON DATABASE %I TO %I', :'nomosmart_database', :'nomosmart_user')\gexec
+    \connect :nomosmart_database
+    REVOKE CREATE ON SCHEMA public FROM PUBLIC;
+    SELECT format('ALTER SCHEMA public OWNER TO %I', :'nomosmart_migration_user')\gexec
+    SELECT format('GRANT USAGE ON SCHEMA public TO %I', :'nomosmart_user')\gexec
+    SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I', :'nomosmart_migration_user', :'nomosmart_user')\gexec
+    SELECT format('ALTER DEFAULT PRIVILEGES FOR ROLE %I IN SCHEMA public GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO %I', :'nomosmart_migration_user', :'nomosmart_user')\gexec
+    SQL
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  type: ClusterIP
+  ports:
+    - {name: postgresql, port: {{ .Values.postgresql.service.port }}, targetPort: postgresql}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-postgresql
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: postgresql
+spec:
+  serviceName: {{ include "nomosmart.fullname" . }}-postgresql
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: postgresql
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: postgresql
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: postgresql
+          image: "{{ .Values.postgresql.image.repository }}:{{ .Values.postgresql.image.tag }}"
+          imagePullPolicy: {{ .Values.postgresql.image.pullPolicy }}
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: postgresql, containerPort: 5432}]
+          env:
+            - {name: POSTGRES_DB, value: {{ .Values.postgresql.auth.adminDatabase | quote }}}
+            - {name: POSTGRES_USER, value: {{ .Values.postgresql.auth.adminUsername | quote }}}
+            - {name: POSTGRES_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.postgresql.auth.adminPasswordSecretKey }}}}}
+            - {name: NOMOSMART_DB, value: {{ .Values.postgresql.auth.database | quote }}}
+            - {name: NOMOSMART_DB_USER, value: {{ .Values.postgresql.auth.username | quote }}}
+            - {name: NOMOSMART_DB_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.postgresql.auth.passwordSecretKey }}}}}
+            - {name: NOMOSMART_MIGRATION_USER, value: {{ .Values.postgresql.auth.migrationUsername | quote }}}
+            - {name: NOMOSMART_MIGRATION_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.postgresql.auth.migrationPasswordSecretKey }}}}}
+            - {name: KEYCLOAK_DB, value: {{ .Values.postgresql.auth.keycloakDatabase | quote }}}
+            - {name: KEYCLOAK_DB_USER, value: {{ .Values.postgresql.auth.keycloakUsername | quote }}}
+            - {name: KEYCLOAK_DB_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.postgresql.auth.keycloakPasswordSecretKey }}}}}
+          volumeMounts:
+            - {name: data, mountPath: /var/lib/postgresql}
+            - {name: init, mountPath: /docker-entrypoint-initdb.d/10-databases.sh, subPath: 10-databases.sh, readOnly: true}
+          readinessProbe: {exec: {command: ["/bin/sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]}, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 12}
+          livenessProbe: {exec: {command: ["/bin/sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]}, initialDelaySeconds: 30, periodSeconds: 20}
+          resources:
+            {{- toYaml .Values.postgresql.resources | nindent 12 }}
+      volumes:
+        - name: init
+          configMap: {name: {{ include "nomosmart.fullname" . }}-postgresql-init, defaultMode: 0555}
+        {{- if not .Values.postgresql.persistence.enabled }}
+        - {name: data, emptyDir: {}}
+        {{- end }}
+  {{- if .Values.postgresql.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.postgresql.persistence.storageClass }}
+        storageClassName: {{ .Values.postgresql.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.postgresql.persistence.size }}}}
+  {{- end }}
+{{- end }}

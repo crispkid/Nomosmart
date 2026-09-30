@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomosmart.io/schemas/release-manifest-v2.json",
+  "title": "NomoSmart Production Release Manifest",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "package_type",
+    "release_id",
+    "production_ready",
+    "created_at",
+    "source",
+    "compatibility",
+    "images",
+    "platform_images",
+    "gates",
+    "evidence",
+    "files",
+    "signing"
+  ],
+  "properties": {
+    "schema_version": {"const": 2},
+    "package_type": {"const": "nomosmart-production-release"},
+    "release_id": {"type": "string", "minLength": 1},
+    "production_ready": {"const": true},
+    "created_at": {"type": "string", "format": "date-time"},
+    "source": {
+      "type": "object",
+      "required": ["git_sha", "tree_sha256", "clean", "detached"],
+      "properties": {
+        "git_sha": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "tree_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "clean": {"const": true},
+        "detached": {"const": true}
+      },
+      "additionalProperties": false
+    },
+    "compatibility": {"type": "object"},
+    "images": {
+      "type": "object", "minProperties": 9, "maxProperties": 9,
+      "required": ["frontend", "backend", "migration", "postgresql", "redis", "rustfs", "opensearch", "neo4j", "keycloak"],
+      "additionalProperties": {"type": "string", "pattern": "^[^@\\s]+@sha256:[0-9a-f]{64}$"}
+    },
+    "platform_images": {
+      "type": "object",
+      "required": ["cloudnativepg_operator", "barman_cloud_plugin", "barman_cloud_sidecar"],
+      "properties": {
+        "cloudnativepg_operator": {"const": "ghcr.io/cloudnative-pg/cloudnative-pg@sha256:a2701eb97cdd2a34b1fdb2cb51987f544b706e40bec72ae7146cd8580efefebb"},
+        "barman_cloud_plugin": {"const": "ghcr.io/cloudnative-pg/plugin-barman-cloud@sha256:71589dbac582333442812b07b31f7ea4d00324a8358aac7ca507dabf9f4b6c96"},
+        "barman_cloud_sidecar": {"const": "ghcr.io/cloudnative-pg/plugin-barman-cloud-sidecar@sha256:990361af3319f9e23aafa0f6d7981f99bf1f69b4e6a85cf1bc7d71d6f09bb288"}
+      },
+      "additionalProperties": false
+    },
+    "gates": {"type": "object", "minProperties": 14},
+    "evidence": {"type": "object", "minProperties": 5},
+    "files": {"type": "array", "minItems": 1},
+    "signing": {"type": "object"}
+  },
+  "additionalProperties": false
+}

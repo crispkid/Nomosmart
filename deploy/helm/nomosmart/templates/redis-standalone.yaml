@@ -1,0 +1,73 @@
+{{- if and (eq .Values.redis.mode "bundled") (not .Values.redis.cluster.enabled) }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-redis
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  type: ClusterIP
+  ports:
+    - {name: redis, port: {{ .Values.redis.service.port }}, targetPort: redis}
+  selector:
+    {{- include "nomosmart.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-redis
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redis
+spec:
+  serviceName: {{ include "nomosmart.fullname" . }}-redis
+  replicas: 1
+  persistentVolumeClaimRetentionPolicy: {whenDeleted: Retain, whenScaled: Retain}
+  selector:
+    matchLabels:
+      {{- include "nomosmart.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redis
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redis
+    spec:
+      securityContext: {runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, fsGroup: 999, seccompProfile: {type: RuntimeDefault}}
+      containers:
+        - name: redis
+          image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          imagePullPolicy: {{ .Values.redis.image.pullPolicy }}
+          command: ["/bin/sh", "-ec"]
+          args:
+            - |
+              umask 077
+              printf 'user default off\nuser %s on >%s ~* &* +@all -@admin -CONFIG -ACL -SHUTDOWN -DEBUG -MODULE -MONITOR\n' "$REDIS_USERNAME" "$REDIS_PASSWORD" > /tmp/users.acl
+              exec redis-server --appendonly yes --aclfile /tmp/users.acl
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: ["ALL"]}}
+          ports: [{name: redis, containerPort: 6379}]
+          env:
+            - {name: REDIS_USERNAME, value: {{ .Values.redis.auth.username | quote }}}
+            - {name: REDIS_PASSWORD, valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.redis.auth.passwordSecretKey }}}}}
+          volumeMounts: [{name: data, mountPath: /data}]
+          readinessProbe: {exec: {command: ["/bin/sh", "-c", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli --user $REDIS_USERNAME ping | grep -q PONG"]}, periodSeconds: 10}
+          livenessProbe: {exec: {command: ["/bin/sh", "-c", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli --user $REDIS_USERNAME ping | grep -q PONG"]}, initialDelaySeconds: 20, periodSeconds: 20}
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+      {{- if not .Values.redis.persistence.enabled }}
+      volumes:
+        - {name: data, emptyDir: {}}
+      {{- end }}
+  {{- if .Values.redis.persistence.enabled }}
+  volumeClaimTemplates:
+    - metadata: {name: data, annotations: {helm.sh/resource-policy: keep}}
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        {{- if .Values.redis.persistence.storageClass }}
+        storageClassName: {{ .Values.redis.persistence.storageClass | quote }}
+        {{- end }}
+        resources: {requests: {storage: {{ .Values.redis.persistence.size }}}}
+  {{- end }}
+{{- end }}

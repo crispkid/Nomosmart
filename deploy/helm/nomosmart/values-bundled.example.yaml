@@ -1,0 +1,17 @@
+# Recommended bundled profile overlay.
+# Layer this after values-prod.yaml. It keeps every NomoSmart peripheral and
+# bundled services inside the release and is the default for a self-contained UAT stack.
+deploymentProfile: bundled
+
+postgresql:
+  mode: bundled
+redis:
+  mode: bundled
+rustfs:
+  mode: bundled
+opensearch:
+  mode: bundled
+neo4j:
+  mode: bundled
+keycloak:
+  mode: bundled

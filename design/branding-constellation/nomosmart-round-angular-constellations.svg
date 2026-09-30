@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2400 1600" role="img" aria-labelledby="title desc">
+  <title id="title">NomoSmart round and angular knowledge constellation logos</title>
+  <desc id="desc">Five circular knowledge constellation variants with faceted geometry, orbits, graph nodes and a trusted core.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="2400" y2="1600" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F7F9F7"/>
+      <stop offset="1" stop-color="#EDF4F0"/>
+    </linearGradient>
+    <linearGradient id="orbitBlue" x1="20" y1="220" x2="220" y2="20" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#4EA4BB"/>
+      <stop offset="1" stop-color="#8BD1DA"/>
+    </linearGradient>
+    <linearGradient id="orbitGreen" x1="20" y1="20" x2="220" y2="220" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1F5B43"/>
+      <stop offset="1" stop-color="#69B48E"/>
+    </linearGradient>
+    <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#E6D27E"/>
+      <stop offset="1" stop-color="#C6A744"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="135%">
+      <feDropShadow dx="0" dy="14" stdDeviation="20" flood-color="#28463A" flood-opacity=".08"/>
+    </filter>
+    <filter id="markShadow" x="-25%" y="-25%" width="150%" height="165%">
+      <feDropShadow dx="0" dy="9" stdDeviation="10" flood-color="#234638" flood-opacity=".15"/>
+    </filter>
+
+    <!-- 01 Faceted Orbit -->
+    <g id="mark-faceted">
+      <path d="M120 15L169 28L207 65L220 114L207 163L169 200L120 213L71 200L33 163L20 114L33 65L71 28Z"
+            fill="#F6FAF8" stroke="#245F46" stroke-width="13" stroke-linejoin="round"/>
+      <ellipse cx="120" cy="114" rx="72" ry="44" transform="rotate(-18 120 114)"
+               fill="none" stroke="url(#orbitBlue)" stroke-width="10"/>
+      <ellipse cx="120" cy="114" rx="72" ry="44" transform="rotate(58 120 114)"
+               fill="none" stroke="#BFDCCE" stroke-width="9"/>
+      <path d="M70 73L120 114L178 79M120 114L80 168M120 114L169 161"
+            fill="none" stroke="#2F7D57" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="70" cy="73" r="10" fill="#245F46" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="178" cy="79" r="10" fill="#77C5D8" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="80" cy="168" r="9" fill="#5FAE88" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="169" cy="161" r="9" fill="#D5B95D" stroke="#FCFDFB" stroke-width="4"/>
+      <rect x="106" y="100" width="28" height="28" rx="7" transform="rotate(45 120 114)"
+            fill="url(#gold)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+
+    <!-- 02 Hex Halo -->
+    <g id="mark-hexhalo">
+      <circle cx="120" cy="120" r="98" fill="#F5FAF7" stroke="url(#orbitGreen)" stroke-width="16"/>
+      <path d="M120 48L181 84V156L120 192L59 156V84Z"
+            fill="none" stroke="#77C5D8" stroke-width="12" stroke-linejoin="round"/>
+      <ellipse cx="120" cy="120" rx="68" ry="37" transform="rotate(-26 120 120)"
+               fill="none" stroke="#BFDCCE" stroke-width="8"/>
+      <path d="M74 94L120 120L169 91M120 120L91 168M120 120L165 163"
+            fill="none" stroke="#245F46" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="74" cy="94" r="10" fill="#245F46" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="169" cy="91" r="10" fill="#77C5D8" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="91" cy="168" r="9" fill="#5FAE88" stroke="#FCFDFB" stroke-width="4"/>
+      <circle cx="165" cy="163" r="9" fill="#D5B95D" stroke="#FCFDFB" stroke-width="4"/>
+      <path d="M120 99L141 120L120 141L99 120Z" fill="url(#gold)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+
+    <!-- 03 Segmented Ring -->
+    <g id="mark-segmented">
+      <circle cx="120" cy="120" r="98" fill="#F6FAF8"/>
+      <circle cx="120" cy="120" r="90" fill="none" stroke="#245F46" stroke-width="20"
+              stroke-dasharray="43 18" stroke-linecap="butt" transform="rotate(-8 120 120)"/>
+      <circle cx="120" cy="120" r="66" fill="none" stroke="#77C5D8" stroke-width="10"
+              stroke-dasharray="92 22" stroke-linecap="round" transform="rotate(17 120 120)"/>
+      <path d="M76 86L120 120L170 83M120 120L86 169M120 120L166 163"
+            fill="none" stroke="#5FAE88" stroke-width="8" stroke-linecap="round"/>
+      <rect x="67" y="77" width="18" height="18" rx="4" transform="rotate(45 76 86)" fill="#245F46"/>
+      <rect x="161" y="74" width="18" height="18" rx="4" transform="rotate(45 170 83)" fill="#77C5D8"/>
+      <rect x="77" y="160" width="18" height="18" rx="4" transform="rotate(45 86 169)" fill="#5FAE88"/>
+      <rect x="157" y="154" width="18" height="18" rx="4" transform="rotate(45 166 163)" fill="#D5B95D"/>
+      <path d="M120 99L141 120L120 141L99 120Z" fill="url(#gold)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+
+    <!-- 04 Tri-Orbit Core -->
+    <g id="mark-triorbit">
+      <circle cx="120" cy="120" r="101" fill="#F6FAF8" stroke="#D9E9E1" stroke-width="7"/>
+      <ellipse cx="120" cy="120" rx="91" ry="49" fill="none" stroke="#245F46" stroke-width="13"/>
+      <ellipse cx="120" cy="120" rx="91" ry="49" transform="rotate(60 120 120)"
+               fill="none" stroke="#5FAE88" stroke-width="13"/>
+      <ellipse cx="120" cy="120" rx="91" ry="49" transform="rotate(120 120 120)"
+               fill="none" stroke="url(#orbitBlue)" stroke-width="13"/>
+      <path d="M54 120L120 120L166 78M120 120L164 171" fill="none" stroke="#FCFDFB" stroke-width="5"/>
+      <path d="M120 99L141 120L120 141L99 120Z" fill="url(#gold)" stroke="#FCFDFB" stroke-width="5"/>
+      <path d="M42 111L51 102L60 111L51 120Z" fill="#245F46" stroke="#FCFDFB" stroke-width="3"/>
+      <path d="M157 69L166 60L175 69L166 78Z" fill="#77C5D8" stroke="#FCFDFB" stroke-width="3"/>
+      <path d="M155 171L164 162L173 171L164 180Z" fill="#5FAE88" stroke="#FCFDFB" stroke-width="3"/>
+    </g>
+
+    <!-- 05 Constellation Seal -->
+    <g id="mark-seal">
+      <circle cx="120" cy="120" r="104" fill="#1F5B43"/>
+      <path d="M120 25L143 34L169 29L184 50L208 60L210 87L225 108L213 132L216 159L192 172L181 197L154 196L132 212L109 200L82 204L66 181L41 170L40 143L24 122L36 98L32 71L56 57L68 33L95 35Z"
+            fill="none" stroke="#7AC39F" stroke-width="6" stroke-linejoin="round"/>
+      <ellipse cx="120" cy="120" rx="76" ry="43" transform="rotate(-20 120 120)"
+               fill="none" stroke="#77C5D8" stroke-width="10"/>
+      <ellipse cx="120" cy="120" rx="76" ry="43" transform="rotate(58 120 120)"
+               fill="none" stroke="#BFDCCE" stroke-width="9"/>
+      <path d="M69 79L120 120L177 84M120 120L78 169M120 120L169 163"
+            fill="none" stroke="#FCFDFB" stroke-width="7" stroke-linecap="round"/>
+      <circle cx="69" cy="79" r="10" fill="#BFDCCE" stroke="#1F5B43" stroke-width="4"/>
+      <circle cx="177" cy="84" r="10" fill="#77C5D8" stroke="#1F5B43" stroke-width="4"/>
+      <circle cx="78" cy="169" r="9" fill="#7AC39F" stroke="#1F5B43" stroke-width="4"/>
+      <circle cx="169" cy="163" r="9" fill="#D5B95D" stroke="#1F5B43" stroke-width="4"/>
+      <path d="M120 98L142 120L120 142L98 120Z" fill="url(#gold)" stroke="#FCFDFB" stroke-width="5"/>
+    </g>
+  </defs>
+
+  <rect width="2400" height="1600" fill="url(#bg)"/>
+  <rect width="2400" height="12" fill="#245F46"/>
+  <circle cx="2250" cy="75" r="250" fill="#DDEBE4" opacity=".72"/>
+
+  <text x="90" y="88" fill="#2F7D57" font-family="Avenir Next, Avenir, Helvetica Neue, Arial, sans-serif"
+        font-size="16" font-weight="700" letter-spacing="5">NOMOSMART · ORBITAL CONSTELLATION STUDY</text>
+  <text x="90" y="160" fill="#263438" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="48" font-weight="700">以「知識星圖」為核心，探索圓形與稜角的五種比例</text>
+  <text x="92" y="208" fill="#65736F" font-family="PingFang TC, Noto Sans TC, Helvetica Neue, sans-serif"
+        font-size="21">共同保留：知識圖譜 · 多重軌道 · 關係節點 · 可信核心</text>
+
+  <!-- Card 01 -->
+  <g filter="url(#cardShadow)"><rect x="80" y="270" width="720" height="570" rx="25" fill="#FCFDFB" stroke="#D8E1DC"/></g>
+  <text x="125" y="325" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.7">01 · FACETED ORBIT</text>
+  <rect x="125" y="360" width="310" height="310" rx="25" fill="#EEF5F1"/>
+  <g transform="translate(160 395) scale(1.1)" filter="url(#markShadow)"><use href="#mark-faceted"/></g>
+  <text x="485" y="425" fill="#263438" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="31" font-weight="700">十二角星環</text>
+  <text x="485" y="465" fill="#687773" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2">ROUND 65 · ANGULAR 35</text>
+  <text x="485" y="520" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">外輪廓以十二個切面接近圓形，</text>
+  <text x="485" y="550" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">保留最明顯的幾何稜角。</text>
+  <line x1="485" y1="600" x2="755" y2="600" stroke="#DCE5E0"/>
+  <g transform="translate(485 625) scale(.27)"><use href="#mark-faceted"/></g>
+  <text x="560" y="668" fill="#263438" font-family="Avenir Next, sans-serif" font-size="26" font-weight="650">NomoSmart</text>
+  <text x="562" y="695" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="11" font-weight="650" letter-spacing="1.8">KNOWLEDGE, CONNECTED</text>
+  <rect x="485" y="745" width="115" height="34" rx="17" fill="#EAF7F1"/><text x="542" y="768" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">稜角最強</text>
+
+  <!-- Card 02 -->
+  <g filter="url(#cardShadow)"><rect x="840" y="270" width="720" height="570" rx="25" fill="#FCFDFB" stroke="#D8E1DC"/></g>
+  <text x="885" y="325" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.7">02 · HEX HALO</text>
+  <rect x="885" y="360" width="310" height="310" rx="25" fill="#EDF5F6"/>
+  <g transform="translate(920 395) scale(1.1)" filter="url(#markShadow)"><use href="#mark-hexhalo"/></g>
+  <text x="1245" y="425" fill="#263438" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="31" font-weight="700">六角光環</text>
+  <text x="1245" y="465" fill="#687773" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2">ROUND 55 · ANGULAR 45</text>
+  <text x="1245" y="520" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">完整圓環包覆六角治理結構，</text>
+  <text x="1245" y="550" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">圓與角的對比最清楚。</text>
+  <line x1="1245" y1="600" x2="1515" y2="600" stroke="#DCE5E0"/>
+  <g transform="translate(1245 625) scale(.27)"><use href="#mark-hexhalo"/></g>
+  <text x="1320" y="668" fill="#263438" font-family="Avenir Next, sans-serif" font-size="26" font-weight="650">NomoSmart</text>
+  <text x="1322" y="695" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="11" font-weight="650" letter-spacing="1.8">GOVERNED CONSTELLATION</text>
+  <rect x="1245" y="745" width="115" height="34" rx="17" fill="#EEF6F8"/><text x="1302" y="768" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">結構平衡</text>
+
+  <!-- Card 03 -->
+  <g filter="url(#cardShadow)"><rect x="1600" y="270" width="720" height="570" rx="25" fill="#FCFDFB" stroke="#D8E1DC"/></g>
+  <text x="1645" y="325" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.7">03 · SEGMENTED CONSTELLATION</text>
+  <rect x="1645" y="360" width="310" height="310" rx="25" fill="#EEF5F1"/>
+  <g transform="translate(1680 395) scale(1.1)" filter="url(#markShadow)"><use href="#mark-segmented"/></g>
+  <text x="2005" y="425" fill="#263438" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="31" font-weight="700">分段星環</text>
+  <text x="2005" y="465" fill="#687773" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2">ROUND 75 · ANGULAR 25</text>
+  <text x="2005" y="520" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">圓形辨識最強，以環形切段與</text>
+  <text x="2005" y="550" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">方形節點保留理性稜角。</text>
+  <line x1="2005" y1="600" x2="2275" y2="600" stroke="#DCE5E0"/>
+  <g transform="translate(2005 625) scale(.27)"><use href="#mark-segmented"/></g>
+  <text x="2080" y="668" fill="#263438" font-family="Avenir Next, sans-serif" font-size="26" font-weight="650">NomoSmart</text>
+  <text x="2082" y="695" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="11" font-weight="650" letter-spacing="1.8">KNOWLEDGE IN ORBIT</text>
+  <rect x="2005" y="745" width="115" height="34" rx="17" fill="#EAF7F1"/><text x="2062" y="768" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">圓形最強</text>
+
+  <!-- Card 04 -->
+  <g filter="url(#cardShadow)"><rect x="460" y="890" width="720" height="570" rx="25" fill="#FCFDFB" stroke="#D8E1DC"/></g>
+  <text x="505" y="945" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.7">04 · TRI-ORBIT CORE</text>
+  <rect x="505" y="980" width="310" height="310" rx="25" fill="#EDF5F6"/>
+  <g transform="translate(540 1015) scale(1.1)" filter="url(#markShadow)"><use href="#mark-triorbit"/></g>
+  <text x="865" y="1045" fill="#263438" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="31" font-weight="700">三軌星核</text>
+  <text x="865" y="1085" fill="#687773" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2">ROUND 80 · ANGULAR 20</text>
+  <text x="865" y="1140" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">三條軌道形成圓形主體，</text>
+  <text x="865" y="1170" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">菱形星核與節點建立方向感。</text>
+  <line x1="865" y1="1220" x2="1135" y2="1220" stroke="#DCE5E0"/>
+  <g transform="translate(865 1245) scale(.27)"><use href="#mark-triorbit"/></g>
+  <text x="940" y="1288" fill="#263438" font-family="Avenir Next, sans-serif" font-size="26" font-weight="650">NomoSmart</text>
+  <text x="942" y="1315" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="11" font-weight="650" letter-spacing="1.8">INTELLIGENCE IN MOTION</text>
+  <rect x="865" y="1365" width="115" height="34" rx="17" fill="#EEF6F8"/><text x="922" y="1388" fill="#397E90" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">動態最強</text>
+
+  <!-- Card 05 -->
+  <g filter="url(#cardShadow)"><rect x="1220" y="890" width="720" height="570" rx="25" fill="#FCFDFB" stroke="#D8E1DC"/></g>
+  <text x="1265" y="945" fill="#2F7D57" font-family="Avenir Next, sans-serif" font-size="14" font-weight="700" letter-spacing="2.7">05 · CONSTELLATION SEAL</text>
+  <rect x="1265" y="980" width="310" height="310" rx="25" fill="#E5F0EB"/>
+  <g transform="translate(1300 1015) scale(1.1)" filter="url(#markShadow)"><use href="#mark-seal"/></g>
+  <text x="1625" y="1045" fill="#263438" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="31" font-weight="700">星圖章印</text>
+  <text x="1625" y="1085" fill="#687773" font-family="Avenir Next, sans-serif" font-size="15" font-weight="700" letter-spacing="2">ROUND 70 · ANGULAR 30</text>
+  <text x="1625" y="1140" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">深色圓形底建立完整品牌印記，</text>
+  <text x="1625" y="1170" fill="#485753" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="18">內部使用多切面星環與圖譜。</text>
+  <line x1="1625" y1="1220" x2="1895" y2="1220" stroke="#DCE5E0"/>
+  <g transform="translate(1625 1245) scale(.27)"><use href="#mark-seal"/></g>
+  <text x="1700" y="1288" fill="#263438" font-family="Avenir Next, sans-serif" font-size="26" font-weight="650">NomoSmart</text>
+  <text x="1702" y="1315" fill="#7A8783" font-family="Avenir Next, sans-serif" font-size="11" font-weight="650" letter-spacing="1.8">THE KNOWLEDGE CONSTELLATION</text>
+  <rect x="1625" y="1365" width="115" height="34" rx="17" fill="#EAF7F1"/><text x="1682" y="1388" fill="#2F7D57" text-anchor="middle" font-family="PingFang TC, sans-serif" font-size="14" font-weight="650">品牌感最強</text>
+
+  <line x1="90" y1="1525" x2="2310" y2="1525" stroke="#D5E0DA"/>
+  <text x="90" y="1570" fill="#65736F" font-family="PingFang TC, Noto Sans TC, sans-serif" font-size="16">共同結構：圓形識別 × 幾何切面 × 知識圖譜 × 多重軌道 × 可信核心</text>
+  <text x="2310" y="1570" fill="#8A9893" font-family="Avenir Next, sans-serif" font-size="13" text-anchor="end">ORBITAL CONSTELLATION STUDY · 2026</text>
+</svg>
