@@ -1,14 +1,15 @@
 "use client";
 
-import { useCallback, useSyncExternalStore } from "react";
-import { formatTranslation, htmlLangForLocale, isSupportedLocale, localizeKnownMessage, localizeKnownMessageOrNull, t as translate, type Locale, type TranslationKey } from "@/lib/i18n";
+import { createContext, useCallback, useContext, useSyncExternalStore } from "react";
+import { formatTranslation, htmlLangForLocale, isSupportedLocale, localePreferenceKey, localizeKnownMessage, localizeKnownMessageOrNull, t as translate, type Locale, type TranslationKey } from "@/lib/i18n";
 
 export { htmlLangForLocale, isSupportedLocale, supportedLocales, type Locale, type TranslationKey } from "@/lib/i18n";
 
-export const localeStorageKey = "nomosmart_locale";
+export const localeStorageKey = localePreferenceKey;
+export const LocaleSnapshotContext = createContext<Locale>("zh");
 
 const localeListeners = new Set<() => void>();
-let activeLocale: Locale = "zh";
+let activeLocale: Locale | null = null;
 
 export function localeFromDocument(): Locale {
   if (typeof document === "undefined") return "zh";
@@ -16,9 +17,12 @@ export function localeFromDocument(): Locale {
 }
 
 export function readStoredLocale(): Locale {
-  if (typeof window === "undefined") return activeLocale;
-  const savedLocale = window.localStorage.getItem(localeStorageKey);
-  return isSupportedLocale(savedLocale) ? savedLocale : localeFromDocument();
+  if (typeof window === "undefined") return "zh";
+  try {
+    const savedLocale = window.localStorage.getItem(localeStorageKey);
+    if (isSupportedLocale(savedLocale)) return savedLocale;
+  } catch { /* Preference storage is optional; authentication must remain usable. */ }
+  return localeFromDocument();
 }
 
 function emitLocaleChange() {
@@ -26,18 +30,26 @@ function emitLocaleChange() {
 }
 
 export function getCurrentLocale() {
-  return activeLocale;
+  return activeLocale ?? localeFromDocument();
 }
 
 export function setLocalePreference(nextLocale: Locale, persist = true) {
+  if (typeof window === "undefined" || !isSupportedLocale(nextLocale)) return;
+  const changed = getCurrentLocale() !== nextLocale;
   activeLocale = nextLocale;
-  if (typeof document !== "undefined") document.documentElement.lang = htmlLangForLocale(nextLocale);
-  if (persist && typeof window !== "undefined") window.localStorage.setItem(localeStorageKey, nextLocale);
-  emitLocaleChange();
+  document.documentElement.lang = htmlLangForLocale(nextLocale);
+  if (persist) {
+    try { window.localStorage.setItem(localeStorageKey, nextLocale); }
+    catch { /* Keep the in-memory preference when persistence is unavailable. */ }
+  }
+  try {
+    document.cookie = `${localePreferenceKey}=${nextLocale}; Path=/; Max-Age=31536000; SameSite=Lax${window.location.protocol === "https:" ? "; Secure" : ""}`;
+  } catch { /* A blocked preference cookie must not break login. */ }
+  if (changed) emitLocaleChange();
 }
 
 export function initializeLocale() {
-  if (typeof window === "undefined") return activeLocale;
+  if (typeof window === "undefined") return "zh";
   const nextLocale = readStoredLocale();
   setLocalePreference(nextLocale, false);
   return nextLocale;
@@ -49,7 +61,9 @@ function subscribeLocale(listener: () => void) {
 }
 
 export function useI18n() {
-  const locale = useSyncExternalStore(subscribeLocale, getCurrentLocale, getCurrentLocale);
+  const initialLocale = useContext(LocaleSnapshotContext);
+  const serverSnapshot = useCallback(() => initialLocale, [initialLocale]);
+  const locale = useSyncExternalStore(subscribeLocale, getCurrentLocale, serverSnapshot);
   const t = useCallback(
     (key: TranslationKey, requestedLocale: Locale = locale) => translate(key, requestedLocale),
     [locale],

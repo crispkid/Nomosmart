@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, MessageSquareText, Network, RotateCcw, ShieldCheck, Trash2, UploadCloud, UserPlus, UserRoundCog, X } from "lucide-react";
-import { ActionButton, AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
+import { AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
 import { ProjectChatTest } from "@/components/ProjectChatTest";

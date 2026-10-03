@@ -9,7 +9,7 @@ server {
     }
 
     location / {
-        return 301 https://$host$request_uri;
+        return 301 ${NOMOSMART_PUBLIC_ORIGIN}$request_uri;
     }
 }
 
@@ -33,9 +33,9 @@ server {
     location ^~ /identity/admin/ {
         allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
         deny all;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
@@ -44,9 +44,9 @@ server {
     location = /identity/admin {
         allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
         deny all;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
@@ -55,18 +55,18 @@ server {
     location ^~ /identity/realms/master/ {
         allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
         deny all;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
     }
 
     location ^~ /identity/ {
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
@@ -75,9 +75,9 @@ server {
     # Only this namespace reaches Backend. No URI suffix means the original
     # public path is preserved, including the version prefix.
     location ^~ /api/public/v1/ {
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_http_version 1.1;
@@ -93,9 +93,9 @@ server {
     # Exact + slash-prefix preserves Kubernetes Prefix path-segment semantics.
     location = /api/backend/projects {
         include /etc/nginx/includes/document-upload-size.conf;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${FRONTEND_EDGE_UPSTREAM};
@@ -103,18 +103,18 @@ server {
 
     location ^~ /api/backend/projects/ {
         include /etc/nginx/includes/document-upload-size.conf;
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${FRONTEND_EDGE_UPSTREAM};
     }
 
     location / {
-        proxy_set_header Host $host;
-        proxy_set_header X-Forwarded-Host $host;
-        proxy_set_header X-Forwarded-Port 443;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header X-Forwarded-For $remote_addr;
         proxy_pass ${FRONTEND_EDGE_UPSTREAM};

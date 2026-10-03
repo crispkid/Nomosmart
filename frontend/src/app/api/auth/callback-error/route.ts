@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
-import { createLoginRecoveryResponse } from "@/lib/authState";
+import { createLoginRecoveryResponse, readAuthorizationOwner } from "@/lib/authState";
 
 export async function GET(request: NextRequest) {
-  return createLoginRecoveryResponse(request, "oidc_error");
+  const owner = await readAuthorizationOwner(request.cookies, request.nextUrl.searchParams.get("flow"));
+  return createLoginRecoveryResponse(request, "oidc_error", null, owner);
 }

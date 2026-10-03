@@ -199,6 +199,8 @@ services:
     env_file: *nomosmart_env_file
     environment:
       NOMOSMART_PUBLIC_HOST: ${NOMOSMART_PUBLIC_HOST:-nomosmart.local}
+      NOMOSMART_PUBLIC_ORIGIN: ${NOMOSMART_PUBLIC_ORIGIN:-https://nomosmart.local}
+      EDGE_HTTPS_PORT: ${EDGE_HTTPS_PORT:-443}
       FRONTEND_EDGE_UPSTREAM: ${FRONTEND_EDGE_UPSTREAM:-http://frontend:3000}
       BACKEND_EDGE_UPSTREAM: ${BACKEND_EDGE_UPSTREAM-http://backend:8000}
       PUBLIC_API_READ_TIMEOUT_SECONDS: ${PUBLIC_API_READ_TIMEOUT_SECONDS-600}
@@ -213,6 +215,7 @@ services:
       - ./deploy/docker/nginx.conf.template:/etc/nginx/templates/default.conf.template:ro
       - ./deploy/docker/15-public-api-config.sh:/docker-entrypoint.d/15-public-api-config.sh:ro
       - ./deploy/docker/16-document-upload-config.sh:/docker-entrypoint.d/16-document-upload-config.sh:ro
+      - ./deploy/docker/17-public-origin-config.sh:/docker-entrypoint.d/17-public-origin-config.envsh:ro
       - ${EDGE_TLS_CERT_FILE:-./deploy/docker/generated/current/tls/active/edge.crt}:/etc/nginx/tls/tls.crt:ro
       - ${EDGE_TLS_KEY_FILE:-./deploy/docker/generated/current/tls/active/edge.key}:/etc/nginx/tls/tls.key:ro
     depends_on:
@@ -230,7 +233,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.1.1}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.1.2}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -244,7 +247,7 @@ services:
       NEXT_PUBLIC_OIDC_AUDIENCE: ${NEXT_PUBLIC_OIDC_AUDIENCE:-nomosmart-backend}
       FRONTEND_APP_ORIGIN: ${FRONTEND_APP_ORIGIN:-https://nomosmart.local}
       FRONTEND_PUBLIC_API_BASE_URL: ${FRONTEND_PUBLIC_API_BASE_URL:-/api/backend}
-      FRONTEND_OIDC_ISSUER_URL: ${FRONTEND_OIDC_ISSUER_URL:-https://nomosmart.local/identity/realms/nomosmart}
+      FRONTEND_OIDC_ISSUER_URL: ${FRONTEND_OIDC_ISSUER_URL:-${OIDC_ISSUER_URL:-https://nomosmart.local/identity/realms/nomosmart}}
       FRONTEND_OIDC_INTERNAL_ISSUER_URL: ${FRONTEND_OIDC_INTERNAL_ISSUER_URL:-http://keycloak:8080/identity/realms/nomosmart}
       FRONTEND_OIDC_CLIENT_ID: ${FRONTEND_OIDC_CLIENT_ID:-nomosmart-frontend}
       FRONTEND_OIDC_AUDIENCE: ${FRONTEND_OIDC_AUDIENCE:-nomosmart-backend}
@@ -268,7 +271,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -317,7 +320,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -346,7 +349,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -402,7 +405,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -448,7 +451,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
     build:
       context: ./backend
       dockerfile: Dockerfile

@@ -2366,41 +2366,8 @@ def _opensearch_search(index_name: str, body: dict) -> dict:  # pragma: no cover
         raise AppError("hybrid_retrieval_failed", "OpenSearch hybrid retrieval endpoint is unavailable", status_code=503) from exc
 
 
-def _opensearch_index_exists(index_name: str) -> bool:  # pragma: no cover - covered by live acceptance
-    from app.core.config import get_settings
-
-    settings = get_settings()
-    context = settings.opensearch_ssl_context
-    request = urllib.request.Request(f"{settings.opensearch_url.rstrip('/')}/{index_name}", method="HEAD")
-    username = settings.opensearch_username.get_secret_value()
-    password = settings.opensearch_password.get_secret_value()
-    if username or password:
-        token = b64encode(f"{username}:{password}".encode("utf-8")).decode("ascii")
-        request.add_header("authorization", f"Basic {token}")
-    try:
-        with urllib.request.urlopen(request, timeout=5, context=context):  # noqa: S310
-            return True
-    except urllib.error.HTTPError as exc:
-        if exc.code == 404:
-            return False
-        raise AppError("hybrid_retrieval_failed", "OpenSearch hybrid retrieval endpoint is unavailable", status_code=503) from exc
-    except OSError as exc:
-        raise AppError("hybrid_retrieval_failed", "OpenSearch hybrid retrieval endpoint is unavailable", status_code=503) from exc
 
 
-def _legacy_keyword_opensearch_search(index_name: str, project_id: UUID, question: str, version_ids: list[str], top_k: int) -> dict:  # pragma: no cover - retained only for migration reference
-    data = _opensearch_search(
-        index_name,
-        _keyword_query_body(
-            project_id,
-            question,
-            version_ids,
-            top_k,
-            "published",
-            mapping_version=1,
-        ),
-    )
-    return data
 
 
 def _safe_excerpt(content: str | None, *, limit: int = 280) -> str | None:

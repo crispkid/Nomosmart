@@ -9,7 +9,6 @@ No token, claim receipt or document content is returned.
 from __future__ import annotations
 
 import argparse
-from datetime import UTC, datetime
 from hashlib import sha256
 import json
 import sys

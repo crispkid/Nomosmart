@@ -26,15 +26,6 @@ class DependencyStatus:
         return "healthy" if self.healthy else "unavailable"
 
 
-def _tcp_status(name: str, value: str, default_port: int) -> DependencyStatus:
-    parsed = urlparse(value)
-    host = parsed.hostname or "127.0.0.1"
-    port = parsed.port or default_port
-    try:
-        with socket.create_connection((host, port), timeout=0.5):
-            return DependencyStatus(name, True, "reachable")
-    except OSError:
-        return DependencyStatus(name, False, "unreachable")
 
 
 def _redis_status(name: str, settings: Settings, url: str) -> DependencyStatus:

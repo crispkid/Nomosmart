@@ -657,6 +657,7 @@
   "approvalPublishControl": "Publish control",
   "approvalPublishControlHelp": "Publishing requires explicit approval",
   "approvalLoadFailed": "Unable to load approval data",
+  "approvalActorRequired": "You can view this approval. Only the assigned reviewer or a Project Owner can approve or reject it.",
   "approvalPendingList": "Pending list",
   "approvalDocument": "Document",
   "approvalVersion": "Version",

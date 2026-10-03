@@ -64,11 +64,11 @@ compatibility:
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.1.1"
+    tag: "0.1.2"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.1.1"
+    tag: "0.1.2"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway
@@ -221,7 +221,7 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.1.1 target from deploy/migrations/release-contract.json.
+  # NomoSmart 0.1.2 target from deploy/migrations/release-contract.json.
   requiredVersion: "051"
   requiredChecksum: "1782483375"
   baselineChecksum: "1904638595"

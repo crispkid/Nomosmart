@@ -101,9 +101,6 @@ def _bounded_read(archive: ZipFile, name: str, *, max_bytes: int) -> bytes:
     return archive.read(info)
 
 
-def _inspect_document_xml(document_xml: bytes) -> tuple[int, int]:
-    with BytesIO(document_xml) as reader:
-        return _inspect_xml_stream(reader, source=as_content(document_xml), max_bytes=len(document_xml))
 
 
 def _inspect_xml_stream(reader, *, source: UploadContent, max_bytes: int) -> tuple[int, int]:

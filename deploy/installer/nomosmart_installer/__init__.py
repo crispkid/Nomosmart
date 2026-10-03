@@ -2,6 +2,6 @@
 
 from .config import InstallConfig, load_config
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = ["InstallConfig", "load_config"]

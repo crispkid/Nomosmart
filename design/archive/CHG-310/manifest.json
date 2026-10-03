@@ -1,0 +1,492 @@
+{
+  "change": "CHG-310",
+  "date": "2026-10-02",
+  "files": [
+    {
+      "path": "design/knowledge-graph-layout-options.html",
+      "bytes": 34428,
+      "tracked": true,
+      "original_sha256": "c4f506fd688ba5d2b7f4693181635def67d6924afa052a31c6683ad85d7f38be",
+      "disposition": "RETAINED",
+      "reason": "Manual UX reference; no evidence that the accepted design baseline is superseded"
+    },
+    {
+      "path": "design/project-card-archive-permission.html",
+      "bytes": 26189,
+      "tracked": true,
+      "original_sha256": "5fb6f3dcdb1f1c737ff2d94147b370651d9360d738d9e0f507e75fedb82c0d8a",
+      "disposition": "RETAINED",
+      "reason": "Manual UX reference; no evidence that the accepted design baseline is superseded"
+    },
+    {
+      "path": "design/branding-constellation/nomosmart-round-angular-constellations.svg",
+      "bytes": 17317,
+      "tracked": true,
+      "original_sha256": "33a6f9250d21a14b30da6fc3455fb7117226dffc16a640f70e85b3b35630c05b",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-constellation/nomosmart-round-angular-constellations.svg",
+      "archived_sha256": "33a6f9250d21a14b30da6fc3455fb7117226dffc16a640f70e85b3b35630c05b",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-constellation/nomosmart-round-angular-constellations.png",
+      "bytes": 559352,
+      "tracked": true,
+      "original_sha256": "e84ee3dc7262b511434458b9d292dc1a7eaea93173e43da299f0145862514c28",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-constellation/nomosmart-round-angular-constellations.png",
+      "archived_sha256": "e84ee3dc7262b511434458b9d292dc1a7eaea93173e43da299f0145862514c28",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-primary-2x.png",
+      "bytes": 49334,
+      "tracked": true,
+      "original_sha256": "77467108d5074b887f40f32908f0bdec380e3a7f9e6e134751a737a970004961",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-primary-2x.png",
+      "archived_sha256": "77467108d5074b887f40f32908f0bdec380e3a7f9e6e134751a737a970004961",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-reversed-2x.png",
+      "bytes": 40810,
+      "tracked": true,
+      "original_sha256": "2cf89f507cb905c0f4b56f2dc42de7ce76d94bb425afcd44c4afea015def5115",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-reversed-2x.png",
+      "archived_sha256": "2cf89f507cb905c0f4b56f2dc42de7ce76d94bb425afcd44c4afea015def5115",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-brand-board.svg",
+      "bytes": 9910,
+      "tracked": true,
+      "original_sha256": "5fc3286c4819528ab516a52f98fb7918e74b87b51a122af9f6a4590338c8a90a",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-brand-board.svg",
+      "archived_sha256": "5fc3286c4819528ab516a52f98fb7918e74b87b51a122af9f6a4590338c8a90a",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-reversed.svg",
+      "bytes": 2160,
+      "tracked": true,
+      "original_sha256": "d2a7443f658f269ec1e169a356e8c95c2ea46593035ed79186477624dbfd1c30",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-reversed.svg",
+      "archived_sha256": "d2a7443f658f269ec1e169a356e8c95c2ea46593035ed79186477624dbfd1c30",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-brand-board.png",
+      "bytes": 285616,
+      "tracked": true,
+      "original_sha256": "0934bfa5307c4cae2935c3b9aee39c19e59637971937fb8b9363672deb8f98e6",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-brand-board.png",
+      "archived_sha256": "0934bfa5307c4cae2935c3b9aee39c19e59637971937fb8b9363672deb8f98e6",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-mark.svg",
+      "bytes": 1808,
+      "tracked": true,
+      "original_sha256": "d88a1d1214bcb2ad38631f1db3a77252d0653dfa32faabf7ae09b7e4a0478596",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-mark.svg",
+      "archived_sha256": "d88a1d1214bcb2ad38631f1db3a77252d0653dfa32faabf7ae09b7e4a0478596",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-mark-1024.png",
+      "bytes": 99833,
+      "tracked": true,
+      "original_sha256": "74ff3aa60f1bd0723c037eaec39a774f5bec21d2817cc220abdcd3cb8733256a",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-mark-1024.png",
+      "archived_sha256": "74ff3aa60f1bd0723c037eaec39a774f5bec21d2817cc220abdcd3cb8733256a",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding/nomosmart-logo-primary.svg",
+      "bytes": 2442,
+      "tracked": true,
+      "original_sha256": "8d86a1c34240aa7aae6f8bf3f0bb90d34a5d180847e29266161a2444e733a51b",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding/nomosmart-logo-primary.svg",
+      "archived_sha256": "8d86a1c34240aa7aae6f8bf3f0bb90d34a5d180847e29266161a2444e733a51b",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-layered/nomosmart-layered-emblems.svg",
+      "bytes": 11849,
+      "tracked": true,
+      "original_sha256": "9b52bbd0e0c0ea316aa1ca6b34e543bcf461ee22ae2c65f797a64f2b0103a9fc",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-layered/nomosmart-layered-emblems.svg",
+      "archived_sha256": "9b52bbd0e0c0ea316aa1ca6b34e543bcf461ee22ae2c65f797a64f2b0103a9fc",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-layered/nomosmart-layered-emblems.png",
+      "bytes": 485258,
+      "tracked": true,
+      "original_sha256": "9ab14f8551b3a27af965bc56277e20138a9f2b45ec851c06b653a75eac36a471",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-layered/nomosmart-layered-emblems.png",
+      "archived_sha256": "9ab14f8551b3a27af965bc56277e20138a9f2b45ec851c06b653a75eac36a471",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-conceptual/nomosmart-conceptual-territories.png",
+      "bytes": 342085,
+      "tracked": true,
+      "original_sha256": "b13dbc6dc5b007e68489818fdb17c9e2cd570bf3cd5b89aaf9f97e31ad50f3fc",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-conceptual/nomosmart-conceptual-territories.png",
+      "archived_sha256": "b13dbc6dc5b007e68489818fdb17c9e2cd570bf3cd5b89aaf9f97e31ad50f3fc",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-conceptual/nomosmart-conceptual-territories.svg",
+      "bytes": 10289,
+      "tracked": true,
+      "original_sha256": "7d739f8abb11f72593d13b1103047e1b70ccbdac88df36115b95fadfca87425f",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-conceptual/nomosmart-conceptual-territories.svg",
+      "archived_sha256": "7d739f8abb11f72593d13b1103047e1b70ccbdac88df36115b95fadfca87425f",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-constellation-square/nomosmart-rounded-square-constellations.svg",
+      "bytes": 15715,
+      "tracked": true,
+      "original_sha256": "3ea13898f9a2bc54aa35e9d4c7ea0edcefc0aecef6bcaccef0040de4b12b7cb6",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-constellation-square/nomosmart-rounded-square-constellations.svg",
+      "archived_sha256": "3ea13898f9a2bc54aa35e9d4c7ea0edcefc0aecef6bcaccef0040de4b12b7cb6",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-constellation-square/nomosmart-rounded-square-constellations.png",
+      "bytes": 525043,
+      "tracked": true,
+      "original_sha256": "c3b48d6064b1889050bf0fd7d7e8ec063d8e7998f65770777ebb0bf04501667b",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-constellation-square/nomosmart-rounded-square-constellations.png",
+      "archived_sha256": "c3b48d6064b1889050bf0fd7d7e8ec063d8e7998f65770777ebb0bf04501667b",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-options/nomosmart-six-more-logo-options.svg",
+      "bytes": 16689,
+      "tracked": true,
+      "original_sha256": "70b830929401443f06cea72c3431847a37f77f73560887d1e0d87a6404611bd8",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-options/nomosmart-six-more-logo-options.svg",
+      "archived_sha256": "70b830929401443f06cea72c3431847a37f77f73560887d1e0d87a6404611bd8",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-options/nomosmart-six-more-logo-options.png",
+      "bytes": 398109,
+      "tracked": true,
+      "original_sha256": "35ac36087735e4448307c089d21568cfdda93011a067a8e8dc4e897150246ece",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-options/nomosmart-six-more-logo-options.png",
+      "archived_sha256": "35ac36087735e4448307c089d21568cfdda93011a067a8e8dc4e897150246ece",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-options/nomosmart-six-logo-options.svg",
+      "bytes": 16831,
+      "tracked": true,
+      "original_sha256": "db4e6a55bd1f53870debba309554671ed9ed791325b1e9468e44edb1b7a072d9",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-options/nomosmart-six-logo-options.svg",
+      "archived_sha256": "db4e6a55bd1f53870debba309554671ed9ed791325b1e9468e44edb1b7a072d9",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-options/nomosmart-six-logo-options.png",
+      "bytes": 400251,
+      "tracked": true,
+      "original_sha256": "dca29a2bb829bd894eb8965b6be4babc73d8257353cdfc5778755b904c137885",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-options/nomosmart-six-logo-options.png",
+      "archived_sha256": "dca29a2bb829bd894eb8965b6be4babc73d8257353cdfc5778755b904c137885",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-v2/nomosmart-logo-concepts-v2.png",
+      "bytes": 540388,
+      "tracked": true,
+      "original_sha256": "23df0bec45a361bbbd6bb92ab1264fe233e58517be63f2cc8fc616fe11da03a2",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-v2/nomosmart-logo-concepts-v2.png",
+      "archived_sha256": "23df0bec45a361bbbd6bb92ab1264fe233e58517be63f2cc8fc616fe11da03a2",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/branding-v2/nomosmart-logo-concepts-v2.svg",
+      "bytes": 14056,
+      "tracked": true,
+      "original_sha256": "fce118503f17c874de1c1ef17eb292708e3c5fd03cbefc24d99c2f1142ac2190",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/branding-v2/nomosmart-logo-concepts-v2.svg",
+      "archived_sha256": "fce118503f17c874de1c1ef17eb292708e3c5fd03cbefc24d99c2f1142ac2190",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-email-v3.png",
+      "bytes": 650544,
+      "tracked": true,
+      "original_sha256": "739b0dda5fbe92c3d32bcf4b41987428cdff310a448269451ddd5a275e6f5d86",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-email-v3.png",
+      "archived_sha256": "739b0dda5fbe92c3d32bcf4b41987428cdff310a448269451ddd5a275e6f5d86",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v5.png",
+      "bytes": 3467326,
+      "tracked": true,
+      "original_sha256": "b0cadd4205aab30616d6cbfb3ccf25536cac935a02c0bc5dd768ceb9f3a06ea9",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v4.png",
+      "bytes": 3169065,
+      "tracked": true,
+      "original_sha256": "66950148af9a52787449a05d316fd1985f00a187806658a8db86fcf312bcebce",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v4.png",
+      "archived_sha256": "66950148af9a52787449a05d316fd1985f00a187806658a8db86fcf312bcebce",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-email-v2.png",
+      "bytes": 588097,
+      "tracked": true,
+      "original_sha256": "614d0a571b57b23c9bef2f04eb65f045c839b6e7f8cc9d090dd94056453d768d",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-email-v2.png",
+      "archived_sha256": "614d0a571b57b23c9bef2f04eb65f045c839b6e7f8cc9d090dd94056453d768d",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-email-v5.png",
+      "bytes": 739139,
+      "tracked": true,
+      "original_sha256": "f7a85423dc84c682cbb88ce007fd1d8121e8a30e13429207ad8c89fc4bc6592f",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v3.png",
+      "bytes": 2975316,
+      "tracked": true,
+      "original_sha256": "6b8c8d55ea845ffcf190c04c76f1f014d63e0ee7a56797e3f91f035221e2154a",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v3.png",
+      "archived_sha256": "6b8c8d55ea845ffcf190c04c76f1f014d63e0ee7a56797e3f91f035221e2154a",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v2.png",
+      "bytes": 2777655,
+      "tracked": true,
+      "original_sha256": "4e6a4e1f701a1f4d2f287649d06ae875a9a630327dca11601bf26c7892c5eaca",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v2.png",
+      "archived_sha256": "4e6a4e1f701a1f4d2f287649d06ae875a9a630327dca11601bf26c7892c5eaca",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-email-v4.png",
+      "bytes": 692220,
+      "tracked": true,
+      "original_sha256": "02946b2a70ef546a526e4f95e257a375da0bc8adb4f82a5492b65614c4bedde5",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-email-v4.png",
+      "archived_sha256": "02946b2a70ef546a526e4f95e257a375da0bc8adb4f82a5492b65614c4bedde5",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v5.html",
+      "bytes": 100114,
+      "tracked": true,
+      "original_sha256": "a789b66ec1c115f97e7caf436900a04c929d8901b570f92cd08d76815b5e6986",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-email.png",
+      "bytes": 430181,
+      "tracked": true,
+      "original_sha256": "1cd890ea4981b5eebde3368d5d71ba20c382891912d18d37c6de08052403c3f7",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-email.png",
+      "archived_sha256": "1cd890ea4981b5eebde3368d5d71ba20c382891912d18d37c6de08052403c3f7",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v4.html",
+      "bytes": 86264,
+      "tracked": true,
+      "original_sha256": "491125471d4698bd554ecfbaa8ced1e99346b8b9ca96540eba1a734d46088ad8",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v4.html",
+      "archived_sha256": "57ef23d430655b2f0b765ec2d8ff6e8a2d4662ed8f4cdd370c91ab06ce5819e8",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": true
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v5-2x.png",
+      "bytes": 6628844,
+      "tracked": true,
+      "original_sha256": "6d78d6d5cb26e9856114977af38c53311a963083b38d47b6288a7d07c70966ec",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v5-full-hd.png",
+      "bytes": 2690182,
+      "tracked": true,
+      "original_sha256": "f51c01cc0d4ad0b22f457b6b2f7343825e43587f07177bb5aaff43886b19409c",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v3.html",
+      "bytes": 75660,
+      "tracked": true,
+      "original_sha256": "68a62c7d5c994fc70c5e1cfe840efe0d836a52af05958454450ccb7430d0c924",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v3.html",
+      "archived_sha256": "d93f2c9d3f20e90fa8ac14945b0de8947dda60595dc2e05682ad8adb8d831622",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": true
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster-v2.html",
+      "bytes": 43489,
+      "tracked": true,
+      "original_sha256": "4e789c17ca735ef3abe1934a4c633eddce01e4b5c1541af97a37ad6ea49226a2",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster-v2.html",
+      "archived_sha256": "944e6fcb0e4cea3845b4db525081cb9870574b080d7e655f66c63fbd5974ee0e",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": true
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster.png",
+      "bytes": 2203682,
+      "tracked": true,
+      "original_sha256": "1cff1fa8b4f9e8dbd6a41ca9dc6bd2d13398c98e6fe5c2439738a39b265e14b2",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster.png",
+      "archived_sha256": "1cff1fa8b4f9e8dbd6a41ca9dc6bd2d13398c98e6fe5c2439738a39b265e14b2",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": false
+    },
+    {
+      "path": "design/poster/nomosmart-internal-poster.html",
+      "bytes": 33534,
+      "tracked": true,
+      "original_sha256": "fc18f3d1c9f2f65f964f8cd70a543b9f550dddebc5116be3f1314d4e99ff672b",
+      "disposition": "ARCHIVED",
+      "archived_path": "design/archive/CHG-310/poster/nomosmart-internal-poster.html",
+      "archived_sha256": "f38abfcdab0e2df3885fb05572ac0d70c7c99f08869dee3b6af62df79f3d5a44",
+      "reason": "Superseded exploration or v1-v4 poster; reversible archive preserves provenance",
+      "html_links_updated": true
+    },
+    {
+      "path": "design/branding-v3/nomosmart-logo-primary-2x.png",
+      "bytes": 30384,
+      "tracked": true,
+      "original_sha256": "8bf882c43af4b281e1eb62575b9b397213c1e7710e19ad5ec080db96487c32e0",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-mark.svg",
+      "bytes": 727,
+      "tracked": true,
+      "original_sha256": "9d0c0c725bf000d07e0c34d04f1957f80dd3ac398790164c5384cf5bfa004c1a",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-logo-v3-board.svg",
+      "bytes": 9378,
+      "tracked": true,
+      "original_sha256": "3f224d9f186539d18e633c1cfa4bae305019e93ebe52d356a4056808bb237fa5",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-logo-reversed.svg",
+      "bytes": 1189,
+      "tracked": true,
+      "original_sha256": "eb887fc28325e4f6b08e5fff36717534dcbbe8f444df49419ffea45ba2f031da",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-mark-1024.png",
+      "bytes": 39750,
+      "tracked": true,
+      "original_sha256": "4f069c1263f8eb0bddc3ef0699f50f7e41c27a55bdec41d1beb3f635de7a4097",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-logo-v3-board.png",
+      "bytes": 271724,
+      "tracked": true,
+      "original_sha256": "9cfb6ec2e55ceafb3c46f6dbcdb33fe51fcf5cd703f6ce1f5fbb87f1b5c061ee",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    },
+    {
+      "path": "design/branding-v3/nomosmart-logo-primary.svg",
+      "bytes": 1200,
+      "tracked": true,
+      "original_sha256": "764579be720b6ec54d948be34d3078e41163151e9da18de2169ca0450bff741c",
+      "disposition": "RETAINED",
+      "reason": "Current branding-v3 / latest v5 poster retained as approved design provenance"
+    }
+  ]
+}

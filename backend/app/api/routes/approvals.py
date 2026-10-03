@@ -35,6 +35,7 @@ from app.api.schemas import (
     SwitchActiveVersionPayload,
 )
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
+from app.domain.approval_access import approval_request_read_predicate, can_decide_approval, require_approval_read
 from app.domain.document_layout import hydrate_document_layout_inline_markdown
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
@@ -275,7 +276,7 @@ def pending_publish_versions(context: IdentityContext = Depends(get_identity_con
 
 @router.get("/approval-requests", response_model=list[ApprovalRequestResponse])
 def list_approval_requests(context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> list[ApprovalRequestResponse]:
-    requests = list(session.scalars(select(ApprovalRequest).join(Project, Project.id == ApprovalRequest.project_id).where(Project.status == "active", ApprovalRequest.project_id.in_(context.visible_project_ids)).order_by(ApprovalRequest.submitted_at.desc()).limit(100)))
+    requests = list(session.scalars(select(ApprovalRequest).join(Project, Project.id == ApprovalRequest.project_id).where(Project.status == "active", approval_request_read_predicate(session, context)).order_by(ApprovalRequest.submitted_at.desc()).limit(100)))
     return [_approval_request_response(session, request) for request in requests]
 
 
@@ -284,7 +285,7 @@ def get_approval_request(approval_request_id: UUID, context: IdentityContext = D
     request = session.get(ApprovalRequest, approval_request_id)
     if request is None:
         raise AppError("approval_request_not_found", "Approval request was not found", status_code=404)
-    require_project_scope(request.project_id, set(context.visible_project_ids))
+    require_approval_read(session, request.id, context)
     _require_active_project(session, request.project_id)
     return _approval_request_response(session, request)
 
@@ -310,6 +311,8 @@ def get_approval_task(approval_task_id: UUID, context: IdentityContext = Depends
         read_only_reason = "version_changed"
     elif task.status != "pending":
         read_only_reason = "task_completed"
+    elif not can_decide_approval(session, task, context):
+        read_only_reason = "approval_actor_required"
     records = list(session.scalars(select(ReviewRecord).where(ReviewRecord.document_version_id == task.document_version_id).order_by(ReviewRecord.created_at)))
     manifest_row = session.scalar(
         select(ApprovalEvidenceManifest).where(ApprovalEvidenceManifest.approval_request_id == request.id)
@@ -365,14 +368,20 @@ def get_approval_task(approval_task_id: UUID, context: IdentityContext = Depends
             )
         )
     chat_records = compact_chat_records
+    document_summary = _document_summary(document, version)
+    document_summary.capabilities["can_publish"] = (
+        version.status == "approved"
+        and task.project_id in context.visible_project_ids
+        and session.get(ProjectOwner, (task.project_id, context.user_id)) is not None
+    )
     return ApprovalTaskDetail(
         task=task,
         request=request,
-        document=_document_summary(document, version),
+        document=document_summary,
         version=_version_summary(version),
         latest_version_id=latest_version_id,
         evidence_stale=evidence_stale,
-        read_only=evidence_stale or task.status != "pending",
+        read_only=read_only_reason is not None,
         read_only_reason=read_only_reason,
         evidence_revision=manifest_row.evidence_revision if manifest_row is not None else request.evidence_revision,
         evidence_generated_at=manifest_row.generated_at if manifest_row is not None else None,
@@ -805,7 +814,10 @@ def _scoped_task(session: Session, task_id: UUID, context: IdentityContext, *, f
     task = session.get(ApprovalTask, task_id)
     if task is None:
         raise AppError("approval_task_not_found", "Approval task was not found", status_code=404)
-    require_project_scope(task.project_id, set(context.visible_project_ids))
+    if for_decision:
+        require_project_scope(task.project_id, set(context.visible_project_ids))
+    else:
+        require_approval_read(session, task.approval_request_id, context)
     _require_active_project(session, task.project_id)
     if for_decision and task.review_stage == "manager_review" and task.assignee_user_id != context.user_id:
         raise AppError("approval_assignee_required", "This approval task is assigned to another user", status_code=403)

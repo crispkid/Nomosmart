@@ -15,7 +15,7 @@ import sys
 import tarfile
 import tempfile
 import time
-from typing import Any, Callable, Final, Sequence
+from typing import Any, Final, Sequence
 
 from . import __version__
 from .publication import inspect_publication_files, validate_application_images
@@ -50,13 +50,14 @@ PROHIBITED_CONTENT = (
     re.compile(rb"\bgh[pousr]_[A-Za-z0-9_]{20,}\b"),
 )
 PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
-    (".", ("README.md", "README.zh-TW.md", "LICENSE", "docker-compose.yml")),
+    (".", ("README.md", "README.zh-TW.md", "LICENSE", "docker-compose.yml", "nomosmart")),
     ("backend", (".env.example",)),
     ("frontend", (".env.example",)),
     ("deploy", ("README.md",)),
     ("deploy/local", ("README.md", "README.zh-TW.md", "prepare-static-pvs.py", "prepare-helm.py", "prepare-ingress.py", "source-tunnel.example.json")),
     ("deploy/docker", (
-        "15-public-api-config.sh", "16-document-upload-config.sh", "nginx.conf.template",
+        "15-public-api-config.sh", "16-document-upload-config.sh", "17-public-origin-config.sh",
+        "nomosmart_cli.py", "nginx.conf.template",
         "nomosmart.env.example", "compose-secret-entrypoint.sh", "secret-env-entrypoint.sh",
         "postgresql-init.sh", "ssh_known_hosts.example",
     )),

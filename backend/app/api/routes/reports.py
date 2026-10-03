@@ -48,7 +48,7 @@ from app.db.models import (
 from app.db.session import get_db
 from app.domain.report_policy import ReportScopePolicy
 from app.security.context import IdentityContext, get_identity_context
-from app.security.permissions import MENU_REPORTS, MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission, require_menu_permission
+from app.security.permissions import MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission
 from app.services.audit import add_audit
 
 
@@ -526,12 +526,6 @@ def _validated_scope(scope: str) -> str:
     return normalized
 
 
-def _resolved_scope(scope: str | None, context: IdentityContext) -> str:
-    if scope is not None:
-        return _validated_scope(scope)
-    if has_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW):
-        return "system"
-    return "accessible"
 
 
 def _validate_date_range(date_from: datetime | None, date_to: datetime | None) -> None:
@@ -571,21 +565,6 @@ def _scope_project_count(session: Session, project_ids: set[UUID] | None) -> int
     return int(session.scalar(statement) or 0)
 
 
-def _scoped_project_ids(
-    session: Session,
-    context: IdentityContext,
-    scope: str,
-    project_id: UUID | None,
-) -> set[UUID] | None:
-    scopes = _available_scope_project_ids(session, context)
-    if scope not in scopes:
-        raise AppError("report_scope_denied", "The requested report scope is not available", status_code=403)
-    visible = scopes[scope]
-    if project_id is not None:
-        if visible is not None and project_id not in visible:
-            raise AppError("project_scope_denied", "Report project is outside the user's visible scope", status_code=403)
-        return {project_id}
-    return visible
 
 
 def _summary_metrics(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> list[ReportMetricCard]:
@@ -1972,10 +1951,6 @@ def _count_notifications(session: Session, project_ids: set[UUID], *, unresolved
     return int(session.scalar(query) or 0)
 
 
-def _pipeline_retry_count(session: Session, run_ids: list[UUID]) -> int:
-    if not run_ids:
-        return 0
-    return int(session.scalar(select(func.coalesce(func.sum(PipelineRunStep.retry_count), 0)).where(PipelineRunStep.run_id.in_(run_ids))) or 0)
 
 
 def _no_answer_rate(session: Session, project_ids: set[UUID], date_from: datetime | None, date_to: datetime | None) -> float:
@@ -2045,12 +2020,6 @@ def _rate(numerator: int | float, denominator: int | float) -> float:
     return round(float(numerator) / float(denominator), 6) if denominator else 0.0
 
 
-def _percentile(values: list[float], percentile: float) -> float | None:
-    if not values:
-        return None
-    ordered = sorted(values)
-    index = min(len(ordered) - 1, max(0, round((len(ordered) - 1) * percentile)))
-    return round(ordered[index], 2)
 
 
 def _float(value) -> float | None:

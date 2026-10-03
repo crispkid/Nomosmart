@@ -2,7 +2,7 @@
 
 [繁體中文](README.zh-TW.md)
 
-Use the `v0.1.1` source or a verified `nomosmart-0.1.1` installation package. This directory contains local PV, Helm configuration and ingress preparation helpers. Keep operator configuration and secrets outside the immutable package. Production installation retains its package verification and onboarding requirements.
+Use the `v0.1.2` source or a verified `nomosmart-0.1.2` installation package. This directory contains local PV, Helm configuration and ingress preparation helpers. Keep operator configuration and secrets outside the immutable package. Production installation retains its package verification and onboarding requirements.
 
 Run one method at a time. Compose follows root README Method 1; native development follows Method 4. The steps below provide the local Kubernetes path for Methods 2 and 3. All services are real. The ingress simulation uses an official controller, HTTPS and actual routes. No application login, model requests or product workflow is needed for installation validation.
 

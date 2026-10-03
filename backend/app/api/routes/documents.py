@@ -18,11 +18,11 @@ from sqlalchemy.orm import Session
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
 from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentLayoutArtifact, DocumentLayoutBlock, DocumentLayoutPage, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, KnowledgeTagResponse, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.errors import AppError
-from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun, ValidationRunItem
+from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
 from app.domain.ai_provider import generate_knowledge_tags
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
-from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation, require_ready_chunk_artifacts
+from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
 from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction

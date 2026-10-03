@@ -127,14 +127,6 @@ export type OperationsStatusResponse = {
   recent_errors: OperationRecentError[];
 };
 
-export async function publicApiJson<T>(path: string, init: RequestInit = {}): Promise<T> {
-  const response = await fetch(`${apiBaseUrl()}${path}`, { ...init, cache: "no-store" });
-  if (!response.ok) {
-    throw await apiResponseError(response);
-  }
-  return await response.json() as T;
-}
-
 export type AIModelResponse = {
   id: string;
   name: string;
@@ -214,6 +206,7 @@ export type ProjectResponse = {
 };
 
 export type ProjectCapabilities = {
+  can_publish?: boolean;
   can_upload: boolean;
   can_update_source: boolean;
   can_start_extraction: boolean;
@@ -1250,7 +1243,6 @@ export type IdentitySettingsCandidate = {
 };
 
 export async function getCurrentUser(apiFetch: ApiFetch) { return apiJson<CurrentUser>(apiFetch, "/auth/me"); }
-export async function createSessionDraft(apiFetch: ApiFetch, payload: { form_key: string; return_path: string; nonce: string; payload: Record<string, unknown> }) { return apiJson<SessionDraftCreateResponse>(apiFetch, "/auth/session-drafts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function restoreSessionDraft(apiFetch: ApiFetch, draftId: string, payload: { return_path: string; nonce: string }) { return apiJson<SessionDraftRestoreResponse>(apiFetch, `/auth/session-drafts/${draftId}/restore`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function discardSessionDraft(apiFetch: ApiFetch, draftId: string, payload: { return_path: string; nonce: string }) { return apiJson<{ status: string }>(apiFetch, `/auth/session-drafts/${draftId}/discard`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListOptions = {}): Promise<ProjectListPage> {
@@ -1404,35 +1396,14 @@ export async function getDocumentLifecycleImpact(apiFetch: ApiFetch, projectId: 
 export async function updateDocumentLifecycle(apiFetch: ApiFetch, projectId: string, documentId: string, payload: { lock_version: number; status: string; impact_confirmed?: boolean; reason?: string | null }) {
   return apiJson<DocumentSummary>(apiFetch, `/projects/${projectId}/documents/${documentId}/lifecycle`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function listProjectDocumentReferences(apiFetch: ApiFetch, projectId: string) {
-  return apiJson<DocumentReferenceResponse[]>(apiFetch, `/projects/${projectId}/document-references`);
-}
 export async function listProjectReferenceSources(apiFetch: ApiFetch, projectId: string) {
   return apiJson<ReferenceSourceProjectResponse[]>(apiFetch, `/projects/${projectId}/reference-sources`);
-}
-export async function createProjectDocumentReference(apiFetch: ApiFetch, projectId: string, payload: { source_document_id: string; source_version_id?: string | null; reference_mode?: "linked" | "detached" }) {
-  return apiJson<DocumentReferenceResponse>(apiFetch, `/projects/${projectId}/document-references`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
 export async function importProjectDocumentReferences(apiFetch: ApiFetch, projectId: string, payload: { mode: "reference" | "copy"; items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }> }) {
   return apiJson<DocumentReferenceImportResponse>(apiFetch, `/projects/${projectId}/document-references/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function detachDocumentReference(apiFetch: ApiFetch, referenceId: string) {
-  return apiJson<DocumentReferenceResponse>(apiFetch, `/document-references/${referenceId}/detach`, { method: "POST" });
-}
-export async function requestDocumentReferenceSync(apiFetch: ApiFetch, referenceId: string) {
-  return apiJson<DocumentReferenceEventResponse>(apiFetch, `/document-references/${referenceId}/sync`, { method: "POST" });
-}
 export async function updateDocumentReferenceVersion(apiFetch: ApiFetch, referenceId: string, payload: { source_version_id: string; old_version_confirmed?: boolean }) {
   return apiJson<DocumentUpdateResponse>(apiFetch, `/document-references/${referenceId}/update`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
-}
-export async function listDocumentReferenceEvents(apiFetch: ApiFetch, projectId?: string) {
-  return apiJson<DocumentReferenceEventResponse[]>(apiFetch, `/document-reference-events${projectId ? `?project_id=${projectId}` : ""}`);
-}
-export async function getImpactedReferenceProjects(apiFetch: ApiFetch, sourceDocumentId: string) {
-  return apiJson<ImpactedReferenceProjectsResponse>(apiFetch, `/document-reference-events/impacted-projects?source_document_id=${sourceDocumentId}`);
-}
-export async function resolveDocumentReferenceEvent(apiFetch: ApiFetch, eventId: string) {
-  return apiJson<DocumentReferenceEventResponse>(apiFetch, `/document-reference-events/${eventId}/resolve`, { method: "POST" });
 }
 export async function getProjectGraph(apiFetch: ApiFetch, projectId: string, nodeLimit = 120) {
   return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph?node_limit=${nodeLimit}`);
@@ -1440,10 +1411,6 @@ export async function getProjectGraph(apiFetch: ApiFetch, projectId: string, nod
 export async function getProjectGraphNeighbors(apiFetch: ApiFetch, projectId: string, nodeId: string, nodeLimit = 80) {
   const params = new URLSearchParams({ node_id: nodeId, node_limit: String(nodeLimit) });
   return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph/neighbors?${params.toString()}`);
-}
-export async function getProjectGraphPaths(apiFetch: ApiFetch, projectId: string, sourceId: string, targetId: string, maxDepth = 4, nodeLimit = 120) {
-  const params = new URLSearchParams({ source_id: sourceId, target_id: targetId, max_depth: String(maxDepth), node_limit: String(nodeLimit) });
-  return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph/paths?${params.toString()}`);
 }
 export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, nodeLimit = 120) {
   return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/graph?node_limit=${nodeLimit}`);
@@ -1453,9 +1420,6 @@ export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: str
 }
 export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, payload: { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null }) {
   return apiJson<ProjectChatQueryResponse>(apiFetch, `/projects/${projectId}/chat/query`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
-}
-export async function listProjectChatConversations(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string }) {
-  return (await listProjectChatConversationPage(apiFetch, projectId, options)).items;
 }
 export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string }) {
   const params = new URLSearchParams();
@@ -1497,14 +1461,6 @@ export async function getProjectChatValidationRun(apiFetch: ApiFetch, projectId:
 }
 export async function retryFailedProjectChatValidationItems(apiFetch: ApiFetch, projectId: string, runId: string) {
   return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}/retry-failed`, { method: "POST" });
-}
-export async function cancelProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, runId: string) {
-  return apiJson<{ validation_run_id: string; status: "cancelled"; cancelled_item_count: number; completed_at: string }>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}/cancel`, { method: "POST" });
-}
-export async function downloadProjectChatValidationCsv(apiFetch: ApiFetch, projectId: string, runId: string) {
-  const response = await apiFetch(`${apiBaseUrl()}/projects/${projectId}/chat/validation-runs/${runId}/export.csv`, { cache: "no-store" });
-  if (!response.ok) throw await apiResponseError(response);
-  return response.blob();
 }
 export type ModelUsageReportFilters = { modelType?: string; usagePurpose?: string; sourceChannel?: string; usageStatus?: string };
 export type ReportQueryParams = { topic: string; dateFrom?: string; dateTo?: string; scope?: string; projectId?: string | null; page?: number; pageSize?: number } & ModelUsageReportFilters;
@@ -1588,8 +1544,6 @@ export async function createSystemPrompt(apiFetch: ApiFetch, payload: SystemProm
 export async function addSystemPromptVersion(apiFetch: ApiFetch, promptId: string, payload: SystemPromptVersionPayload) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/versions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function activateSystemPrompt(apiFetch: ApiFetch, promptId: string, versionId?: string | null) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/activate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ version_id: versionId ?? null }) }); }
 export async function deactivateSystemPrompt(apiFetch: ApiFetch, promptId: string) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/deactivate`, { method: "POST" }); }
-export async function getModelSystemPrompt(apiFetch: ApiFetch, modelId: string) { return apiJson<SystemPromptResponse>(apiFetch, `/models/${modelId}/system-prompt`); }
-export async function updateModelSystemPrompt(apiFetch: ApiFetch, modelId: string, payload: SystemPromptVersionPayload) { return apiJson<SystemPromptResponse>(apiFetch, `/models/${modelId}/system-prompt`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getPermissions(apiFetch: ApiFetch, roleId: string) { return apiJson<PermissionMatrixResponse>(apiFetch, `/roles/${roleId}/permissions`); }
 export async function replacePermissions(apiFetch: ApiFetch, roleId: string, payload: PermissionMatrixResponse) { return apiJson<PermissionMatrixResponse>(apiFetch, `/roles/${roleId}/permissions`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getRoleUsers(apiFetch: ApiFetch, roleId: string) { return apiJson<RoleUsersResponse>(apiFetch, `/roles/${roleId}/users`); }

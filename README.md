@@ -10,7 +10,7 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.1.1` includes installation fixes, tools, SQL, configuration templates, and documentation. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json). Prepare an isolated environment following the selected installation method.
+Release `0.1.2` includes Docker startup automation, authorization and login fixes, cleanup, tools, SQL, configuration templates, and documentation. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json). Prepare an isolated environment following the selected installation method.
 
 ## 2. Key Features
 
@@ -59,7 +59,7 @@ Before the application reports that it is ready, setup jobs create or update the
 | Search | OpenSearch 2.19 | Keyword, vector, hybrid, and staging indexes |
 | Graph | Neo4j 5.26 Community | Knowledge relationships and traversal |
 | Identity | Keycloak 26.0.8, OIDC, LDAP/AD federation | Authentication, directory synchronization, and role mapping |
-| Deployment | Docker Compose v2, Helm chart 0.1.1 | Single-host and Kubernetes deployment |
+| Deployment | Docker Compose v2, Helm chart 0.1.2 | Single-host and Kubernetes deployment |
 
 ## 5. Project Structure
 
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. Getting Started
 
-Release `0.1.1` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
+Release `0.1.2` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
 
 ### 6.1 Select an installation method
 
@@ -119,19 +119,19 @@ Kubernetes production installation requires at least three Ready schedulable nod
 
 The repository is private. A GitHub account with repository access is required for cloning and downloading the Release; image pulls also need access to the NomoSmart GHCR packages. Authenticate Git with your credential manager. Keep access tokens out of configuration examples and command-line arguments.
 
-For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.1.1 Release:
+For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.1.2 Release:
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.1"
-gh release download v0.1.1 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.1.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.1"
-tar -xzf "$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.1"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.1.2"
+gh release download v0.1.2 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.1.2.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.1.2"
+tar -xzf "$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.1.2"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2"
 ```
 
 Use a new download directory for each release. Follow Section 8.2 to check the extracted package before use. GitHub access and GHCR pull access are separate: provide a registry credential with package-read permission through the installer’s `registry_pull_secret`. The full profile also needs network access to Docker Hub, Quay, GHCR, OpenSearch artifacts, and the upstream CloudNativePG/Barman download locations listed in the lock file.
@@ -155,12 +155,37 @@ Compose keeps dependency ports inside its private network. The `debug` profile e
 
 Docker Compose is the simplest way to run the complete platform on one machine. It builds the application, starts every required service, updates the database, prepares the platform, and provides one HTTPS address.
 
+### 7.0 Start and manage Docker with one command
+
+This entry point is included in the 0.1.2 source and installation package. Previously published `v0.1.1` tags and archives remain unchanged; use their manual installation steps below. When first managing an existing source deployment, use `up --build` to apply the current source.
+
+From a source checkout or a verified package, with Docker running and Python 3.11 or newer and OpenSSL available; low-port inspection may also require `lsof`:
+
+```bash
+./nomosmart up
+./nomosmart status --json
+./nomosmart logs backend --tail 100
+./nomosmart down
+```
+
+First use generates private random credentials, TLS and `deploy/docker/nomosmart.env`, explicitly loads the complete bundled profiles, builds source images (or pulls the package's pinned images), runs migration/bootstrap and waits for strict HTTPS readiness. Subsequent runs reuse configuration, credentials and data. `down` keeps named volumes and generated material. Source changes require `./nomosmart up --build`; the default deadline is 1800 seconds (`--timeout 30..7200`).
+
+The default address is `https://nomosmart.local` on loopback ports80/443. Prepare hostname resolution as described below and explicitly trust the generated CA in your browser. To avoid changing hostname mappings or occupied default ports on a fresh local installation:
+
+```bash
+./nomosmart up --public-host localhost --http-port 8080 --https-port 8443
+```
+
+These flags and `--project-name` configure only a fresh installation; they cannot silently replace existing settings. The summary shows the URL, initial account and private password/CA file locations; passwords are not printed. Change the temporary password at first login, then configure your enterprise identity and AI models as needed. Production/external-service deployments retain their explicit operator configuration and initialization requirements. Linux and macOS Docker Desktop are supported by this workflow.
+
+`logs` emits safe operational fields and severity summaries; raw content is suppressed. Use existing Compose tools locally when more detailed private diagnosis is necessary. Failures retain resources/configuration for inspection and rerun, rather than clearing data. The following sections remain available for prerequisites and manual initialization/Compose operation; do not run a second initializer over an installation created by `up`.
+
 ### 7.1 Obtain the source
 
 Clone the Repository and enter its root directory:
 
 ```bash
-git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -171,7 +196,7 @@ Record the reviewed source revision containing the installation fixes:
 git rev-parse HEAD
 ```
 
-Keep the exact commit SHA with the installation record. Use the `v0.1.1` source tag to reproduce this release.
+Keep the exact commit SHA with the installation record. Use the `v0.1.2` source tag to reproduce this release.
 
 ### 7.2 Verify host tools
 
@@ -744,7 +769,7 @@ Source development runs the Frontend, Backend, Worker, and Beat directly on a de
 ### 10.1 Install source dependencies
 
 ```bash
-git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -1241,7 +1266,7 @@ Use a directory account for this verification; the local emergency account verif
 | Process health | `/api/v1/health` | Returns `{"status":"healthy"}` |
 | Dependency readiness | `/api/v1/ready` | Returns `ready` details or HTTP 503 |
 
-The FastAPI application version is `0.1.1`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
+The FastAPI application version is `0.1.2`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
 
 ### 12.2 Public chat example
 

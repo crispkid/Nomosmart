@@ -12,7 +12,7 @@ from .barman_cloud import BarmanCloud
 from .capacity import rendered_capacity_plan, validate_live_capacity
 from .cloudnativepg import CloudNativePG
 from .core import PreconditionError, Runner, sha256_file
-from .kube import CONFIG_ANNOTATION, OWNER_LABEL, Kubernetes
+from .kube import OWNER_LABEL, Kubernetes
 from .package import PackageManager
 
 

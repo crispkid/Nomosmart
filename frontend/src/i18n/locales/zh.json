@@ -657,6 +657,7 @@
   "approvalPublishControl": "發布控管",
   "approvalPublishControlHelp": "審核後需明確發布",
   "approvalLoadFailed": "無法載入簽核資料",
+  "approvalActorRequired": "你可以檢視此簽核資料；核准或退回須由目前指派的審核者或專案 Owner 執行。",
   "approvalPendingList": "待處理清單",
   "approvalDocument": "文件",
   "approvalVersion": "版本",

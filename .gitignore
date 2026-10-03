@@ -267,3 +267,6 @@ local-data/
 /records/
 /reports/
 /evidence/
+
+# Private Docker lifecycle state (CHG-313).
+/deploy/docker/.nomosmart-workflow/

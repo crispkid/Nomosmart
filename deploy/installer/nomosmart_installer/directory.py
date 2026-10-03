@@ -5,7 +5,7 @@ import time
 from typing import Any
 from urllib.parse import quote, urlencode
 
-from .config import IdentityConfig, InstallConfig
+from .config import InstallConfig
 from .core import DriftError, InstallerError, PreconditionError, Redactor
 from .kube import CONFIG_ANNOTATION, OWNER_LABEL, Kubernetes
 from .tls_client import TLSClient, TLSClientError

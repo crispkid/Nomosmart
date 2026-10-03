@@ -40,17 +40,7 @@ from app.domain.ai_provider import stream_rag_answer
 from app.domain.chat_citations import CitationStreamCompactor, citation_persistence_payload, compact_citation_view, validate_citation_markers
 from app.domain.integration_api_keys import api_key_hash
 from app.domain.model_usage import record_model_usage
-from app.domain.public_api_controls import (
-    IdempotencyReplay,
-    begin_idempotent_operation,
-    complete_idempotent_operation,
-    decrypt_payload,
-    encrypt_payload,
-    end_user_identity_hash,
-    enforce_rate_limit,
-    fail_idempotent_operation,
-    keyed_fingerprint,
-)
+from app.domain.public_api_controls import IdempotencyReplay, begin_idempotent_operation, complete_idempotent_operation, encrypt_payload, end_user_identity_hash, enforce_rate_limit, fail_idempotent_operation, keyed_fingerprint
 from app.domain.system_prompts import resolve_system_prompt
 
 

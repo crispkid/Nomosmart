@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
+import { LocaleProvider } from "@/components/LocaleProvider";
+import { htmlLangForLocale, isSupportedLocale, localePreferenceKey } from "@/lib/i18n";
 import type { RuntimeConfig } from "@/lib/runtimeConfig";
 import { authLogoutTimeout } from "@/lib/authSessionLifecycle";
 import { uploadWaitNoticeMs } from "@/lib/uploadProgress";
@@ -13,7 +16,9 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const preference = (await cookies()).get(localePreferenceKey)?.value ?? null;
+  const initialLocale = isSupportedLocale(preference) ? preference : "zh";
   const runtimeConfig: RuntimeConfig = {
     authLogoutTimeoutMs: authLogoutTimeout(process.env.FRONTEND_AUTH_LOGOUT_TIMEOUT_MS),
     uploadWaitNoticeMs: uploadWaitNoticeMs(process.env.FRONTEND_UPLOAD_WAIT_NOTICE_MS),
@@ -25,7 +30,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
   };
   const serializedConfig = JSON.stringify(runtimeConfig).replace(/</g, "\\u003c");
   return (
-    <html lang="zh-Hant">
+    <html lang={htmlLangForLocale(initialLocale)}>
       <body>
         <script
           id="nomosmart-runtime-config"
@@ -37,7 +42,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             __html: "window.__NOMOSMART_AUTH_HYDRATED__=false;window.setTimeout(function(){var path=window.location.pathname;var protectedPath=path==='/'||path==='/projects'||path.indexOf('/project/')===0||path==='/approve'||path.indexOf('/approve/')===0||path==='/reports'||path==='/system'||path==='/api-docs'||path==='/access-denied';if(protectedPath&&!window.__NOMOSMART_AUTH_HYDRATED__){window.location.replace('/login')}},5000);"
           }}
         />
-        <AuthProvider>{children}</AuthProvider>
+        <LocaleProvider initialLocale={initialLocale}><AuthProvider>{children}</AuthProvider></LocaleProvider>
       </body>
     </html>
   );

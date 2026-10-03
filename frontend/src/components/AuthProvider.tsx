@@ -12,6 +12,8 @@ import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { formatPersonName } from "@/lib/personName";
 import { AuthSessionLifecycle, authLogoutTimeout, RefreshFailure } from "@/lib/authSessionLifecycle";
 import { AuthRecoveryProbe } from "@/lib/authRecovery";
+import { loginRecoveryPath } from "@/lib/authFlowRecovery";
+import { OidcCallbackFlow } from "@/lib/oidcCallbackFlow";
 import { runtimeConfig } from "@/lib/runtimeConfig";
 import { isProtectedApplicationPage } from "@/lib/applicationRoutes";
 
@@ -23,6 +25,7 @@ type AuthValue = {
   authError: string | null;
   userDisplayName: string;
   installTokens: (tokens: OidcTokens) => boolean;
+  subscribeOidcCallback: (code: string, state: string, flowId: string) => () => void;
   apiFetch: (input: string, init?: RequestInit) => Promise<Response>;
   logout: () => Promise<void>;
   can: (moduleName: string, functionName: string, action: PermissionAction) => boolean;
@@ -49,6 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [restorePrompt, setRestorePrompt] = useState<{ draftId: string; nonce: string; returnPath: string } | null>(null);
   const [lifecycle] = useState(() => new AuthSessionLifecycle());
+  const [callbackFlow] = useState(() => new OidcCallbackFlow());
   const logoutPromise = useRef<Promise<void> | null>(null);
   const recheckPromise = useRef<Promise<void> | null>(null);
   const applicationAccessRef = useRef<"checking" | "granted" | "denied">("checking");
@@ -60,6 +64,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [connectionRecovery, setConnectionRecovery] = useState<"idle" | "waiting" | "checking" | "failed">("idle");
   const protectedPath = isProtectedApplicationPage(pathname);
   const routeBypassesAuth = !protectedPath;
+
+  useEffect(() => callbackFlow.retain(), [callbackFlow]);
+  useEffect(() => {
+    if (pathname !== "/auth/callback") callbackFlow.invalidate();
+  }, [callbackFlow, pathname]);
 
   useEffect(() => {
     (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true;
@@ -103,13 +112,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     sessionRecoveryStarted.current = true;
     authRedirecting.current = true;
     recoveryReturnPath.current = safeReturnPath(`${window.location.pathname}${window.location.search}`);
+    callbackFlow.invalidate();
     lifecycle.invalidate();
     applicationAccessRef.current = "checking";
     setCurrentUser(null); setTokens(null); setApplicationAccess("checking");
     setAuthReady(false); setAuthError(null); setRestorePrompt(null);
     recoveryProbe.current = new AuthRecoveryProbe();
     setConnectionRecovery("waiting");
-  }, [lifecycle]);
+  }, [callbackFlow, lifecycle]);
 
   const refresh = useCallback(async (generation: number, rejectedToken?: string) => {
     const next = await lifecycle.refresh(generation, "/api/auth/refresh", authLogoutTimeout(runtimeConfig().authLogoutTimeoutMs), rejectedToken);
@@ -121,12 +131,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const redirectAccountUnavailable = useCallback(() => {
     if (authRedirecting.current) return;
     authRedirecting.current = true;
+    callbackFlow.invalidate();
     lifecycle.invalidate();
     applicationAccessRef.current = "checking";
     setCurrentUser(null);
     setTokens(null);
     window.location.replace("/api/auth/login-recovery?mode=account_unavailable");
-  }, [lifecycle]);
+  }, [callbackFlow, lifecycle]);
 
   const expireSession = useCallback(() => {
     if (sessionRecoveryStarted.current) return;
@@ -134,6 +145,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     authRedirecting.current = true;
     const returnPath = safeReturnPath(`${window.location.pathname}${window.location.search}`);
     const draftToken = lifecycle.current()?.accessToken;
+    callbackFlow.invalidate();
     lifecycle.invalidate();
     const generation = lifecycle.generation();
     applicationAccessRef.current = "checking";
@@ -160,7 +172,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       if (lifecycle.generation() === generation) window.location.replace(`/api/auth/login-recovery?mode=session_expired&returnTo=${encodeURIComponent(nextReturnPath)}`);
     })();
-  }, [lifecycle]);
+  }, [callbackFlow, lifecycle]);
 
   const handleRefreshFailure = useCallback((error: unknown) => {
     if (error instanceof RefreshFailure && error.kind === "unavailable") waitForConnection();
@@ -381,6 +393,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [apiFetch, clearRestoreParams, restorePrompt]);
 
   const logout = useCallback(async () => {
+    callbackFlow.invalidate();
     if (logoutPromise.current) return logoutPromise.current;
     recoveryProbe.current?.stop(); recoveryProbe.current = null;
     const idToken = lifecycle.current()?.idToken;
@@ -399,7 +412,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const url = new URL(`${config.issuer}/protocol/openid-connect/logout`); url.searchParams.set("client_id", config.clientId); url.searchParams.set("post_logout_redirect_uri", config.logoutUrl); if (idToken) url.searchParams.set("id_token_hint", idToken); window.location.assign(url.toString());
     })();
     return logoutPromise.current;
-  }, [lifecycle]);
+  }, [callbackFlow, lifecycle]);
   const installTokens = useCallback((nextTokens: OidcTokens) => {
     if (lifecycle.isClosing()) return false;
     lifecycle.install(nextTokens);
@@ -411,6 +424,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setTokens(nextTokens);
     return true;
   }, [lifecycle]);
+  const subscribeOidcCallback = useCallback((code: string, state: string, flowId: string) => {
+    const generation = lifecycle.generation();
+    return callbackFlow.subscribe(code, state, generation, {
+      accepts: () => lifecycle.accepts(generation) && window.location.pathname === "/auth/callback",
+      success: (nextTokens, returnTo) => {
+        if (!installTokens(nextTokens)) return;
+        window.history.replaceState(null, "", "/auth/callback");
+        router.replace(returnTo);
+      },
+      failure: (mode) => window.location.replace(loginRecoveryPath(mode, flowId)),
+    });
+  }, [callbackFlow, installTokens, lifecycle, router]);
   const tokenDisplayName = useMemo(() => {
     if (!tokens?.idToken) return "NomoSmart";
     try {
@@ -424,7 +449,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((moduleName: string, functionName: string, action: PermissionAction) => can(currentUser?.permissions ?? [], moduleName, functionName, action), [currentUser]);
   const canViewModule = useCallback((moduleName: string) => canAnyView(currentUser?.permissions ?? [], moduleName), [currentUser]);
   const localizedAuthError = authError ? localize(authError) : null;
-  const value = useMemo(() => ({ tokens, currentUser, applicationAccess, authReady, authError: localizedAuthError, userDisplayName, installTokens, apiFetch, logout, can: hasPermission, canViewModule }), [apiFetch, applicationAccess, authReady, canViewModule, currentUser, hasPermission, installTokens, localizedAuthError, logout, tokens, userDisplayName]);
+  const value = useMemo(() => ({ tokens, currentUser, applicationAccess, authReady, authError: localizedAuthError, userDisplayName, installTokens, subscribeOidcCallback, apiFetch, logout, can: hasPermission, canViewModule }), [apiFetch, applicationAccess, authReady, canViewModule, currentUser, hasPermission, installTokens, subscribeOidcCallback, localizedAuthError, logout, tokens, userDisplayName]);
   const protectedContentReady = Boolean(tokens && authReady && currentUser && applicationAccess === "granted");
   return <AuthContext.Provider value={value}>
     {routeBypassesAuth ? children : connectionRecovery !== "idle" ? <AuthConnectionRecovery busy={connectionRecovery === "checking"} failed={connectionRecovery === "failed"} onRetry={() => retryConnection()} /> : applicationAccess === "denied" && tokens ? (

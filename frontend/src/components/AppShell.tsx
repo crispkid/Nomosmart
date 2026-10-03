@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { getNotificationUnreadCount, listNotifications, markAllNotificationsRead, markNotificationRead, resolveNotification, type NotificationResponse } from "@/lib/api";
-import { initializeLocale, isSupportedLocale, supportedLocales, useI18n, type TranslationKey } from "@/lib/i18nClient";
+import { isSupportedLocale, supportedLocales, useI18n, type TranslationKey } from "@/lib/i18nClient";
 
 const notificationCopyKeys: Record<string, { title: TranslationKey; message: TranslationKey }> = {
   "review.manager.pending": { title: "notificationReviewManagerPendingTitle", message: "notificationReviewManagerPendingMessage" },
@@ -53,10 +53,6 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
     { href: "/system", label: t("system"), icon: Settings, visible: can("Menu", "SystemManagement", "view") },
     { href: "/api-docs", label: t("apiDocs"), icon: BookOpenText, visible: true }
   ];
-
-  useEffect(() => {
-    initializeLocale();
-  }, []);
 
   useEffect(() => {
     let cancelled = false;

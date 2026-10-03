@@ -5,6 +5,7 @@ export type TranslationKey = keyof typeof zh;
 const dictionaries: Record<"en" | "zh", Record<TranslationKey, string>> = { en, zh };
 
 export type Locale = keyof typeof dictionaries;
+export const localePreferenceKey = "nomosmart_locale";
 
 export const supportedLocales: Array<{ code: Locale; htmlLang: string; label: string }> = [
   { code: "zh", htmlLang: "zh-Hant", label: "繁體中文" },

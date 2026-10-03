@@ -29,7 +29,7 @@ from app.security.secrets import resolve_runtime_secret
 from app.db.models import AIModel, AIModelUsageEvent, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingProfile, OutboxEvent, PipelineRun, PipelineRunStep, Project, Tag
 from app.domain.ai_provider import AIProviderResult, generate_knowledge_tags
 from app.domain.document_layout import build_document_layout, estimated_layout_block_height, paginate_layout_blocks, renderable_source_anchors
-from app.domain.embeddings import embed_chunks, estimated_tokens, load_canonical_embeddings, model_name, resolve_index_retrieval_text
+from app.domain.embeddings import embed_chunks, load_canonical_embeddings, model_name, resolve_index_retrieval_text
 from app.domain.model_usage import record_model_usage
 from app.domain.markdown_structure import MarkdownStructureParser, mark_repeated_boilerplate, repeated_page_boilerplate
 from app.domain.office_parser import parse_office_document

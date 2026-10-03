@@ -64,7 +64,7 @@ function sourceAnchor(chunk: ApprovalChunkEvidence) {
   return typeof mappedAnchor === "string" && mappedAnchor ? mappedAnchor : `chunk-${chunk.chunk_index}`;
 }
 
-function sourceLabel(chunk: ApprovalChunkEvidence, t: Translate, format: Format) {
+function sourceLabel(chunk: ApprovalChunkEvidence, _t: Translate, format: Format) {
   const firstMapping = chunk.source_mapping[0] as Record<string, unknown> | undefined;
   const page = firstMapping?.page ?? firstMapping?.page_number;
   if (typeof page === "number" || typeof page === "string") return format("knowledgeDetailOriginalPage", { page });

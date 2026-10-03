@@ -1,6 +1,6 @@
 # NomoSmart deployment operations
 
-Operational configuration for NomoSmart 0.1.1. Start with the complete installation
+Operational configuration for NomoSmart 0.1.2. Start with the complete installation
 guide in [English](../README.md) or [繁體中文](../README.zh-TW.md).
 Record the target context, Namespace, release, image digests, migration contract,
 and recovery procedure before changing an existing deployment.
@@ -192,7 +192,7 @@ runtime checks remain in place.
 
 ### Migration contract
 
-NomoSmart 0.1.1 delivers [B051](../sql/migrations/B051__nomosmart_0_1_0.sql) for
+NomoSmart 0.1.2 delivers [B051](../sql/migrations/B051__nomosmart_0_1_0.sql) for
 empty databases and preserves V001–V051 for databases with existing migration
 history. Official Flyway applies B051 once on an empty database. The source-bound
 [migration contract](migrations/release-contract.json) defines the accepted version,
@@ -339,3 +339,11 @@ These are example release overrides, not new global defaults. Both processes
 retain a one-CPU limit in this example. The values schema rejects invalid object
 shapes and quantity types; use Kubernetes server dry-run to validate resource
 quantity syntax and request/limit relationships before an upgrade.
+
+
+Docker lifecycle from the source/package root: `./nomosmart up`, `status --json`,
+`logs backend --tail 100`, and `down`. The root bilingual README documents first
+use, hostname/CA prerequisites, source `--build`, timeout and safe persistence.
+This host CLI delegates to the existing package/Compose gates; no Web setup or
+Helm flow changes. Private state under `deploy/docker/.nomosmart-workflow/` is
+excluded from Git/package delivery.

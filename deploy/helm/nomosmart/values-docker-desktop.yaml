@@ -30,9 +30,9 @@ productionCapacity:
 
 image:
   frontend:
-    tag: "0.1.1"
+    tag: "0.1.2"
   backend:
-    tag: "0.1.1"
+    tag: "0.1.2"
 
 backend:
   env:

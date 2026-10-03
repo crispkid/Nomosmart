@@ -33,11 +33,6 @@ function sourceKind(type: string): SourceNodeKind {
   return "tag";
 }
 
-function clamp(value: number, min: number, max: number) {
-  return Math.min(max, Math.max(min, value));
-}
-
-const CHUNK_GROUP_SIZE = 5;
 const GRAPH_CENTER = { x: 540, y: 320 };
 
 function polarPoint(radius: number, angle: number, verticalScale = 0.72) {
@@ -121,19 +116,6 @@ function compareChunks(a: SourceNode, b: SourceNode) {
   if (aIndex !== null) return -1;
   if (bIndex !== null) return 1;
   return a.label.localeCompare(b.label);
-}
-
-function chunkGroups(chunks: SourceNode[]) {
-  const groups: Array<{ chunks: SourceNode[]; end: number; start: number }> = [];
-  for (let index = 0; index < chunks.length; index += CHUNK_GROUP_SIZE) {
-    const groupChunks = chunks.slice(index, index + CHUNK_GROUP_SIZE);
-    groups.push({
-      chunks: groupChunks,
-      end: index + groupChunks.length,
-      start: index + 1
-    });
-  }
-  return groups;
 }
 
 type ProjectGraphLabels = {

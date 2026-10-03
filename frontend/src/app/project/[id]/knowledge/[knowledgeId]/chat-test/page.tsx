@@ -3,7 +3,7 @@
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Clock3, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, Wrench, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, Wrench, X } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";

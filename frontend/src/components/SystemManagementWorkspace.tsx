@@ -994,21 +994,6 @@ export default function SystemManagementWorkspace({
     }
   }
 
-  async function saveApiKeyScope(client: IntegrationClientResponse) {
-    const projectIds = apiKeyScopeDrafts[client.id] ?? [];
-    if (!projectIds.length) {
-      setActionMessage(t("systemApiKeyProjectRequired"));
-      return;
-    }
-    try {
-      const updated = await replaceIntegrationClientProjectScopes(apiFetch, client.id, { lock_version: client.lock_version, project_ids: projectIds });
-      syncIntegrationClient(updated);
-      setActionMessage(t("systemApiKeyScopeSaved"));
-    } catch (caught) {
-      setSystemError(caught as ApiError | Error);
-    }
-  }
-
   async function rotateApiKey(client: IntegrationClientResponse) {
     try {
       const rotated = await rotateIntegrationClientKey(apiFetch, client.id, { lock_version: client.lock_version, reason: "manual_rotate" });
@@ -1692,7 +1677,6 @@ export default function SystemManagementWorkspace({
   const globalChatPrompt = systemPrompts.find((prompt) => prompt.prompt_scope === "global" && prompt.model_type === "Chat");
   const globalJudgePrompt = systemPrompts.find((prompt) => prompt.prompt_scope === "global" && prompt.model_type === "Judge");
   const modelSpecificPrompts = systemPrompts.filter((prompt) => prompt.prompt_scope === "model");
-  const promptLabel = (prompt: PromptRow) => prompt.prompt_scope === "global" ? format("systemPromptGlobalLabel", { type: prompt.model_type }) : format("systemPromptModelLabel", { model: liveModels.find((model) => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—", type: prompt.model_type });
   const promptScopeLabel = (prompt: PromptRow) => prompt.prompt_scope === "global" ? t("systemPromptScopeGlobal") : t("systemPromptScopeModel");
 
   function renderPromptEditor(prompt: PromptRow) {

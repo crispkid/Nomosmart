@@ -10,7 +10,7 @@ NomoSmart 會讀取檔案與已連接的資料來源，必要時執行 OCR，再
 
 平台適合知識負責人、編輯者、審核者、系統管理員、整合開發者與一般使用者。PostgreSQL 保存應用程式資料；Redis 與 Celery 處理背景工作；S3 相容儲存空間保存原始檔與產出內容；OpenSearch 負責搜尋；Neo4j 保存知識關係；Keycloak 提供登入與企業目錄整合。
 
-`0.1.1` 包含安裝修正、工具、SQL、設定範本與文件。本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。請依選定的安裝方式準備隔離環境。
+`0.1.2` 包含 Docker 啟動自動化、授權與登入修正、清理、工具、SQL、設定範本與文件。本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。請依選定的安裝方式準備隔離環境。
 
 ## 2. 核心功能
 
@@ -59,7 +59,7 @@ Next.js Frontend -----------> FastAPI Backend
 | Search | OpenSearch 2.19 | Keyword、Vector、Hybrid 與 Staging Index |
 | Graph | Neo4j 5.26 Community | 知識關係與 Traversal |
 | Identity | Keycloak 26.0.8、OIDC、LDAP/AD Federation | 認證、目錄同步與角色映射 |
-| Deployment | Docker Compose v2、Helm Chart 0.1.1 | 單機與 Kubernetes 部署 |
+| Deployment | Docker Compose v2、Helm Chart 0.1.2 | 單機與 Kubernetes 部署 |
 
 ## 5. 專案結構
 
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. 開始使用
 
-`0.1.1` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
+`0.1.2` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
 
 ### 6.1 選擇安裝方法
 
@@ -119,19 +119,19 @@ Kubernetes Production 安裝需要至少三個 Ready 且可排程的 Node、符�
 
 Repository 為私有。Clone 與下載 Release 需要具備存取權限的 GitHub 帳號，拉取映像也需要 NomoSmart GHCR Package 的存取權限。Git 認證請使用 Credential Manager；Token 保存在受保護的認證工具中，不填入設定範例或命令參數。
 
-使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.1.1 Release 安裝包：
+使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.1.2 Release 安裝包：
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.1"
-gh release download v0.1.1 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.1.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.1"
-tar -xzf "$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.1"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.1/nomosmart-0.1.1"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.1.2"
+gh release download v0.1.2 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.1.2.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.1.2"
+tar -xzf "$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.1.2"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2"
 ```
 
 每個版本使用新的下載目錄，解壓後依第 8.2 節檢查完整性。GitHub Repository 與 GHCR 拉取權限分開管理；安裝器的 `registry_pull_secret` 應指向具有 Package 讀取權限的 Registry Credential。整包模式也需要連線至 Docker Hub、Quay、GHCR、OpenSearch artifacts，以及 lock 檔列出的 CloudNativePG／Barman 官方下載位置。
@@ -155,12 +155,37 @@ Compose 預設將 Dependency Port 保留在私有 Network 內。`debug` Profile 
 
 Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它會建立應用程式映像、啟動所有必要服務、更新資料庫、完成初始化，並提供單一 HTTPS 網址。
 
+### 7.0 使用單一指令啟動與管理 Docker
+
+此入口已包含於 0.1.2 原始碼與安裝包。已發布的 `v0.1.1` Tag／Archive 維持原樣，請依其下方手動步驟安裝。首次管理既有 Source 部署時，若要套用目前原始碼，使用 `up --build`。
+
+從 Source Checkout 或已驗證的 Package 目錄執行；先啟動 Docker，並備妥 Python 3.11 以上版本／OpenSSL；低埠檢查可能需要 `lsof`：
+
+```bash
+./nomosmart up
+./nomosmart status --json
+./nomosmart logs backend --tail 100
+./nomosmart down
+```
+
+第一次執行會產生私有隨機密碼、TLS 與 `deploy/docker/nomosmart.env`，明確載入完整服務 Profiles，Build Source Images（Package 使用已綁定的 Images），執行 Migration／Bootstrap，並等到嚴格 HTTPS Readiness 成功。重跑沿用設定、密碼與資料；`down` 保留 Named Volumes 和初始化資料。Source 更新後使用 `./nomosmart up --build`；預設整體期限1800秒，可用 `--timeout 30..7200` 調整。
+
+預設入口是 `https://nomosmart.local`，綁定 Loopback 的80／443 Port。依下節準備 Hostname 解析，並在 Browser 明確信任生成的 CA。全新本機安裝也可使用 localhost 與其他 Port：
+
+```bash
+./nomosmart up --public-host localhost --http-port 8080 --https-port 8443
+```
+
+這些參數與 `--project-name` 僅設定全新安裝，不會偷偷覆寫既有設定。成功摘要列出網址、初始帳號及私有密碼／CA 檔案位置，不列印密碼。第一次登入需更改臨時密碼，企業身分來源及 AI 模型依需求後續設定。Production／External Services 保留原有明確配置與初始化要求。此流程支援 Linux 與 macOS Docker Desktop。
+
+`logs` 顯示安全的操作欄位與 Severity 摘要，原始內容會隱藏；需要詳細私有診斷時可在本機使用既有 Compose 工具。失敗會保留資源及設定，方便檢查與重跑。以下章節仍提供前置條件、手動初始化與 Compose 操作；已由 `up` 初始化的安裝無須再執行另一輪 Initializer。
+
 ### 7.1 取得 Source Code
 
 Clone Repository 並進入根目錄：
 
 ```bash
-git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -171,7 +196,7 @@ git status --short
 git rev-parse HEAD
 ```
 
-保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.1.1` 原始碼 Tag 重現本版。
+保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.1.2` 原始碼 Tag 重現本版。
 
 ### 7.2 驗證主機工具
 
@@ -744,7 +769,7 @@ Source Development 會直接在開發者電腦上執行 Frontend、Backend、Wor
 ### 10.1 安裝 Source Dependency
 
 ```bash
-git clone --branch v0.1.1 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -1241,7 +1266,7 @@ Windows AD 使用相同欄位，並調整下列目錄設定：
 | Process Health | `/api/v1/health` | 回傳 `{"status":"healthy"}` |
 | Dependency Readiness | `/api/v1/ready` | 回傳 `ready` Detail 或 HTTP 503 |
 
-FastAPI 應用程式版本為 `0.1.1`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
+FastAPI 應用程式版本為 `0.1.2`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
 
 ### 12.2 Public Chat 範例
 

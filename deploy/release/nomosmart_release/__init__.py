@@ -6,7 +6,7 @@ from .contract import (
     verify_release_package,
 )
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 
 __all__ = [
     "MANIFEST_SCHEMA_VERSION",

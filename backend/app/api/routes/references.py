@@ -35,7 +35,7 @@ from app.domain.notifications import resolve_business_notifications
 from app.domain.extraction_pipeline import initialize_pipeline_steps
 from app.domain.reference_copy import copy_chunks, complete_copied_steps
 from app.security.context import IdentityContext, get_identity_context
-from app.security.permissions import require_project_scope
+from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PermissionAction, require_menu_permission, require_project_scope
 from app.services.audit import add_audit
 
 
@@ -267,15 +267,17 @@ def update_document_reference_version(
 
 @router.get("/document-reference-events", response_model=list[DocumentReferenceEventResponse])
 def list_document_reference_events(project_id: UUID | None = None, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> list[DocumentReferenceEvent]:
+    require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
     scoped_projects = set(context.visible_project_ids)
     if project_id is not None:
-        require_project_scope(project_id, scoped_projects)
+        _get_scoped_project(session, project_id, context)
         scoped_projects = {project_id}
     return list(
         session.scalars(
             select(DocumentReferenceEvent)
             .join(DocumentReference, DocumentReference.id == DocumentReferenceEvent.reference_id)
-            .where(DocumentReference.target_project_id.in_(scoped_projects))
+            .join(Project, Project.id == DocumentReference.target_project_id)
+            .where(DocumentReference.target_project_id.in_(scoped_projects), Project.status == "active")
             .order_by(DocumentReferenceEvent.created_at.desc())
             .limit(100)
         )
@@ -284,10 +286,11 @@ def list_document_reference_events(project_id: UUID | None = None, context: Iden
 
 @router.get("/document-reference-events/impacted-projects", response_model=ImpactedReferenceProjectsResponse)
 def impacted_reference_projects(source_document_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ImpactedReferenceProjectsResponse:
+    require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
     source_document = session.get(Document, source_document_id)
     if source_document is None:
         raise AppError("source_document_not_found", "Source document was not found", status_code=404)
-    require_project_scope(source_document.project_id, set(context.visible_project_ids))
+    _get_scoped_project(session, source_document.project_id, context)
     rows = session.execute(
         select(DocumentReference.target_project_id, func.count())
         .where(DocumentReference.source_document_id == source_document.id, DocumentReference.status == "active")
@@ -298,6 +301,7 @@ def impacted_reference_projects(source_document_id: UUID, context: IdentityConte
 
 @router.post("/document-reference-events/{event_id}/resolve", response_model=DocumentReferenceEventResponse)
 def resolve_document_reference_event(event_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> DocumentReferenceEvent:
+    require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
     event = session.get(DocumentReferenceEvent, event_id)
     if event is None:
         raise AppError("document_reference_event_not_found", "Document reference event was not found", status_code=404)
@@ -590,7 +594,7 @@ def _next_document_code(session: Session, project_id: UUID) -> str:
 
 
 def _require_target_reference_write(session: Session, target_project_id: UUID, context: IdentityContext) -> None:
-    require_project_scope(target_project_id, set(context.visible_project_ids))
+    _get_scoped_project(session, target_project_id, context)
     roles = set(
         session.scalars(
             select(ProjectMember.project_role).where(
@@ -607,8 +611,9 @@ def _require_target_reference_write(session: Session, target_project_id: UUID, c
 
 
 def _scoped_reference(session: Session, reference_id: UUID, context: IdentityContext) -> DocumentReference:
+    require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
     reference = session.get(DocumentReference, reference_id)
     if reference is None:
         raise AppError("document_reference_not_found", "Document reference was not found", status_code=404)
-    require_project_scope(reference.target_project_id, set(context.visible_project_ids))
+    _get_scoped_project(session, reference.target_project_id, context)
     return reference

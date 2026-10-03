@@ -17,6 +17,7 @@ import {
   Loader2,
   MessageSquareText,
   Network,
+  RefreshCw,
   ShieldCheck,
   Table2,
   Tags,
@@ -29,7 +30,7 @@ import { ApprovalEvidenceViewer } from "@/components/ApprovalEvidenceViewer";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { DocumentGraphPreview } from "@/components/DocumentGraphPreview";
 import { useAuth } from "@/components/AuthProvider";
-import { approveApprovalTask, getApprovalTask, publishDocumentVersion, rejectApprovalTask, type ApprovalTaskDetail, type ProjectChatCitation } from "@/lib/api";
+import { approveApprovalTask, getApprovalTask, publishDocumentVersion, rejectApprovalTask, type ApiError, type ApprovalTaskDetail, type ProjectChatCitation } from "@/lib/api";
 import { buildApprovalConversationCsv, canSubmitApprovalDecision } from "@/lib/approvalDetail";
 import { reviewWorkflow, type ReviewStepState } from "@/lib/reviewPresentation";
 import { t as translate } from "@/lib/i18n";
@@ -75,6 +76,7 @@ function priorityLabel(priority: string, t: Translate) {
 function readOnlyReasonLabel(reason: string | null | undefined, t: Translate) {
   if (reason === "version_changed") return t("approvalEvidenceStaleReason");
   if (reason === "task_completed") return t("approvalTaskCompletedReason");
+  if (reason === "approval_actor_required") return t("approvalActorRequired");
   return t("approvalReadOnlyReason");
 }
 
@@ -124,6 +126,10 @@ export default function ApprovalDetailPage() {
   const [liveDetail, setLiveDetail] = useState<ApprovalTaskDetail | null>(null);
   const [liveLoading, setLiveLoading] = useState(true);
   const [liveError, setLiveError] = useState<string | null>(null);
+  const [liveErrorStatus, setLiveErrorStatus] = useState<number | null>(null);
+  const [loadedTaskId, setLoadedTaskId] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
+  const loadPending = liveLoading || loadedTaskId !== params.approvalTaskId;
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(() => new Set());
   const [graphOpen, setGraphOpen] = useState(false);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -140,14 +146,22 @@ export default function ApprovalDetailPage() {
       if (!cancelled) {
         setLiveDetail(detail);
         setLiveError(null);
+        setLiveErrorStatus(null);
       }
     }).catch((error: Error) => {
-      if (!cancelled) setLiveError(operationalErrorMessage(error, t, format, "approvalLoadFailed"));
+      if (!cancelled) {
+        setLiveDetail(null);
+        setLiveError(operationalErrorMessage(error, t, format, "approvalLoadFailed"));
+        setLiveErrorStatus((error as Partial<ApiError>).status ?? null);
+      }
     }).finally(() => {
-      if (!cancelled) setLiveLoading(false);
+      if (!cancelled) {
+        setLoadedTaskId(params.approvalTaskId);
+        setLiveLoading(false);
+      }
     });
     return () => { cancelled = true; };
-  }, [apiFetch, format, params.approvalTaskId, t]);
+  }, [apiFetch, format, loadAttempt, params.approvalTaskId, t]);
 
   useEffect(() => {
     if (!decisionOutcome?.redirectToWorkspace) return;
@@ -167,7 +181,7 @@ export default function ApprovalDetailPage() {
     };
   } | null;
   const manifestModels = Object.values(evidenceManifest?.models ?? {});
-  const approval = liveDetail ? {
+  const approval = liveDetail?.task.id === params.approvalTaskId ? {
     id: liveDetail.task.id,
     project: liveDetail.task.project_name ?? `Project ${liveDetail.task.project_id.slice(0, 8)}`,
     document: liveDetail.document.title,
@@ -227,21 +241,31 @@ export default function ApprovalDetailPage() {
   }, [approval?.document, approval?.version, liveDetail, locale, t]);
   const tags = useMemo(() => Array.from(new Set(displayChunks.flatMap((chunk) => chunk.tags))), [displayChunks]);
 
-  if (!approval && !liveLoading) {
+  if (!approval && !loadPending) {
+    const notFound = liveErrorStatus === 404;
     return (
       <AppShell title={t("approvalDetail")}>
-        <section className="approval-not-found">
+        <section className="approval-not-found" role="alert">
           <XCircle size={34} />
-          <h2>{t("approvalTaskNotFound")}</h2>
-          <p>{t("approvalTaskNotFoundHelp")}</p>
+          <h2>{notFound ? t("approvalTaskNotFound") : liveErrorStatus === 403 ? t("apiForbidden") : t("approvalLoadFailed")}</h2>
+          <p>{notFound ? t("approvalTaskNotFoundHelp") : liveError ?? t("approvalLoadFailed")}</p>
+          <div className="approval-error-actions">
+          {!notFound ? <button className="action-button secondary" type="button" onClick={() => {
+            setLiveLoading(true);
+            setLiveDetail(null);
+            setLiveError(null);
+            setLiveErrorStatus(null);
+            setLoadAttempt((attempt) => attempt + 1);
+          }}><RefreshCw size={16} /> {t("retry")}</button> : null}
           <Link className="action-button secondary" href="/approve"><ArrowLeft size={16} /> {t("backToApprovalWorkspace")}</Link>
+          </div>
         </section>
       </AppShell>
     );
   }
 
   if (!approval) {
-    return <AppShell title={t("approvalDetail")}><section className="empty-state" role="status">{t("approvalLoadingTask")}</section></AppShell>;
+    return <AppShell title={t("approvalDetail")}><section className="empty-state" role="status" aria-busy="true"><Loader2 size={20} className="loading-spinner" aria-hidden="true" /> {t("approvalLoadingTask")}</section></AppShell>;
   }
 
   const isOwnerReview = approval.stage === "owner_review";
@@ -255,7 +279,7 @@ export default function ApprovalDetailPage() {
   const readOnly = liveDetail?.read_only ?? true;
   const readOnlyReason = readOnlyReasonLabel(liveDetail?.read_only_reason, t);
   const canDecide = !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && liveDetail?.task.status === "pending";
-  const canPublish = !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved";
+  const canPublish = !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved" && liveDetail.document.capabilities?.can_publish === true;
   const contentCounts = displayChunks.reduce((counts, chunk) => ({ ...counts, [chunk.type]: counts[chunk.type] + 1 }), { text: 0, image: 0, table: 0, chart: 0 });
   const averageConfidence = displayChunks.length ? Math.round(displayChunks.reduce((sum, chunk) => sum + chunk.confidence, 0) / displayChunks.length * 100) : 0;
   const workflow = liveDetail ? reviewWorkflow(liveDetail) : { manager: "pending", owner: "pending", publish: "pending" } as const;

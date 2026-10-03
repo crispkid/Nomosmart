@@ -20,7 +20,7 @@ from .core import (
 )
 from .helm import Helm
 from .kube import CONFIG_ANNOTATION, OWNER_LABEL, Kubernetes
-from .state import STAGES, StateStore
+from .state import StateStore
 
 
 RESET_PLAN_SCHEMA = 1

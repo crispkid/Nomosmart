@@ -1,8 +1,8 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import OidcCallback from "@/components/OidcCallback";
-import { AUTH_COOKIES, parseAuthFlow } from "@/lib/authState";
-import { t } from "@/lib/i18n";
+import { AUTH_FLOW_COOKIE_PREFIX, readAuthorizationState } from "@/lib/authState";
+import { loginRecoveryPath } from "@/lib/authFlowRecovery";
 
 type OidcCallbackPageProps = {
   searchParams: Promise<{
@@ -15,19 +15,20 @@ type OidcCallbackPageProps = {
 export default async function OidcCallbackPage({ searchParams }: OidcCallbackPageProps) {
   const { code, error, state } = await searchParams;
   const cookieStore = await cookies();
-  const expectedState = cookieStore.get(AUTH_COOKIES.state)?.value;
-  const flow = parseAuthFlow(cookieStore.get(AUTH_COOKIES.flow)?.value);
-  const trustedState = typeof state === "string" && Boolean(state) && state === expectedState;
+  const owner = await readAuthorizationState(cookieStore, state);
+  const flow = owner?.packet.flow;
+  const flowId = owner?.name.slice(AUTH_FLOW_COOKIE_PREFIX.length);
+  const trustedState = Boolean(owner);
 
   if (typeof error === "string" && trustedState && error === "login_required" && flow === "silent") {
-    redirect("/api/auth/login-recovery?mode=anonymous");
+    redirect(loginRecoveryPath("anonymous", flowId));
   }
   if (typeof error === "string" && trustedState && error === "access_denied" && (flow === "interactive" || flow === "session_expired")) {
-    redirect("/api/auth/login-recovery?mode=login_cancelled");
+    redirect(loginRecoveryPath("login_cancelled", flowId));
   }
-  if (error || typeof code !== "string" || !code || !trustedState || !flow) {
-    redirect("/api/auth/callback-error");
+  if (error || typeof code !== "string" || !code || typeof state !== "string" || !trustedState || !flow || !flowId) {
+    redirect(flowId ? `/api/auth/callback-error?flow=${flowId}` : "/api/auth/callback-error");
   }
 
-  return <OidcCallback code={code} state={state} loadingLabel={t("oidcCallbackLoading")} />;
+  return <OidcCallback code={code} state={state} flowId={flowId} />;
 }

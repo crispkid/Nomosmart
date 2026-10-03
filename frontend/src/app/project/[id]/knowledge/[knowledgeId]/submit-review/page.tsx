@@ -13,7 +13,6 @@ import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
 type Translate = (key: TranslationKey) => string;
-type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 
 function evaluationLabel(value: ProjectChatRecordResponse["evaluation"], t: Translate) {
   if (value === "correct") return t("submitReviewEvaluationCorrect");

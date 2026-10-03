@@ -149,16 +149,6 @@ def _effective_pod_resources(pod: dict[str, Any]) -> dict[str, int]:
     return total
 
 
-def _condition_true(conditions: Any, condition_type: str) -> bool:
-    if isinstance(conditions, dict):
-        candidate = conditions.get(condition_type) or {}
-        return str(candidate.get("status") or "").lower() == "true"
-    return any(
-        isinstance(row, dict)
-        and row.get("type") == condition_type
-        and str(row.get("status") or "").lower() == "true"
-        for row in (conditions or [])
-    )
 
 
 def _static_storage(kube: Any, plan: dict[str, Any], ready_nodes: list[str]) -> dict[str, Any]:

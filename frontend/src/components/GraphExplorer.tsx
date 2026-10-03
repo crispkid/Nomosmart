@@ -50,7 +50,6 @@ export type GraphExplorerEdge = {
 };
 
 type GraphExplorerProps = {
-  canvasHeight?: number;
   edges: GraphExplorerEdge[];
   emptyMessage?: string;
   layout?: "umbrella";
@@ -65,7 +64,7 @@ const VIEWBOX_WIDTH = 1080;
 const VIEWBOX_HEIGHT = 640;
 const MIN_ZOOM = 0.01;
 const MAX_ZOOM = 3;
-const ZOOM_STEP = 0.05;
+
 
 type GraphZoomBand = "structure" | "chunk" | "tag" | "inspection";
 type VisibleGraphExplorerNode = GraphExplorerNode & { isHint?: boolean };
@@ -206,7 +205,7 @@ function useRelationMap<TNode extends GraphExplorerNode>(nodes: TNode[], edges: 
   }, [edges, nodes, selected]);
 }
 
-export function GraphExplorer({ canvasHeight = VIEWBOX_HEIGHT, edges, emptyMessage, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title }: GraphExplorerProps) {
+export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title }: GraphExplorerProps) {
   const { format, t } = useI18n();
   const canvasRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);

@@ -1,7 +1,7 @@
 "use client";
 
 import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, Code2, FileText, Table2 } from "lucide-react";
+import { Code2, FileText } from "lucide-react";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { DocumentLayoutViewer } from "@/components/DocumentLayoutViewer";

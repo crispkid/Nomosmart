@@ -116,8 +116,6 @@ def require_menu_permission(grants: list[PermissionGrant], menu_name: str, actio
     require_permission(grants, MENU_MODULE, menu_name, action)
 
 
-def supported_menu_action(menu_name: str, action: PermissionAction) -> bool:
-    return action in MENU_PERMISSION_ACTIONS.get(menu_name, frozenset())
 
 
 def require_project_scope(project_id: UUID, visible_project_ids: set[UUID]) -> None:

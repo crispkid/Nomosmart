@@ -934,17 +934,26 @@ def _write_compose_env(
     runbook_uri: str,
     alerting_evidence: str,
     random_initial_credentials: bool = False,
+    compose_project: str = "nomosmart",
+    http_port: int = 80,
+    https_port: int = 443,
 ) -> None:
     docker_dir = Path(__file__).resolve().parents[1] / "docker"
     env_path = docker_dir / "nomosmart.env"
     if env_path.exists():
         return
     deployment_phase = FACTORY_PROFILE if profile == FACTORY_PROFILE else "onboarding"
+    origin = f"https://{public_host}" + (f":{https_port}" if https_port != 443 else "")
+    source_images = (
+        f"FRONTEND_IMAGE=nomosmart/frontend:local-{compose_project}",
+        f"BACKEND_IMAGE=nomosmart/backend:local-{compose_project}",
+    ) if (docker_dir.parents[1] / "frontend/Dockerfile").is_file() else ()
     content = "\n".join(
         (
             "# Generated non-sensitive NomoSmart Compose configuration.",
             "# Raw credentials are mounted from deploy/docker/generated/current.",
-            "COMPOSE_PROJECT_NAME=nomosmart",
+            f"COMPOSE_PROJECT_NAME={compose_project}",
+            *source_images,
             "COMPOSE_PROFILES=postgresql,redis,rustfs,opensearch,neo4j,keycloak",
             f"APP_ENV={app_env}",
             f"DEPLOYMENT_PHASE={deployment_phase}",
@@ -952,16 +961,17 @@ def _write_compose_env(
             "DEPLOYMENT_BOOTSTRAP_RELEASE=compose-initial",
             *(f"{name}={value}" for name, value in migration_environment().items()),
             f"NOMOSMART_PUBLIC_HOST={public_host}",
-            f"NOMOSMART_PUBLIC_ORIGIN=https://{public_host}",
-            f"CORS_ALLOWED_ORIGINS=https://{public_host}",
-            f"FRONTEND_APP_ORIGIN=https://{public_host}",
-            f"NEXT_PUBLIC_APP_ORIGIN=https://{public_host}",
-            f"OIDC_ISSUER_URL=https://{public_host}/identity/realms/nomosmart",
-            f"NEXT_PUBLIC_OIDC_ISSUER_URL=https://{public_host}/identity/realms/nomosmart",
-            f"KEYCLOAK_ADMIN_API_URL=https://{public_host}/identity",
+            f"NOMOSMART_PUBLIC_ORIGIN={origin}",
+            f"CORS_ALLOWED_ORIGINS={origin}",
+            f"FRONTEND_APP_ORIGIN={origin}",
+            f"NEXT_PUBLIC_APP_ORIGIN={origin}",
+            f"OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
+            f"NEXT_PUBLIC_OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
+            f"FRONTEND_OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
+            f"KEYCLOAK_ADMIN_API_URL={origin}/identity",
             "EDGE_HOST_IP=127.0.0.1",
-            "EDGE_HTTP_PORT=80",
-            "EDGE_HTTPS_PORT=443",
+            f"EDGE_HTTP_PORT={http_port}",
+            f"EDGE_HTTPS_PORT={https_port}",
             "EDGE_TLS_CERT_FILE=./deploy/docker/generated/current/tls/active/edge.crt",
             "EDGE_TLS_KEY_FILE=./deploy/docker/generated/current/tls/active/edge.key",
             "RUSTFS_TLS_CERT_FILE=./deploy/docker/generated/current/tls/active/rustfs.crt",
@@ -1020,6 +1030,13 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
             "docker-desktop-local is only valid for a fresh Helm factory_acceptance/development package"
         )
     public_host = _validate_public_host(args.public_host)
+    compose_project = getattr(args, "compose_project", "nomosmart")
+    http_port = getattr(args, "http_port", 80)
+    https_port = getattr(args, "https_port", 443)
+    if not re.fullmatch(r"[a-z0-9][a-z0-9_-]{0,62}", compose_project):
+        raise PackageError("Compose project must be a lowercase name of at most 63 characters")
+    if not (1 <= http_port <= 65535 and 1 <= https_port <= 65535) or http_port == https_port:
+        raise PackageError("HTTP/HTTPS ports must be distinct integers from 1 to 65535")
     if args.target == "compose" and args.profile == PRODUCTION_PROFILE:
         if not args.break_glass_runbook_uri.startswith("https://") or not args.break_glass_alerting_evidence.strip():
             raise PackageError("production Compose init requires an HTTPS break-glass runbook and alerting evidence")
@@ -1031,6 +1048,10 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
     existing_payload: dict[str, object] | None = None
     if current.exists() and not rotating:
         payload = _safe_manifest(current / "manifest.json")
+        if args.target == "compose" and not args.output_dir:
+            docker_dir = Path(__file__).resolve().parents[1] / "docker"
+            if not (docker_dir / "nomosmart.env").is_file():
+                raise PackageError("existing generation is missing nomosmart.env; preserve secrets and restore the matching configuration")
         print(json.dumps({"status": "already_initialized", **payload}, ensure_ascii=False, sort_keys=True))
         return 0
     if current.exists():
@@ -1153,6 +1174,9 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
                 runbook_uri=runbook_uri,
                 alerting_evidence=alerting_evidence,
                 random_initial_credentials=random_initial_credentials,
+                compose_project=compose_project,
+                http_port=http_port,
+                https_port=https_port,
             )
         if not args.no_display:
             _display_once(values, args.profile)
@@ -1299,6 +1323,23 @@ def _listening_on_public_ports() -> list[int]:
 
 
 def preflight_package(args: argparse.Namespace) -> int:
+    if args.runtime == "compose":
+        # The Docker CLI owns canonical env/ports/labels validation. This is
+        # read-only: no binding, generation, container or trust modification.
+        sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "docker"))
+        from nomosmart_cli import Workflow, WorkflowError
+        workflow = Workflow()
+        try:
+            workflow.load()
+            if workflow.settings["project"] != args.compose_project:
+                raise PackageError("compose-project must match the installation environment")
+            resources = workflow.inventory()
+            capacity = workflow.preflight(resources)
+        except WorkflowError as exc:
+            raise PackageError(exc.reason + ": " + exc.recovery) from None
+        print(json.dumps({"status": "ready", "runtime": "compose", "public_host": workflow.settings["host"],
+                          "ports": [workflow.settings["http"], workflow.settings["https"]], "capacity": capacity}, sort_keys=True))
+        return 0
     if not _local_host_mapping(Path("/etc/hosts"), DEFAULT_PUBLIC_HOST):
         raise PackageError("nomosmart.local must map exactly once to 127.0.0.1 in /etc/hosts")
     if args.runtime == "compose" and _minikube_profile_running(args.minikube_profile):
@@ -1343,6 +1384,9 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--postgresql-standalone", action="store_true",
                              help="use the local standalone PostgreSQL service DNS name")
     init_parser.add_argument("--public-host", default=DEFAULT_PUBLIC_HOST)
+    init_parser.add_argument("--compose-project", default="nomosmart")
+    init_parser.add_argument("--http-port", type=int, default=80)
+    init_parser.add_argument("--https-port", type=int, default=443)
     init_parser.add_argument("--trusted-tls-dir", default="")
     init_parser.add_argument(
         "--external-services",
