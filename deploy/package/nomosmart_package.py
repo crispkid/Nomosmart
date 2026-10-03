@@ -926,6 +926,31 @@ def _replace_manifest(directory: Path, payload: dict[str, object]) -> None:
     os.replace(temporary, target)
 
 
+def _compose_image_settings(compose_project: str) -> tuple[str, ...]:
+    root = Path(__file__).resolve().parents[2]
+    manifest = root / "release-manifest.json"
+    if manifest.exists() or manifest.is_symlink() or (root / "SHA256SUMS").exists():
+        sys.path.insert(0, str(root / "deploy/release"))
+        from nomosmart_release.contract import ReleaseContractError, _bounded_file, _load_json, validate_manifest
+        from nomosmart_release.contract_v3 import validate_manifest as validate_installation_manifest
+
+        try:
+            payload = _load_json(_bounded_file(root, "release-manifest.json"), label="release manifest")
+            _bounded_file(root, "SHA256SUMS")
+            if payload.get("schema_version") == 3:
+                validate_installation_manifest(payload)
+                images = payload["application_images"]
+            else:
+                validate_manifest(payload)
+                images = payload["images"]
+        except (OSError, ValueError, ReleaseContractError):
+            raise PackageError("invalid installation package; verify its complete inventory before initialization") from None
+        return tuple(f"{name.upper()}_IMAGE={images[name]}" for name in ("frontend", "backend"))
+    if (root / "frontend/Dockerfile").is_file():
+        return tuple(f"{name.upper()}_IMAGE=nomosmart/{name}:local-{compose_project}" for name in ("frontend", "backend"))
+    return ()
+
+
 def _write_compose_env(
     profile: str,
     app_env: str,
@@ -944,10 +969,7 @@ def _write_compose_env(
         return
     deployment_phase = FACTORY_PROFILE if profile == FACTORY_PROFILE else "onboarding"
     origin = f"https://{public_host}" + (f":{https_port}" if https_port != 443 else "")
-    source_images = (
-        f"FRONTEND_IMAGE=nomosmart/frontend:local-{compose_project}",
-        f"BACKEND_IMAGE=nomosmart/backend:local-{compose_project}",
-    ) if (docker_dir.parents[1] / "frontend/Dockerfile").is_file() else ()
+    source_images = _compose_image_settings(compose_project)
     content = "\n".join(
         (
             "# Generated non-sensitive NomoSmart Compose configuration.",
@@ -1042,6 +1064,10 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
             raise PackageError("production Compose init requires an HTTPS break-glass runbook and alerting evidence")
     if not args.no_display and not sys.stdout.isatty():
         raise PackageError("one-time credential display requires an interactive TTY; use --no-display for secret-target-only automation")
+    if args.target == "compose" and not args.output_dir:
+        docker_dir = Path(__file__).resolve().parents[1] / "docker"
+        if not (docker_dir / "nomosmart.env").exists():
+            _compose_image_settings(getattr(args, "compose_project", "nomosmart"))
     root = _output_root(args)
     _ensure_private_directory(root)
     current = root / "current"
