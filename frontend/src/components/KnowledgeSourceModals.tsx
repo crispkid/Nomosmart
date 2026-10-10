@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useUploadWaitState } from "@/lib/useUploadWaitState";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronRight, Cloud, FileText, FolderSync, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Server, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
 import type { AIModelResponse } from "@/lib/api";
+import { ocrRetryBlocked, type OcrProgress } from "@/lib/ocrPresentation";
+import { formatCount } from "@/lib/numberFormat";
+import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
+import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { ALLOWED_DOCUMENT_EXTENSIONS, DEFAULT_MAX_UPLOAD_BYTES, UPLOAD_REASON_EMPTY, UPLOAD_REASON_READY, UPLOAD_REASON_TOO_LARGE, UPLOAD_REASON_UNSUPPORTED, buildFriendlyCron, documentExtension, formatFileSize, validateFileDescriptor, validateFiveFieldCron } from "@/lib/knowledgeImport";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
@@ -92,7 +96,7 @@ export type CreatedKnowledgeDocument = {
     completedAt?: string | null;
     eta: string;
     error: string;
-    steps?: Array<{ name: string; status: string; progress: number; retryCount: number; artifactRef?: string | null; error?: string | null }>;
+    steps?: Array<{ name: string; status: string; progress: number; retryCount: number; artifactRef?: string | null; error?: string | null; ocr?: OcrProgress }>;
     observationInterrupted?: boolean;
     cleanupObservationStopped?: boolean;
   };
@@ -124,7 +128,7 @@ export function validateUploadFile(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYT
 
 function localizeUploadReason(reason: string, t: Translate, format: Format, maxUploadMb: number) {
   if (reason === UPLOAD_REASON_UNSUPPORTED) return t("uploadReasonUnsupported");
-  if (reason === UPLOAD_REASON_TOO_LARGE) return format("uploadReasonTooLargeDynamic", { size: maxUploadMb });
+  if (reason === UPLOAD_REASON_TOO_LARGE) return format("uploadReasonTooLargeDynamic", { size: formatCount(maxUploadMb) });
   if (reason === UPLOAD_REASON_EMPTY) return t("uploadReasonEmpty");
   if (reason === UPLOAD_REASON_READY) return t("uploadReady");
   if (reason.startsWith("server:")) return operationalCodeMessage(reason.slice(7), t, format, "apiGenericError");
@@ -144,7 +148,9 @@ function uploadPipelineStepLabel(stepName: string, t: Translate) {
     build_embeddings: "knowledgeDetailStepBuildEmbeddings",
     build_staging_index: "knowledgeDetailStepBuildStagingIndex",
     build_graph_preview: "knowledgeDetailStepBuildGraphPreview",
-    prepare_submission: "knowledgeDetailStepPrepareSubmission"
+    prepare_submission: "knowledgeDetailStepPrepareSubmission",
+    manager_review: "knowledgeDetailStepManagerReview", owner_review: "knowledgeDetailStepOwnerReview",
+    publish: "knowledgeDetailStepPublish", production_index: "knowledgeDetailStepProductionIndex", graph_sync: "knowledgeDetailStepGraphSync"
   };
   return labels[stepName] ? t(labels[stepName]) : stepName.replaceAll("_", " ");
 }
@@ -195,7 +201,7 @@ type UploadFilesModalProps = {
 };
 
 export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFiles = [], maxUploadBytes = DEFAULT_MAX_UPLOAD_BYTES, ocrModels = [], onClose, onCreate, onRetryPipeline, onUploadFiles }: UploadFilesModalProps) {
-  const { t, format, localize } = useI18n();
+  const { t, format, localize, locale } = useI18n();
   const [files, setFiles] = useState<File[]>(() => initialFiles);
   const [results, setResults] = useState<UploadResult[] | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -351,7 +357,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
         label: uploadPipelineStepLabel(step.name, t),
         status: normalizeUploadStepStatus(step.status),
         progress: Math.min(100, Math.max(0, Math.round(step.progress))),
-        detail: step.error ? t("apiGenericError") : step.artifactRef || format("projectImportRetryCount", { count: step.retryCount })
+        detail: step.error || step.artifactRef || format("projectImportRetryCount", { count: formatCount(step.retryCount, locale) })
       }))
     : [...localProgressSteps, ...waitingPipelineSteps];
   const uploadStatus = outcomeUnknown ? t("uploadOutcomeUnknown") : livePipelineSteps.length ? (liveProgressDocument?.pipeline.currentStep || t("uploadProgressWaitingLivePipeline")) : t(liveProgressDocument ? "uploadAcceptedAwaitingProgress" : "uploadAwaitingConfirmation");
@@ -362,7 +368,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
     <section aria-busy={submitting || retryingPipeline} aria-labelledby="upload-files-title" aria-modal="true" className={`modal-panel source-modal optimized-source-modal${modalLocked ? " source-modal-locked" : ""}`} role="dialog">
       <header className="source-modal-header"><div><p className="eyebrow">{t("uploadModalEyebrow")}</p><h2 id="upload-files-title">{t("uploadModalTitle")}</h2><small>{t("uploadModalHelp")}</small></div><button aria-label={t("uploadModalClose")} className="icon-button" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="source-modal-body">
-        <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> PDF · DOCX · TXT · MD</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: maxUploadMb })}</span></div>
+        <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> PDF · DOCX · TXT · MD</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: formatCount(maxUploadMb, locale) })}</span></div>
         <section className="upload-ocr-panel">
           <label><span>{t("uploadOcrModel")}</span><select disabled={modalLocked || ocrModels.length === 0} onChange={(event) => setOcrModelId(event.target.value || null)} value={resolvedOcrModelId ?? ""}><option value="">{ocrModels.length ? t("uploadUseDefaultOcr") : t("uploadNoOcrModel")}</option>{ocrModels.filter((model) => model.is_active).map((model) => <option key={model.id} value={model.id}>{model.name}{model.is_default ? t("uploadDefaultSuffix") : ""}</option>)}</select></label>
           <label className="service-check-field"><input checked={forceOcr} disabled={modalLocked} onChange={(event) => setForceOcr(event.target.checked)} type="checkbox" /><span>{t("uploadForceOcr")}</span></label>
@@ -377,20 +383,23 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
         {results ? <div aria-live="polite" className="upload-result-summary optimized-result-summary">{results.some((item) => !item.ok) ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}<div><strong>{t("uploadResultTitle")}</strong><span>{format("uploadResultCounts", { success: results.filter((item) => item.ok).length, failed: results.filter((item) => !item.ok).length })}</span><small>{t("uploadResultHelp")}</small></div></div> : null}
         {submitError ? <div className="upload-result-summary upload-error-summary" role="alert"><AlertTriangle size={20} /><div><strong>{t("uploadIncomplete")}</strong><small>{localize(submitError)}</small></div></div> : null}
       </div>
-<footer className="source-modal-footer"><small>{!results && files.length ? format("uploadWillProcess", { count: validCount }) : results ? t("uploadResultsKept") : t("uploadNoFilesSelected")}</small><div><button className="action-button secondary" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button">{canLeaveWaiting ? t("uploadCloseToProject") : results ? t("complete") : t("cancel")}</button>{!results ? <button className="action-button" disabled={!canSubmit || !files.length || validCount === 0 || modalLocked || !onUploadFiles} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <UploadCloud size={16} />} {files.length > 1 ? format("uploadValidFiles", { count: validCount }) : t("uploadAndExtract")}</button> : null}</div></footer>
+<footer className="source-modal-footer"><small>{!results && files.length ? format("uploadWillProcess", { count: formatCount(validCount, locale) }) : results ? t("uploadResultsKept") : t("uploadNoFilesSelected")}</small><div><button className="action-button secondary" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button">{canLeaveWaiting ? t("uploadCloseToProject") : results ? t("complete") : t("cancel")}</button>{!results ? <button className="action-button" disabled={!canSubmit || !files.length || validCount === 0 || modalLocked || !onUploadFiles} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <UploadCloud size={16} />} {files.length > 1 ? format("uploadValidFiles", { count: formatCount(validCount, locale) }) : t("uploadAndExtract")}</button> : null}</div></footer>
       {showSubmitOverlay ? <div aria-live="assertive" className={`upload-submit-overlay${overlayFailed ? " failed" : ""}`} role="status">
         <div className="upload-submit-card">
           <span className="upload-submit-icon">{overlayFailed ? <AlertTriangle size={26} /> : <LoaderCircle className="spin" size={26} />}</span>
-          <div className="upload-submit-copy"><strong>{overlayFailed ? t("knowledgeDetailPipelineFailedTitle") : t("uploadProgressTitle")}</strong><small>{overlayFailed ? t("knowledgeDetailPipelineFailedHelp") : format("uploadProgressHelp", { count: validCount })}</small></div>
+          <div className="upload-submit-copy"><strong>{overlayFailed ? t("knowledgeDetailPipelineFailedTitle") : t("uploadProgressTitle")}</strong><small>{overlayFailed ? t("knowledgeDetailPipelineFailedHelp") : format("uploadProgressHelp", { count: formatCount(validCount, locale) })}</small></div>
           <UploadProgressBar label={localize(uploadStatus)} percent={uploadDisplayProgress} />
           {progressStalled ? <p className="upload-progress-notice">{t(liveProgressDocument ? "uploadProgressWaitLong" : "uploadWaitLong")}</p> : null}
           {liveProgressDocument?.pipeline.observationInterrupted ? <p className="upload-progress-notice" role="alert">{t("uploadProgressInterrupted")}</p> : null}
           {canLeaveWaiting ? <p className="upload-progress-notice">{t("uploadReturnDoesNotCancel")}</p> : null}
-          {overlayFailed && (failedStep?.error || liveProgressDocument?.pipeline.error) ? <p className="upload-progress-error-message">{t("apiGenericError")}</p> : null}
+          {overlayFailed && (failedStep?.error || liveProgressDocument?.pipeline.error) ? <p className="upload-progress-error-message">{failedStep?.error || liveProgressDocument?.pipeline.error}</p> : null}
+          <OCRBudgetStatus step={livePipelineSteps.find(step => step.name === "ocr_extract")?.ocr} />
+          <ChunkingIssueSummary issue={failedStep?.ocr?.chunking_issue} />
+          {ocrRetryBlocked(failedStep?.ocr) ? <p className="upload-progress-notice">{t(failedStep?.ocr?.chunking_issue ? "chunkIssueRetryBlocked" : "ocrImagePartialReview")}</p> : null}
           <button aria-expanded={progressDetailsOpen} className="upload-progress-detail-toggle" onClick={() => setProgressDetailsOpen((open) => !open)} type="button">
             {progressDetailsOpen ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
             <span>{progressDetailsOpen ? t("uploadProgressHideDetails") : t("uploadProgressShowDetails")}</span>
-            {livePipelineSteps.length ? <small>{format("uploadProgressStepCount", { completed: completedStepCount, total: uploadProgressSteps.length })}</small> : null}
+            {livePipelineSteps.length ? <small>{format("uploadProgressStepCount", { completed: formatCount(completedStepCount, locale), total: formatCount(uploadProgressSteps.length, locale) })}</small> : null}
           </button>
           {progressDetailsOpen ? (
             <div className="upload-progress-detail-panel">
@@ -413,7 +422,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
           ) : null}
           {overlayFailed ? (
             <div className="upload-progress-actions">
-              {onRetryPipeline && failedStep && failedStep.retryCount < 3 && !liveProgressDocument?.pipeline.observationInterrupted ? (
+              {onRetryPipeline && failedStep && failedStep.retryCount < 3 && !ocrRetryBlocked(failedStep.ocr) && !liveProgressDocument?.pipeline.observationInterrupted ? (
                 <button className="action-button secondary" disabled={!canSubmit || retryingPipeline} onClick={retryFailedAutoExtraction} type="button">
                   {retryingPipeline ? <LoaderCircle className="spin" size={16} /> : <RotateCcw size={16} />} {retryingPipeline ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
                 </button>

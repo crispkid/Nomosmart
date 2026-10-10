@@ -3,13 +3,17 @@ export type SystemParameterValues = {
   timezone: string;
   stagingTtlDays: number;
   sessionDraftTtlMinutes: number;
+  ocrPageOutputTokens: number | null;
+  ocrDocumentOutputTokens: number | null;
 };
 
 export const defaultSystemParameters: SystemParameterValues = {
   uploadLimitMb: 100,
   timezone: "Asia/Taipei",
   stagingTtlDays: 14,
-  sessionDraftTtlMinutes: 30
+  sessionDraftTtlMinutes: 30,
+  ocrPageOutputTokens: null,
+  ocrDocumentOutputTokens: null
 };
 
 export function validateSystemParameters(values: SystemParameterValues) {
@@ -28,6 +32,9 @@ export function validateSystemParameters(values: SystemParameterValues) {
     errors.sessionDraftTtlMinutes = "請輸入 0 或 5–120 分鐘的整數";
   }
 
+  if (values.ocrPageOutputTokens == null || !Number.isInteger(values.ocrPageOutputTokens) || values.ocrPageOutputTokens < 1 || values.ocrPageOutputTokens > 2147483647) errors.ocrPageOutputTokens = "ocrTokenPositiveInteger";
+  if (values.ocrDocumentOutputTokens == null || !Number.isInteger(values.ocrDocumentOutputTokens) || values.ocrDocumentOutputTokens < 1 || values.ocrDocumentOutputTokens > 2147483647) errors.ocrDocumentOutputTokens = "ocrTokenPositiveInteger";
+  else if (values.ocrPageOutputTokens != null && values.ocrDocumentOutputTokens < values.ocrPageOutputTokens) errors.ocrDocumentOutputTokens = "ocrTokenDocumentTooSmall";
   return errors;
 }
 

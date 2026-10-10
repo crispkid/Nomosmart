@@ -1,6 +1,6 @@
 {
   "name": "nomosmart-frontend",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "type": "module",
   "private": true,
   "scripts": {
@@ -13,10 +13,16 @@
     "test:contracts": "node --test tests/*.test.mjs",
     "test:components": "node node_modules/vitest/vitest.mjs run",
     "test:geometry": "node tests/chg294SelectionGeometry.browser.mjs",
-    "test:coverage": "npm run test:contracts && npm run test:geometry && node node_modules/vitest/vitest.mjs run --coverage",
+    "test:coverage": "node tests/fullCoverage.mjs",
     "test:e2e": "node tests/e2eLive.mjs"
   },
   "dependencies": {
+    "@tiptap/core": "3.31.4",
+    "@tiptap/extension-table": "3.31.4",
+    "@tiptap/markdown": "3.31.4",
+    "@tiptap/pm": "3.31.4",
+    "@tiptap/react": "3.31.4",
+    "@tiptap/starter-kit": "3.31.4",
     "@types/node": "^24.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
@@ -49,7 +55,8 @@
     "minimatch": "10.2.5",
     "nanoid": "3.3.18",
     "postcss": "8.5.23",
-    "sharp": "0.35.4",
-    "undici": "7.29.0"
+    "sharp": "0.35.5",
+    "undici": "7.29.0",
+    "source-map-js": "1.2.2"
   }
 }

@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, Project, Tag
+from app.db.models import Chunk, ChunkTag, Document, DocumentContentState, DocumentVersion, DocumentVersionTag, Project, Tag
 
 PROJECTION_VERSION = "tag-graph-v1"
 TAG_RELATIONS = frozenset({"CHUNK_HAS_TAG", "VERSION_HAS_TAG"})
@@ -40,17 +40,20 @@ class GraphProjection:
     project_generation: int
     graph: dict
     tag_revision: int = 0
+    content_binding: dict | None = None
 
     @property
     def source_digest(self) -> str:
         return digest({"projection_version": PROJECTION_VERSION, "project_id": str(self.project_id),
                        "document_id": str(self.document_id), "version_id": str(self.version_id),
-                       "revision": self.revision, "tag_revision": self.tag_revision, "generation": self.project_generation, "graph": self.graph})
+                       "revision": self.revision, "tag_revision": self.tag_revision, "generation": self.project_generation, "graph": self.graph,
+                       **({"content_binding":self.content_binding} if self.content_binding else {})})
 
     def binding(self) -> dict:
         return {"project_id": str(self.project_id), "document_id": str(self.document_id),
                 "version_id": str(self.version_id), "revision": self.revision,
-                "project_generation": self.project_generation, "tag_revision": self.tag_revision, "source_digest": self.source_digest}
+                "project_generation": self.project_generation, "tag_revision": self.tag_revision, "source_digest": self.source_digest,
+                **({"content_binding":self.content_binding} if self.content_binding else {})}
 
 
 def assignment_properties(link: ChunkTag | DocumentVersionTag) -> dict:
@@ -112,8 +115,14 @@ def build_graph_projection(session: Session, project: Project, document: Documen
         is_chunk = isinstance(link, ChunkTag)
         edge(link.chunk_id if is_chunk else version.id, "CHUNK_HAS_TAG" if is_chunk else "VERSION_HAS_TAG",
              tag.id, assignment_properties(link))
+    source = session.get(DocumentContentState,version.id)
+    content_binding = {"revision":source.content_revision,"canonical_sha256":source.current_sha256} if source else None
+    if source and (source.project_id != project.id or source.document_id != document.id or
+                   sha256(source.current_markdown.encode()).hexdigest() != source.current_sha256):
+        raise AppError("graph_source_stale","Graph canonical source is invalid",status_code=409)
     return GraphProjection(project.id, document.id, version.id, version.lock_version, project.work_generation,
-                           canonical_graph(list(nodes.values()), edges), int((version.chunk_strategy or {}).get("graph_tag_revision") or 0))
+                           canonical_graph(list(nodes.values()), edges), int((version.chunk_strategy or {}).get("graph_tag_revision") or 0),
+                           content_binding)
 
 
 def preview_artifact(projection: GraphProjection) -> dict:

@@ -1,3 +1,12 @@
+embeddingCapabilities:
+  catalog:
+    version: 1
+    source: https://developers.openai.com/api/docs/guides/embeddings
+    models:
+      - {provider: openai, model_name: text-embedding-3-small, input_token_limit: 8192, tokenizer_encoding: cl100k_base}
+      - {provider: openai, model_name: text-embedding-3-large, input_token_limit: 8192, tokenizer_encoding: cl100k_base}
+      - {provider: openai, model_name: text-embedding-ada-002, input_token_limit: 8192, tokenizer_encoding: cl100k_base}
+
 global:
   publicHost: nomosmart.local
   publicOrigin: https://nomosmart.local
@@ -64,11 +73,11 @@ compatibility:
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.1.2"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.1.2"
+    tag: "0.2.0"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway
@@ -170,6 +179,7 @@ backend:
     IDENTITY_SYNC_HEARTBEAT_SECONDS: "30"
     IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS: "600"
     DEFAULT_TIMEZONE: Asia/Taipei
+    NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES: "10485760"
     NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB: "100"
     MAX_UPLOAD_SIZE_MB: "100"
     STAGING_INDEX_TTL_DAYS: "7"
@@ -202,12 +212,15 @@ backend:
     TESSERACT_TIMEOUT_SECONDS: "120"
     TESSERACT_MAX_MEMORY_MB: "512"
     TESSERACT_MAX_PAGES: "200"
+    NOMOSMART_PDF_OCR_DPI: "200"
+    NOMOSMART_EMBEDDING_CAPABILITIES_FILE: "/etc/nomosmart/embedding-capabilities.json"
     HTTP_SOURCE_ALLOWED_HOSTS: ""
     HTTP_SOURCE_ALLOWED_CIDRS: ""
     SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
     VALIDATION_MAX_ATTEMPTS: "3"
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"
+    NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS: "10"
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "1", memory: 1Gi}
@@ -221,10 +234,10 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.1.2 target from deploy/migrations/release-contract.json.
-  requiredVersion: "051"
-  requiredChecksum: "1782483375"
-  baselineChecksum: "1904638595"
+  # NomoSmart 0.2.0 target from deploy/migrations/release-contract.json.
+  requiredVersion: "053"
+  requiredChecksum: "-616112917"
+  baselineChecksum: "-1949712409"
   checkTimeoutSeconds: 10
   jdbcUrl: ""
   userSecretKey: DATABASE_MIGRATION_USER

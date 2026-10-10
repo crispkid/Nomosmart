@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.api.schemas import BreakGlassStatusResponse, OperationsStatusResponse, SystemParametersPayload, UploadConfigResponse
+from app.api.schemas import BreakGlassStatusResponse, OperationsStatusResponse, SystemParametersPayload, SystemParametersUpdatePayload, UploadConfigResponse
 from app.core.errors import AppError
 from app.db.models import SystemParameter
 from app.db.session import get_db
 from app.domain.system_parameters import SystemParameterValues
+from app.domain.ocr_token_settings import from_rows, OCRTokenSettings, KEYS as OCR_KEYS
 from app.domain.operations import build_operations_status
 from app.integrations.keycloak import KeycloakAdminClient, KeycloakBreakGlassStatus
 from app.security.context import IdentityContext, get_identity_context
@@ -56,7 +57,12 @@ def _break_glass_response(row: KeycloakBreakGlassStatus, *, checked_at: datetime
 
 def _rows_to_payload(rows: list[SystemParameter]) -> SystemParametersPayload:
     values = {row.key: row.value for row in rows}
+    tokens, defaults = from_rows(rows), from_rows(rows, defaults=True)
     return SystemParametersPayload(
+        ocr_page_max_output_tokens=tokens.page,
+        ocr_document_max_tokens=tokens.document,
+        ocr_token_defaults={OCR_KEYS[0]: defaults.page, OCR_KEYS[1]: defaults.document},
+        ocr_token_settings_hash=tokens.content_hash,
         max_upload_size_mb=int(values["max_upload_size_mb"]),
         default_timezone=str(values["default_timezone"]),
         staging_index_ttl_days=int(values["staging_index_ttl_days"]),
@@ -179,21 +185,30 @@ def get_break_glass_status(
 
 @router.put("/parameters", response_model=SystemParametersPayload)
 def update_parameters(
-    payload: SystemParametersPayload,
+    payload: SystemParametersUpdatePayload,
     request: Request,
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> SystemParametersPayload:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
-    validated = SystemParameterValues(**payload.model_dump()).validate()
-    rows = {row.key: row for row in session.scalars(select(SystemParameter).with_for_update())}
-    old_values = {key: row.value for key, row in rows.items()}
-    for key, value in payload.model_dump().items():
+    core = payload.model_dump(exclude=set(OCR_KEYS) | {"expected_ocr_token_settings_hash"})
+    SystemParameterValues(**core).validate()
+    rows = {row.key: row for row in session.scalars(select(SystemParameter).order_by(SystemParameter.key).with_for_update())}
+    current = from_rows(list(rows.values()))
+    from_rows(list(rows.values()), defaults=True)
+    submitted = payload.model_dump(exclude_unset=True)
+    changed_ocr = set(submitted) & set(OCR_KEYS)
+    if changed_ocr and payload.expected_ocr_token_settings_hash != current.content_hash:
+        raise AppError("ocr_token_settings_conflict", "OCR output settings changed; reload before saving", status_code=409)
+    OCRTokenSettings(submitted.get(OCR_KEYS[0], current.page), submitted.get(OCR_KEYS[1], current.document))
+    values = core | {key: submitted[key] for key in changed_ocr}
+    old_values = {key: rows[key].value for key in values if key in rows}
+    for key, value in values.items():
         if key not in rows:
             rows[key] = SystemParameter(key=key, value=value, default_value=value, value_type="integer", unit="minutes", description="Session-expired form draft retention")
             session.add(rows[key])
         rows[key].value = value
         rows[key].updated_by = context.user_id
-    add_audit(session, actor_user_id=context.user_id, action="system.parameters.update", resource_type="system_parameters", resource_id=None, result="success", request_id=request.state.request_id, summary={"old": old_values, "new": payload.model_dump()})
+    add_audit(session, actor_user_id=context.user_id, action="system.parameters.update", resource_type="system_parameters", resource_id=None, result="success", request_id=request.state.request_id, summary={"old": old_values, "new": values})
     session.commit()
-    return SystemParametersPayload(**validated.__dict__)
+    return _rows_to_payload(list(rows.values()))

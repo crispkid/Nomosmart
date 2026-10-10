@@ -9,7 +9,7 @@ from urllib.parse import quote
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import DBAPIError
@@ -23,6 +23,10 @@ from app.db.session import get_db, get_session_factory
 from app.domain.ai_provider import generate_knowledge_tags
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
 from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation
+from app.domain.document_content_updates import (can_edit_content, scoped_content, current_content, editor_source, content_edit_mode,
+    queue_content_update, scoped_update, job_response, retry_content_update, cancel_failed_update, effective_pipeline)
+from app.api.schemas import ContentUpdatePayload, ContentRetryPayload, ContentCancelPayload
+from app.db.models import DocumentContentUpdate
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
 from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction
@@ -48,6 +52,89 @@ from app.services.audit import add_audit
 
 
 router = APIRouter(prefix="/projects/{project_id}/documents", tags=["documents"])
+
+
+@router.get("/{document_id}/versions/{version_id}/content-editor")
+def get_content_editor(project_id: UUID, document_id: UUID, version_id: UUID, request: Request,
+    chunk_id: UUID | None = None, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
+    project, document, version = scoped_content(session,project_id,document_id,version_id,context)
+    result = editor_source(session,project,document,version,context,request.app.state.settings,chunk_id)
+    result["original_file"] = _original_file_metadata(project.id,document.id,version).model_dump(mode="json")
+    return JSONResponse(result,headers={"Cache-Control":"private, no-store"})
+
+
+@router.post("/{document_id}/versions/{version_id}/content-updates")
+async def save_document_content(project_id: UUID, document_id: UUID, version_id: UUID, request: Request,
+    idempotency_key: str | None = Header(default=None,alias="Idempotency-Key"),
+    context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
+    # Bound before JSON decoding; escaped Unicode can expand UTF-8 text sixfold.
+    settings = request.app.state.settings
+    project,_,_ = scoped_content(session,project_id,document_id,version_id,context)
+    if not can_edit_content(session,project.id,context.user_id):
+        raise AppError("project_editor_required","Editor permission is required",status_code=403)
+    body = bytearray()
+    async for part in request.stream():
+        if len(body) + len(part) > settings.content_edit_max_utf8_bytes * 6 + 65536:
+            raise AppError("content_edit_too_large","Content request exceeds the configured limit",status_code=413)
+        body.extend(part)
+    try:
+        payload = ContentUpdatePayload.model_validate_json(bytes(body))
+    except ValueError as exc:
+        raise AppError("content_edit_invalid","Content request is invalid",status_code=422) from exc
+    project,document,version = scoped_content(session,project_id,document_id,version_id,context,write=True)
+    replay,record = begin_idempotent_operation(session,settings,scope=f"content-edit:{project.id}:{document.id}:{context.user_id}",
+        raw_key=idempotency_key,request_payload={"version_id":str(version.id),"payload":payload.model_dump(mode="json")})
+    if replay:
+        return JSONResponse(replay.body,status_code=replay.status_code)
+    result = queue_content_update(session,project,document,version,payload,context.user_id,settings,request.state.request_id)
+    code = 202 if result["changed"] else 200
+    complete_idempotent_operation(record,result,status_code=code)
+    session.commit()
+    return JSONResponse(result,status_code=code)
+
+
+@router.get("/{document_id}/versions/{version_id}/content-updates/{update_id}")
+def get_content_update(project_id: UUID,document_id: UUID,version_id: UUID,update_id: UUID,
+    context: IdentityContext = Depends(get_identity_context),session: Session = Depends(get_db)):
+    project,document,version = scoped_content(session,project_id,document_id,version_id,context)
+    return job_response(scoped_update(session,project,document,version,update_id))
+
+
+@router.post("/{document_id}/versions/{version_id}/content-updates/{update_id}/retry")
+def retry_document_content(project_id: UUID,document_id: UUID,version_id: UUID,update_id: UUID,payload: ContentRetryPayload,
+    request: Request,idempotency_key: str | None = Header(default=None,alias="Idempotency-Key"),
+    context: IdentityContext = Depends(get_identity_context),session: Session = Depends(get_db)):
+    project,document,version = scoped_content(session,project_id,document_id,version_id,context,write=True)
+    job = scoped_update(session,project,document,version,update_id)
+    replay,record = begin_idempotent_operation(session,request.app.state.settings,
+        scope=f"content-retry:{project.id}:{job.id}:{context.user_id}",raw_key=idempotency_key,
+        request_payload={"update_id":str(job.id),"lock_version":payload.lock_version})
+    if replay:
+        return JSONResponse(replay.body,status_code=replay.status_code)
+    result = retry_content_update(session,project,version,job,payload.lock_version)
+    complete_idempotent_operation(record,result,status_code=202)
+    add_audit(session,actor_user_id=context.user_id,action="document.content_update.retry",resource_type="document_version",resource_id=version.id,
+        result="success",request_id=request.state.request_id,summary={"update_id":str(job.id),"revision":job.target_revision})
+    session.commit()
+    return JSONResponse(result,status_code=202)
+
+@router.post("/{document_id}/versions/{version_id}/content-updates/{update_id}/cancel")
+def cancel_document_content(project_id: UUID, document_id: UUID, version_id: UUID, update_id: UUID,
+    payload: ContentCancelPayload, request: Request,
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
+    context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
+    project, document, version = scoped_content(session, project_id, document_id, version_id, context, write=True)
+    job = scoped_update(session, project, document, version, update_id)
+    replay, record = begin_idempotent_operation(session, request.app.state.settings,
+        scope=f"content-cancel:{project.id}:{job.id}:{context.user_id}", raw_key=idempotency_key,
+        request_payload={"update_id":str(job.id), "payload":payload.model_dump(mode="json")})
+    if replay:
+        return JSONResponse(replay.body, status_code=replay.status_code)
+    result = cancel_failed_update(session, project, document, version, job, payload, context.user_id, request.state.request_id)
+    complete_idempotent_operation(record, result, status_code=200)
+    session.commit()
+    return JSONResponse(result)
+
 
 REVIEW_LOCKED_VERSION_STATUSES = {"pending_manager_review", "pending_owner_review", "approved"}
 PROCESSING_DEBUG_ROLES = PROJECT_EDITOR_ROLES | PROJECT_OWNER_ROLES
@@ -680,8 +767,8 @@ def update_document_lifecycle(
     create_source_reference_events(session, source_document=document, event_type=event_type)
     add_audit(session, actor_user_id=context.user_id, action="document.lifecycle.update", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"status": payload.status, "reason": payload.reason, "impact": impact.model_dump(mode="json")})
     session.commit()
-    version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id).order_by(DocumentVersion.created_at.desc()).limit(1))
-    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id).order_by(PipelineRun.created_at.desc()).limit(1))
+    version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
+    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
     return _project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids)))
 
 
@@ -710,7 +797,7 @@ def get_document_knowledge_detail(
     document = session.get(Document, document_id)
     if document is None or document.project_id != project.id:
         raise AppError("document_not_found", "Document was not found", status_code=404)
-    version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.project_id == project.id).order_by(DocumentVersion.created_at.desc()).limit(1))
+    version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.project_id == project.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
     if version is None:
         raise AppError("document_version_not_found", "Document version was not found", status_code=404)
     return _knowledge_detail_response(session, project, document, version, context)
@@ -946,13 +1033,25 @@ def edit_chunk(
     )
     if chunk is None:
         raise AppError("chunk_not_found", "Chunk was not found", status_code=404)
+    if payload.content != chunk.content or (payload.markdown_content is not None and payload.markdown_content != chunk.markdown_content):
+        source,revision,digest = current_content(session,version)
+        ranges = editor_source(session,project,document,version,context,request.app.state.settings,chunk.id)["selection_ranges"]
+        if len(ranges) != 1:
+            raise AppError("chunk_content_source_unresolved","Use full document editing for this chunk",status_code=409)
+        start,end = ranges[0]["start"],ranges[0]["end"]
+        replacement_source = payload.markdown_content if payload.markdown_content is not None else payload.content
+        update = ContentUpdatePayload(document_lock_version=document.lock_version,lock_version=payload.lock_version,
+            base_content_revision=revision,base_canonical_sha256=digest,markdown=source[:start]+replacement_source+source[end:])
+        queue_content_update(session,project,document,version,update,context.user_id,request.app.state.settings,request.state.request_id)
+        session.commit()
+        return _knowledge_detail_response(session,project,document,version,context)
     content = payload.content.strip()
     if not content:
         raise AppError("manual_chunk_blank", "Manual chunk content cannot be blank", status_code=422)
     for mapping in payload.source_mapping:
         if not str(mapping.get("source_anchor") or "").strip():
             raise AppError("chunk_source_mapping_invalid", "Every source mapping requires a source anchor", status_code=422)
-    raw_markdown = payload.markdown_content if payload.markdown_content is not None and payload.markdown_content.strip() else content
+    raw_markdown = payload.markdown_content if payload.markdown_content is not None and payload.markdown_content.strip() else chunk.markdown_content or content
     representation = build_manual_chunk_representation(
         raw_markdown=raw_markdown,
         document_title=document.title,
@@ -1392,6 +1491,13 @@ def retry_pipeline(
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to retry extraction")
     document, version, pipeline = _scoped_document_version_pipeline(session, project.id, document_id, version_id, pipeline_id)
     _ensure_not_review_locked(version, "document.pipeline.retry")
+    if pipeline.run_type == "document_content_update":
+        job = session.scalar(select(DocumentContentUpdate).where(DocumentContentUpdate.pipeline_run_id == pipeline.id))
+        if job is None:
+            raise AppError("content_update_not_found","Content update was not found",status_code=404)
+        retry_content_update(session,project,version,job,version.lock_version)
+        session.commit()
+        return _pipeline_detail(pipeline)
     pipeline = retry_failed_step(session=session, settings=request.app.state.settings, project=project, document=document, version=version, pipeline=pipeline, step_name=payload.step_name)
     add_audit(session, actor_user_id=context.user_id, action="document.pipeline.retry", resource_type="pipeline_run", resource_id=pipeline.id, result="success", request_id=request.state.request_id, summary={"document_id": str(document.id), "version_id": str(version.id), "step_name": payload.step_name})
     session.commit()
@@ -1399,7 +1505,7 @@ def retry_pipeline(
 
 
 def _knowledge_detail_response(session: Session, project: Project, document: Document, version: DocumentVersion, context: IdentityContext) -> KnowledgeDetailResponse:
-    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, PipelineRun.document_version_id == version.id).order_by(PipelineRun.created_at.desc()).limit(1))
+    pipeline = effective_pipeline(session, version.id)
     chunks = _active_chunks(session, project.id, document.id, version.id)
     pipeline_detail = _pipeline_detail(pipeline) if pipeline else None
     markdown_artifact = resolve_markdown_artifact(session, version)
@@ -1419,6 +1525,11 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
     chat_access = {"mode": "published" if published_ready else "staging" if next_stage_allowed else "history_only" if has_history else "unavailable",
         "document_version_id": version.id, "query_enabled": published_ready or next_stage_allowed,
         "reason_code": None if published_ready or next_stage_allowed else next_stage_block_reason}
+    edit_mode, edit_reason = content_edit_mode(session, project, version, can_edit_content(session, project.id, context.user_id))
+    if pipeline_detail:
+        for step in pipeline_detail.steps:
+            if step.chunking_issue:
+                step.chunking_issue.can_edit_content = edit_mode != "readonly"
     return KnowledgeDetailResponse(
         document=_project_document(session, document, version, pipeline, expose_storage=False, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))),
         version=_version_summary(version, expose_storage=False),
@@ -1433,6 +1544,10 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
         markdown_available_count=markdown_available_count,
         missing_markdown_count=missing_markdown_count,
         manual_edit_enabled=manual_edit_enabled,
+        content_edit_mode=edit_mode,
+        content_edit_reason=edit_reason,
+        content_update=job_response(job) if (job := session.scalar(select(DocumentContentUpdate).where(
+            DocumentContentUpdate.document_version_id == version.id).order_by(desc(DocumentContentUpdate.created_at)).limit(1))) else None,
         manual_edit_reason=manual_edit_reason,
         tag_edit_reason=("review_locked" if _is_review_locked(version) else "published_tag_revision_required" if version.published_at is not None or version.status in {"active", "inactive"} else None),
         active_chunk_count=len(chunks),
@@ -1472,7 +1587,7 @@ def _ensure_manual_edit_allowed(session: Session, version: DocumentVersion, lock
     _ensure_not_review_locked(version, "knowledge.chunk.manual_create")
     if version.status != "submission_ready":
         raise AppError("document_version_not_editable", "Only a submission-ready candidate version can be edited", status_code=409)
-    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id).order_by(PipelineRun.created_at.desc()).limit(1))
+    pipeline = effective_pipeline(session, version.id)
     if pipeline is not None and pipeline.status in {"queued", "running", "processing"}:
         raise AppError("manual_edit_pipeline_running", "Manual chunk editing is unavailable while the pipeline is running", status_code=409)
 
@@ -1634,7 +1749,9 @@ def _split_chunk(
 def _manual_chunk_config_snapshot(version: DocumentVersion) -> dict[str, object] | None:
     strategy = version.chunk_strategy if isinstance(version.chunk_strategy, dict) else {}
     snapshot = strategy.get("effective_chunk_config")
-    return snapshot if isinstance(snapshot, dict) else None
+    if isinstance(snapshot, dict):
+        return {**snapshot, **({"embedding_input_contract": strategy["embedding_input_contract"]} if strategy.get("embedding_input_contract") else {})}
+    return None
 
 
 def _source_anchor_rank(source_anchor: str | None) -> int:
@@ -1990,7 +2107,10 @@ def _reference_source_summary(session: Session, document: Document, version: Doc
         .order_by(desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
         .limit(1)
     )
-    if reference is None and (version is None or version.source_document_id is None or version.source_version_id is None):
+    if reference is None and (
+        version is None or version.source_document_id is None or version.source_version_id is None
+        or version.source_document_id == document.id
+    ):
         return None
     copied_source_document = session.get(Document, version.source_document_id) if reference is None and version and version.source_document_id else None
     source_project_id = reference.source_project_id if reference else copied_source_document.project_id if copied_source_document else None
@@ -2090,17 +2210,70 @@ def pipeline_steps_cache(pipeline: PipelineRun) -> list[PipelineRunStep]:
 
 
 def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
+    from app.domain.ocr_image_receipts import checkpoint
+    from app.domain.ocr_token_settings import from_snapshot
+    from app.db.models import AIModelUsageEvent
+    from app.domain.ocr_presentation import ocr_call_state
+    receipt = checkpoint(step.artifact_payload)
+    session = Session.object_session(step)
+    configured = {}
+    paid = False
+    run = None
+    if step.step_name == "ocr_extract" and session is not None:
+        run = session.get(PipelineRun, step.run_id)
+        version = session.get(DocumentVersion, run.document_version_id) if run else None
+        configured = (version.chunk_strategy or {}).get("ocr_snapshot") or {} if version else {}
+        paid = session.scalar(select(AIModelUsageEvent.id).where(
+            AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.attempted.is_(True),
+            AIModelUsageEvent.metadata_["physical_page"].astext.is_not(None)).limit(1)) is not None
+    mode = bool(receipt) or configured.get("pdf_input_mode") == "page_images"
+    error_code = receipt.get("error_code")
+    if not error_code and step.status == "failed" and session is not None:
+        error_code = session.scalar(select(AIModelUsageEvent.error_code).where(
+            AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.status == "failed")
+            .order_by(AIModelUsageEvent.created_at.desc()).limit(1))
+    call_state = ocr_call_state(has_intent=bool(receipt.get("intent")),
+        step_status=step.status, pipeline_status=run.status if run else None,
+        claim_token=step.claim_token, lease_expires_at=step.lease_expires_at) if mode else None
+    if not error_code and call_state == "unconfirmed":
+        error_code = "ocr_image_provider_result_unknown"
+    tokens = None
+    if step.step_name == "ocr_extract":
+        try:
+            tokens = from_snapshot(configured)
+        except AppError:
+            error_code = "ocr_token_settings_invalid"
+    used = None
+    if tokens is not None:
+        if receipt:
+            known = receipt.get("usage_confirmed") is True and (not receipt.get("intent") or receipt["intent"].get("usage_recorded") is True)
+            value = receipt.get("confirmed_output_tokens")
+            if known and type(value) is int and value >= 0:
+                used = value
+        elif not paid:
+            used = 0
+    retry_allowed = (step.status == "failed" and step.retry_count < 3 and not paid and not receipt.get("pages") and not receipt.get("intent")) if mode else None
+    from app.domain.embedding_capacity import CHUNKING_ERROR_CODES
+    issue = (step.artifact_payload or {}).get("chunking_issue") if step.status == "failed" else None
+    if isinstance(issue, dict) and issue.get("code") in CHUNKING_ERROR_CODES:
+        error_code, retry_allowed = issue["code"], False
+    else:
+        issue = None
     return PipelineStepSummary(
-        id=step.id,
-        step_name=step.step_name,
-        status=step.status,
-        progress_percent=float(step.progress_percent),
-        progress_message=step.progress_message,
-        retry_count=step.retry_count,
-        output_artifact_ref=step.output_artifact_ref,
-        started_at=step.started_at,
-        completed_at=step.completed_at,
-        error_message=step.error_message,
+        id=step.id, step_name=step.step_name, status=step.status,
+        progress_percent=float(step.progress_percent), progress_message=step.progress_message,
+        retry_count=step.retry_count, output_artifact_ref=step.output_artifact_ref,
+        started_at=step.started_at, completed_at=step.completed_at, error_message=step.error_message,
+        input_mode="page_images" if mode else None,
+        ocr_call_state=call_state,
+        processed_pages=len(receipt.get("pages", {})) if receipt else None,
+        total_pages=receipt.get("total_pages") if receipt else None,
+        error_code=error_code, retry_allowed=retry_allowed,
+        page_output_token_limit=tokens.page if tokens else None,
+        document_output_token_limit=tokens.document if tokens else None,
+        confirmed_output_tokens=used,
+        remaining_output_tokens=max(0, tokens.document - used) if tokens and used is not None else None,
+        chunking_issue=issue,
     )
 
 

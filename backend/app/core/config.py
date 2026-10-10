@@ -134,6 +134,7 @@ class Settings(MigrationProbeSettings):
     frontend_app_origin: str = "http://127.0.0.1:3000"
 
     database_url: SecretStr = SecretStr("postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/nomosmart")
+    model_usage_write_timeout_seconds: int = Field(default=10, ge=1, le=60, validation_alias="NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS")
     redis_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_broker_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_result_backend: SecretStr = SecretStr("redis://127.0.0.1:6379/1")
@@ -202,6 +203,7 @@ class Settings(MigrationProbeSettings):
         le=10240,
         validation_alias=AliasChoices("NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB", "MAX_UPLOAD_SIZE_MB"),
     )
+    content_edit_max_utf8_bytes: int = Field(default=10485760, ge=1024, le=1073741824, validation_alias="NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES")
     staging_index_ttl_days: int = Field(default=7, ge=1, le=3650)
     upload_request_max_size_mb: int | None = Field(default=None, ge=2, le=10241, validation_alias="DOCUMENT_UPLOAD_REQUEST_MAX_SIZE_MB")
     upload_max_inflight: int = Field(default=2, ge=1, le=16, validation_alias="NOMOSMART_UPLOAD_MAX_INFLIGHT")
@@ -238,6 +240,7 @@ class Settings(MigrationProbeSettings):
             raise ValueError("Upload scratch directory must be absolute")
         return self
     ingestion_worker_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    embedding_capabilities_file: str = Field(default="", validation_alias=AliasChoices("NOMOSMART_EMBEDDING_CAPABILITIES_FILE", "embedding_capabilities_file"))
     target_chunk_tokens: int = Field(default=500, ge=16, le=100000)
     max_chunk_tokens: int = Field(default=700, ge=16, le=100000)
     min_chunk_tokens: int = Field(default=80, ge=1, le=100000)
@@ -260,6 +263,7 @@ class Settings(MigrationProbeSettings):
     pdf_info_command: str = "pdfinfo"
     pdf_text_command: str = "pdftotext"
     pdf_separate_command: str = "pdfseparate"
+    pdf_ocr_dpi: int = Field(default=200, ge=100, le=300, validation_alias=AliasChoices("NOMOSMART_PDF_OCR_DPI", "pdf_ocr_dpi"))
     tesseract_sandbox_command: str = "bwrap"
     tesseract_sandbox_read_only_paths: Annotated[list[str], NoDecode] = Field(default_factory=list)
     tesseract_timeout_seconds: int = Field(default=120, ge=10, le=1800)

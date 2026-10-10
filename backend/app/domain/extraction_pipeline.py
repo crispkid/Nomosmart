@@ -17,7 +17,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from time import perf_counter
 from typing import Any, Protocol
-from uuid import UUID, uuid4
+from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import delete, desc, select
 from sqlalchemy.orm import Session
@@ -370,16 +370,30 @@ def validate_staging_bulk_result(payload: object, *, index: str, document_ids: l
 class LiveOpenSearchStagingIndexAdapter:
     """Live-only staging adapter for configured Development OpenSearch."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, index_override: str | None = None, ownership: dict | None = None) -> None:
         self.settings = settings
+        self.index_override = index_override
+        self.ownership = ownership
+
+    def has_owned_index(self, *, project, document, version):
+        from app.domain.index_residue import verify_external_owner
+        if self.ownership is None or self.index_override is None:
+            raise AppError("content_cleanup_protected", "An index ownership intent is required", status_code=409)
+        return verify_external_owner(self, self.index_override, project.id, document.id, version.id,
+                                     known=True, intent=self.ownership)
 
     def write_chunks(self, *, project: Project, document: Document, version: DocumentVersion, chunks: list[Chunk], vectors: list[list[float]], profile: EmbeddingProfile) -> StagingIndexResult:
-        index = staging_index_name(self.settings.opensearch_index_prefix, project.id, version.id)
+        index = self.index_override or bound_staging_index(self.settings.opensearch_index_prefix, project.id, version)
         document_ids = [f"{version.id}:{chunk.id}" for chunk in chunks]
         if not self.settings.opensearch_staging_live_write:
             raise AppError("opensearch_staging_not_configured", "OpenSearch staging live write is not configured", status_code=503)
         _validate_staging_inputs(chunks, vectors, profile)
-        self.delete_version(project_id=project.id, version_id=version.id)
+        if self.ownership is not None:
+            self.has_owned_index(project=project, document=document, version=version)
+        # A corrected version can select an '-edit-' index. Delete the exact
+        # index we will replace, rather than leaving its former chunk IDs.
+        LiveOpenSearchStagingIndexAdapter(self.settings, index_override=index).delete_version(
+            project_id=project.id, version_id=version.id)
         self._write_live(index, project, document, version, chunks, vectors, profile)
         # No submission_ready/staged receipt until search visibility and the
         # exact canonical corpus agree. This does not replay a failed write.
@@ -390,7 +404,7 @@ class LiveOpenSearchStagingIndexAdapter:
     def delete_version(self, *, project_id: UUID, version_id: UUID) -> None:
         if not self.settings.opensearch_staging_live_write:
             raise AppError("opensearch_staging_not_configured", "OpenSearch staging live write is not configured", status_code=503)
-        index = staging_index_name(self.settings.opensearch_index_prefix, project_id, version_id)
+        index = self.index_override or staging_index_name(self.settings.opensearch_index_prefix, project_id, version_id)
         base = self.settings.opensearch_url.rstrip("/")
         context = self.settings.opensearch_ssl_context
         self._request("DELETE", f"{base}/{index}", b"", context=context, content_type="application/json", allow_missing=True)
@@ -441,6 +455,9 @@ class LiveOpenSearchStagingIndexAdapter:
 
     def _ensure_index(self, base: str, index: str, profile: EmbeddingProfile, context: ssl.SSLContext | None) -> None:
         mapping = _vector_index_mapping(profile)
+        if self.ownership is not None:
+            from app.domain.index_residue import OWNER_META
+            mapping["mappings"]["_meta"] = {OWNER_META: self.ownership}
         try:
             self._request("PUT", f"{base}/{index}", json.dumps(mapping).encode("utf-8"), context=context, content_type="application/json")
         except AppError:
@@ -467,7 +484,7 @@ class LiveOpenSearchStagingIndexAdapter:
                                 chunks: list[Chunk], vectors: list[list[float]], profile: EmbeddingProfile) -> None:
         _validate_staging_inputs(chunks, vectors, profile)
         base = self.settings.opensearch_url.rstrip("/")
-        index = staging_index_name(self.settings.opensearch_index_prefix, project.id, version.id)
+        index = self.index_override or bound_staging_index(self.settings.opensearch_index_prefix, project.id, version)
         context = self.settings.opensearch_ssl_context
         self._verify_vector_mapping(base, index, profile, context)
 
@@ -590,6 +607,14 @@ def _staging_chunk_document(
     }
 
 
+def bound_staging_index(prefix: str, project_id: UUID, version: DocumentVersion) -> str:
+    base = staging_index_name(prefix, project_id, version.id)
+    bound = str(version.extraction_artifact_uri or "").removeprefix("opensearch://")
+    if bound.startswith(base + "-edit-") and re.fullmatch(re.escape(base) + r"-edit-[0-9a-f]{32}", bound):
+        return bound
+    return base
+
+
 def staging_index_name(prefix: str, project_id: UUID, version_id: UUID) -> str:
     return f"{prefix}-staging-p{str(project_id)[:8]}-v{str(version_id)[:8]}".lower()
 
@@ -690,7 +715,7 @@ def execute_auto_extraction(
     from app.domain.pdf_processing import PDFProcessing
     strategy = version.chunk_strategy or {}
     text_first = _has_reliable_text_layer(version) and not strategy.get("force_ocr") and not strategy.get("source_text_origin")
-    fallback = "local_ocr" if isinstance(ocr, TesseractOCRAdapter) else "split" if isinstance(ocr, OpenAIOCRAdapter) else None
+    fallback = "local_ocr" if isinstance(ocr, TesseractOCRAdapter) else "raster" if isinstance(ocr, OpenAIOCRAdapter) else None
     program = "text_or_" + fallback if text_first and fallback else "text" if text_first or not fallback else fallback
     model = session.get(AIModel, version.ocr_model_id) if version.ocr_model_id is not None else None
     # Only local OCR interprets Tesseract language IDs. Provider language labels
@@ -700,7 +725,8 @@ def execute_auto_extraction(
         # existing failed-step handling, not an unowned Worker interruption.
         local_snapshot = _ocr_snapshot(model, version, bool(strategy.get("force_ocr"))) if isinstance(ocr, TesseractOCRAdapter) else {}
         return _tesseract_languages(local_snapshot).split("+")
-    with PDFProcessing(session=session, settings=settings, claim=execution_claim, program=program, language_resolver=language_resolver):
+    configured_dpi = (strategy.get("ocr_snapshot") or {}).get("pdf_ocr_dpi", settings.pdf_ocr_dpi)
+    with PDFProcessing(session=session, settings=settings, claim=execution_claim, program=program, language_resolver=language_resolver, raster_dpi=configured_dpi):
         return _execute_auto_extraction(**arguments)
 
 
@@ -770,6 +796,11 @@ def _execute_auto_extraction(
                 session.rollback()
                 raise
             safe = _safe_error(exc)
+            from app.domain.embedding_capacity import CHUNKING_ERROR_CODES
+            if isinstance(exc, AppError) and exc.code in CHUNKING_ERROR_CODES:
+                step.artifact_payload = {**(step.artifact_payload or {}), "chunking_issue": exc.details.get("chunking_issue") or {"code": exc.code}}
+                step.artifact_fingerprint = hashlib.sha256(json.dumps(step.artifact_payload, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
+                safe = exc.code
             _fail_step(step, safe)
             pipeline.status = "failed"
             pipeline.error_message = safe
@@ -821,8 +852,16 @@ def retry_failed_step(
         raise AppError("pipeline_step_not_found", "Pipeline step was not found", status_code=404)
     if step.status != "failed":
         raise AppError("pipeline_step_not_failed", "Only failed pipeline steps can be retried", status_code=409)
+    from app.domain.embedding_capacity import CHUNKING_ERROR_CODES
+    issue = (step.artifact_payload or {}).get("chunking_issue") or {}
+    if issue.get("code") in CHUNKING_ERROR_CODES:
+        raise AppError(issue["code"], "Resolve the content or model capacity issue before rebuilding", status_code=409, details={"chunking_issue": issue})
     if step.retry_count >= MAX_STEP_RETRIES:
         raise AppError("pipeline_retry_limit_exceeded", "Pipeline step retry limit has been reached", status_code=409, details={"max_retries": MAX_STEP_RETRIES})
+    if step_name == "ocr_extract":
+        from app.domain.ocr_image_receipts import checkpoint
+        if checkpoint(step.artifact_payload).get("intent"):
+            raise AppError("ocr_image_provider_result_unknown", "PDF OCR provider result is unconfirmed", status_code=409)
     if step_name == "ocr_extract" and session.scalar(select(AIModelUsageEvent.id).where(
         AIModelUsageEvent.pipeline_step_id == step.id,
         AIModelUsageEvent.metadata_["physical_page"].astext.is_not(None),
@@ -853,7 +892,9 @@ def retry_failed_step(
 
 
 def latest_pipeline_for_version(session: Session, version_id: UUID) -> PipelineRun | None:
-    return session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version_id).order_by(desc(PipelineRun.created_at)).limit(1))
+    return session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version_id,
+        ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+        .order_by(desc(PipelineRun.created_at)).limit(1))
 
 
 def ensure_no_active_pipeline(session: Session, version_id: UUID) -> None:
@@ -886,7 +927,9 @@ def _reset_from_step(session: Session, version_id: UUID, steps: dict[str, Pipeli
         step.started_at = None
         step.completed_at = None
         step.output_artifact_ref = None
-        step.artifact_payload = None
+        from app.domain.ocr_image_receipts import checkpoint, KEY
+        saved_receipt = checkpoint(step.artifact_payload) if name == "ocr_extract" else {}
+        step.artifact_payload = {KEY: saved_receipt} if saved_receipt else None
         step.artifact_fingerprint = None
         step.claim_token = None
         step.claimed_at = None
@@ -912,9 +955,21 @@ def _execute_step(
     if step_name == "upload_received":
         return _artifact(version, step_name, {"source": version.original_snapshot_uri, "adapter_source": "database"})
     if step_name == "parse_document":
+        from app.db.models import DocumentContentState
+        corrected = session.get(DocumentContentState,version.id)
+        if corrected is not None and not (version.chunk_strategy or {}).get("force_ocr"):
+            if hashlib.sha256(corrected.current_markdown.encode()).hexdigest() != corrected.current_sha256:
+                raise AppError("source_fingerprint_conflict","Corrected canonical source is invalid",status_code=409)
+            return _artifact(version,step_name,{"text":corrected.current_markdown,"canonical_markdown":corrected.current_markdown,
+                "title":document.title,"adapter_source":"committed-corrected-source","corrected_source_reuse":True,
+                "canonical_sha256":corrected.current_sha256,"source_version_id":str(version.source_version_id)})
         parsed = _parse_document_payload(settings, version)
         return _artifact(version, step_name, {**parsed, "title": document.title})
     if step_name == "ocr_extract":
+        if artifacts["parse_document"].payload.get("corrected_source_reuse"):
+            return _artifact(version,step_name,{"skipped":True,"reason":"corrected_source_reuse",
+                "text":artifacts["parse_document"].payload["canonical_markdown"],"adapter_source":"committed-corrected-source",
+                "canonical_sha256":artifacts["parse_document"].payload["canonical_sha256"]})
         text = str(artifacts["parse_document"].payload["text"])
         reliable_text = _has_reliable_text_layer(version)
         force_ocr = bool((version.chunk_strategy or {}).get("force_ocr"))
@@ -927,6 +982,8 @@ def _execute_step(
             if model is None:
                 return
             for attempt in attempts:
+                if attempt.get("usage_recorded"):
+                    continue
                 record_model_usage(session, model=model, usage_purpose="ocr_extract", source_channel="pipeline",
                     status=attempt["status"], error_code=attempt.get("error_code"), attempted=attempt["attempted"],
                     token_usage=attempt["usage"], latency_ms=attempt["latency_ms"],
@@ -1019,7 +1076,7 @@ def _execute_step(
     if step_name == "chunk_knowledge":
         markdown_source, _adapter_source = _canonical_markdown_source(artifacts)
         chunks = _create_structure_chunks(session, settings, project, document, version, markdown_source)
-        return _artifact(version, step_name, {"chunk_count": len(chunks), "chunk_ids": [str(chunk.id) for chunk in chunks], "adapter_source": CHUNKER_VERSION, "processing_versions": _processing_versions(version)})
+        return _artifact(version, step_name, {"chunk_count": len(chunks), "chunk_ids": [str(chunk.id) for chunk in chunks], "adapter_source": (version.chunk_strategy or {}).get("chunker_version"), "processing_versions": _processing_versions(version)})
     if step_name == "generate_markdown":
         markdown, adapter_source = _canonical_markdown_source(artifacts)
         version.markdown_artifact_uri = _artifact_ref(version, step_name)
@@ -1247,7 +1304,7 @@ def physical_pdf_inputs(settings: Settings, body: bytes, *, text_only: bool, dea
     """The DB snapshot owns parsing time; only the claimed Worker may run tools."""
     from app.domain.pdf_processing import current_pdf_processing
     context = current_pdf_processing()
-    return context.text_pages(body) if text_only else context.split_pages(body)
+    return context.text_pages(body) if text_only else context.image_pages(body)
 
 
 
@@ -1255,9 +1312,17 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
     split_policy = snapshot_timeout_policy(snapshot)
     deadline = perf_counter() + min(settings.tesseract_timeout_seconds, int(snapshot["timeout_seconds"]))
     inputs = physical_pdf_inputs(settings, _load_source_object(settings, version).body, text_only=False, deadline=deadline)
+    from app.domain.pdf_processing import current_pdf_processing
+    from app.domain.ocr_image_receipts import ImageOCRJournal
+    owner = current_pdf_processing()
+    snapshot = {**snapshot, "pdf_input_mode": "page_images", "pdf_ocr_dpi": owner.raster_dpi}
+    credential_fingerprint = hashlib.sha256(json.dumps(_openai_auth_headers(model, settings), sort_keys=True).encode()).hexdigest()
+    journal = ImageOCRJournal(owner, model, version, snapshot, len(inputs), credential_fingerprint)
     budget = PDFOCRDeadline.start(snapshot) if split_policy else None
     config = model.config if isinstance(model.config, dict) else {}
-    remaining_tokens = _int(config.get("max_output_tokens", config.get("max_tokens")), default=4096)
+    from app.domain.ocr_token_settings import from_snapshot
+    token_settings = from_snapshot(snapshot)
+    remaining_tokens = token_settings.document if token_settings else _int(config.get("max_output_tokens", config.get("max_tokens")), default=4096)
     if remaining_tokens < 1:
         raise AppError("ocr_output_limit_invalid", "PDF output token budget must be positive", status_code=422)
     texts: list[str] = []
@@ -1271,17 +1336,26 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
             current_pdf_processing().fence()  # No new Provider call after scope/task revocation.
             remaining_time = int(deadline - perf_counter()) if budget is None else None
             if (remaining_time is not None and remaining_time <= 0) or remaining_tokens <= 0:
-                raise diagnostic_error("ocr_pdf_budget_exhausted", "PDF OCR exceeded its document-wide time or token budget",
+                code = "ocr_document_output_budget_exhausted" if token_settings and remaining_tokens <= 0 else "ocr_pdf_budget_exhausted"
+                journal.error(code)
+                raise diagnostic_error(code, "PDF OCR exceeded its document-wide time or token budget",
                     kind="token_budget_exhausted" if remaining_tokens <= 0 else "document_timeout", status_code=422)
             payload = _openai_ocr_payload(model, version, [item], "")
-            payload["max_output_tokens"] = remaining_tokens
+            payload["max_output_tokens"] = token_settings.request_limit(remaining_tokens) if token_settings else remaining_tokens
             # The provider sees exactly one physical page. Do not add full-document
             # parser text (which could leak text from another page into this result).
             payload["input"][0]["content"][0]["text"] += " If this page is blank, return an empty text response."
+            image_hash = hashlib.sha256(item[2]).hexdigest()
+            cached = journal.reuse(page, image_hash, payload)
+            if cached is not None:
+                texts.append(cached["markdown"])
+                remaining_tokens -= cached["usage"]["output_tokens"]
+                continue
             started = perf_counter()
             usage: dict[str, Any] = {}
             try:
                 window = budget.request_window() if budget else None
+                journal.start(page, image_hash, payload)
                 response = _post_openai_ocr(model, settings, payload,
                     timeout_seconds=window.remaining() if window else remaining_time, request_window=window)
                 raw_usage = response.get("usage")
@@ -1290,15 +1364,19 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
                              if key in {"input_tokens", "output_tokens", "total_tokens"} and type(value) is int and value >= 0}
                 usage["ocr_pages"] = 1
                 if response.get("status") != "completed":
-                    raise AppError("ocr_pdf_page_incomplete", "A PDF page OCR response is incomplete", status_code=502)
+                    reason = (response.get("incomplete_details") or {}).get("reason") if isinstance(response.get("incomplete_details"), dict) else None
+                    capped = reason == "max_output_tokens" or (type(usage.get("output_tokens")) is int and usage["output_tokens"] >= payload["max_output_tokens"])
+                    code = ("ocr_document_output_budget_exhausted" if remaining_tokens < token_settings.page else "ocr_page_output_limit_exceeded") if token_settings and capped else "ocr_pdf_page_incomplete"
+                    raise AppError(code, "A PDF page OCR response is incomplete", status_code=502)
                 markdown = _openai_ocr_markdown(response, allow_empty=True)
                 if markdown.strip() and not _valid_markdown_ocr_text(markdown):
                     raise AppError("ocr_adapter_invalid_markdown", "PDF page OCR is invalid Markdown", status_code=502)
                 if "output_tokens" not in usage:
                     raise AppError("ocr_pdf_usage_missing", "PDF OCR response lacks output usage required for the document budget", status_code=502)
                 remaining_tokens -= usage["output_tokens"]
-                if remaining_tokens < 0:
-                    raise diagnostic_error("ocr_pdf_budget_exhausted", "PDF OCR exceeded its document-wide token budget",
+                if usage["output_tokens"] > payload["max_output_tokens"] or remaining_tokens < 0:
+                    code = "ocr_page_output_limit_exceeded" if token_settings and usage["output_tokens"] > token_settings.page else "ocr_document_output_budget_exhausted" if token_settings else "ocr_pdf_budget_exhausted"
+                    raise diagnostic_error(code, "PDF OCR exceeded its document-wide token budget",
                         kind="token_budget_exhausted", attempted=True, status_code=502)
                 if window:
                     window.check(attempted=True)
@@ -1310,15 +1388,21 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
                     diagnostic.update(policy="legacy", physical_page=page)
                 exc.ocr_diagnostics = safe_diagnostics(diagnostic)
                 # No invented paid page when credentials/deadline failed before dispatch.
-                if diagnostic["attempted"]:
-                    attempts.append({"physical_page": page, "status": "failed", "error_code": exc.code,
-                        "attempted": True, "usage": usage, "latency_ms": max(0, int((perf_counter() - started) * 1000)),
-                        **ocr_error_metadata(exc)})
+                failed = {"physical_page": page, "status": "failed", "error_code": exc.code,
+                    "attempted": diagnostic["attempted"], "usage": usage,
+                    "latency_ms": max(0, int((perf_counter() - started) * 1000)), **ocr_error_metadata(exc)}
+                if journal.state.get("intent"):
+                    journal.finish(failed)
+                else:
+                    journal.error(exc.code)
+                attempts.append(failed)
                 raise
-            attempts.append({"physical_page": page, "status": "success", "attempted": True,
+            succeeded = {"physical_page": page, "status": "success", "attempted": True,
                 "usage": usage, "latency_ms": max(0, int((perf_counter() - started) * 1000)),
                 "ocr_diagnostics": {**(budget.diagnostics(page=page, config_version=snapshot.get("config_version"), window=window)
-                    if budget else {"policy": "legacy", "physical_page": page}), "attempted": True}})
+                    if budget else {"policy": "legacy", "physical_page": page}), "attempted": True}}
+            journal.finish(succeeded, markdown)
+            attempts.append(succeeded)
             texts.append(markdown)
         text = "\n\n".join(texts)
         if not text.strip():
@@ -1338,10 +1422,11 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
         logger.warning("pdf_ocr_failed %s", json.dumps({"document_version_id": str(version.id),
             "model_id": str(model.id), **ocr_error_metadata(exc)}, sort_keys=True))
         raise
-    return OCRResult(text=text, adapter_source="openai-physical-pdf-pages", metadata={
+    return OCRResult(text=text, adapter_source="openai-physical-pdf-images", metadata={
         **snapshot, "page_ranges": _joined_page_ranges(texts), "pages_processed": len(texts),
         "response_format": "markdown", "page_attempts": attempts,
         "execution_profile": "worker-local-v1", "sandbox_network": "worker-shared",
+        "input_content_types": ["image/png"], "ocr_image_checkpoint": journal.state,
     })
 
 
@@ -1462,7 +1547,10 @@ def _ocr_snapshot(model: AIModel | None, version: DocumentVersion, force_ocr: bo
         "retry_count": max(0, min(int(retries or 0), 5)),
         "force_ocr": force_ocr,
         "force_ocr_confirmed": bool((version.chunk_strategy or {}).get("force_ocr_confirmed", force_ocr)),
+        **({"pdf_input_mode": configured.get("pdf_input_mode"), "pdf_ocr_dpi": configured.get("pdf_ocr_dpi")}
+           if configured.get("pdf_input_mode") == "page_images" else {}),
         **pdf_policy,
+        **{key: configured[key] for key in ("ocr_page_max_output_tokens", "ocr_document_max_tokens", "ocr_token_budget_basis", "ocr_token_budget_policy", "ocr_token_settings_hash") if key in configured},
     }
 
 
@@ -1938,6 +2026,7 @@ def _create_structure_chunks(
     document: Document,
     version: DocumentVersion,
     markdown_source: str,
+    *, replace_existing: bool = True, persist_status: str = "active", identity_namespace: UUID | None = None,
 ) -> list[Chunk]:
     processing_started = perf_counter()
     parser = MarkdownStructureParser()
@@ -1946,8 +2035,21 @@ def _create_structure_chunks(
     structure = _apply_header_footer_policy(parser.parse(markdown_source, page_ranges=page_ranges), page_ranges=page_ranges, config=config)
     if not structure.nodes:
         raise AppError("markdown_structure_empty", "Canonical Markdown does not contain retrievable content", status_code=422)
-    token_counter = UnicodeTokenCounter()
-    drafts = StructureAwareChunker(config=config, token_counter=token_counter).chunk(
+    from app.domain.embedding_capacity import resolve_input_contract, chunking_error, CHUNKING_ERROR_CODES
+    from app.domain.embeddings import _active_embedding_model
+    from app.domain.integrity_chunking import IntegrityAwareChunker
+    try:
+        model = _active_embedding_model(session, project, version)
+        contract = resolve_input_contract(model, settings, saved=(version.chunk_strategy or {}).get("embedding_input_contract"))
+    except AppError as exc:
+        if exc.code in CHUNKING_ERROR_CODES or exc.code == "embedding_model_required":
+            raise chunking_error("chunk_model_capacity_unavailable", canonical_sha256=hashlib.sha256(markdown_source.encode()).hexdigest()) from exc
+        raise
+    version.embedding_model_id = model.id
+    version.chunk_strategy = {**(version.chunk_strategy or {}), "embedding_input_contract": contract.snapshot()}
+    token_counter = contract.counter
+    chunker = IntegrityAwareChunker(config=config, contract=contract, document_title=document.title)
+    drafts = chunker.chunk(
         structure,
         document_key=str(document.id),
         version_id=version.id,
@@ -1960,7 +2062,6 @@ def _create_structure_chunks(
         warnings = list(structure_metadata.get("warnings") or [])
         warnings.append({"code": "page_boundaries_unavailable", "header_footer_removal": "skipped"})
         structure_metadata = {**structure_metadata, "warnings": warnings, "warning_count": len(warnings)}
-    session.execute(delete(Chunk).where(Chunk.document_version_id == version.id))
     now = datetime.now(UTC)
     chunks: list[Chunk] = []
     for draft in drafts:
@@ -1978,14 +2079,18 @@ def _create_structure_chunks(
             "normalizer_version": normalizer.version,
             "previous_chunk_id": str(draft.previous_chunk_id) if draft.previous_chunk_id else None,
             "next_chunk_id": str(draft.next_chunk_id) if draft.next_chunk_id else None,
+            "embedding_input_contract": contract.snapshot(),
         }
         source_anchor_ranges = renderable_source_anchors(
             structure,
             start_offset=draft.start_offset,
             end_offset=draft.end_offset,
         )
-        if not source_anchor_ranges:
-            raise AppError("chunk_source_mapping_invalid", "Structure-aware chunk has no renderable source anchor", status_code=422)
+        if not source_anchor_ranges or not 0 <= draft.start_offset < draft.end_offset <= len(markdown_source) or markdown_source[draft.start_offset:draft.end_offset] != draft.raw_markdown:
+            from app.domain.structure_chunking import _Unit
+            unit = _Unit(draft.display_text, draft.display_markdown, draft.start_offset, draft.end_offset,
+                         draft.heading_path, draft.heading_level, draft.content_type, draft.node_ids, draft.metadata)
+            raise chunking_error("chunk_source_unresolved", contract=contract, unit=unit, canonical_sha256=hashlib.sha256(markdown_source.encode()).hexdigest())
         source_anchors = [str(value["source_anchor"]) for value in source_anchor_ranges]
         mapping = {
             "source": "canonical-markdown-structure",
@@ -2012,7 +2117,7 @@ def _create_structure_chunks(
             "page_end": draft.metadata.get("page_end"),
         }
         chunk = Chunk(
-            id=draft.id,
+            id=uuid5(identity_namespace, str(draft.id)) if identity_namespace else draft.id,
             project_id=project.id,
             document_id=document.id,
             document_version_id=version.id,
@@ -2040,18 +2145,23 @@ def _create_structure_chunks(
             token_count=token_counter.count(retrieval_text),
             confidence_score=0.95,
             is_manual_edited=False,
+            status=persist_status,
             created_at=now,
             updated_at=now,
         )
-        session.add(chunk)
         chunks.append(chunk)
+    # No old row is touched until every source mapping and complete final input
+    # has passed. The surrounding transaction preserves the former candidate.
+    if replace_existing:
+        session.execute(delete(Chunk).where(Chunk.document_version_id == version.id))
+    session.add_all(chunks)
     version.chunk_size = config.target_chunk_tokens
     version.chunk_overlap = config.chunk_overlap_tokens
     version.chunk_strategy = {
         **(version.chunk_strategy or {}),
         "structure_aware": True,
         "parser_version": parser.version,
-        "chunker_version": CHUNKER_VERSION,
+        "chunker_version": chunker.version,
         "normalizer_version": normalizer.version,
         "tokenizer_version": token_counter.version,
         "effective_chunk_config": config.snapshot(),
@@ -2205,7 +2315,7 @@ def _apply_llm_tags(
     chunk_results: list[dict[str, object]] = []
     chunk_tag_count = 0
     for chunk in chunks:
-        chunk_text = (chunk.markdown_content or chunk.content or "").strip()
+        chunk_text = (chunk.retrieval_text or chunk.markdown_content or chunk.content or "").strip()
         chunk_result = _generate_pipeline_tags(
             session=session,
             settings=settings,
@@ -2222,6 +2332,10 @@ def _apply_llm_tags(
         )
         chunk_tags = _result_tags(chunk_result, allow_empty=True)
         chunk_metadata = _tag_metadata(chunk_result, model=model, pipeline=pipeline, scope="chunk", chunk_id=chunk.id)
+        chunk_metadata["tag_input_sha256"] = hashlib.sha256(chunk_text.encode()).hexdigest()
+        chunk.chunk_strategy = {**(chunk.chunk_strategy or {}),"tag_receipt":{
+            "model_id":str(model.id),"config_version":model.config_version,"prompt_sha256":prompt.content_hash,
+            "input_sha256":chunk_metadata["tag_input_sha256"]}}
         for tag_text in chunk_tags:
             _attach_chunk_tag(session, project.id, chunk.id, tag_text, source="llm", actor_user_id=actor_user_id, metadata=chunk_metadata)
         chunk_tag_count += len(chunk_tags)
@@ -2230,6 +2344,7 @@ def _apply_llm_tags(
     return {
         "adapter_source": "live-chat-llm-tagger",
         "llm_model_id": str(model.id),
+        "llm_config_version": model.config_version,
         "document_tags": document_tags,
         "chunk_tags": chunk_results,
         "document_tag_count": len(document_tags),
@@ -2334,6 +2449,7 @@ def _tag_metadata(result: AIProviderResult, *, model: AIModel, pipeline: Pipelin
         "source": "llm",
         "tagging_scope": scope,
         "llm_model_id": str(model.id),
+        "llm_config_version": model.config_version,
         "llm_model_name": model.name,
         "llm_provider": model.provider,
         "pipeline_run_id": str(pipeline.id),
@@ -2367,6 +2483,8 @@ def _attach_chunk_tag(session: Session, project_id: UUID, chunk_id: UUID, tag_te
     if link is None:
         session.add(ChunkTag(chunk_id=chunk_id, tag_id=tag.id, source=source, confidence_score=confidence_score, metadata_=metadata, created_by=actor_user_id, created_at=datetime.now(UTC)))
         return
+    if link.source == "manual" and source == "llm":
+        return
     link.source = source
     link.confidence_score = confidence_score
     link.metadata_ = metadata
@@ -2378,6 +2496,8 @@ def _attach_document_tag(session: Session, project_id: UUID, version_id: UUID, t
     link = session.get(DocumentVersionTag, (version_id, tag.id))
     if link is None:
         session.add(DocumentVersionTag(document_version_id=version_id, tag_id=tag.id, source=source, confidence_score=confidence_score, metadata_=metadata, created_by=actor_user_id, created_at=datetime.now(UTC)))
+        return
+    if link.source == "manual" and source == "llm":
         return
     link.source = source
     link.confidence_score = confidence_score

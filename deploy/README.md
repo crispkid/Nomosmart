@@ -1,6 +1,6 @@
 # NomoSmart deployment operations
 
-Operational configuration for NomoSmart 0.1.2. Start with the complete installation
+Operational configuration for NomoSmart 0.2.0. Start with the complete installation
 guide in [English](../README.md) or [繁體中文](../README.zh-TW.md).
 Record the target context, Namespace, release, image digests, migration contract,
 and recovery procedure before changing an existing deployment.
@@ -192,15 +192,15 @@ runtime checks remain in place.
 
 ### Migration contract
 
-NomoSmart 0.1.2 delivers [B051](../sql/migrations/B051__nomosmart_0_1_0.sql) for
-empty databases and preserves V001–V051 for databases with existing migration
-history. Official Flyway applies B051 once on an empty database. The source-bound
+NomoSmart 0.2.0 delivers [B053](../sql/migrations/B053__ocr_output_token_settings.sql) for
+empty databases and preserves V001–V053 for databases with existing migration
+history. Official Flyway applies B053 once on an empty database. The source-bound
 [migration contract](migrations/release-contract.json) defines the accepted version,
 type, file hash, and Flyway checksum.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=051`, `MIGRATION_REQUIRED_CHECKSUM=1782483375`, and
-`MIGRATION_BASELINE_CHECKSUM=1904638595`. Helm uses `migration.requiredVersion`,
+`MIGRATION_REQUIRED_VERSION=053`, `MIGRATION_REQUIRED_CHECKSUM=-616112917`, and
+`MIGRATION_BASELINE_CHECKSUM=-1949712409`. Helm uses `migration.requiredVersion`,
 `migration.requiredChecksum`, and `migration.baselineChecksum`. Keep the version
 as a string. Flyway's signed 32-bit checksum and the SQL file's SHA256 hash serve
 different purposes. Preserve the values supplied with the release.

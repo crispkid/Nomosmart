@@ -152,6 +152,20 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
             result = None
         else:
             batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=settings)
+            # A successful paid result must survive an external index failure.
+            # A later retry loads this exact completed build without replaying
+            # the Provider; current configuration compatibility still applies.
+            completed_build_id = str(batch.build.id)
+            version.chunk_strategy = {**version.chunk_strategy, ARTIFACT_METADATA_KEY: {
+                **_metadata(version), "embedding_build_id": completed_build_id}}
+            session.commit()
+            _project, _document, current = lock_chunk_write_scope(session, version)
+            session.refresh(project)
+            if (current is None or current.lock_version != revision or project.status != "active"
+                or project.work_generation != expected_generation
+                or [chunk.id for chunk in _active_chunks(session, version_id)] != expected_chunk_ids):
+                session.rollback()
+                return
             result = staging.write_chunks(project=project, document=document, version=version, chunks=chunks, vectors=batch.vectors, profile=batch.profile)
             batch.build.status = "staged"
             batch.build.index_name = result.index_name

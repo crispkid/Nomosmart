@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.db.models import AIModel, Document, DocumentVersion, OutboxEvent, PipelineRun, Project
+from app.db.models import AIModel, Document, DocumentContentState, DocumentVersion, OutboxEvent, PipelineRun, Project
 from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize_pipeline_steps
 from app.domain.docx_security import inspect_docx_package
 from app.domain.document_codes import allocate_document_code
@@ -101,9 +101,15 @@ def _require_ocr_model_credential(model: AIModel) -> AIModel:
     return model
 
 
-def ocr_execution_snapshot(model: AIModel, *, force_ocr: bool, canonical_extension: str | None = None) -> dict[str, object]:
+def ocr_execution_snapshot(model: AIModel, *, force_ocr: bool, canonical_extension: str | None = None, settings: Settings | None = None, session: Session | None = None) -> dict[str, object]:
     config = model.config or {}
     pdf_policy = split_snapshot(config) if model.provider.strip().lower() == "openai" and (canonical_extension or "").lower() == ".pdf" else {}
+    token_snapshot = {}
+    if pdf_policy:
+        from app.domain.ocr_token_settings import load_settings
+        if session is None:
+            raise AppError("ocr_token_settings_missing", "OCR output settings must be initialized", status_code=503)
+        token_snapshot = load_settings(session).snapshot()
     return {
         "model_id": str(model.id),
         "config_version": model.config_version,
@@ -115,7 +121,10 @@ def ocr_execution_snapshot(model: AIModel, *, force_ocr: bool, canonical_extensi
         "concurrency": config.get("concurrency", 1),
         "force_ocr": force_ocr,
         "force_ocr_confirmed": force_ocr,
+        **({"pdf_input_mode": "page_images", "pdf_ocr_dpi": (settings or Settings()).pdf_ocr_dpi}
+           if model.provider.strip().lower() == "openai" and (canonical_extension or "").lower() == ".pdf" else {}),
         **pdf_policy,
+        **token_snapshot,
     }
 
 
@@ -162,7 +171,7 @@ def create_uploaded_document(
     identity = build_storage_identity(file.content, original_name)
     source_text = source_text_snapshot(file, identity.canonical_extension)
     ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
-    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension)
+    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension, settings=settings, session=session)
     now = datetime.now(UTC)
     document_id = uuid4()
     version_id = uuid4()
@@ -265,7 +274,7 @@ def create_updated_file_version(
         raise AppError("document_update_working_version_exists", "A working version already exists for this document", status_code=409)
     source_text = source_text_snapshot(file, identity.canonical_extension)
     ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
-    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension)
+    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension, settings=settings, session=session)
     now = datetime.now(UTC)
     major = (latest.version_major if latest else 0) + 1
     version_id = uuid4()
@@ -341,7 +350,7 @@ def start_document_extraction(
         raise AppError("document_version_not_ready", "Document version is not ready for extraction", status_code=409)
     ensure_no_active_pipeline(session, version.id)
     ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
-    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=version.canonical_extension)
+    ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=version.canonical_extension, settings=settings, session=session)
     if not version.storage_bucket or not version.storage_key:
         raise AppError("document_source_unavailable", "Document source object is unavailable", status_code=409)
     now = datetime.now(UTC)
@@ -458,6 +467,23 @@ def create_reextraction_revision(
     session.flush()
     document.lock_version += 1
     document.updated_at = now
+    version.chunk_strategy = {key: value for key, value in (version.chunk_strategy or {}).items() if key != "embedding_input_contract"}
+    corrected = session.get(DocumentContentState,source.id)
+    if corrected is None and not force_ocr:
+        from app.domain.markdown_artifacts import resolve_markdown_artifact
+        from app.domain.content_diff import text_digest
+        canonical = resolve_markdown_artifact(session, source, require_fingerprint=True)
+        if canonical.text is not None:
+            corrected = DocumentContentState(document_version_id=source.id, project_id=source.project_id,
+                document_id=source.document_id, current_markdown=canonical.text, current_sha256=text_digest(canonical.text),
+                content_revision=1, original_artifact={"version_id":str(source.id), "sha256":text_digest(canonical.text)})
+    if corrected is not None and not force_ocr:
+        from app.domain.content_diff import text_digest
+        if corrected.project_id != project.id or corrected.document_id != document.id or text_digest(corrected.current_markdown) != corrected.current_sha256:
+            raise AppError("source_fingerprint_conflict","Corrected canonical source is invalid",status_code=409)
+        session.add(DocumentContentState(document_version_id=version.id,project_id=project.id,document_id=document.id,
+            current_markdown=corrected.current_markdown,current_sha256=corrected.current_sha256,content_revision=corrected.content_revision,
+            original_artifact=dict(corrected.original_artifact),updated_by=actor_user_id,updated_at=now))
     pipeline = start_document_extraction(
         session=session,
         settings=settings,
@@ -536,13 +562,19 @@ def latest_versions(session: Session, project_id: UUID) -> list[tuple[Document, 
     documents = list(session.scalars(select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False)).order_by(desc(Document.updated_at), Document.title)))
     rows: list[tuple[Document, DocumentVersion | None, PipelineRun | None]] = []
     for document in documents:
-        version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id).order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)).limit(1))
+        version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id,
+            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
+            .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)).limit(1))
         pipeline = None
         if version is not None:
-            pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id).order_by(desc(PipelineRun.created_at)).limit(1))
+            pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id,
+                ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+                .order_by(desc(PipelineRun.created_at)).limit(1))
         rows.append((document, version, pipeline))
     return rows
 
 
 def _latest_document_version(session: Session, document_id: UUID) -> DocumentVersion | None:
-    return session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document_id).order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision), desc(DocumentVersion.created_at)).limit(1))
+    return session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document_id,
+        DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
+        .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision), desc(DocumentVersion.created_at)).limit(1))

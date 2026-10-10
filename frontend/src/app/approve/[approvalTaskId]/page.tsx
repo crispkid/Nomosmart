@@ -173,6 +173,7 @@ export default function ApprovalDetailPage() {
 
   const evidenceManifest = liveDetail?.evidence_manifest as {
     graph?: { node_count?: number; edge_count?: number; chunk_count?: number; status?: string };
+    chunks?: Array<{ id: string; tags?: Array<{ tag_id: string; name: string; source?: string }> }>;
     models?: Record<string, { name?: string; type?: string; provider?: string }>;
     validation?: { runs?: Array<{ id: string; status: string; total: number; completed: number; failed: number }> };
     actors?: {
@@ -198,6 +199,7 @@ export default function ApprovalDetailPage() {
 
   const displayChunks = useMemo(() => {
     if (!liveDetail?.chunks.length) return [];
+    const savedTagDetails = new Map((evidenceManifest?.chunks ?? []).map(chunk => [chunk.id, chunk.tags ?? []]));
     return liveDetail.chunks.map((chunk) => ({
       id: chunk.id,
       index: chunk.chunk_index,
@@ -210,12 +212,16 @@ export default function ApprovalDetailPage() {
       tokens: chunk.token_count ?? 0,
       confidence: chunk.confidence_score ?? 0,
       tags: chunk.tags,
-      tagDetails: chunk.tag_details,
+      tagDetails: chunk.tag_details?.length ? chunk.tag_details : (savedTagDetails.get(chunk.id) ?? []).map(tag => ({
+        tag_id: tag.tag_id,
+        tag_text: tag.name,
+        source: tag.source ?? "legacy"
+      })),
       content: chunk.content,
       displayMarkdown: chunk.display_markdown,
       markdownContent: chunk.markdown_content
     }));
-  }, [format, liveDetail]);
+  }, [evidenceManifest?.chunks, format, liveDetail]);
   const displayConversations = useMemo<ApprovalConversation[]>(() => {
     if (!liveDetail?.chat_records.length) return [];
     const grouped = new Map<string, ApprovalConversation>();
@@ -272,7 +278,7 @@ export default function ApprovalDetailPage() {
   const graphChunks = displayChunks.map((chunk) => ({
     ...chunk,
     chunkIndex: chunk.index,
-    tagDetails: (chunk.tagDetails ?? []).map((tag) => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))
+    tagDetails: chunk.tagDetails.map(tag => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))
   }));
   const currentStageLabel = stageLabel(approval.stage, t);
   const reviewRecords = liveDetail?.review_records ?? [];
@@ -524,7 +530,7 @@ export default function ApprovalDetailPage() {
         </footer>
       </section>
 
-      {graphOpen ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-graph-title" aria-modal="true" className="modal-panel document-graph-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{format("approvalStagingGraphVersion", { version: approval.version })}</p><h2 id="approval-graph-title">{t("approvalPreReviewGraphPreview")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setGraphOpen(false)} type="button"><X size={18} /></button></div><DocumentGraphPreview documentTitle={approval.document} graphChunks={graphChunks} version={approval.version} /></section></div> : null}
+      {graphOpen ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-graph-title" aria-modal="true" className="modal-panel document-graph-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{format("approvalStagingGraphVersion", { version: approval.version })}</p><h2 id="approval-graph-title">{t("approvalPreReviewGraphPreview")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setGraphOpen(false)} type="button"><X size={18} /></button></div><DocumentGraphPreview documentTags={(liveDetail?.document_tags ?? []).map(tag => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))} documentTitle={approval.document} graphChunks={graphChunks} version={approval.version} /></section></div> : null}
 
       {decision ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-decision-title" aria-modal="true" className="modal-panel approval-decision-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{currentStageLabel}</p><h2 id="approval-decision-title">{decision === "approve" ? t("approvalApproveDocumentVersion") : t("approvalRejectDocumentVersion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={closeDecision} type="button"><X size={18} /></button></div><p>{approval.document} · {approval.version}</p><label><span>{decision === "approve" ? t("approvalCommentOptional") : t("rejectionReasonRequired")}</span><textarea aria-invalid={!canSubmitApprovalDecision(decision, comment)} autoFocus onChange={(event) => setComment(event.target.value)} placeholder={decision === "approve" ? t("approvalApproveCommentPlaceholder") : t("approvalRejectReasonPlaceholder")} rows={4} value={comment} /></label>{decision === "reject" && !canSubmitApprovalDecision(decision, comment) ? <small className="field-error">{t("rejectionReasonError")}</small> : null}<div className="modal-actions"><button className="action-button secondary" onClick={closeDecision} type="button">{t("cancel")}</button><button className={`action-button${decision === "reject" ? " danger" : ""}`} disabled={submittingDecision || !canSubmitApprovalDecision(decision, comment)} onClick={() => { void submitDecision(); }} type="button">{decision === "approve" ? t("approvalConfirmApprove") : t("approvalConfirmReject")}</button></div></section></div> : null}
     </AppShell>

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "source": "https://developers.openai.com/api/docs/guides/embeddings",
+  "models": [
+    {"provider": "openai", "model_name": "text-embedding-3-small", "input_token_limit": 8192, "tokenizer_encoding": "cl100k_base"},
+    {"provider": "openai", "model_name": "text-embedding-3-large", "input_token_limit": 8192, "tokenizer_encoding": "cl100k_base"},
+    {"provider": "openai", "model_name": "text-embedding-ada-002", "input_token_limit": 8192, "tokenizer_encoding": "cl100k_base"}
+  ]
+}

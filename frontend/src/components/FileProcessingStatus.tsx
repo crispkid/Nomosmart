@@ -7,6 +7,7 @@ import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 const phaseLabels: Record<string, TranslationKey> = {
   queued: "fileProcessingQueued", starting_parser: "fileProcessingStarting",
   parsing: "fileProcessingParsing", waiting_worker: "fileProcessingWaitingWorker",
+  rendering_images: "fileProcessingRasterizing",
   processing: "fileProcessingProcessing", stopping: "fileProcessingStopping",
   recovery_required: "fileProcessingRecovery", completed: "fileProcessingCompleted",
   failed: "fileProcessingFailed", cancelled: "fileProcessingCancelled"
@@ -29,7 +30,7 @@ export function FileProcessingStatus({ execution, queued = false, cleanupUnconfi
       {validPages ? <span>{total === null
         ? format("fileProcessingPagesUnknown", { completed: count! })
         : format("fileProcessingPagesKnown", { completed: count!, total: total! })}</span> : null}
-      {attention && !cleanupUnconfirmed ? <span>{t("fileProcessingRecoveryHelp")}</span> : null}
+      {!cleanupUnconfirmed && (execution?.phase === "stopping" || execution?.phase === "recovery_required") ? <span>{t("fileProcessingRecoveryHelp")}</span> : null}
     </div>
   );
 }

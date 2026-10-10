@@ -117,6 +117,8 @@ def create_model(
         config=config,
         config_version=1,
     )
+    from app.domain.embedding_capacity import validate_model_capacity_config
+    validate_model_capacity_config(model, request.app.state.settings)
     session.add(model)
     session.flush()
     add_audit(session, actor_user_id=context.user_id, action="ai_model.create", resource_type="ai_model", resource_id=model.id, result="success", request_id=request.state.request_id, summary={"name": model.name, "model_type": model.model_type, "api_key_configured": model.api_key_configured})
@@ -297,6 +299,8 @@ def update_model(
             changed = True
         setattr(model, field, value)
     changed = changed or credential_changed
+    from app.domain.embedding_capacity import validate_model_capacity_config
+    validate_model_capacity_config(model, request.app.state.settings)
     if changed:
         model.config_version += 1
         invalidate_model_connection_evidence(model)

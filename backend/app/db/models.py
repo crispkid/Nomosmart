@@ -587,6 +587,54 @@ class DocumentVersion(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
+class DocumentContentState(Base):
+    __tablename__ = "document_content_states"
+    __table_args__ = (CheckConstraint("content_revision > 0",name="positive_revision"),
+                      CheckConstraint("current_sha256 ~ '^[0-9a-f]{64}$'",name="canonical_sha256"))
+    document_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"), primary_key=True)
+    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    current_markdown: Mapped[str] = mapped_column(Text, nullable=False)
+    current_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    content_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    original_artifact: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    updated_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+
+
+class DocumentContentUpdate(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "document_content_update_jobs"
+    __table_args__ = (
+        Index("uq_content_update_active", "document_version_id", unique=True,
+              postgresql_where=text("status IN ('queued','running','failed','blocked')")),
+        UniqueConstraint("document_version_id", "target_revision"),
+        CheckConstraint("base_revision > 0 AND target_revision > base_revision",name="revision_order"),
+        CheckConstraint("expected_lock > 0",name="positive_lock"),
+        CheckConstraint("base_sha256 ~ '^[0-9a-f]{64}$' AND target_sha256 ~ '^[0-9a-f]{64}$'",name="content_digests"),
+        CheckConstraint("status IN ('queued','running','ready','failed','blocked','chunks_required','cancelled')",name="content_update_status"),
+    )
+    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    document_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"), nullable=False)
+    source_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"), nullable=False)
+    pipeline_run_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("pipeline_runs.id"), nullable=False)
+    actor_user_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(255))
+    base_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    target_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    base_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    expected_lock: Mapped[int] = mapped_column(Integer, nullable=False)
+    project_generation: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    pending_markdown: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="queued")
+    step_name: Mapped[str] = mapped_column(String(50), nullable=False, default="structure")
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    checkpoint: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    claim_token: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class EmbeddingBuild(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "embedding_builds"
     __table_args__ = (UniqueConstraint("document_version_id", "embedding_profile_id", "build_revision"),)

@@ -5,6 +5,7 @@ x-nomosmart-env-file: &nomosmart_env_file
     required: false
 
 x-backend-volumes: &backend_volumes
+  - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
   - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
   - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
@@ -144,6 +145,7 @@ x-backend-environment: &backend_environment
   IDENTITY_SYNC_HEARTBEAT_SECONDS: ${IDENTITY_SYNC_HEARTBEAT_SECONDS:-30}
   IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS: ${IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS:-600}
   DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Taipei}
+  NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES: ${NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES:-10485760}
   NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB: ${NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB:-100}
   MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-100}
   STAGING_INDEX_TTL_DAYS: ${STAGING_INDEX_TTL_DAYS:-7}
@@ -174,6 +176,8 @@ x-backend-environment: &backend_environment
   TESSERACT_TIMEOUT_SECONDS: ${TESSERACT_TIMEOUT_SECONDS:-120}
   TESSERACT_MAX_MEMORY_MB: ${TESSERACT_MAX_MEMORY_MB:-512}
   TESSERACT_MAX_PAGES: ${TESSERACT_MAX_PAGES:-200}
+  NOMOSMART_PDF_OCR_DPI: ${NOMOSMART_PDF_OCR_DPI:-200}
+  NOMOSMART_EMBEDDING_CAPABILITIES_FILE: /etc/nomosmart/embedding-capabilities.json
   HTTP_SOURCE_ALLOWED_HOSTS: ${HTTP_SOURCE_ALLOWED_HOSTS:-}
   HTTP_SOURCE_ALLOWED_CIDRS: ${HTTP_SOURCE_ALLOWED_CIDRS:-}
   SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
@@ -233,7 +237,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.1.2}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.0}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -271,7 +275,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -281,6 +285,7 @@ services:
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     expose: ["8000"]
     volumes:
+      - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
       - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
       - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
       - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
@@ -320,7 +325,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -349,7 +354,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -405,7 +410,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -451,7 +456,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.1.2}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
     build:
       context: ./backend
       dockerfile: Dockerfile

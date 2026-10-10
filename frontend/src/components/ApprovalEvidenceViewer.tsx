@@ -1,15 +1,20 @@
 "use client";
 
-import { type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Code2, FileText } from "lucide-react";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
-import { DocumentLayoutViewer } from "@/components/DocumentLayoutViewer";
-import { SafeMarkdown } from "@/components/SafeMarkdown";
+import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
+import { OriginalFileDownload } from "@/components/OriginalFileDownload";
+import { useSourceViewPosition } from "@/lib/sourceViewPosition";
+import { formatCount } from "@/lib/numberFormat";
+import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
 import { toggleSingleChunkSelection } from "@/lib/evidenceSelection";
-import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { chunkIdsForResolvedSourceAnchor, markdownArtifactReasonKey, sourceAnchorsForChunks, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
+import { useI18n } from "@/lib/i18nClient";
+import { markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
 import type { DocumentLayoutPage, KnowledgeTagResponse, OriginalFileViewerMetadata } from "@/lib/api";
+
+type EvidenceTag = Pick<KnowledgeTagResponse, "tag_id" | "tag_text" | "source">;
 
 export type EvidenceChunk = {
   id: string;
@@ -25,7 +30,7 @@ export type EvidenceChunk = {
   tokens?: number;
   confidence?: number;
   tags: string[];
-  tagDetails?: KnowledgeTagResponse[];
+  tagDetails?: EvidenceTag[];
 };
 
 type EvidenceDocumentLayout = {
@@ -39,27 +44,13 @@ function chunkTypeClass(type: EvidenceChunk["type"]) {
   return type === "text" ? "" : ` chunk-type-${type}`;
 }
 
-function visibleTags(chunk: EvidenceChunk): KnowledgeTagResponse[] {
+function visibleTags(chunk: EvidenceChunk): EvidenceTag[] {
   if (chunk.tagDetails?.length) return chunk.tagDetails.filter((tag) => tag.source !== "rule");
   return chunk.tags.map((tag, index) => ({
     tag_id: `${chunk.id}-${index}`,
     tag_text: tag,
-    source: "legacy",
-    confidence_score: null,
-    metadata: {},
-    created_by: null,
-    created_at: ""
+    source: "legacy"
   }));
-}
-
-function isMarkdownOriginal(metadata: OriginalFileViewerMetadata | null | undefined) {
-  return metadata?.viewer_type === "markdown" && metadata.markdown_source_mode === "rendered_original_raw_markdown";
-}
-
-function layoutStatusLabel(status: EvidenceDocumentLayout["status"] | undefined, t: (key: TranslationKey) => string) {
-  if (status === "partial") return t("knowledgeDetailLayoutPartial");
-  if (status === "failed") return t("knowledgeDetailLayoutFailed");
-  return t("knowledgeDetailLayoutUnavailable");
 }
 
 export function ApprovalEvidenceViewer({
@@ -67,8 +58,6 @@ export function ApprovalEvidenceViewer({
   version,
   chunks,
   originalFile,
-  documentLayout,
-  sourceText,
   markdownText,
   markdownArtifactReasonCode,
   documentTags = []
@@ -83,7 +72,7 @@ export function ApprovalEvidenceViewer({
   markdownArtifactReasonCode?: string | null;
   documentTags?: KnowledgeTagResponse[];
 }) {
-  const { t, format } = useI18n();
+  const { t, format, locale } = useI18n();
   const [view, setView] = useState<"original" | "markdown">("original");
   const [selectedChunkIds, setSelectedChunkIds] = useState<string[]>([]);
   const [sourceScrollSequence, setSourceScrollSequence] = useState(0);
@@ -94,8 +83,13 @@ export function ApprovalEvidenceViewer({
   const skipNextSourceScrollRef = useRef(false);
   const displayChunks = useMemo(() => chunks.map((chunk, index) => ({ ...chunk, sourceAnchor: chunk.sourceAnchor || `approval-live-chunk-${index}`, sourceMappings: chunk.sourceMappings ?? [] })), [chunks]);
   const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIds.includes(chunk.id)), [displayChunks, selectedChunkIds]);
-  const selectedSourceAnchors = useMemo(() => sourceAnchorsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
+  const rememberSourcePosition = useSourceViewPosition(articleViewerRef, view, markdownText, selectedChunkIds.length);
+  function changeView(next: "original" | "markdown") {
+    if (next === view) return;
+    rememberSourcePosition();
+    setView(next);
+  }
 
   useEffect(() => {
     const firstSelected = selectedChunks[0];
@@ -108,7 +102,7 @@ export function ApprovalEvidenceViewer({
       const viewer = articleViewerRef.current;
       const target = view === "markdown"
         ? viewer?.querySelector<HTMLElement>(`[data-chunk-ids~="${CSS.escape(firstSelected.id)}"]`)
-        : viewer?.querySelector<HTMLElement>(`[data-source-anchor="${CSS.escape(firstSelected.sourceAnchor)}"]`);
+        : sourceTargetForMappings(viewer, firstSelected.sourceMappings);
       if (!viewer || !target) {
         setSourceLocationError(true);
         return;
@@ -146,18 +140,6 @@ export function ApprovalEvidenceViewer({
     setSourceScrollSequence((sequence) => sequence + 1);
   }
 
-  function selectSourceAnchor(sourceAnchor: string) {
-    const matchingIds = chunkIdsForResolvedSourceAnchor(displayChunks, sourceAnchor);
-    if (!matchingIds.length) {
-      setSourceLocationError(true);
-      return;
-    }
-    skipNextSourceScrollRef.current = true;
-    setSelectedChunkIds(matchingIds);
-    setSourceLocationError(false);
-    setChunkScrollRequest((request) => ({ chunkId: matchingIds[0], sequence: (request?.sequence ?? 0) + 1 }));
-  }
-
   function selectMarkdownChunks(chunkIds: string[]) {
     if (!chunkIds.length) return;
     skipNextSourceScrollRef.current = true;
@@ -166,12 +148,10 @@ export function ApprovalEvidenceViewer({
     setChunkScrollRequest((request) => ({ chunkId: chunkIds[0], sequence: (request?.sequence ?? 0) + 1 }));
   }
 
-  function handleSourceKeyDown(event: KeyboardEvent<HTMLElement>, sourceAnchor: string) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      selectSourceAnchor(sourceAnchor);
-    }
+  function selectSourceRange(range: { start: number; end: number }) {
+    selectMarkdownChunks(displayChunks.filter(chunk => chunk.sourceMappings.some(mapping => mapping.markdownStart < range.end && mapping.markdownEnd > range.start)).map(chunk => chunk.id));
   }
+
 
   return (
     <div className="approval-evidence-viewer">
@@ -182,43 +162,16 @@ export function ApprovalEvidenceViewer({
         <section aria-label={t("approvalEvidenceSourceAria")} className="approval-document-pane">
           <div className="approval-document-header">
             <strong>{t("approvalEvidenceArticle")}</strong>
+            <div className="document-reading-actions"><OriginalFileDownload metadata={originalFile} />
             <div className="document-view-toggle" aria-label={t("approvalEvidenceViewMode")} role="group">
-              <button aria-pressed={view === "original"} className={view === "original" ? "active" : ""} onClick={() => setView("original")} type="button"><FileText size={15} /> {t("originalDocument")}</button>
-              <button aria-pressed={view === "markdown"} className={view === "markdown" ? "active" : ""} onClick={() => setView("markdown")} type="button"><Code2 size={15} /> {t("markdownView")}</button>
-            </div>
+              <button aria-pressed={view === "original"} className={view === "original" ? "active" : ""} onClick={() => changeView("original")} type="button"><FileText size={15} /> {t("documentReadingView")}</button>
+              <button aria-pressed={view === "markdown"} className={view === "markdown" ? "active" : ""} onClick={() => changeView("markdown")} type="button"><Code2 size={15} /> {t("markdownView")}</button>
+            </div></div>
           </div>
           <div className={`article-viewer article-viewer-${view} approval-article-viewer`} ref={articleViewerRef}>
-            {view === "original" ? (
-              <article className="document-article">
-                {isMarkdownOriginal(originalFile) ? (
-                  <section className="document-page markdown-original-page">
-                    <div className="document-page-content">
-                      {sourceText ? <SafeMarkdown className="rendered-markdown-document" source={sourceText} /> : <div className="empty-state compact">{t("approvalEvidenceNoLiveOriginal")}</div>}
-                    </div>
-                    <footer className="document-page-number">MD</footer>
-                  </section>
-                ) : null}
-                {!isMarkdownOriginal(originalFile) && documentLayout?.pages.length ? (
-                  <DocumentLayoutViewer formatPageLabel={(page) => format("knowledgeDetailOriginalPage", { page })} onKeyDown={handleSourceKeyDown} onSelect={selectSourceAnchor} pages={documentLayout.pages} selectedAnchors={selectedSourceAnchors} selectionGroups={selectedSourceGroups} />
-                ) : null}
-                {!isMarkdownOriginal(originalFile) && !documentLayout?.pages.length ? (
-                  <section className="document-page">
-                    <div className="document-page-content">
-                      <div className="empty-state compact">
-                        <strong>{layoutStatusLabel(documentLayout?.status, t)}</strong>
-                        {documentLayout?.reason_code ? <small>{documentLayout.reason_code}</small> : <span>{t("approvalEvidenceNoLiveOriginal")}</span>}
-                      </div>
-                    </div>
-                    <footer className="document-page-number">-</footer>
-                  </section>
-                ) : null}
-              </article>
-            ) : (
-              <div className="article-markdown">
-                {!markdownText ? <div className="empty-state compact">{t(markdownArtifactReasonKey(markdownArtifactReasonCode))}</div> : null}
-                {markdownText ? <CanonicalMarkdownSource chunks={displayChunks} onSelectChunkIds={selectMarkdownChunks} selectedChunkIds={selectedChunkIds} source={markdownText} /> : null}
-              </div>
-            )}
+            {!markdownText ? <div className="empty-state compact">{t(markdownArtifactReasonKey(markdownArtifactReasonCode))}</div> : view === "original" ? (
+              <ContinuousDocumentViewer source={markdownText} selectionGroups={selectedSourceGroups} sourceActionLabel={t("documentReadingSourceAction")} onSelectRange={selectSourceRange} />
+            ) : <div className="article-markdown"><CanonicalMarkdownSource chunks={displayChunks} onSelectChunkIds={selectMarkdownChunks} selectedChunkIds={selectedChunkIds} source={markdownText} /></div>}
           </div>
           <div className="tag-result-strip document-tag-result-strip">
             <span className="tag-result-strip-label">{t("knowledgeDetailDocumentTags")}</span>
@@ -261,7 +214,7 @@ export function ApprovalEvidenceViewer({
                         <span className="chunk-index-badge">#{chunk.index ?? "?"}</span>
                         <small className="chunk-inline-meta">
                           <span>{chunk.sourceLabel}</span>
-                          <span>{format("knowledgeDetailTokenCount", { count: chunk.tokens ?? 0 })}</span>
+                          <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens ?? 0, locale) })}</span>
                           <span>{format("knowledgeDetailConfidence", { value: Math.round((chunk.confidence ?? 0) * 100) })}</span>
                         </small>
                       </span>

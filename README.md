@@ -10,7 +10,7 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.1.2` includes Docker startup automation, authorization and login fixes, cleanup, tools, SQL, configuration templates, and documentation. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json). Prepare an isolated environment following the selected installation method.
+Release `0.2.0` adds document content editing after OCR, synchronized chunk/tag/vector/graph updates, configurable OCR output budgets, continuous document reading, structure-aware chunking, obsolete-data cleanup, and durable query model usage records. It uses the installation-validation release process; complete functional suites and coverage remain separate acceptance requirements. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json).
 
 ## 2. Key Features
 
@@ -59,7 +59,7 @@ Before the application reports that it is ready, setup jobs create or update the
 | Search | OpenSearch 2.19 | Keyword, vector, hybrid, and staging indexes |
 | Graph | Neo4j 5.26 Community | Knowledge relationships and traversal |
 | Identity | Keycloak 26.0.8, OIDC, LDAP/AD federation | Authentication, directory synchronization, and role mapping |
-| Deployment | Docker Compose v2, Helm chart 0.1.2 | Single-host and Kubernetes deployment |
+| Deployment | Docker Compose v2, Helm chart 0.2.0 | Single-host and Kubernetes deployment |
 
 ## 5. Project Structure
 
@@ -67,7 +67,7 @@ Before the application reports that it is ready, setup jobs create or update the
 Nomosmart/
 ├── frontend/                  Next.js application, UI components, and translations
 ├── backend/                   FastAPI API, workers, and application services
-├── sql/migrations/            B051 initial schema and V001–V051 upgrade history
+├── sql/migrations/            B053 initial schema and V001–V053 upgrade history
 ├── deploy/docker/             Docker Compose runtime configuration
 ├── deploy/helm/nomosmart/     Helm chart and environment values
 ├── deploy/installer/          Profile-aware Kubernetes installer
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. Getting Started
 
-Release `0.1.2` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
+Release `0.2.0` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
 
 ### 6.1 Select an installation method
 
@@ -119,19 +119,19 @@ Kubernetes production installation requires at least three Ready schedulable nod
 
 The repository is private. A GitHub account with repository access is required for cloning and downloading the Release; image pulls also need access to the NomoSmart GHCR packages. Authenticate Git with your credential manager. Keep access tokens out of configuration examples and command-line arguments.
 
-For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.1.2 Release:
+For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.2.0 Release:
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.2"
-gh release download v0.1.2 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.2.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.2"
-tar -xzf "$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.2"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.2.0"
+gh release download v0.2.0 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.2.0.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.2.0"
+tar -xzf "$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.2.0"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0"
 ```
 
 Use a new download directory for each release. Follow Section 8.2 to check the extracted package before use. GitHub access and GHCR pull access are separate: provide a registry credential with package-read permission through the installer’s `registry_pull_secret`. The full profile also needs network access to Docker Hub, Quay, GHCR, OpenSearch artifacts, and the upstream CloudNativePG/Barman download locations listed in the lock file.
@@ -157,7 +157,7 @@ Docker Compose is the simplest way to run the complete platform on one machine. 
 
 ### 7.0 Start and manage Docker with one command
 
-This entry point is included in the 0.1.2 source and installation package. Previously published `v0.1.1` tags and archives remain unchanged; use their manual installation steps below. When first managing an existing source deployment, use `up --build` to apply the current source.
+This entry point is included in the 0.2.0 source and installation package. Previously published `v0.1.1` tags and archives remain unchanged; use their manual installation steps below. When first managing an existing source deployment, use `up --build` to apply the current source.
 
 From a source checkout or a verified package, with Docker running and Python 3.11 or newer and OpenSSL available; low-port inspection may also require `lsof`:
 
@@ -185,7 +185,7 @@ These flags and `--project-name` configure only a fresh installation; they canno
 Clone the Repository and enter its root directory:
 
 ```bash
-git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -196,7 +196,7 @@ Record the reviewed source revision containing the installation fixes:
 git rev-parse HEAD
 ```
 
-Keep the exact commit SHA with the installation record. Use the `v0.1.2` source tag to reproduce this release.
+Keep the exact commit SHA with the installation record. Use the `v0.2.0` source tag to reproduce this release.
 
 ### 7.2 Verify host tools
 
@@ -769,7 +769,7 @@ Source development runs the Frontend, Backend, Worker, and Beat directly on a de
 ### 10.1 Install source dependencies
 
 ```bash
-git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -819,14 +819,14 @@ docker run --rm \
 unset FLYWAY_PASSWORD
 ```
 
-A new empty database executes `B051__nomosmart_0_1_0.sql` once. A database with existing Flyway history continues through the original `V001`–`V051` files; their checksums remain unchanged. Keep the entire migration directory. Success ends with Flyway's successful migration summary and exit code `0`; a repeat run reports that the schema is current.
+A new empty database executes `B053__ocr_output_token_settings.sql` once. A database with existing Flyway history continues through the original `V001`–`V053` files; their checksums remain unchanged. Keep the entire migration directory. Success ends with Flyway's successful migration summary and exit code `0`; a repeat run reports that the schema is current.
 
 Set these values in `backend/.env` before starting Backend, Worker, or Beat. They come from [release-contract.json](deploy/migrations/release-contract.json); Compose and the Kubernetes installer generate them automatically:
 
 ```dotenv
-MIGRATION_REQUIRED_VERSION=051
-MIGRATION_REQUIRED_CHECKSUM=1782483375
-MIGRATION_BASELINE_CHECKSUM=1904638595
+MIGRATION_REQUIRED_VERSION=053
+MIGRATION_REQUIRED_CHECKSUM=-616112917
+MIGRATION_BASELINE_CHECKSUM=-1949712409
 ```
 
 ### 10.5 Run deployment bootstrap
@@ -1266,7 +1266,7 @@ Use a directory account for this verification; the local emergency account verif
 | Process health | `/api/v1/health` | Returns `{"status":"healthy"}` |
 | Dependency readiness | `/api/v1/ready` | Returns `ready` details or HTTP 503 |
 
-The FastAPI application version is `0.1.2`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
+The FastAPI application version is `0.2.0`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
 
 ### 12.2 Public chat example
 
@@ -1424,7 +1424,7 @@ Complete the following checks for the selected method:
 - `/api/v1/health` reports `healthy`.
 - `/api/v1/ready` reports `ready`.
 - PostgreSQL, Redis, object storage, OpenSearch, Neo4j, and Keycloak are reachable through the configured connections.
-- Flyway has completed `B051` on a new database, or the original upgrade chain through `V051` on an existing database, and bootstrap is complete.
+- Flyway has completed `B053` on a new database, or the original upgrade chain through `V053` on an existing database, and bootstrap is complete.
 - The document-processing policy has been initialized by an authorized administrator.
 - HTTPS and OIDC login work through the configured public hostname.
 - The first-use administrator password is updated and role mapping grants the intended access.

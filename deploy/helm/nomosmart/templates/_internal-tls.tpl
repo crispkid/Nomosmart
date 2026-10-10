@@ -1,4 +1,8 @@
 {{- define "nomosmart.internalCaVolumeMount" -}}
+- name: embedding-capabilities
+  mountPath: /etc/nomosmart/embedding-capabilities.json
+  subPath: embedding-capabilities.json
+  readOnly: true
 {{- $files := list }}
 {{- if or (eq .Values.rustfs.mode "bundled") .Values.rustfs.external.caSecretName }}
 {{- $files = append $files "rustfs-ca.crt" }}
@@ -27,6 +31,9 @@
 {{- end -}}
 
 {{- define "nomosmart.internalCaVolume" -}}
+- name: embedding-capabilities
+  configMap:
+    name: {{ include "nomosmart.fullname" . }}-embedding-capabilities
 - name: internal-ca
   projected:
     sources:

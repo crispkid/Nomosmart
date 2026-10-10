@@ -188,7 +188,8 @@ def execute_graph_sync_job(session: Session, *, settings: Settings, job_id: UUID
         resource_id=completed.id,
         result="success",
         request_id=completed.request_id,
-        summary={"node_count": completed.node_count, "edge_count": completed.edge_count, "attempt": completed.attempt},
+        summary={"node_count": completed.node_count, "edge_count": completed.edge_count, "attempt": completed.attempt,
+                 "residue_removed_nodes": result.cleanup.get("removed_nodes", 0)},
     )
     session.commit()
 

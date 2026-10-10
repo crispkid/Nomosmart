@@ -20,7 +20,7 @@ from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.security.secrets import resolve_runtime_secret
 from app.db.models import AIModel, Chunk, DocumentVersion, EmbeddingBuild, EmbeddingBuildVector, EmbeddingProfile, Project
-from app.domain.model_usage import record_model_usage
+from app.domain.model_usage import record_model_usage, record_query_embedding_usage
 from app.domain.retrieval_text import embedding_content_hash, provisional_retrieval_hash
 from app.domain.tokenization import UnicodeTokenCounter
 
@@ -48,6 +48,7 @@ def embed_chunks(
     model = _active_embedding_model(session, project, version)
     existing_profile = session.get(EmbeddingProfile, version.embedding_profile_id) if version.embedding_profile_id else None
     texts = [resolve_embedding_retrieval_text(chunk, model=model, profile=existing_profile) for chunk in chunks]
+    exact_counter = _validate_integrity_inputs(model, version, chunks, texts, settings or get_settings())
     content_fingerprint = _content_fingerprint(model, chunks, texts)
     existing = _completed_build(session, version, content_fingerprint)
     if existing is not None:
@@ -89,7 +90,7 @@ def embed_chunks(
         )
         chunk.embedding_model_id = model.id
         chunk.embedding_vector_ref = f"embedding://profiles/{profile.id}/versions/{version.id}/chunks/{chunk.id}#{checksum}"
-        chunk.token_count = estimated_tokens(retrieval_text)
+        chunk.token_count = exact_counter.count(retrieval_text) if exact_counter else estimated_tokens(retrieval_text)
     version.embedding_model_id = model.id
     version.embedding_profile_id = profile.id
     usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
@@ -110,6 +111,60 @@ def embed_chunks(
         metadata={"embedding_build_id": str(build.id)},
     )
     return EmbeddingBatch(model=model, profile=profile, vectors=vectors, usage=usage, build=build)
+
+
+def embed_content_chunks(
+    session: Session, *, project: Project, version: DocumentVersion, chunks: list[Chunk],
+    reusable: dict[str, list[float]], settings: Settings,
+) -> EmbeddingBatch:
+    """Bind a complete new build, submitting only missing exact inputs."""
+    model = _active_embedding_model(session, project, version)
+    profile = session.get(EmbeddingProfile, version.embedding_profile_id) if version.embedding_profile_id else None
+    texts = [resolve_embedding_retrieval_text(chunk, model=model, profile=profile) for chunk in chunks]
+    exact_counter = _validate_integrity_inputs(model, version, chunks, texts, settings)
+    fingerprint = _content_fingerprint(model, chunks, texts)
+    existing = _completed_build(session, version, fingerprint)
+    if existing is not None:
+        return _load_embedding_batch(session, model, version, chunks, existing, texts=texts)
+    keys = [embedding_reuse_key(model, chunk, value, profile) for chunk, value in zip(chunks, texts, strict=True)]
+    missing = [index for index, key in enumerate(keys) if key not in reusable]
+    usage: dict[str, Any] = {"reused_vectors": len(chunks) - len(missing), "new_vectors": len(missing), "config_version": model.config_version}
+    new_vectors: dict[int, list[float]] = {}
+    if missing:
+        started = perf_counter()
+        response = _post_openai_embeddings(model, settings, [texts[index] for index in missing])
+        values = _openai_embedding_vectors(response)
+        if len(values) != len(missing):
+            raise AppError("embedding_result_count_mismatch", "Embedding vector count does not match changed inputs", status_code=502)
+        new_vectors = dict(zip(missing, values, strict=True))
+        usage.update(response.get("usage") if isinstance(response.get("usage"), dict) else {})
+        record_model_usage(session, model=model, usage_purpose="embedding_build", source_channel="pipeline", status="success",
+                           token_usage=usage, latency_ms=int((perf_counter() - started) * 1000), project_id=project.id,
+                           document_id=version.document_id, document_version_id=version.id, chunk_count=len(missing), vector_count=len(values))
+    vectors = [new_vectors[index] if index in new_vectors else reusable[key] for index, key in enumerate(keys)]
+    profile = _profile_for_vectors(session, model, version, vectors, chunks=chunks)
+    for chunk, value, retrieval in zip(chunks, vectors, texts, strict=True):
+        if exact_counter:
+            chunk.token_count = exact_counter.count(retrieval)
+        strategy = chunk.chunk_strategy or {}
+        chunk.embedding_content_hash = embedding_content_hash(retrieval_text=retrieval, embedding_model=str(model.id),
+            embedding_model_version=model_name(model), embedding_dimension=profile.vector_dimension,
+            normalizer_version=str(strategy["normalizer_version"]), tokenizer_version=str(strategy["tokenizer_version"]))
+        checksum = hashlib.sha256(json.dumps(value, separators=(",", ":")).encode()).hexdigest()
+        chunk.embedding_vector_ref = f"embedding://profiles/{profile.id}/versions/{version.id}/chunks/{chunk.id}#{checksum}"
+        chunk.embedding_model_id = model.id
+    version.embedding_model_id, version.embedding_profile_id = model.id, profile.id
+    build = _persist_embedding_build(session, model, profile, version, chunks, texts, vectors, fingerprint, usage)
+    return EmbeddingBatch(model=model, profile=profile, vectors=vectors, usage=usage, build=build)
+
+
+def embedding_reuse_key(model: AIModel, chunk: Chunk, retrieval: str, profile: EmbeddingProfile | None) -> str:
+    strategy = chunk.chunk_strategy or {}
+    return hashlib.sha256(json.dumps({"model_id":str(model.id), "config_version":model.config_version,
+        "model_name":model_name(model), "profile":str(profile.id) if profile else None,
+        "dimension":profile.vector_dimension if profile else None, "retrieval":retrieval,
+        "normalizer":strategy.get("normalizer_version"), "tokenizer":strategy.get("tokenizer_version")},
+        sort_keys=True, ensure_ascii=False).encode()).hexdigest()
 
 
 def load_canonical_embeddings(session: Session, *, project: Project, version: DocumentVersion, chunks: list[Chunk]) -> EmbeddingBatch:
@@ -195,43 +250,44 @@ def embed_query(
     if not text:
         raise AppError("query_text_required", "Question text is required for retrieval", status_code=422)
     started = perf_counter()
+    event_id = uuid4()
+    created_at = datetime.now(UTC)
+    response: dict[str, Any] | None = None
+    vectors: list[list[float]] | None = None
     try:
         response = _post_openai_embeddings(model, settings or get_settings(), [text])
+        if not isinstance(response, dict):
+            raise AppError("embedding_response_invalid", "Embedding adapter response is invalid", status_code=502)
+        vectors = _openai_embedding_vectors(response)
+        if len(vectors) != 1:
+            raise AppError("query_embedding_failed", "Embedding Provider returned an invalid query vector", status_code=502)
+        vector = vectors[0]
+        if len(vector) != profile.vector_dimension:
+            raise AppError("embedding_profile_mismatch", "Query embedding dimension does not match the retrieval profile", status_code=409)
     except AppError as exc:
-        record_model_usage(
-            session,
-            model=model,
-            usage_purpose="query_embedding",
-            source_channel=source_channel,
-            status="failed",
-            error_code=exc.code,
+        not_dispatched = exc.code in {
+            "embedding_adapter_credential_required", "runtime_secret_unavailable",
+            "runtime_secret_reference_invalid", "runtime_secret_reference_denied",
+            "legacy_model_credential_forbidden", "legacy_vault_reference_requires_migration",
+        }
+        record_query_embedding_usage(
+            model=model, event_id=event_id,
+            source_channel=source_channel, status="failed",
+            token_usage=response.get("usage") if isinstance(response, dict) and isinstance(response.get("usage"), dict) else None,
+            error_code=exc.code, attempted=not not_dispatched,
             latency_ms=max(0, int((perf_counter() - started) * 1000)),
-            project_id=project_id,
-            actor_user_id=actor_user_id,
-            correlation_id=correlation_id,
+            project_id=project_id, actor_user_id=actor_user_id,
+            correlation_id=correlation_id, vector_count=len(vectors) if vectors is not None else None,
+            created_at=created_at,
         )
-        if source_channel in {"chat_test", "public_api", "validation"}:
-            session.commit()
         raise
-    vectors = _openai_embedding_vectors(response)
-    if len(vectors) != 1:
-        raise AppError("query_embedding_failed", "Embedding Provider returned an invalid query vector", status_code=502)
-    vector = vectors[0]
-    if len(vector) != profile.vector_dimension:
-        raise AppError("embedding_profile_mismatch", "Query embedding dimension does not match the retrieval profile", status_code=409)
     usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
-    record_model_usage(
-        session,
-        model=model,
-        usage_purpose="query_embedding",
-        source_channel=source_channel,
-        status="success",
-        token_usage=usage,
+    record_query_embedding_usage(
+        model=model, event_id=event_id, source_channel=source_channel,
+        status="success", token_usage=usage,
         latency_ms=max(0, int((perf_counter() - started) * 1000)),
-        project_id=project_id,
-        actor_user_id=actor_user_id,
-        correlation_id=correlation_id,
-        vector_count=1,
+        project_id=project_id, actor_user_id=actor_user_id,
+        correlation_id=correlation_id, vector_count=1, created_at=created_at,
     )
     return model, vector
 
@@ -245,6 +301,24 @@ def model_name(model: AIModel) -> str:
 
 def estimated_tokens(text: str) -> int:
     return max(1, UnicodeTokenCounter().count(text))
+
+
+def _validate_integrity_inputs(model, version, chunks, texts, settings):
+    from app.domain.embedding_capacity import resolve_input_contract, chunking_error
+    snapshots = [(chunk.chunk_strategy or {}).get("embedding_input_contract") for chunk in chunks]
+    if not any(snapshots) and (version.chunk_strategy or {}).get("chunker_version") != "structure-chunker-v3":
+        return None  # Historical v2 retains its existing read/build contract.
+    saved = (version.chunk_strategy or {}).get("embedding_input_contract") or next((value for value in snapshots if value), None)
+    if not saved:
+        raise chunking_error("chunk_model_capacity_unavailable")
+    contract = resolve_input_contract(model, settings, saved=saved)
+    for chunk, text, snapshot in zip(chunks, texts, snapshots, strict=True):
+        if snapshot != saved or (chunk.chunk_strategy or {}).get("tokenizer_version") != contract.counter.version:
+            raise chunking_error("chunk_model_capacity_unavailable")
+        count = contract.counter.count(text)
+        if count > contract.limit:
+            raise chunking_error("chunk_atomic_unit_too_large", contract=contract, input_tokens=count)
+    return contract.counter
 
 
 def _content_fingerprint(model: AIModel, chunks: list[Chunk], texts: list[str]) -> str:

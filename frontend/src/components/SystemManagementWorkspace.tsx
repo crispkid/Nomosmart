@@ -1,5 +1,7 @@
 "use client";
 
+import { formatCount } from "@/lib/numberFormat";
+
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Activity,
@@ -499,6 +501,8 @@ export default function SystemManagementWorkspace({
   const errorMessage = useCallback((error: ApiError | Error | null) => operationalErrorMessage(error, t, format), [format, t]);
 
   const [parameters, setParameters] = useState(defaultSystemParameters);
+  const [ocrSettingsHash, setOcrSettingsHash] = useState<string | null>(null);
+  const [ocrDefaults, setOcrDefaults] = useState<{ ocr_page_max_output_tokens: number; ocr_document_max_tokens: number } | null>(null);
   const [savedParameters, setSavedParameters] = useState(defaultSystemParameters);
   const [parameterErrors, setParameterErrors] = useState(validateSystemParameters(defaultSystemParameters));
   const [parameterMessage, setParameterMessage] = useState("");
@@ -621,7 +625,8 @@ export default function SystemManagementWorkspace({
       setDirectoryFilterDrafts(Object.fromEntries(directoryProviderResult.providers.map((provider) => [provider.id, provider.custom_user_search_filter])));
       setBreakGlassStatus(breakGlassPayload);
       setSystemStatus(statusPayload);
-      const liveParameters = { uploadLimitMb: parameterPayload.max_upload_size_mb, timezone: parameterPayload.default_timezone, stagingTtlDays: parameterPayload.staging_index_ttl_days, sessionDraftTtlMinutes: parameterPayload.session_expired_form_draft_ttl_minutes };
+      const liveParameters = { uploadLimitMb: parameterPayload.max_upload_size_mb, timezone: parameterPayload.default_timezone, stagingTtlDays: parameterPayload.staging_index_ttl_days, sessionDraftTtlMinutes: parameterPayload.session_expired_form_draft_ttl_minutes, ocrPageOutputTokens: parameterPayload.ocr_page_max_output_tokens, ocrDocumentOutputTokens: parameterPayload.ocr_document_max_tokens };
+      setOcrSettingsHash(parameterPayload.ocr_token_settings_hash); setOcrDefaults(parameterPayload.ocr_token_defaults);
       setParameters(liveParameters); setSavedParameters(liveParameters); setParameterErrors(validateSystemParameters(liveParameters));
       const identityFromApi = identitySettingsFromConfiguration(identityPayload.configuration);
       setIdentitySettings(identityFromApi);
@@ -804,12 +809,14 @@ export default function SystemManagementWorkspace({
   }
 
   async function saveParameters() {
+    if (!liveReady || !ocrSettingsHash || !canEditParameters) return;
     const errors = validateSystemParameters(parameters);
     setParameterErrors(errors);
     if (hasParameterErrors(errors)) return;
     try {
-      const saved = await updateSystemParameters(apiFetch, { max_upload_size_mb: parameters.uploadLimitMb, default_timezone: parameters.timezone, staging_index_ttl_days: parameters.stagingTtlDays, session_expired_form_draft_ttl_minutes: parameters.sessionDraftTtlMinutes });
-      const next = { uploadLimitMb: saved.max_upload_size_mb, timezone: saved.default_timezone, stagingTtlDays: saved.staging_index_ttl_days, sessionDraftTtlMinutes: saved.session_expired_form_draft_ttl_minutes };
+      const saved = await updateSystemParameters(apiFetch, { max_upload_size_mb: parameters.uploadLimitMb, default_timezone: parameters.timezone, staging_index_ttl_days: parameters.stagingTtlDays, session_expired_form_draft_ttl_minutes: parameters.sessionDraftTtlMinutes, ocr_page_max_output_tokens: parameters.ocrPageOutputTokens!, ocr_document_max_tokens: parameters.ocrDocumentOutputTokens!, expected_ocr_token_settings_hash: ocrSettingsHash });
+      const next = { uploadLimitMb: saved.max_upload_size_mb, timezone: saved.default_timezone, stagingTtlDays: saved.staging_index_ttl_days, sessionDraftTtlMinutes: saved.session_expired_form_draft_ttl_minutes, ocrPageOutputTokens: saved.ocr_page_max_output_tokens, ocrDocumentOutputTokens: saved.ocr_document_max_tokens };
+      setOcrSettingsHash(saved.ocr_token_settings_hash); setOcrDefaults(saved.ocr_token_defaults);
       setSavedParameters(next);
       setParameters(next);
       setParameterMessage(t("systemParametersSaved"));
@@ -819,7 +826,8 @@ export default function SystemManagementWorkspace({
   }
 
   function restoreParameters() {
-    setParameters(defaultSystemParameters);
+    if (!liveReady || !ocrDefaults || !canEditParameters) return;
+    setParameters({ ...defaultSystemParameters, ocrPageOutputTokens: ocrDefaults.ocr_page_max_output_tokens, ocrDocumentOutputTokens: ocrDefaults.ocr_document_max_tokens });
     setParameterErrors({});
     setParameterMessage(t("systemParametersDefaultsRestored"));
   }
@@ -2033,13 +2041,15 @@ export default function SystemManagementWorkspace({
           </> : null}
 
           {activeTab === "parameters" ? <>
-            <SectionHeader action={<div className="system-save-state"><button className="action-button secondary" disabled={!canEditParameters} onClick={restoreParameters} type="button"><RotateCcw size={16} />{t("systemRestoreDefaults")}</button><button className="action-button" disabled={!canEditParameters} onClick={saveParameters} title={!canEditParameters ? t("apiForbidden") : undefined} type="button"><Save size={16} />{t("systemSaveParameters")}</button></div>} description={t("systemParametersDescription")} title={t("systemParameters")} />
+            <SectionHeader action={<div className="system-save-state"><button className="action-button secondary" disabled={!canEditParameters || !liveReady || !ocrDefaults} onClick={restoreParameters} type="button"><RotateCcw size={16} />{t("systemRestoreDefaults")}</button><button className="action-button" disabled={!canEditParameters || !liveReady || !ocrSettingsHash} onClick={saveParameters} title={!canEditParameters ? t("apiForbidden") : undefined} type="button"><Save size={16} />{t("systemSaveParameters")}</button></div>} description={t("systemParametersDescription")} title={t("systemParameters")} />
             <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("liveData")}</strong><span>{t("systemParametersLiveHelp")}</span></div></div>
             <div className="parameter-grid" data-session-draft-key="system.parameters">
               <label className={parameterErrors.uploadLimitMb ? "has-error" : ""}><span>{t("systemUploadLimitLabel")} <em>MB</em></span><input aria-describedby="upload-limit-help" data-session-draft-field="uploadLimitMb" max={1024} min={1} onChange={(event) => updateParameter("uploadLimitMb", Number(event.target.value))} type="number" value={parameters.uploadLimitMb} /><small id="upload-limit-help">{t("systemUploadLimitHelp")}</small>{parameterErrors.uploadLimitMb ? <strong>{parameterErrors.uploadLimitMb}</strong> : null}</label>
               <label className={parameterErrors.timezone ? "has-error" : ""}><span>{t("systemDefaultTimezoneLabel")} <em>{t("systemIdentityTimezone")}</em></span><input aria-describedby="timezone-help" data-session-draft-field="timezone" onChange={(event) => updateParameter("timezone", event.target.value)} value={parameters.timezone} /><small id="timezone-help">{t("systemDefaultTimezoneHelp")}</small>{parameterErrors.timezone ? <strong>{parameterErrors.timezone}</strong> : null}</label>
               <label className={parameterErrors.stagingTtlDays ? "has-error" : ""}><span>{t("systemStagingTtlLabel")} <em>{t("systemDaysUnit")}</em></span><input aria-describedby="ttl-help" data-session-draft-field="stagingTtlDays" max={90} min={1} onChange={(event) => updateParameter("stagingTtlDays", Number(event.target.value))} type="number" value={parameters.stagingTtlDays} /><small id="ttl-help">{t("systemStagingTtlHelp")}</small>{parameterErrors.stagingTtlDays ? <strong>{parameterErrors.stagingTtlDays}</strong> : null}</label>
               <label className={parameterErrors.sessionDraftTtlMinutes ? "has-error" : ""}><span>{t("systemSessionDraftTtlLabel")} <em>{t("systemMinutesUnit")}</em></span><input aria-describedby="draft-ttl-help" data-session-draft-field="sessionDraftTtlMinutes" max={120} min={0} onChange={(event) => updateParameter("sessionDraftTtlMinutes", Number(event.target.value))} type="number" value={parameters.sessionDraftTtlMinutes} /><small id="draft-ttl-help">{t("systemSessionDraftTtlHelp")}</small>{parameterErrors.sessionDraftTtlMinutes ? <strong>{parameterErrors.sessionDraftTtlMinutes}</strong> : null}</label>
+              <label className={parameterErrors.ocrPageOutputTokens ? "has-error" : ""}><span>{t("ocrPageTokenSettingLabel")} <em>{t("ocrTokenUnit")}</em></span><input disabled={!canEditParameters || !liveReady} aria-describedby="ocr-page-help" data-session-draft-field="ocrPageOutputTokens" min={1} max={2147483647} type="number" value={parameters.ocrPageOutputTokens ?? ""} onChange={(event) => updateParameter("ocrPageOutputTokens", Number(event.target.value))} /><small id="ocr-page-help">{t("ocrPageTokenSettingHelp")} {parameters.ocrPageOutputTokens != null ? format("ocrTokenReadableValue", { value: formatCount(parameters.ocrPageOutputTokens, locale) }) : null}</small>{parameterErrors.ocrPageOutputTokens ? <strong>{t("ocrTokenPositiveInteger")}</strong> : null}</label>
+              <label className={parameterErrors.ocrDocumentOutputTokens ? "has-error" : ""}><span>{t("ocrDocumentTokenSettingLabel")} <em>{t("ocrTokenUnit")}</em></span><input disabled={!canEditParameters || !liveReady} aria-describedby="ocr-document-help" data-session-draft-field="ocrDocumentOutputTokens" min={1} max={2147483647} type="number" value={parameters.ocrDocumentOutputTokens ?? ""} onChange={(event) => updateParameter("ocrDocumentOutputTokens", Number(event.target.value))} /><small id="ocr-document-help">{t("ocrDocumentTokenSettingHelp")} {parameters.ocrDocumentOutputTokens != null ? format("ocrTokenReadableValue", { value: formatCount(parameters.ocrDocumentOutputTokens, locale) }) : null}</small>{parameterErrors.ocrDocumentOutputTokens ? <strong>{t(parameterErrors.ocrDocumentOutputTokens === "ocrTokenDocumentTooSmall" ? "ocrTokenDocumentTooSmall" : "ocrTokenPositiveInteger")}</strong> : null}</label>
             </div>
             <div aria-live="polite" className="parameter-footer"><div><Clock3 size={16} /><span>{t("systemParametersLiveValues")}</span></div>{parameterMessage ? <p>{localize(parameterMessage)}</p> : null}<small>{format("systemParametersSavedSummary", { uploadLimitMb: savedParameters.uploadLimitMb, timezone: savedParameters.timezone, stagingTtlDays: savedParameters.stagingTtlDays, sessionDraftTtlMinutes: savedParameters.sessionDraftTtlMinutes })}</small></div>
             <div className="system-security-note"><LockKeyhole size={17} /><div><strong>{t("systemDeploymentSettingsExcluded")}</strong><p>{t("systemDeploymentSettingsExcludedHelp")}</p></div></div>
@@ -2196,7 +2206,7 @@ export default function SystemManagementWorkspace({
             <label><span>{t("systemApiKeyRetainExisting")}</span><input autoComplete="new-password" disabled={modelCredentialClearDraft} name="api_key" type="password" /></label>
             <label><span>{t("labelSecretReference")}</span><input defaultValue={modal.model?.raw?.api_key_secret_ref ?? ""} disabled={modelCredentialClearDraft} name="api_key_secret_ref" placeholder={t("systemSecretReferencePlaceholder")} /></label>
             <AIModelCredentialClearControl clearDraft={modelCredentialClearDraft} configured={Boolean(modal.model?.raw?.api_key_configured)} confirmation={modelCredentialClearConfirmation} modelName={modal.model?.name ?? ""} onClearChange={(checked) => { setModelCredentialClearDraft(checked); setModelCredentialClearConfirmation(""); }} onConfirmationChange={setModelCredentialClearConfirmation} />
-            <label><span>{t("systemAdvancedConfigJson")}</span><textarea defaultValue={JSON.stringify(modal.model?.raw?.config ?? {}, null, 2)} name="config_advanced" rows={5} /><small>{t("systemAdvancedConfigHelp")}</small></label>
+            <label><span>{t("systemAdvancedConfigJson")}</span><textarea defaultValue={JSON.stringify(modal.model?.raw?.config ?? {}, null, 2)} name="config_advanced" rows={5} /><small>{t("systemAdvancedConfigHelp")}</small>{modelTypeDraft === "Embedding" ? <small>{t("systemEmbeddingCapacityHelp")}</small> : null}</label>
             <label className="identity-toggle"><input defaultChecked={modal.model?.status !== "inactive"} name="is_active" type="checkbox" /><span>{t("systemEnable")}</span></label>
             <label className="identity-toggle"><input defaultChecked={modal.model?.default ?? false} name="is_default" type="checkbox" /><span>{t("systemSetTypeDefault")}</span></label>
             <footer><button className="action-button secondary" onClick={() => setModal(null)} type="button">{t("cancel")}</button><button className="action-button" disabled={submitting || (!modal.model && !canCreateModels) || (Boolean(modal.model) && !canEditModels) || (modelCredentialClearDraft && modelCredentialClearConfirmation !== modal.model?.name)} type="submit">{modal.model ? <Save size={16} /> : <Plus size={16} />}{modal.model ? t("systemSaveModel") : t("systemAddModel")}</button></footer>

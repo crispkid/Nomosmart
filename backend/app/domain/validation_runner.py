@@ -15,7 +15,7 @@ from app.db.models import AIModel, ChatRecord, Project, ValidationRun, Validatio
 from app.domain.ai_provider import evaluate_rag_answer, generate_rag_answer
 from app.domain.chat_citations import citation_persistence_payload, validate_citation_markers
 from app.domain.chat_conversations import require_conversation_identity
-from app.domain.model_usage import record_model_usage
+from app.domain.model_usage import record_model_usage, QUERY_USAGE_STOP_CODES
 from app.domain.system_prompts import (
     SystemPromptLayer,
     SystemPromptResolution,
@@ -39,6 +39,17 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
         run.completed_at = datetime.now(UTC)
         session.commit()
         raise AppError("project_archived", "Archived projects cannot run chat validation", status_code=409)
+    # A redelivered worker task must preserve the same stop as the first
+    # invocation. Explicit human retry replaces current failed items.
+    stopped_item = session.scalar(
+        select(ValidationRunItem.id).where(
+            ValidationRunItem.run_id == run.id,
+            ValidationRunItem.is_current.is_(True),
+            ValidationRunItem.error_code.in_(QUERY_USAGE_STOP_CODES),
+        ).limit(1)
+    )
+    if stopped_item is not None:
+        return run
     _validate_execution_manifest(session, run, project)
     pending_items = list(
         session.scalars(
@@ -63,6 +74,8 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
         if run.status == "cancelled":
             break
         _execute_item(session, run, project, item)
+        if item.error_code in QUERY_USAGE_STOP_CODES:
+            break
     session.refresh(run)
     if run.status == "cancelled":
         return run

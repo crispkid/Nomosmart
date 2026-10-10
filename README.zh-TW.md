@@ -10,7 +10,7 @@ NomoSmart 會讀取檔案與已連接的資料來源，必要時執行 OCR，再
 
 平台適合知識負責人、編輯者、審核者、系統管理員、整合開發者與一般使用者。PostgreSQL 保存應用程式資料；Redis 與 Celery 處理背景工作；S3 相容儲存空間保存原始檔與產出內容；OpenSearch 負責搜尋；Neo4j 保存知識關係；Keycloak 提供登入與企業目錄整合。
 
-`0.1.2` 包含 Docker 啟動自動化、授權與登入修正、清理、工具、SQL、設定範本與文件。本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。請依選定的安裝方式準備隔離環境。
+`0.2.0` 新增 OCR 後全文內容調整，同步更新切片、貼標、向量與圖譜；並提供可調 OCR 輸出限制、連續文件閱讀、保留完整段落與表格的切片、舊衍生資料清理及查詢模型用量持久化。本版沿用安裝驗證型發布流程；完整功能套件與覆蓋率仍為另列的驗收要求。 本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。
 
 ## 2. 核心功能
 
@@ -59,7 +59,7 @@ Next.js Frontend -----------> FastAPI Backend
 | Search | OpenSearch 2.19 | Keyword、Vector、Hybrid 與 Staging Index |
 | Graph | Neo4j 5.26 Community | 知識關係與 Traversal |
 | Identity | Keycloak 26.0.8、OIDC、LDAP/AD Federation | 認證、目錄同步與角色映射 |
-| Deployment | Docker Compose v2、Helm Chart 0.1.2 | 單機與 Kubernetes 部署 |
+| Deployment | Docker Compose v2、Helm Chart 0.2.0 | 單機與 Kubernetes 部署 |
 
 ## 5. 專案結構
 
@@ -67,7 +67,7 @@ Next.js Frontend -----------> FastAPI Backend
 Nomosmart/
 ├── frontend/                  Next.js 應用程式、UI 元件與多語系內容
 ├── backend/                   FastAPI API、背景工作與應用程式服務
-├── sql/migrations/            B051 首次安裝基線及 V001–V051 升級歷史
+├── sql/migrations/            B053 首次安裝基線及 V001–V053 升級歷史
 ├── deploy/docker/             Docker Compose Runtime 設定
 ├── deploy/helm/nomosmart/     Helm Chart 與各環境 Values
 ├── deploy/installer/          支援 Profile 的 Kubernetes Installer
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. 開始使用
 
-`0.1.2` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
+`0.2.0` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
 
 ### 6.1 選擇安裝方法
 
@@ -119,19 +119,19 @@ Kubernetes Production 安裝需要至少三個 Ready 且可排程的 Node、符�
 
 Repository 為私有。Clone 與下載 Release 需要具備存取權限的 GitHub 帳號，拉取映像也需要 NomoSmart GHCR Package 的存取權限。Git 認證請使用 Credential Manager；Token 保存在受保護的認證工具中，不填入設定範例或命令參數。
 
-使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.1.2 Release 安裝包：
+使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.2.0 Release 安裝包：
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.1.2"
-gh release download v0.1.2 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.1.2.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.1.2"
-tar -xzf "$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.1.2"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.1.2/nomosmart-0.1.2"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.2.0"
+gh release download v0.2.0 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.2.0.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.2.0"
+tar -xzf "$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.2.0"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0"
 ```
 
 每個版本使用新的下載目錄，解壓後依第 8.2 節檢查完整性。GitHub Repository 與 GHCR 拉取權限分開管理；安裝器的 `registry_pull_secret` 應指向具有 Package 讀取權限的 Registry Credential。整包模式也需要連線至 Docker Hub、Quay、GHCR、OpenSearch artifacts，以及 lock 檔列出的 CloudNativePG／Barman 官方下載位置。
@@ -157,7 +157,7 @@ Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它�
 
 ### 7.0 使用單一指令啟動與管理 Docker
 
-此入口已包含於 0.1.2 原始碼與安裝包。已發布的 `v0.1.1` Tag／Archive 維持原樣，請依其下方手動步驟安裝。首次管理既有 Source 部署時，若要套用目前原始碼，使用 `up --build`。
+此入口已包含於 0.2.0 原始碼與安裝包。已發布的 `v0.1.1` Tag／Archive 維持原樣，請依其下方手動步驟安裝。首次管理既有 Source 部署時，若要套用目前原始碼，使用 `up --build`。
 
 從 Source Checkout 或已驗證的 Package 目錄執行；先啟動 Docker，並備妥 Python 3.11 以上版本／OpenSSL；低埠檢查可能需要 `lsof`：
 
@@ -185,7 +185,7 @@ Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它�
 Clone Repository 並進入根目錄：
 
 ```bash
-git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -196,7 +196,7 @@ git status --short
 git rev-parse HEAD
 ```
 
-保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.1.2` 原始碼 Tag 重現本版。
+保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.2.0` 原始碼 Tag 重現本版。
 
 ### 7.2 驗證主機工具
 
@@ -769,7 +769,7 @@ Source Development 會直接在開發者電腦上執行 Frontend、Backend、Wor
 ### 10.1 安裝 Source Dependency
 
 ```bash
-git clone --branch v0.1.2 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -819,14 +819,14 @@ docker run --rm \
 unset FLYWAY_PASSWORD
 ```
 
-全新的空白資料庫只執行一次 `B051__nomosmart_0_1_0.sql`。已有 Flyway 歷史的資料庫沿原 `V001`–`V051` 檔案升級，原始 Checksum 保持不變。請保留完整 Migration 目錄。成功時 Flyway 顯示完成訊息且結束碼為 `0`；重跑時會顯示結構已是目前版本。
+全新的空白資料庫只執行一次 `B053__ocr_output_token_settings.sql`。已有 Flyway 歷史的資料庫沿原 `V001`–`V053` 檔案升級，原始 Checksum 保持不變。請保留完整 Migration 目錄。成功時 Flyway 顯示完成訊息且結束碼為 `0`；重跑時會顯示結構已是目前版本。
 
 啟動 Backend、Worker 或 Beat 前，將以下設定填入 `backend/.env`。數值來自 [release-contract.json](deploy/migrations/release-contract.json)；Compose 與 Kubernetes 安裝器會自動產生：
 
 ```dotenv
-MIGRATION_REQUIRED_VERSION=051
-MIGRATION_REQUIRED_CHECKSUM=1782483375
-MIGRATION_BASELINE_CHECKSUM=1904638595
+MIGRATION_REQUIRED_VERSION=053
+MIGRATION_REQUIRED_CHECKSUM=-616112917
+MIGRATION_BASELINE_CHECKSUM=-1949712409
 ```
 
 ### 10.5 執行 Deployment Bootstrap
@@ -1266,7 +1266,7 @@ Windows AD 使用相同欄位，並調整下列目錄設定：
 | Process Health | `/api/v1/health` | 回傳 `{"status":"healthy"}` |
 | Dependency Readiness | `/api/v1/ready` | 回傳 `ready` Detail 或 HTTP 503 |
 
-FastAPI 應用程式版本為 `0.1.2`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
+FastAPI 應用程式版本為 `0.2.0`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
 
 ### 12.2 Public Chat 範例
 
@@ -1424,7 +1424,7 @@ curl --silent --show-error http://127.0.0.1:8000/api/v1/ready
 - `/api/v1/health` 回報 `healthy`。
 - `/api/v1/ready` 回報 `ready`。
 - PostgreSQL、Redis、Object Storage、OpenSearch、Neo4j 與 Keycloak 可透過已設定的 Connection 存取。
-- 新資料庫已完成 `B051`；既有資料庫已依原歷史升級至 `V051`，且 Bootstrap 已完成。
+- 新資料庫已完成 `B053`；既有資料庫已依原歷史升級至 `V053`，且 Bootstrap 已完成。
 - 管理員已完成文件處理政策初始化。
 - HTTPS 與 OIDC Login 可透過設定的 Public Hostname 使用。
 - First-use Administrator Password 已更新，Role Mapping 提供預期的存取權限。

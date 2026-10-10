@@ -76,3 +76,42 @@ def token_windows(text: str, *, max_tokens: int) -> list[tuple[int, int]]:
         end = len(text) if index + max_tokens >= len(matches) else last.end()
         windows.append((start, end))
     return windows
+
+
+def complete_sentence_ranges(text: str) -> list[tuple[int, int]]:
+    """Conservative v3 sentence boundaries; keep OCR line folds and all bytes.
+
+    v2's sentence_ranges remains unchanged for historical reproducibility.
+    Ambiguous abbreviation/parenthesis boundaries intentionally stay together.
+    """
+    abbreviations = {"dr", "mr", "mrs", "ms", "prof", "sr", "jr", "st", "vs", "etc", "e.g", "i.e", "fig", "no", "dept", "inc", "ltd"}
+    pairs = {"(": ")", "[": "]", "{": "}", "（": "）", "【": "】", "「": "」", "『": "』"}
+    closing = set(pairs.values())
+    stack: list[str] = []
+    ranges: list[tuple[int, int]] = []
+    start = 0
+    index = 0
+    while index < len(text):
+        char = text[index]
+        if char in pairs:
+            stack.append(pairs[char])
+        elif char in closing and stack and char == stack[-1]:
+            stack.pop()
+        boundary = char in "。！？!?" and not stack
+        if char == "." and not stack and (index + 1 == len(text) or text[index + 1].isspace() or text[index + 1] in '\"”’'):
+            match = re.search(r"([A-Za-z]+(?:\.[A-Za-z]+)*|\d+)\.$", text[max(start, index - 64):index + 1])
+            token = match.group(1) if match else ""
+            boundary = not (token.lower() in abbreviations or len(token) == 1 or token.isdigit() or (index and text[index - 1] == "."))
+        if boundary:
+            end = index + 1
+            while end < len(text) and text[end] in '。！？!?\"”’':
+                end += 1
+            while end < len(text) and text[end].isspace():
+                end += 1
+            ranges.append((start, end))
+            start, index = end, end
+            continue
+        index += 1
+    if start < len(text):
+        ranges.append((start, len(text)))
+    return ranges or ([(0, len(text))] if text else [])

@@ -1,26 +1,36 @@
 "use client";
 
-import { type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Download, Edit3, FileText, Loader2, Network, Plus, RotateCcw, Tags, Trash2, Wand2, X } from "lucide-react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useAuth } from "@/components/AuthProvider";
-import { DocumentLayoutViewer } from "@/components/DocumentLayoutViewer";
+import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
+import { OriginalFileDownload } from "@/components/OriginalFileDownload";
+import { useSourceViewPosition } from "@/lib/sourceViewPosition";
 import { FileProcessingStatus } from "@/components/FileProcessingStatus";
+import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
+import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
+import { formatCount } from "@/lib/numberFormat";
+import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
+import { ocrFailureKey, ocrRetryBlocked } from "@/lib/ocrPresentation";
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
 import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
 import { VersionGraphPreview } from "@/components/VersionGraphPreview";
-import { SafeMarkdown } from "@/components/SafeMarkdown";
-import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getKnowledgeArtifactBlob, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type OriginalFileViewerMetadata, type PipelineRunDetail } from "@/lib/api";
+import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type PipelineRunDetail } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { mappedSelectionRange } from "@/lib/manualSourceSelection";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { chunkIdsForResolvedSourceAnchor, codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceAnchorsForChunks, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
+import { codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
+import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi";
+
+const DocumentContentEditorModal = dynamic(() => import("@/components/DocumentContentEditorModal").then(module => module.DocumentContentEditorModal), { ssr: false });
 
 type Translate = (key: TranslationKey) => string;
 type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
@@ -135,17 +145,6 @@ function TagResultStrip({ className = "", label, tags, t }: { className?: string
   );
 }
 
-function isMarkdownOriginal(metadata: OriginalFileViewerMetadata | null | undefined) {
-  return metadata?.viewer_type === "markdown" && metadata.markdown_source_mode === "rendered_original_raw_markdown";
-}
-
-function artifactUnavailableLabel(metadata: OriginalFileViewerMetadata | null | undefined, t: Translate) {
-  if (!metadata) return t("knowledgeDetailOriginalUnavailable");
-  if (metadata.preview_error_code === "original_file_missing") return t("knowledgeDetailOriginalMissing");
-  if (metadata.viewer_type === "unsupported") return t("knowledgeDetailPreviewUnsupported");
-  return t("knowledgeDetailOriginalUnavailable");
-}
-
 function layoutUnavailableLabel(status: string | undefined, t: Translate) {
   if (status === "partial") return t("knowledgeDetailLayoutPartial");
   if (status === "failed") return t("knowledgeDetailLayoutFailed");
@@ -199,35 +198,48 @@ function pipelineStepLabel(stepName: string | null | undefined, t: Translate) {
     parse_document: "knowledgeDetailStepParseDocument",
     ocr_extract: "knowledgeDetailStepOcrExtract",
     split_paragraphs: "knowledgeDetailStepSplitParagraphs",
+    parse_structure: "knowledgeDetailStepChunkKnowledge",
+    embedding: "knowledgeDetailStepBuildEmbeddings",
+    staging_index: "knowledgeDetailStepBuildStagingIndex",
     chunk_knowledge: "knowledgeDetailStepChunkKnowledge",
     generate_markdown: "knowledgeDetailStepGenerateMarkdown",
     auto_tag: "knowledgeDetailStepAutoTag",
     build_embeddings: "knowledgeDetailStepBuildEmbeddings",
     build_staging_index: "knowledgeDetailStepBuildStagingIndex",
     build_graph_preview: "knowledgeDetailStepBuildGraphPreview",
+    cleanup_superseded: "pipelineStepCleanupSuperseded",
     prepare_submission: "knowledgeDetailStepPrepareSubmission"
   };
   const key = labels[stepName];
   return key ? t(key) : stepName.replace(/_/g, " ");
 }
 
-function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked, onRetry, t, format }: { detail: KnowledgeDetailResponse | null; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format }) {
+function pipelineFailureKey(step: PipelineRunDetail["steps"][number] | null | undefined, message?: string | null): TranslationKey {
+  return ocrFailureKey(step, message);
+}
+
+function imageOcrRetryBlocked(step: PipelineRunDetail["steps"][number] | null | undefined) {
+  return ocrRetryBlocked(step);
+}
+
+function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked, onRetry, t, format, embedded = false }: { detail: KnowledgeDetailResponse | null; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format; embedded?: boolean }) {
   const pipeline = detail?.pipeline ?? null;
   const failedStep = failedPipelineStep(pipeline);
   const active = isPipelineActive(pipeline);
   const currentStepName = failedStep?.step_name ?? pipeline?.current_step_name ?? null;
+  const imageOcrStep = pipeline?.steps.find(step => step.step_name === "ocr_extract" && step.input_mode === "page_images");
   const progress = Math.max(0, Math.min(100, Math.round(pipeline?.progress_percent ?? 0)));
   const retryLimitReached = (failedStep?.retry_count ?? 0) >= 3;
-  const canRetry = Boolean(detail && pipeline?.id && detail.version.id && failedStep && !reviewLocked && !retryLimitReached);
+  const canRetry = Boolean(detail && pipeline?.id && detail.version.id && failedStep && !reviewLocked && !retryLimitReached && !imageOcrRetryBlocked(failedStep) && detail.content_update?.status !== "blocked");
 
   return (
-    <div className={`pipeline-layout-fallback ${failedStep ? "failed" : active ? "running" : "idle"}`}>
-      <div className="pipeline-layout-icon" aria-hidden="true">
+    <div className={embedded ? "knowledge-detail-gate-body" : `pipeline-layout-fallback ${failedStep ? "failed" : active ? "running" : "idle"}`}>
+      {!embedded ? <div className="pipeline-layout-icon" aria-hidden="true">
         {active ? <Loader2 className="spin" size={22} /> : failedStep ? <AlertTriangle size={22} /> : <FileText size={22} />}
-      </div>
+      </div> : null}
       <div className="pipeline-layout-content">
-        <strong>{active ? t("knowledgeDetailPipelineGeneratingLayout") : failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailPipelineWaitingTitle")}</strong>
-        <p>{active ? t("knowledgeDetailPipelineGeneratingLayoutHelp") : failedStep ? t("knowledgeDetailPipelineFailedHelp") : layoutUnavailableLabel(detail?.document_layout?.status, t)}</p>
+        {!embedded ? <><strong>{active ? t("knowledgeDetailPipelineGeneratingLayout") : failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailPipelineWaitingTitle")}</strong>
+        <p>{active ? t("knowledgeDetailPipelineGeneratingLayoutHelp") : failedStep ? t("knowledgeDetailPipelineFailedHelp") : layoutUnavailableLabel(detail?.document_layout?.status, t)}</p></> : null}
         <div className="pipeline-progress-row">
           <span>{pipelineStepLabel(currentStepName, t)}</span>
           <span>{format("knowledgeDetailPipelineProgressPercent", { percent: progress })}</span>
@@ -236,11 +248,14 @@ function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked
           <span style={{ width: `${progress}%` }} />
         </div>
         <FileProcessingStatus execution={pipeline?.execution} queued={pipeline?.status === "queued"} />
-        {failedStep?.error_message || pipeline?.error_message ? <p className="pipeline-error-message">{t("apiGenericError")}</p> : null}
+        <OCRBudgetStatus step={imageOcrStep} />
+        <ChunkingIssueSummary issue={failedStep?.chunking_issue} />
+        {!failedStep?.chunking_issue && (failedStep?.error_message || pipeline?.error_message) ? <p className="pipeline-error-message">{t(pipelineFailureKey(failedStep, failedStep?.error_message ?? pipeline?.error_message))}</p> : null}
+        {imageOcrRetryBlocked(failedStep) ? <small className="field-note">{t(failedStep?.chunking_issue ? "chunkIssueRetryBlocked" : "ocrImagePartialReview")}</small> : null}
         {reviewLocked ? <small className="field-note">{t("knowledgeDetailReviewLockedReason")}</small> : null}
         {retryLimitReached ? <small className="field-note">{t("knowledgeDetailRetryLimitReached")}</small> : null}
         {retryError ? <small className="field-error">{t("knowledgeDetailRetryFailed")}</small> : null}
-        {canRetry && failedStep ? (
+        {!embedded && canRetry && failedStep ? (
           <button className="action-button secondary" disabled={retryingStep === failedStep.step_name} type="button" onClick={() => onRetry(failedStep.step_name)}>
             {retryingStep === failedStep.step_name ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {retryingStep === failedStep.step_name ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
           </button>
@@ -250,9 +265,10 @@ function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked
   );
 }
 
-function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryError, reviewLocked, onRetry, t, format }: { detail: KnowledgeDetailResponse; projectId: string; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format }) {
+function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryError, reviewLocked, onRetry, onEdit, t, format }: { detail: KnowledgeDetailResponse; projectId: string; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; onEdit: () => void; t: Translate; format: Format }) {
   const failedStep = failedPipelineStep(detail.pipeline);
-  const progress = Math.max(0, Math.min(100, Math.round(detail.pipeline?.progress_percent ?? 0)));
+  const retryLimitReached = (failedStep?.retry_count ?? 0) >= 3;
+  const canRetry = Boolean(detail.pipeline?.id && failedStep && !reviewLocked && !retryLimitReached && !imageOcrRetryBlocked(failedStep) && detail.content_update?.status !== "blocked");
   return (
     <section className={`knowledge-detail-gate${failedStep ? " failed" : ""}`} aria-live="polite">
       <div className="knowledge-detail-gate-heading">
@@ -261,20 +277,19 @@ function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryE
           <strong>{failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailCompletionGateTitle")}</strong>
           <p>{failedStep ? t("knowledgeDetailPipelineFailedHelp") : t("knowledgeDetailCompletionGateHelp")}</p>
         </div>
-        <span className="knowledge-detail-gate-percent">{format("knowledgeDetailPipelineProgressPercent", { percent: progress })}</span>
       </div>
-      <LayoutPipelineFallback detail={detail} format={format} onRetry={onRetry} retryError={retryError} retryingStep={retryingStep} reviewLocked={reviewLocked} t={t} />
+      <LayoutPipelineFallback embedded detail={detail} format={format} onRetry={onRetry} retryError={retryError} retryingStep={retryingStep} reviewLocked={reviewLocked} t={t} />
       <div className="knowledge-detail-gate-actions">
+        {detail.content_edit_mode === "overwrite_candidate" && detail.document.capabilities?.can_edit_chunks ? <button className="action-button" type="button" onClick={onEdit}><Edit3 size={16} />{t("contentEditAction")}</button> : null}
+        {canRetry && failedStep ? <button className="action-button secondary" disabled={retryingStep === failedStep.step_name} type="button" onClick={() => onRetry(failedStep.step_name)}>
+          {retryingStep === failedStep.step_name ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {retryingStep === failedStep.step_name ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
+        </button> : null}
         <Link className="action-button secondary" href={`/project/${projectId}/import`}>
           <ArrowLeft size={16} /> {t("knowledgeDetailBackToDocuments")}
         </Link>
       </div>
     </section>
   );
-}
-
-function MarkdownRendered({ source }: { source: string }) {
-  return <SafeMarkdown className="rendered-markdown-document" source={source} />;
 }
 
 function TagEditor({
@@ -383,11 +398,12 @@ export default function KnowledgePage() {
   const manualReadBusy = Boolean(readinessKey && manualReadKey === readinessKey);
   const [documentView, setDocumentView] = useState<DocumentView>("original");
   const [graphOpen, setGraphOpen] = useState(false);
+  const [contentEditor, setContentEditor] = useState<{ chunkId?: string } | null>(null);
+  const [contentNotice, setContentNotice] = useState<"unchanged" | "submitted" | "recovery_cancelled" | null>(null);
   const [selectedChunkIds, setSelectedChunkIds] = useState<string[]>([]);
   const [selectionRequest, setSelectionRequest] = useState(0);
   const [chunkScrollRequest, setChunkScrollRequest] = useState<{ chunkId: string; sequence: number } | null>(null);
   const [sourceLocationError, setSourceLocationError] = useState(false);
-  const [downloadError, setDownloadError] = useState(false);
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
   const [retryError, setRetryError] = useState(false);
   const [manualSelection, setManualSelection] = useState<ManualTextSelection | null>(null);
@@ -405,12 +421,17 @@ export default function KnowledgePage() {
   const skipNextSourceScrollRef = useRef(false);
   const displayChunks = useMemo(() => liveDetail?.chunks.map((chunk) => liveChunk(chunk, t, format)) ?? [], [format, liveDetail?.chunks, t]);
   const documentTags = visibleTagDetails(liveDetail?.document_tags ?? []);
-  const originalSourceText = liveDetail?.source_text ?? null;
   const markdownSourceText = liveDetail?.markdown_text ?? null;
   const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIds.includes(chunk.id)), [displayChunks, selectedChunkIds]);
   const selectedChunk = selectedChunks[0];
-  const selectedSourceAnchors = useMemo(() => sourceAnchorsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
+  const rememberSourcePosition = useSourceViewPosition(articleViewerRef, documentView, markdownSourceText, selectedChunkIds.length);
+  function changeDocumentView(view: DocumentView) {
+    if (view === documentView) return;
+    if (view !== "tags" && documentView !== "tags") rememberSourcePosition();
+    setManualSelection(null);
+    setDocumentView(view);
+  }
   const mutationLocked = liveDetail?.manual_edit_reason === "review_locked";
   const tagMutationLocked = mutationLocked || Boolean(liveDetail?.tag_edit_reason)
     || ["active", "inactive"].includes(liveDetail?.version.status ?? "");
@@ -449,6 +470,7 @@ export default function KnowledgePage() {
     let current = liveDetail;
     let lease: ReturnType<KnowledgeDetailReads["begin"]> = null;
     const active = () => shouldPollKnowledgeCompletionGate(current) ||
+      current?.pipeline?.execution?.phase === "stopping" ||
       (isPipelineActive(current?.pipeline) && !current?.document_layout?.pages.length) ||
       current?.chunk_artifact_status === "queued" || current?.chunk_artifact_status === "running" ||
       Boolean(readinessKey && needsKnowledgeReadinessCheck(current) && !readinessBudget.exhausted(readinessKey));
@@ -549,7 +571,7 @@ export default function KnowledgePage() {
       const viewer = articleViewerRef.current;
       const target = documentView === "markdown"
         ? viewer?.querySelector<HTMLElement>(`[data-chunk-ids~="${CSS.escape(selectedChunk.id)}"]`)
-        : viewer?.querySelector<HTMLElement>(`[data-source-anchor="${CSS.escape(selectedChunk.sourceAnchor)}"]`);
+        : sourceTargetForMappings(viewer, selectedChunk.sourceMappings);
       if (!viewer || !target) {
         setSourceLocationError(true);
         return;
@@ -590,16 +612,13 @@ export default function KnowledgePage() {
     setSelectionRequest((request) => request + 1);
   }
 
-  function selectSourceAnchor(sourceAnchor: string) {
-    const matchingIds = chunkIdsForResolvedSourceAnchor(displayChunks, sourceAnchor);
-    if (!matchingIds.length) {
-      setSourceLocationError(true);
-      return;
-    }
-    if (matchingIds.some((chunkId) => !selectedChunkIds.includes(chunkId))) skipNextSourceScrollRef.current = true;
-    setSelectedChunkIds(matchingIds);
+  function selectSourceRange(range: { start: number; end: number }) {
+    const matching = displayChunks.filter(chunk => chunk.sourceMappings.some(mapping => mapping.markdownStart < range.end && mapping.markdownEnd > range.start)).map(chunk => chunk.id);
+    if (!matching.length) { setSourceLocationError(true); return; }
+    skipNextSourceScrollRef.current = true;
+    setSelectedChunkIds(matching);
     setSourceLocationError(false);
-    setChunkScrollRequest((request) => ({ chunkId: matchingIds[0], sequence: (request?.sequence ?? 0) + 1 }));
+    setChunkScrollRequest(request => ({ chunkId: matching[0], sequence: (request?.sequence ?? 0) + 1 }));
   }
 
   function selectMarkdownChunks(chunkIds: string[]) {
@@ -608,13 +627,6 @@ export default function KnowledgePage() {
     setSelectedChunkIds(chunkIds);
     setSourceLocationError(false);
     setChunkScrollRequest((request) => ({ chunkId: chunkIds[0], sequence: (request?.sequence ?? 0) + 1 }));
-  }
-
-  function handleSourceKeyDown(event: KeyboardEvent<HTMLElement>, sourceAnchor: string) {
-    if (event.key === "Enter" || event.key === " ") {
-      event.preventDefault();
-      selectSourceAnchor(sourceAnchor);
-    }
   }
 
   function captureManualSelection(viewMode: ArticleView) {
@@ -759,6 +771,10 @@ export default function KnowledgePage() {
     setRetryingStep(stepName);
     setRetryError(false);
     try {
+      if (liveDetail.content_update) {
+        await retryContent(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, liveDetail.content_update.update_id, liveDetail.version.lock_version);
+        const refreshed = await fetchDetail(); setLiveDetail(refreshed); return;
+      }
       const updated = await retryPipelineStep(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, liveDetail.pipeline.id, stepName);
       setLiveDetail({ ...liveDetail, pipeline: updated });
       const refreshed = await fetchDetail();
@@ -769,6 +785,15 @@ export default function KnowledgePage() {
     } finally {
       setRetryingStep(null);
     }
+  }
+
+  async function handleContentSaved(result: ContentUpdateResult) {
+    if (result.changed || result.status === "recovery_cancelled") {
+      const refreshed = await fetchDetail();
+      if (refreshed.version.id !== result.document_version_id) throw new Error("content_update_scope_changed");
+      setLiveDetail(refreshed); setSelectedChunkIds([]); setGraphOpen(false);
+    }
+    setContentNotice(result.status === "recovery_cancelled" ? "recovery_cancelled" : result.changed ? "submitted" : "unchanged");
   }
 
   async function confirmChunkDeletion() {
@@ -810,27 +835,31 @@ export default function KnowledgePage() {
         </div>
       </div>
 
+      {contentNotice || liveDetail?.content_update ? <div className="review-banner" role="status"><CheckCircle2 size={20} /><span>{t(contentNotice === "recovery_cancelled" || liveDetail?.content_update?.status === "cancelled" ? "contentEditRecoveryCancelled" : contentNotice === "unchanged" ? "contentEditUnchanged" : liveDetail?.content_update?.status === "chunks_required" ? "contentEditNoChunks" : liveDetail?.content_update?.status === "blocked" ? "contentEditModelUnknown" : liveDetail?.content_update?.status === "failed" ? (liveDetail?.content_update?.promoted ? "contentEditCleanupFailed" : "contentEditSyncFailed") : ["queued", "running"].includes(liveDetail?.content_update?.status ?? "") ? (liveDetail?.content_update?.promoted ? "contentEditCleaning" : "contentEditSyncing") : "contentEditSaved")}</span></div> : null}
       {liveDetail && knowledgeGateBlocked ? (
-        <KnowledgeDetailCompletionGate detail={liveDetail} format={format} onRetry={handleRetryStep} projectId={params.id} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
+        <KnowledgeDetailCompletionGate detail={liveDetail} format={format} onRetry={handleRetryStep} onEdit={() => setContentEditor({})} projectId={params.id} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
       ) : (
         <>
       <div className="content-grid split extraction-workspace">
         <Panel
-          title={t("documentArticle")}
+          title={t("contentEditDocumentPanelTitle")}
           action={
+            <div className="content-edit-panel-actions">
+              <OriginalFileDownload metadata={liveDetail?.original_file} />
+              {liveDetail?.document.capabilities?.can_edit_chunks ? <button className="action-button content-edit-open" type="button" disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} aria-describedby={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly" ? "content-edit-disabled-reason" : undefined} onClick={() => setContentEditor({})}><Edit3 size={16} />{t("contentEditAction")}</button> : null}
             <div className="document-view-toggle" aria-label={t("approvalEvidenceViewMode")} role="group">
               <button
                 aria-pressed={documentView === "original"}
                 className={documentView === "original" ? "active" : ""}
-                onClick={() => setDocumentView("original")}
+                onClick={() => changeDocumentView("original")}
                 type="button"
               >
-                <FileText size={15} /> {t("originalDocument")}
+                <FileText size={15} /> {t("documentReadingView")}
               </button>
               <button
                 aria-pressed={documentView === "markdown"}
                 className={documentView === "markdown" ? "active" : ""}
-                onClick={() => setDocumentView("markdown")}
+                onClick={() => changeDocumentView("markdown")}
                 type="button"
               >
                 <Code2 size={15} /> {t("markdownView")}
@@ -847,6 +876,8 @@ export default function KnowledgePage() {
               >
                 <Tags size={15} /> {t("knowledgeDetailTagTab")}
               </button>
+            </div>
+              {liveDetail?.document.capabilities?.can_edit_chunks && (!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly") ? <small className="content-edit-disabled-reason" id="content-edit-disabled-reason" role="status">{t(liveDetail.content_edit_reason === "project_editor_required" ? "apiForbidden" : liveDetail.content_edit_reason === "content_edit_review_locked" ? "knowledgeDetailReviewLockedReason" : "contentEditUnavailable")}</small> : null}
             </div>
           }
         >
@@ -874,39 +905,10 @@ export default function KnowledgePage() {
           ) : (
           <>
           <div className={`article-viewer article-viewer-${documentView}`} onKeyUp={() => captureManualSelection(documentView)} onMouseUp={() => captureManualSelection(documentView)} ref={articleViewerRef}>
-            {documentView === "original" ? (
-              <article className="document-article">
-                {loading ? <section className="document-page"><div className="document-page-content"><p>{t("notificationLoading")}</p></div></section> : null}
-                {loadError ? <section className="document-page"><div className="document-page-content"><p>{t("notificationError")}</p></div></section> : null}
-                {!loading && !loadError && liveDetail?.original_file && isMarkdownOriginal(liveDetail.original_file) && !liveDetail.document_layout?.pages.length ? (
-                  <section className="document-page markdown-original-page">
-                    <div className="document-page-content">
-                      {originalSourceText ? <MarkdownRendered source={originalSourceText} /> : <div className="empty-state compact">{artifactUnavailableLabel(liveDetail.original_file, t)}</div>}
-                    </div>
-                    <footer className="document-page-number">MD</footer>
-                  </section>
-                ) : null}
-                {!loading && !loadError && liveDetail?.document_layout?.pages.length ? (
-                  <DocumentLayoutViewer canonicalSource={markdownSourceText ?? undefined} formatPageLabel={(page) => format("knowledgeDetailOriginalPage", { page })} onKeyDown={handleSourceKeyDown} onSelect={selectSourceAnchor} pages={liveDetail.document_layout.pages} selectedAnchors={selectedSourceAnchors} selectionGroups={selectedSourceGroups} />
-                ) : null}
-                {!loading && !loadError && !isMarkdownOriginal(liveDetail?.original_file) && !liveDetail?.document_layout?.pages.length ? (
-                  <section className="document-page">
-                    <div className="document-page-content">
-                      <div className="empty-state compact">
-                        <LayoutPipelineFallback detail={liveDetail} format={format} onRetry={handleRetryStep} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
-                        {downloadError ? <small className="field-error">{t("knowledgeDetailDownloadFailed")}</small> : null}
-                        {liveDetail?.original_file?.download_url ? <button className="action-button secondary" type="button" onClick={() => liveDetail.original_file?.download_url && getKnowledgeArtifactBlob(apiFetch, liveDetail.original_file.download_url).then((blob) => { const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = liveDetail.original_file?.original_file_name ?? "document"; anchor.click(); URL.revokeObjectURL(url); setDownloadError(false); }).catch(() => setDownloadError(true))}><Download size={16} /> {t("knowledgeDetailDownloadOriginal")}</button> : null}
-                      </div>
-                    </div>
-                  </section>
-                ) : null}
-              </article>
-            ) : (
-              <div className="article-markdown">
-                {!loading && !loadError && !markdownSourceText ? <div className="empty-state compact">{t(markdownArtifactReasonKey(liveDetail?.markdown_artifact_reason_code))}</div> : null}
-                {markdownSourceText ? <CanonicalMarkdownSource chunks={displayChunks} onSelectChunkIds={selectMarkdownChunks} selectedChunkIds={selectedChunkIds} source={markdownSourceText} /> : null}
-              </div>
-            )}
+            {loading ? <div className="empty-state compact">{t("notificationLoading")}</div> : loadError ? <div className="empty-state compact">{t("notificationError")}</div> : markdownSourceText ? (
+              documentView === "original" ? <ContinuousDocumentViewer source={markdownSourceText} selectionGroups={selectedSourceGroups} sourceActionLabel={t("documentReadingSourceAction")} onSelectRange={selectSourceRange} /> :
+              <div className="article-markdown"><CanonicalMarkdownSource chunks={displayChunks} onSelectChunkIds={selectMarkdownChunks} selectedChunkIds={selectedChunkIds} source={markdownSourceText} /></div>
+            ) : <div className="empty-state compact">{t(markdownArtifactReasonKey(liveDetail?.markdown_artifact_reason_code))}</div>}
           </div>
           <TagResultStrip className="document-tag-result-strip" label={t("knowledgeDetailDocumentTags")} tags={documentTags} t={t} />
           </>
@@ -967,12 +969,13 @@ export default function KnowledgePage() {
                       <span className="chunk-index-badge">#{chunk.index}</span>
                       <small className="chunk-inline-meta">
                         <span>{chunk.sourceLabel}</span>
-                        <span>{format("knowledgeDetailTokenCount", { count: chunk.tokens })}</span>
+                        <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })}</span>
                         <span>{format("knowledgeDetailConfidence", { value: Math.round(chunk.confidence * 100) })}</span>
                       </small>
                     </span>
                     <span className="chunk-card-actions">
                       <small className="chunk-technical-id">{chunk.id}</small>
+                      {liveDetail?.document.capabilities?.can_edit_chunks ? <button type="button" className="chunk-delete-button" aria-label={t("contentEditChunkAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} onClick={event => { event.stopPropagation(); setContentEditor({ chunkId: chunk.id }); }} onKeyDown={event => event.stopPropagation()}><Edit3 size={17} /></button> : null}
                       <button
                         aria-label={format("knowledgeDetailDeleteChunkAria", { number: chunk.index })}
                         className="chunk-delete-button"
@@ -1045,6 +1048,7 @@ export default function KnowledgePage() {
       ) : null}
         </>
       )}
+      {contentEditor && liveDetail ? <DocumentContentEditorModal projectId={params.id} documentId={liveDetail.document.id} versionId={liveDetail.version.id} chunkId={contentEditor.chunkId} onClose={() => setContentEditor(null)} onSaved={handleContentSaved} /> : null}
     </AppShell>
   );
 }

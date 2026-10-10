@@ -48,6 +48,7 @@ def build_manual_chunk_representation(
     inherited_heading_level: int | None = None,
     content_type: str | None = None,
     config_snapshot: dict[str, Any] | None = None,
+    input_contract: dict[str, Any] | None = None,
 ) -> ManualChunkRepresentation:
     """Parse and normalize a validated manual canonical Markdown fragment.
 
@@ -60,10 +61,18 @@ def build_manual_chunk_representation(
         raise AppError("manual_chunk_blank", "Manual chunk content cannot be blank", status_code=422)
 
     config = chunking_config_from_snapshot(config_snapshot)
+    input_contract = input_contract or (config_snapshot or {}).get("embedding_input_contract")
     parser = MarkdownStructureParser()
     structure = parser.parse(raw_markdown)
     counter = UnicodeTokenCounter()
-    drafts = StructureAwareChunker(config=config, token_counter=counter).chunk(
+    chunker = StructureAwareChunker(config=config, token_counter=counter)
+    if input_contract:
+        from app.domain.embedding_capacity import EmbeddingInputContract
+        from app.domain.integrity_chunking import IntegrityAwareChunker
+        contract = EmbeddingInputContract({key: value for key, value in input_contract.items() if key not in {"contract_sha256", "tokenizer_version"}})
+        counter = contract.counter
+        chunker = IntegrityAwareChunker(config=config, contract=contract, document_title=document_title or "")
+    drafts = chunker.chunk(
         structure,
         document_key=sha256(raw_markdown.encode("utf-8")).hexdigest(),
         version_id=UUID("00000000-0000-0000-0000-000000000283"),
@@ -91,7 +100,7 @@ def build_manual_chunk_representation(
         "heading_path": heading_path,
         "content_type": resolved_type,
         "parser_version": parser.version,
-        "chunker_version": CHUNKER_VERSION,
+        "chunker_version": chunker.version,
         "normalizer_version": RetrievalTextNormalizer(config=config, token_counter=counter).version,
         "tokenizer_version": counter.version,
         "config": config.snapshot(),
@@ -115,12 +124,15 @@ def build_manual_chunk_representation(
     )
     normalizer = RetrievalTextNormalizer(config=config, token_counter=counter)
     retrieval_text = normalizer.normalize(draft, document_title=document_title).strip()
+    if input_contract and counter.count(retrieval_text) > contract.limit:
+        from app.domain.embedding_capacity import chunking_error
+        raise chunking_error("chunk_atomic_unit_too_large", contract=contract, input_tokens=counter.count(retrieval_text))
     if not retrieval_text:
         raise AppError("manual_chunk_representation_invalid", "Manual Markdown did not produce retrieval text", status_code=422)
 
     processing_metadata = {
         "parser_version": parser.version,
-        "chunker_version": CHUNKER_VERSION,
+        "chunker_version": chunker.version,
         "normalizer_version": normalizer.version,
         "tokenizer_version": counter.version,
         "display_projection_version": DISPLAY_PROJECTION_VERSION,
@@ -129,6 +141,8 @@ def build_manual_chunk_representation(
         "parse_warnings": list(structure.warnings),
         "structure_aware": True,
     }
+    if input_contract:
+        processing_metadata["embedding_input_contract"] = input_contract
     preprocessing_hash = provisional_retrieval_hash(
         retrieval_text=retrieval_text,
         normalizer_version=normalizer.version,

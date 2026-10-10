@@ -59,7 +59,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
         "15-public-api-config.sh", "16-document-upload-config.sh", "17-public-origin-config.sh",
         "nomosmart_cli.py", "nginx.conf.template",
         "nomosmart.env.example", "compose-secret-entrypoint.sh", "secret-env-entrypoint.sh",
-        "postgresql-init.sh", "ssh_known_hosts.example",
+        "postgresql-init.sh", "ssh_known_hosts.example", "embedding-capabilities.example.json",
     )),
     ("sql/migrations", (".",)),
     ("deploy/keycloak/themes/nomosmart", (".",)),

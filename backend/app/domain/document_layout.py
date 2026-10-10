@@ -128,7 +128,8 @@ def hydrate_document_layout_inline_markdown(
             source = source_blocks.get(anchor) if isinstance(anchor, str) else None
             if source is not None:
                 _hydrate_layout_block(block, source)
-    return hydrated
+    from app.domain.layout_source_fragments import attach_source_fragments
+    return attach_source_fragments(hydrated, structure)
 
 
 def _hydrate_layout_block(block: dict[str, Any], source: dict[str, Any]) -> None:

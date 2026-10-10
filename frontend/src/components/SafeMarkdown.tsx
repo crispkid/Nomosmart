@@ -2,6 +2,8 @@
 
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { memo } from "react";
+import { codePointOffsetMap, fencedCodeLiteralRange } from "@/lib/sourceOffsets";
 
 
 type CitationOptions = {
@@ -34,9 +36,10 @@ function remarkNomoSmart(source: string, citations = true) {
 }
 
 /** Exact leaf positions are opt-in for the source viewer, never guessed by text search. */
-function remarkSourcePositions(source: string, base: number) {
+function remarkSourcePositions(source: string, base: number, sourceActionLabel?: string) {
   return () => (tree: MarkdownAstNode) => {
-    const points = (offset: number) => base + Array.from(source.slice(0, offset)).length;
+    const offsets = codePointOffsetMap(source);
+    const points = (offset: number) => base + offsets[offset];
     const bounds = new WeakMap<MarkdownAstNode, { start: number; end: number; direct: boolean }>();
     const envelopes = new WeakMap<MarkdownAstNode, { start: number; end: number; visibleStart: number; visibleEnd: number }>();
     function locate(node: MarkdownAstNode): { start: number; end: number } | undefined {
@@ -47,8 +50,13 @@ function remarkSourcePositions(source: string, base: number) {
           const fence = /^`+/.exec(source.slice(start, end))?.[0].length ?? 0;
           if (source.slice(start + fence, end - fence) === node.value) { rawStart += fence; rawEnd -= fence; }
         }
+        if (node.type === "code" && typeof node.value === "string") {
+          node.data = { ...node.data, hProperties: { ...node.data?.hProperties, "data-source-code": "true" } };
+          const literal = fencedCodeLiteralRange(source, start, end, node.value);
+          if (literal) { rawStart = literal.start; rawEnd = literal.end; }
+        }
         const range = { start: points(rawStart), end: points(rawEnd),
-          direct: node.type !== "code" && node.type !== "image" && source.slice(rawStart, rawEnd) === node.value };
+          direct: node.type !== "image" && source.slice(rawStart, rawEnd) === node.value };
         bounds.set(node, range);
         envelopes.set(node, { start: points(start), end: points(end), visibleStart: range.start, visibleEnd: range.end });
         return range;
@@ -62,6 +70,13 @@ function remarkSourcePositions(source: string, base: number) {
       return visible;
     }
     locate(tree);
+    if (sourceActionLabel) for (const node of tree.children ?? []) {
+      const start = node.position?.start?.offset, end = node.position?.end?.offset;
+      if (typeof start !== "number" || typeof end !== "number" || end <= start) continue;
+      node.data = { ...node.data, hProperties: { ...node.data?.hProperties,
+        "data-source-block-start": points(start), "data-source-block-end": points(end),
+        tabIndex: 0, "aria-description": sourceActionLabel } };
+    }
     function visit(node: MarkdownAstNode, ancestors: MarkdownAstNode[] = []) {
       node.children = node.children?.map((child) => {
         const range = bounds.get(child);
@@ -179,7 +194,7 @@ function citationComponent(options: CitationOptions): Components["span"] {
 
 function markdownComponents(options: CitationOptions, inline: boolean): Components {
   return {
-    p: ({ children }) => inline ? <>{children}</> : <p>{children}</p>,
+    p: ({ children, ...props }) => inline ? <>{children}</> : <p {...props}>{children}</p>,
     span: citationComponent(options),
     a: ({ href, children, ...props }) => {
       const safeHref = typeof href === "string" ? safeUrlTransform(href) : "";
@@ -191,9 +206,12 @@ function markdownComponents(options: CitationOptions, inline: boolean): Componen
       const label = alt || title || "Image";
       return <span aria-label={label} className="safe-markdown-image-placeholder" role="img">{label}</span>;
     },
-    code: ({ children, className, ...props }) => (
-      <code {...props} className={["safe-markdown-semantic-code", className].filter(Boolean).join(" ")}>{children}</code>
-    ),
+    code: ({ children, className, ...props }) => {
+      // mdast-to-hast adds a final newline to block code; it owns no source position.
+      const mapped = (props as Record<string, unknown>)["data-source-code"] === "true";
+      const content = mapped && typeof children === "string" && children.endsWith("\n") ? children.slice(0, -1) : children;
+      return <code {...props} className={["safe-markdown-semantic-code", className].filter(Boolean).join(" ")}>{content}</code>;
+    },
     strong: ({ children, className, ...props }) => (
       <strong {...props} className={["safe-markdown-semantic-strong", className].filter(Boolean).join(" ")}>{children}</strong>
     ),
@@ -207,23 +225,23 @@ function markdownComponents(options: CitationOptions, inline: boolean): Componen
   };
 }
 
-function MarkdownBody({ source, sourceOffset, inline = false, ...citationOptions }: { source: string; sourceOffset?: number; inline?: boolean } & CitationOptions) {
+function MarkdownBody({ source, sourceOffset, sourceActionLabel, inline = false, ...citationOptions }: { source: string; sourceOffset?: number; sourceActionLabel?: string; inline?: boolean } & CitationOptions) {
   const components = markdownComponents(citationOptions, inline);
   return (
     <ReactMarkdown
       components={components}
-      remarkPlugins={sourceOffset === undefined ? [remarkGfm, remarkNomoSmart(source)] : [remarkGfm, remarkNomoSmart(source, false), remarkSourcePositions(source, sourceOffset)]}
+      remarkPlugins={sourceOffset === undefined ? [remarkGfm, remarkNomoSmart(source)] : [remarkGfm, remarkNomoSmart(source, false), remarkSourcePositions(source, sourceOffset, sourceActionLabel)]}
       skipHtml
       urlTransform={safeUrlTransform}
     >{source}</ReactMarkdown>
   );
 }
 
-export function SafeMarkdownInline({ source }: { source: string }) {
-  return <MarkdownBody inline source={source} />;
-}
+export const SafeMarkdownInline = memo(function SafeMarkdownInline({ source, sourceOffset }: { source: string; sourceOffset?: number }) {
+  return <MarkdownBody inline source={source} sourceOffset={sourceOffset} />;
+});
 
-export function SafeMarkdown({
+export const SafeMarkdown = memo(function SafeMarkdown({
   citationCount,
   citationLabel,
   citationMismatchLabel,
@@ -231,7 +249,8 @@ export function SafeMarkdown({
   onCitationSelect,
   source,
   sourceOffset,
-}: { className?: string; source: string; sourceOffset?: number } & CitationOptions) {
+  sourceActionLabel,
+}: { className?: string; source: string; sourceOffset?: number; sourceActionLabel?: string } & CitationOptions) {
   const classes = ["safe-markdown", className].filter(Boolean).join(" ");
   return (
     <div className={classes}>
@@ -242,7 +261,8 @@ export function SafeMarkdown({
         onCitationSelect={onCitationSelect}
         source={source}
         sourceOffset={sourceOffset}
+        sourceActionLabel={sourceActionLabel}
       />
     </div>
   );
-}
+});

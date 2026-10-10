@@ -2090,8 +2090,9 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
         profile = session.get(EmbeddingProfile, profile_id)
         if profile is None:
             raise AppError("embedding_profile_required", "Embedding Profile is required before hybrid retrieval", status_code=409)
+        index_scopes = _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, scope)
         _model, query_vector = embed_query(session, profile=profile, question=question, settings=settings, project_id=project_id, actor_user_id=actor_user_id, source_channel=source_channel)
-        for index_name, scoped_version_ids in _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, scope):
+        for index_name, scoped_version_ids in index_scopes:
             hits = _opensearch_hybrid_search(
                 index_name,
                 project_id,
@@ -2153,7 +2154,17 @@ def _hybrid_index_scopes(prefix: str, project_id: UUID, versions: list[DocumentV
             grouped.setdefault(published_index_name(prefix, version.embedding_profile_id), set()).add(version.id)
         return list(grouped.items())
     if scope == "staging":
-        return [(staging_index_name(prefix, project_id, version.id), {version.id}) for version in versions]
+        bound_scopes: list[tuple[str, set[UUID]]] = []
+        for version in versions:
+            if version.project_id != project_id:
+                raise AppError("retrieval_scope_denied", "Staging version scope is invalid", status_code=403)
+            uri = version.extraction_artifact_uri or ""
+            base_name = staging_index_name(prefix, project_id, version.id)
+            index_name = uri.removeprefix("opensearch://")
+            if not uri.startswith("opensearch://") or not re.fullmatch(re.escape(base_name) + r"(?:-edit-[0-9a-f]{32})?", index_name):
+                raise AppError("opensearch_index_not_ready", "OpenSearch retrieval index is not ready", status_code=409)
+            bound_scopes.append((index_name, {version.id}))
+        return bound_scopes
     raise AppError("retrieval_scope_invalid", "Retrieval scope is invalid", status_code=422)
 
 

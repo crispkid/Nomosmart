@@ -116,7 +116,7 @@ export function CanonicalMarkdownSource({
     <pre className="canonical-markdown-source" data-canonical-markdown-source="true" ref={sourceRef}>
       <code>
         {segments.map((segment) => {
-          if (!segment.chunkIds.length) return <span key={segment.id}>{segment.text}</span>;
+          if (!segment.chunkIds.length) return <span data-source-start={segment.start} data-source-end={segment.end} data-source-direct="true" key={segment.id}>{segment.text}</span>;
           const active = segment.chunkIds.some((chunkId) => selected.has(chunkId));
           return (
             <span
@@ -125,6 +125,9 @@ export function CanonicalMarkdownSource({
               data-chunk-ids={segment.chunkIds.join(" ")}
               data-markdown-end={segment.end}
               data-markdown-start={segment.start}
+              data-source-start={segment.start}
+              data-source-end={segment.end}
+              data-source-direct="true"
               data-source-anchor={segment.sourceAnchors.length === 1 ? segment.sourceAnchors[0] : undefined}
               key={segment.id}
               onClick={() => onSelectChunkIds?.(segment.chunkIds)}

@@ -25,7 +25,7 @@ TRANSITIONS = {
     "stopping": {"recovery_required"},
     "recovery_required": {"stopping"},
 }
-PHASES = frozenset({"queued", "starting_parser", "parsing", "waiting_worker", "processing", "stopping", "recovery_required"})
+PHASES = frozenset({"queued", "starting_parser", "parsing", "rendering_images", "waiting_worker", "processing", "stopping", "recovery_required"})
 
 
 @dataclass(frozen=True)
@@ -195,7 +195,8 @@ def record_progress(session: Session, *, execution_id: UUID, generation: UUID, s
         raise policy_error("file_processing_progress_invalid", 422)
     if sequence <= row.progress_revision:
         return False
-    if row.state != "running" or phase != ("parsing" if row.kind == "parser" else "processing"):
+    allowed_phases = {"parsing", "rendering_images"} if row.kind == "parser" else {"processing"}
+    if row.state != "running" or phase not in allowed_phases:
         raise policy_error("file_processing_progress_state_invalid")
     if row.progress_revision and row.unit != unit:
         raise policy_error("file_processing_progress_unit_changed", 422)
@@ -268,7 +269,7 @@ def execution_projection(session: Session, run_id: UUID) -> dict | None:
     if row is None:
         return None
     document = session.get(Execution, row.parent_id) if row.parent_id else row
-    if row.released_at is not None and document.released_at is None:
+    if row.released_at is not None:
         row = document  # Parser completion is not document completion.
     return {"phase": row.phase, "attempt": row.attempt, "progress_revision": row.progress_revision,
             "updated_at": row.updated_at, "heartbeat_at": row.heartbeat_at,

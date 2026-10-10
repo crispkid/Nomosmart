@@ -20,20 +20,24 @@ from uuid import uuid4
 from .errors import need
 from .files import PageStore, Workspace, ensure_root
 from .process import Tools
+from .png import validate_png
 
-PROGRAMS = {"text", "split", "local_ocr", "text_or_split", "text_or_local_ocr"}
+PROGRAMS = {"text", "split", "raster", "local_ocr", "text_or_raster", "text_or_split", "text_or_local_ocr"}
 
 
 class LocalPDF:
-    def __init__(self, settings, policy, *, heartbeat, progress):
+    def __init__(self, settings, policy, *, heartbeat, progress, raster_dpi=None):
         self.settings, self.policy = settings, policy
         self.heartbeat, self.progress = heartbeat, progress
+        self.raster_dpi = settings.pdf_ocr_dpi if raster_dpi is None else raster_dpi
+        need(type(self.raster_dpi) is int and 100 <= self.raster_dpi <= 300, "invalid_request")
         self.launch_uid = str(uuid4())
         self.work = self.store = self.tools = None
         self.cleaned = False
         self.setup_failed = False
         self.setup_state = "new"
         self.setup_cleanup_confirmed = False
+        self.operation = None
 
     def setup(self):
         need(self.setup_state == "new", "runtime_unavailable")
@@ -122,15 +126,16 @@ class LocalPDF:
         _, information = self.inventory(source, "-f", number, "-l", number)
         match = re.search(r"(?:Page\s+\d+\s+size|Page size):\s*([\d.]+)\s+x\s+([\d.]+)\s+pts", information)
         need(match is not None, "invalid_output")
-        pixels = math.ceil(float(match.group(1))*200/72)*math.ceil(float(match.group(2))*200/72)
+        dpi = self.raster_dpi if operation == "raster" else 200
+        pixels = math.ceil(float(match.group(1))*dpi/72)*math.ceil(float(match.group(2))*dpi/72)
         need(0 < pixels <= self.settings.pdf_max_pixels, "output_limit")
         target = self.work.target("raster.png")
         try:
-            self.command("tesseract_pdf_command", "-f", number, "-l", number, "-singlefile", "-r", 200, "-png", source, str(self.work.path / "raster"))
+            self.command("tesseract_pdf_command", "-f", number, "-l", number, "-singlefile", "-r", dpi, "-png", source, str(self.work.path / "raster"))
             header = self.work.read_file("raster.png", self.policy["pdf_parser_scratch_mib"]*1024**2)
-            need(header.startswith(b"\x89PNG\r\n\x1a\n") and len(header) >= 24 and header[12:16] == b"IHDR", "invalid_output")
-            width, height = int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")
-            need(width > 0 and height > 0 and width * height <= self.settings.pdf_max_pixels, "output_limit")
+            validate_png(header, max_bytes=maximum, max_pixels=self.settings.pdf_max_pixels)
+            if operation == "raster":
+                return header
             return self.command("tesseract_command", target, "stdout", "-l", "+".join(self.languages), "--dpi", 200,
                                 stdout_limit=maximum).decode("utf-8", errors="strict").strip().encode("utf-8")
         finally:
@@ -148,6 +153,8 @@ class LocalPDF:
         operation = "text" if program.startswith("text_or_") else program
         versions = {}
         for pass_number in range(2):
+            self.operation = operation
+            self.progress(0, pages)
             if operation == "local_ocr":
                 need(bool(self.languages), "runtime_unavailable")
                 raw_version = self.command("tesseract_command", "--version").decode("utf-8").splitlines()[0]

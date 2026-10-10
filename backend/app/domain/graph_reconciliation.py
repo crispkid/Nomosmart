@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field, replace
 from typing import Iterator
 
 from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
@@ -30,18 +30,24 @@ class GraphComparison:
     graph: dict
     receipt: str | None
     source_digest: str
+    residues: tuple[dict, ...] = ()
+    cleanup: dict = field(default_factory=dict)
 
     @property
     def target_digest(self) -> str:
-        return digest({"graph": self.graph, "receipt": self.receipt})
+        return digest({"graph": self.graph, "receipt": self.receipt, "residues": self.residues})
 
     def matches(self, projection: GraphProjection) -> bool:
-        return self.graph == projection.graph and self.receipt == projection.source_digest
+        return (self.graph == projection.graph and self.receipt == projection.source_digest
+                and not any(not row["protected_reason"] for row in self.residues))
 
     def report(self, projection: GraphProjection) -> dict:
         return {**projection.binding(), "target_digest": self.target_digest,
                 "ready": self.matches(projection), "differences": graph_difference(projection.graph, self.graph),
-                "node_count": len(self.graph["nodes"]), "edge_count": len(self.graph["edges"])}
+                "node_count": len(self.graph["nodes"]), "edge_count": len(self.graph["edges"]),
+                "residue": {"unprotected_count": sum(not r["protected_reason"] for r in self.residues),
+                            "protected_count": sum(bool(r["protected_reason"]) for r in self.residues),
+                            "removed_nodes": self.cleanup.get("removed_nodes", 0)}}
 
 
 def conflict() -> AppError:
@@ -63,12 +69,37 @@ class Neo4jProjectionStore:
         finally:
             driver.close()
 
-    def read(self, projection: GraphProjection) -> GraphComparison:
-        with self.connection() as session:
-            return session.execute_read(self._read, projection)
+    @contextmanager
+    def references(self, projection, source_session=None, *, write=False):
+        if source_session is not None:
+            yield source_session
+            return
+        from app.db.session import get_session_factory
+        from sqlalchemy import text
+        with get_session_factory()() as db:
+            if write:
+                rows = []
+                for model, identity in ((Project, projection.project_id), (Document, projection.document_id),
+                                        (DocumentVersion, projection.version_id)):
+                    row = db.scalar(select(model).where(model.id == identity).with_for_update())
+                    if row is None:
+                        raise conflict()
+                    rows.append(row)
+                project, document, version = rows
+                if (project.status != "active" or document.is_deleted or document.project_id != project.id
+                    or version.project_id != project.id or version.document_id != document.id
+                    or build_graph_projection(db, project, document, version).binding() != projection.binding()):
+                    raise AppError("graph_source_changed", "Graph source changed before repair", status_code=409)
+            else:
+                db.execute(text("SET TRANSACTION READ ONLY"))
+            yield db
+
+    def read(self, projection: GraphProjection, *, source_session=None) -> GraphComparison:
+        with self.references(projection, source_session) as db, self.connection() as session:
+            return session.execute_read(self._read, projection, db)
 
     @staticmethod
-    def _read(tx, projection: GraphProjection) -> GraphComparison:
+    def _read(tx, projection: GraphProjection, source_session) -> GraphComparison:
         vid, did = str(projection.version_id), str(projection.document_id)
         rows = list(tx.run("""
             MATCH (s)-[r:PROJECT_HAS_DOCUMENT|DOCUMENT_HAS_VERSION|VERSION_HAS_CHUNK|VERSION_HAS_TAG|CHUNK_HAS_TAG]->(t)
@@ -132,20 +163,25 @@ class Neo4jProjectionStore:
             raise conflict()
         # Expected tags may already exist through another version. They are
         # included in the comparison but their assignments remain version-scoped.
-        return GraphComparison(canonical_graph(nodes, edges), receipt, projection.source_digest)
+        from app.domain.graph_residue import inventory
+        return GraphComparison(canonical_graph(nodes, edges), receipt, projection.source_digest,
+                               inventory(tx, projection, source_session))
 
     def reconcile(self, projection: GraphProjection, *, target_digest: str | None = None,
-                  tags_only: bool = False) -> GraphComparison:
-        with self.connection() as session:
-            return session.execute_write(self._reconcile, projection, target_digest, tags_only)
+                  tags_only: bool = False, source_session=None) -> GraphComparison:
+        with self.references(projection, source_session, write=True) as db, self.connection() as session:
+            return session.execute_write(self._reconcile, projection, target_digest, tags_only, db)
 
     @classmethod
-    def _reconcile(cls, tx, projection: GraphProjection, target_digest: str | None, tags_only: bool) -> GraphComparison:
-        before = cls._read(tx, projection)
+    def _reconcile(cls, tx, projection: GraphProjection, target_digest: str | None, tags_only: bool, source_session) -> GraphComparison:
+        from app.domain.graph_residue import prune
+        before = cls._read(tx, projection, source_session)
         if target_digest is not None and before.target_digest != target_digest:
             raise AppError("graph_target_changed", "Graph changed since comparison", status_code=409)
+        cleanup = prune(tx, projection, source_session, before.residues, tags_only=tags_only)
+        before = cls._read(tx, projection, source_session)
         if before.matches(projection):
-            return before
+            return replace(before, cleanup=cleanup)
         expected_nodes = {n["id"]: n for n in projection.graph["nodes"]}
         expected_edges = {edge_key(e): e for e in projection.graph["edges"]}
         # Never delete structural/unknown edges or obsolete Chunk nodes as a
@@ -190,12 +226,14 @@ class Neo4jProjectionStore:
                            source=edge["source"], target=edge["target"]).consume()
         tx.run("MATCH (v:DocumentVersion {id: $id}) SET v.graph_source_digest=$digest, v.graph_projection_version=$format",
                id=str(projection.version_id), digest=projection.source_digest, format=PROJECTION_VERSION).consume()
-        after = cls._read(tx, projection)
-        # Nodes of obsolete tags are deliberately retained, but no longer part
-        # of this version's projection after their last edge is removed.
+        after = cls._read(tx, projection, source_session)
+        # Removing the last obsolete tag edge can create a new physical orphan.
+        late_cleanup = prune(tx, projection, source_session, after.residues, tags_only=tags_only)
+        cleanup["removed_nodes"] += late_cleanup["removed_nodes"]
+        after = cls._read(tx, projection, source_session)
         if not after.matches(projection):
             raise AppError("graph_projection_mismatch", "Graph read-back did not match the canonical snapshot", status_code=503)
-        return after
+        return replace(after, cleanup=cleanup)
 
 
 def locked_projection(session: Session, project_id, document_id, version_id, *, expected_binding: dict | None = None) -> GraphProjection:
@@ -219,13 +257,33 @@ def synchronize_graph(session: Session, settings: Settings, project_id, document
                       *, expected_binding: dict | None = None, target_digest: str | None = None,
                       tags_only: bool = False) -> GraphComparison:
     projection = locked_projection(session, project_id, document_id, version_id, expected_binding=expected_binding)
-    result = Neo4jProjectionStore(settings).reconcile(projection, target_digest=target_digest, tags_only=tags_only)
+    result = Neo4jProjectionStore(settings).reconcile(projection, target_digest=target_digest,
+                                                    tags_only=tags_only, source_session=session)
     # Locks are held through the caller's receipt/audit transaction. No external
     # graph operation commits the PostgreSQL transaction or modifies a manifest.
     current = locked_projection(session, project_id, document_id, version_id)
     if current.binding() != projection.binding():
         raise AppError("graph_source_changed", "Graph source changed during synchronization", status_code=409)
     return result
+
+
+def clean_candidate_graph_residues(session, settings, project, document, version):
+    """Remove only orphan residues; never write a candidate into the formal graph."""
+    from app.domain.content_update_cleanup import require_unprotected_version
+    from app.domain.graph_residue import inventory, prune
+    require_unprotected_version(session, version)
+    projection = build_graph_projection(session, project, document, version)
+
+    def clean(tx):
+        before = inventory(tx, projection, session)
+        result = prune(tx, projection, session, before)
+        after = inventory(tx, projection, session)
+        if any(not row["protected_reason"] for row in after):
+            raise AppError("graph_projection_mismatch", "Candidate graph residues remain", status_code=503)
+        return result
+
+    with Neo4jProjectionStore(settings).connection() as graph:
+        return graph.execute_write(clean)
 
 
 def clear_zero_candidate_chunks(session: Session, settings: Settings, version: DocumentVersion) -> None:

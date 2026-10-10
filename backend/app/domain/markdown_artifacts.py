@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from app.db.models import DocumentVersion, PipelineRun, PipelineRunStep
+from app.db.models import DocumentContentState, DocumentVersion, PipelineRun, PipelineRunStep
 from app.domain.document_layout import renderable_source_anchors
 from app.domain.markdown_structure import MarkdownStructureParser
 
@@ -32,6 +32,13 @@ class SourceRange:
 
 
 def resolve_markdown_artifact(session: Session, version: DocumentVersion, *, require_fingerprint: bool = False) -> MarkdownArtifactResult:
+    current = session.get(DocumentContentState, version.id)
+    if current is not None:
+        if current.project_id != version.project_id or current.document_id != version.document_id:
+            return MarkdownArtifactResult("invalid", "markdown_artifact_version_mismatch", None)
+        if hashlib.sha256(current.current_markdown.encode("utf-8")).hexdigest() != current.current_sha256:
+            return MarkdownArtifactResult("invalid", "markdown_artifact_invalid", None)
+        return MarkdownArtifactResult("available", None, current.current_markdown)
     pipeline = session.scalar(
         select(PipelineRun)
         .where(PipelineRun.document_version_id == version.id)
@@ -40,6 +47,10 @@ def resolve_markdown_artifact(session: Session, version: DocumentVersion, *, req
     )
     if pipeline is None:
         return MarkdownArtifactResult("missing", "markdown_artifact_missing", None)
+    if pipeline.status == "failed" and pipeline.current_step_name == "chunk_knowledge":
+        recovered = resolve_chunking_failure_source(session, version, pipeline)
+        if recovered.text is not None:
+            return recovered
 
     step = session.scalar(
         select(PipelineRunStep).where(
@@ -74,6 +85,37 @@ def resolve_markdown_artifact(session: Session, version: DocumentVersion, *, req
 
 def markdown_artifact_ref(version_id: UUID) -> str:
     return f"artifact://document_versions/{version_id}/generate_markdown"
+
+
+def resolve_chunking_failure_source(session: Session, version: DocumentVersion, pipeline: PipelineRun | None = None) -> MarkdownArtifactResult:
+    """Read a completed, fingerprinted source; never bypass an OCR failure."""
+    from app.domain.embedding_capacity import CHUNKING_ERROR_CODES
+    pipeline = pipeline or session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id).order_by(desc(PipelineRun.created_at)).limit(1))
+    invalid = MarkdownArtifactResult("invalid", "content_edit_source_unavailable", None)
+    if (pipeline is None or pipeline.status != "failed" or pipeline.current_step_name != "chunk_knowledge"
+            or pipeline.project_id != version.project_id or pipeline.document_id != version.document_id):
+        return invalid
+    steps = {step.step_name: step for step in session.scalars(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline.id))}
+    failed = steps.get("chunk_knowledge")
+    if failed is None or failed.status != "failed" or failed.claim_token is not None:
+        return invalid
+    issue = (failed.artifact_payload or {}).get("chunking_issue") or {}
+    if issue.get("code") not in CHUNKING_ERROR_CODES:
+        return invalid
+    for name in ("parse_document", "ocr_extract"):
+        step = steps.get(name)
+        if step is None or step.status != "completed" or step.output_artifact_ref != f"artifact://document_versions/{version.id}/{name}":
+            return invalid
+        digest = hashlib.sha256(json.dumps(step.artifact_payload, sort_keys=True, separators=(",", ":"), default=str).encode()).hexdigest()
+        if digest != step.artifact_fingerprint:
+            return invalid
+    parsed, ocr = steps["parse_document"].artifact_payload, steps["ocr_extract"].artifact_payload
+    text = parsed.get("canonical_markdown") if ocr.get("skipped", True) else ocr.get("text")
+    if not isinstance(text, str) or not text.strip():
+        return invalid
+    if hashlib.sha256(text.encode()).hexdigest() != issue.get("canonical_sha256"):
+        return invalid
+    return MarkdownArtifactResult("available", None, text)
 
 
 def paragraph_source_ranges(markdown: str) -> dict[str, SourceRange]:
@@ -149,7 +191,21 @@ def _normalize_structured_mapping(
     declared_nodes = mapping.get("node_ids")
     if isinstance(declared_nodes, list):
         node_ids = set(_ordered_strings(declared_nodes))
-        if any(anchor not in node_ids for anchor in resolved_anchors):
+        nodes = {node.id: node for node in structure.nodes}
+        # Retrieval units omit structural gaps, while a contiguous source range
+        # still includes them. Validate the owning content nodes and every
+        # declared node against this exact canonical interval.
+        required_anchors = {
+            anchor for anchor in resolved_anchors
+            if nodes[anchor].type not in {"heading", "horizontal_rule", "page_break"}
+            and not nodes[anchor].metadata.get("retrieval_excluded")
+        }
+        if not required_anchors.issubset(node_ids) or any(
+            node_id not in nodes
+            or nodes[node_id].start_offset >= fragment_range.end
+            or nodes[node_id].end_offset <= fragment_range.start
+            for node_id in node_ids
+        ):
             return _unresolved(result, "source_anchor_set_mismatch")
     declared_first = mapping.get("source_anchor")
     if isinstance(declared_first, str) and declared_first and declared_first != resolved_anchors[0]:

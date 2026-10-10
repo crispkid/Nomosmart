@@ -3,13 +3,86 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import logging
 from typing import Any
 from uuid import UUID, uuid4
 
-from sqlalchemy.orm import Session
+from sqlalchemy import inspect, select, text
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.core.errors import AppError
+from app.core.config import get_settings
 from app.db.models import AIModel, AIModelUsageEvent
+from app.db.session import get_session_factory
+
+
+logger = logging.getLogger(__name__)
+QUERY_USAGE_STOP_CODES = frozenset({"model_usage_persistence_unconfirmed", "query_usage_identity_conflict"})
+
+
+def record_query_embedding_usage(
+    *,
+    model: AIModel,
+    event_id: UUID,
+    source_channel: str,
+    status: str,
+    token_usage: dict[str, Any] | None = None,
+    latency_ms: int | None = None,
+    error_code: str | None = None,
+    attempted: bool = True,
+    project_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    correlation_id: str | None = None,
+    vector_count: int | None = None,
+    created_at: datetime | None = None,
+    session_factory: sessionmaker[Session] | None = None,
+) -> AIModelUsageEvent:
+    """Commit one query attempt without committing the caller's business work.
+
+    Only committed model/project/actor references belong here. In particular,
+    pending answer/request parents remain in their existing caller transaction.
+    The caller keeps this identity if it needs to confirm an uncertain write;
+    Provider calls are never retried by this writer.
+    """
+    if model.model_type != "Embedding" or status not in {"success", "failed"}:
+        raise AppError("query_usage_identity_conflict", "Query usage context is invalid", status_code=409)
+    expected = _build_model_usage_event(
+        model=model, event_id=event_id, usage_purpose="query_embedding",
+        source_channel=source_channel, status=status, token_usage=token_usage,
+        latency_ms=latency_ms, error_code=error_code, attempted=attempted,
+        project_id=project_id, actor_user_id=actor_user_id,
+        correlation_id=correlation_id, vector_count=vector_count,
+        created_at=created_at, metadata={"model_config_version": model.config_version},
+    )
+    attributes = inspect(AIModelUsageEvent).column_attrs
+    values = {a.columns[0].name: getattr(expected, a.key) for a in attributes}
+    factory = session_factory or get_session_factory()
+    try:
+        with factory() as writer:
+            timeout = str(get_settings().model_usage_write_timeout_seconds * 1000) + "ms"
+            writer.execute(text("SELECT set_config('lock_timeout', :timeout, true), set_config('statement_timeout', :timeout, true)"), {"timeout": timeout})
+            writer.execute(insert(AIModelUsageEvent.__table__).values(**values).on_conflict_do_nothing(index_elements=["id"]))
+            persisted = writer.scalar(select(AIModelUsageEvent).where(AIModelUsageEvent.id == event_id))
+            if persisted is None or any(
+                getattr(persisted, a.key) != getattr(expected, a.key)
+                for a in attributes if a.key != "created_at"
+            ):
+                raise AppError("query_usage_identity_conflict", "Query usage identity conflicts with persisted evidence", status_code=409)
+            writer.commit()
+            # A custom real session factory may expire on commit. Materialize
+            # the evidence before its connection closes; no caller is touched.
+            writer.refresh(persisted)
+            writer.expunge(persisted)
+            return persisted
+    except SQLAlchemyError:
+        logger.error("query_usage_persistence_unconfirmed", extra={"usage_event_id": str(event_id), "model_id": str(model.id), "usage_purpose": "query_embedding"})
+        raise AppError(
+            "model_usage_persistence_unconfirmed",
+            "Model usage persistence is unconfirmed; do not automatically retry the model",
+            status_code=503, details={"usage_event_id": str(event_id), "automatic_retry_allowed": False},
+        ) from None
 
 
 PRICING_KEYS = (
@@ -118,11 +191,74 @@ def record_model_usage(
     chunk_count: int | None = None,
     metadata: dict[str, Any] | None = None,
     created_at: datetime | None = None,
+    event_id: UUID | None = None,
+) -> AIModelUsageEvent:
+    event = _build_model_usage_event(
+        model=model,
+        usage_purpose=usage_purpose,
+        source_channel=source_channel,
+        status=status,
+        token_usage=token_usage,
+        latency_ms=latency_ms,
+        error_code=error_code,
+        attempted=attempted,
+        attempt_number=attempt_number,
+        correlation_id=correlation_id,
+        project_id=project_id,
+        document_id=document_id,
+        document_version_id=document_version_id,
+        pipeline_run_id=pipeline_run_id,
+        pipeline_step_id=pipeline_step_id,
+        chat_record_id=chat_record_id,
+        validation_run_id=validation_run_id,
+        validation_run_item_id=validation_run_item_id,
+        public_api_request_log_id=public_api_request_log_id,
+        integration_client_id=integration_client_id,
+        actor_user_id=actor_user_id,
+        vector_count=vector_count,
+        chunk_count=chunk_count,
+        metadata=metadata,
+        created_at=created_at,
+        event_id=event_id,
+    )
+    session.add(event)
+    session.flush()
+    return event
+
+
+def _build_model_usage_event(
+    *,
+    model: AIModel,
+    usage_purpose: str,
+    source_channel: str,
+    status: str,
+    token_usage: dict[str, Any] | None = None,
+    latency_ms: int | None = None,
+    error_code: str | None = None,
+    attempted: bool = True,
+    attempt_number: int = 1,
+    correlation_id: str | None = None,
+    project_id: UUID | None = None,
+    document_id: UUID | None = None,
+    document_version_id: UUID | None = None,
+    pipeline_run_id: UUID | None = None,
+    pipeline_step_id: UUID | None = None,
+    chat_record_id: UUID | None = None,
+    validation_run_id: UUID | None = None,
+    validation_run_item_id: UUID | None = None,
+    public_api_request_log_id: UUID | None = None,
+    integration_client_id: UUID | None = None,
+    actor_user_id: UUID | None = None,
+    vector_count: int | None = None,
+    chunk_count: int | None = None,
+    metadata: dict[str, Any] | None = None,
+    created_at: datetime | None = None,
+    event_id: UUID | None = None,
 ) -> AIModelUsageEvent:
     normalized = normalize_usage(token_usage, model_type=model.model_type, vector_count=vector_count, chunk_count=chunk_count)
     provider_cost, estimated_cost, currency, cost_source, cost_metadata = _resolve_cost(model, token_usage, normalized)
     event = AIModelUsageEvent(
-        id=uuid4(),
+        id=event_id or uuid4(),
         model_id=model.id,
         model_type=model.model_type,
         provider=model.provider,
@@ -162,8 +298,6 @@ def record_model_usage(
         metadata_=metadata or {},
         created_at=created_at or datetime.now(UTC),
     )
-    session.add(event)
-    session.flush()
     return event
 
 

@@ -21,13 +21,17 @@ class RetrievalTextNormalizer:
         return NORMALIZER_VERSION
 
     def normalize(self, chunk: ChunkDraft, *, document_title: str | None) -> str:
+        return self.normalize_parts(chunk.display_text, heading_path=chunk.heading_path,
+                                    content_type=chunk.content_type, document_title=document_title)
+
+    def normalize_parts(self, display_text: str, *, heading_path: tuple[str, ...], content_type: str, document_title: str | None) -> str:
         prefix: list[str] = []
         if self.config.document_title_context_enabled and document_title and document_title.strip():
             prefix.append(f"文件：{document_title.strip()}")
-        if self.config.heading_context_enabled and chunk.heading_path:
-            prefix.append(f"章節：{' > '.join(chunk.heading_path[-self.config.max_heading_depth:])}")
+        if self.config.heading_context_enabled and heading_path:
+            prefix.append(f"章節：{' > '.join(heading_path[-self.config.max_heading_depth:])}")
         prefix_text = self.token_counter.truncate("\n".join(prefix), self.config.max_context_prefix_tokens)
-        body = chunk.display_text.rstrip("\n") if chunk.content_type == "code_block" else _normalize_body(chunk.display_text)
+        body = display_text.rstrip("\n") if content_type == "code_block" else _normalize_body(display_text)
         if prefix_text and body:
             return f"{prefix_text}\n\n{body}"
         return prefix_text or body

@@ -359,6 +359,15 @@ export type PipelineSummary = {
   execution?: PipelineExecution | null;
 };
 
+export type ChunkingIssue = {
+  code: "chunk_atomic_unit_too_large" | "chunk_model_capacity_unavailable" | "chunk_source_unresolved";
+  unit_type: string; node_id: string | null; table_id: string | null;
+  row_start: number | null; row_end: number | null; start_offset: number; end_offset: number;
+  offset_unit: "unicode_code_point"; canonical_sha256: string | null;
+  input_tokens: number | null; input_token_limit: number | null; tokenizer_version: string | null;
+  capacity_source: string; can_edit_content: boolean; action_required: string;
+};
+
 export type PipelineStepSummary = {
   id: string;
   step_name: string;
@@ -370,6 +379,17 @@ export type PipelineStepSummary = {
   started_at: string | null;
   completed_at: string | null;
   error_message: string | null;
+  input_mode?: "page_images" | null;
+  page_output_token_limit?: number | null;
+  document_output_token_limit?: number | null;
+  confirmed_output_tokens?: number | null;
+  remaining_output_tokens?: number | null;
+  chunking_issue?: ChunkingIssue | null;
+  retry_allowed?: boolean | null;
+  ocr_call_state?: "idle" | "in_flight" | "unconfirmed" | null;
+  processed_pages?: number | null;
+  total_pages?: number | null;
+  error_code?: string | null;
 };
 
 export type PipelineRunDetail = PipelineSummary & {
@@ -723,6 +743,9 @@ export type KnowledgeDetailResponse = {
   markdown_available_count: number;
   missing_markdown_count: number;
   manual_edit_enabled: boolean;
+  content_edit_mode?: "readonly" | "overwrite_candidate" | "create_revision";
+  content_edit_reason?: string | null;
+  content_update?: import("./documentContentApi").ContentUpdateStatus | null;
   manual_edit_reason: string | null;
   tag_edit_reason?: string | null;
   active_chunk_count: number;
@@ -781,6 +804,18 @@ export type DocumentLayoutPage = {
   blocks: DocumentLayoutBlock[];
 };
 
+export type DocumentLayoutSourceFragment = {
+  fragment_id: string;
+  kind: "text" | "table_header" | "table_cell" | "list_item" | "code" | "image";
+  ordinal_path: number[];
+  start_offset: number;
+  end_offset: number;
+  offset_unit: "unicode_code_point";
+  repeated_context: boolean;
+  text_start_offset?: number | null;
+  text_end_offset?: number | null;
+};
+
 export type DocumentLayoutBlock = {
   id: string;
   type: "heading" | "paragraph" | "list" | "table" | "image" | "caption" | "code" | "blockquote" | "horizontal_rule" | "unknown";
@@ -809,6 +844,7 @@ export type DocumentLayoutBlock = {
   source_end_offset?: number | null;
   continuation_text_start?: number | null;
   continuation_text_end?: number | null;
+  source_fragments?: DocumentLayoutSourceFragment[];
 };
 
 export type DocumentLayoutListItem = {
@@ -1150,6 +1186,16 @@ export type SystemParametersPayload = {
   default_timezone: string;
   staging_index_ttl_days: number;
   session_expired_form_draft_ttl_minutes: number;
+  ocr_page_max_output_tokens: number;
+  ocr_document_max_tokens: number;
+  ocr_token_defaults: { ocr_page_max_output_tokens: number; ocr_document_max_tokens: number };
+  ocr_token_settings_hash: string;
+};
+
+export type SystemParametersUpdatePayload = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes"> & {
+  ocr_page_max_output_tokens?: number;
+  ocr_document_max_tokens?: number;
+  expected_ocr_token_settings_hash?: string;
 };
 
 export type UploadConfigResponse = {
@@ -1355,8 +1401,8 @@ export async function deleteDocumentTag(apiFetch: ApiFetch, projectId: string, d
 export async function autoTagDocument(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string) {
   return apiJson<KnowledgeDetailResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/tags/auto`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ max_tags: 5 }) });
 }
-export async function getKnowledgeArtifactBlob(apiFetch: ApiFetch, path: string) {
-  const response = await apiFetch(`${apiBaseUrl()}${path}`, { cache: "no-store" });
+export async function getKnowledgeArtifactBlob(apiFetch: ApiFetch, path: string, signal?: AbortSignal) {
+  const response = await apiFetch(`${apiBaseUrl()}${path}`, { cache: "no-store", signal });
   if (!response.ok) {
     throw await apiResponseError(response);
   }
@@ -1553,7 +1599,7 @@ export async function listExternalGroupMappings(apiFetch: ApiFetch) { return api
 export async function setRoleExternalGroupMapping(apiFetch: ApiFetch, roleId: string, payload: { external_group_id: string | null; lock_version: number }) { return apiJson<RoleExternalGroupMappingResponse>(apiFetch, `/roles/${roleId}/external-group-mapping`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemParameters(apiFetch: ApiFetch) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters"); }
 export async function getUploadConfig(apiFetch: ApiFetch) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config"); }
-export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersPayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
+export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersUpdatePayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemStatus(apiFetch: ApiFetch) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status"); }
 export async function getIdentitySettings(apiFetch: ApiFetch) { return apiJson<IdentitySettingsResponse>(apiFetch, "/system/identity-settings"); }
 export async function listDirectoryProviders(apiFetch: ApiFetch) { return apiJson<DirectoryProviderResponse[]>(apiFetch, "/system/identity-settings/directory-providers"); }

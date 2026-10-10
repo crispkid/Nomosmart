@@ -1,9 +1,11 @@
 "use client";
 
+import { ocrFailureKey, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/ocrPresentation";
+
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, MessageSquareText, Network, RotateCcw, ShieldCheck, Trash2, UploadCloud, UserPlus, UserRoundCog, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, Loader2, MessageSquareText, Network, RotateCcw, ShieldCheck, Trash2, UploadCloud, UserPlus, UserRoundCog, X } from "lucide-react";
 import { AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
@@ -14,6 +16,9 @@ import { ProjectMemberRoleSelector } from "@/components/ProjectMemberRoleSelecto
 import { FileProcessingStatus } from "@/components/FileProcessingStatus";
 import { DocumentChunkCount } from "@/components/DocumentChunkCount";
 import { PipelineElapsed } from "@/components/PipelineElapsed";
+import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
+import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
+import { formatCount } from "@/lib/numberFormat";
 import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
@@ -143,7 +148,12 @@ function pipelineStepLabel(stepName: string | null | undefined, t: Translate) {
     build_embeddings: "knowledgeDetailStepBuildEmbeddings",
     build_staging_index: "knowledgeDetailStepBuildStagingIndex",
     build_graph_preview: "knowledgeDetailStepBuildGraphPreview",
-    prepare_submission: "knowledgeDetailStepPrepareSubmission"
+    prepare_submission: "knowledgeDetailStepPrepareSubmission",
+    manager_review: "knowledgeDetailStepManagerReview",
+    owner_review: "knowledgeDetailStepOwnerReview",
+    publish: "knowledgeDetailStepPublish",
+    production_index: "knowledgeDetailStepProductionIndex",
+    graph_sync: "knowledgeDetailStepGraphSync"
   };
   const key = labels[stepName];
   return key ? t(key) : stepName.replaceAll("_", " ");
@@ -184,7 +194,8 @@ function pipelineSteps(detail: PipelineRunDetail | undefined, t: Translate): Cre
     progress: step.progress_percent,
     retryCount: step.retry_count,
     artifactRef: step.output_artifact_ref,
-    error: step.error_message ? t("apiGenericError") : null
+    error: (step.error_message || step.error_code) && !(step.ocr_call_state === "in_flight" && step.error_code === "ocr_image_provider_result_unknown") ? t(ocrFailureKey(step)) : null,
+    ocr: step.step_name === "ocr_extract" || step.chunking_issue ? step : undefined
   }));
 }
 
@@ -254,7 +265,7 @@ function liveDocumentFromSummary(document: DocumentSummary, t: Translate, detail
   const pipelineId = detail?.id ?? pipeline?.id;
   const pipelineCurrentStep = versionPipelineState(version?.status) ? null : detail?.current_step_name ?? pipeline?.current_step_name;
   const pipelineProgress = detail?.progress_percent ?? pipeline?.progress_percent ?? 0;
-  const pipelineError = detail?.error_message || pipeline?.error_message ? t("apiGenericError") : "";
+  const pipelineError = detail?.error_message || pipeline?.error_message ? t(ocrFailureKey(detail?.steps.find(step => step.status === "failed"), detail?.error_message ?? pipeline?.error_message)) : "";
   const hasFormalPipelineState = Boolean(pipeline || detail) || ["processing", "submission_ready", "pending_manager_review", "pending_owner_review", "approved", "publishing", "production_indexing", "graph_syncing", "active"].includes(version?.status ?? "");
   const serviceSource = document.service_source ? {
     serviceType: document.service_source.service_type.toUpperCase() as NonNullable<CreatedKnowledgeDocument["serviceSource"]>["serviceType"],
@@ -464,6 +475,7 @@ function ProjectImportPage() {
   const [statusError, setStatusError] = useState("");
   const [lifecycleNotice, setLifecycleNotice] = useState<LifecycleNotice | null>(null);
   const [pipelineDetailLoading, setPipelineDetailLoading] = useState<Record<string, boolean>>({});
+  const [pipelineRetryNotices, setPipelineRetryNotices] = useState<Record<string, { pipelineId: string; message: string }>>({});
   const [syncRunsByDataSource, setSyncRunsByDataSource] = useState<Record<string, DataSyncRunResponse[]>>({});
   const [syncRunLoading, setSyncRunLoading] = useState<Record<string, boolean>>({});
   const projectReady = projectAccess === "granted" && project?.id === params.id;
@@ -830,7 +842,7 @@ function ProjectImportPage() {
         progress: detail.progress_percent,
         currentStep: detail.current_step_name ? pipelineStepLabel(detail.current_step_name, t) : publishStageCurrentStep(status, t),
         eta: pipelineEtaForStatus(status, t),
-        error: detail.error_message ? t("apiGenericError") : "",
+        error: detail.error_message ? t(ocrFailureKey(detail.steps.find(step => step.status === "failed"), detail.error_message)) : "",
         observationInterrupted: false,
         cleanupObservationStopped: false,
         steps: pipelineSteps(detail, t)
@@ -1083,6 +1095,10 @@ function ProjectImportPage() {
   async function retryLivePipelineStep(document: CreatedKnowledgeDocument, stepName?: string | null) {
     if (!projectReady) return;
     if (!document.isLive || !document.latestVersionId || !document.pipeline.id || !stepName) return;
+    const failedStep = document.pipeline.steps?.find((step) => step.name === stepName && step.status === "failed");
+    if (!failedStep || ocrRetryBlocked(failedStep.ocr) || pipelineDetailLoading[document.id]) return;
+    const pipelineId = document.pipeline.id;
+    setPipelineRetryNotices((current) => ({ ...current, [document.id]: { pipelineId, message: "" } }));
     setPipelineDetailLoading((current) => ({ ...current, [document.id]: true }));
     try {
       const detail = await retryPipelineStep(apiFetch, params.id, document.id, document.latestVersionId, document.pipeline.id, stepName);
@@ -1090,11 +1106,15 @@ function ProjectImportPage() {
         status: mapPipelineStatus(detail.status),
         progress: detail.progress_percent,
         currentStep: detail.current_step_name ? pipelineStepLabel(detail.current_step_name, t) : document.pipeline.currentStep,
-        error: detail.error_message ? t("apiGenericError") : "",
+        error: detail.error_message ? t(ocrFailureKey(detail.steps.find(step => step.status === "failed"), detail.error_message)) : "",
         steps: pipelineSteps(detail, t)
       };
       setLiveDocuments((current) => current.map((item) => item.id === document.id ? { ...item, pipeline: { ...item.pipeline, ...patch } } : item));
       setCreatedImports((current) => current.map((item) => item.id === document.id ? { ...item, pipeline: { ...item.pipeline, ...patch } } : item));
+    } catch (error) {
+      setPipelineRetryNotices((current) => ({ ...current, [document.id]: {
+        pipelineId, message: operationalErrorMessage(error, t, format, "knowledgeDetailRetryFailed")
+      } }));
     } finally {
       setPipelineDetailLoading((current) => ({ ...current, [document.id]: false }));
     }
@@ -1385,10 +1405,10 @@ function ProjectImportPage() {
       {uploadNotice ? <p className="field-note" role="status">{t(uploadNotice)}</p> : null}
 
       <PageGrid>
-        <StatCard label={t("totalDocuments")} value={documentLoadState === "loading" ? "…" : String(allDocuments.length)} helper={`active ${allDocuments.filter((item) => item.documentStatus === "active").length} / inactive ${allDocuments.filter((item) => item.documentStatus === "inactive").length}`} />
-        <StatCard label={t("projectImportPipelineRunning")} value={documentLoadState === "loading" ? "…" : String(allDocuments.filter((item) => getSourceState(item) === "pipeline" && pipelineIsExecuting(item.pipeline.status)).length)} helper={t("projectImportPipelineRunningHelp")} tone="sage" />
-        <StatCard label={t("projectImportFailedItems")} value={documentLoadState === "loading" ? "…" : String(allDocuments.filter((item) => item.pipeline.status === "failed" || getSourceState(item) === "sync_failed").length)} helper={t("projectImportFailedItemsHelp")} tone="gold" />
-        <StatCard label={t("projectImportReadyForExtraction")} value={documentLoadState === "loading" ? "…" : String(allDocuments.filter((item) => getSourceState(item) === "ready_for_extraction").length)} helper={t("projectImportReadyForExtractionHelp")} />
+        <StatCard label={t("totalDocuments")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.length, locale)} helper={`active ${formatCount(allDocuments.filter((item) => item.documentStatus === "active").length, locale)} / inactive ${formatCount(allDocuments.filter((item) => item.documentStatus === "inactive").length, locale)}`} />
+        <StatCard label={t("projectImportPipelineRunning")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => getSourceState(item) === "pipeline" && pipelineIsExecuting(item.pipeline.status)).length, locale)} helper={t("projectImportPipelineRunningHelp")} tone="sage" />
+        <StatCard label={t("projectImportFailedItems")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => item.pipeline.status === "failed" || getSourceState(item) === "sync_failed").length, locale)} helper={t("projectImportFailedItemsHelp")} tone="gold" />
+        <StatCard label={t("projectImportReadyForExtraction")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => getSourceState(item) === "ready_for_extraction").length, locale)} helper={t("projectImportReadyForExtractionHelp")} />
       </PageGrid>
 
       {canUpload ? <div className="content-grid">
@@ -1479,6 +1499,9 @@ function ProjectImportPage() {
             const stepStats = cardSteps?.length ? pipelineStepStats(cardSteps) : null;
             const failedStep = cardSteps?.find((step) => step.status === "failed");
             const retryLimitReached = (failedStep?.retryCount ?? 0) >= 3;
+            const retryBlockedReason = retryLimitReached ? null : ocrRetryBlockReasonKey(failedStep?.ocr);
+            const retryDescriptionId = `pipeline-retry-reason-${document.id}`;
+            const retryNotice = pipelineRetryNotices[document.id]?.pipelineId === pipeline.id ? pipelineRetryNotices[document.id]?.message : undefined;
             const committedStatus = committedStatuses[document.id] ?? document.documentStatus;
             const effectiveStatus = committedStatus === "deleted" ? "deleted" : waitingForAction ? "inactive" : committedStatus;
             const activeVersion = document.versions.find((version) => version.status === "active")?.label;
@@ -1575,7 +1598,9 @@ function ProjectImportPage() {
                       ? "projectImportPipelineLastConfirmed" : "projectImportPipelineLiveUpdating")}</span>
                   )}
                   {pipeline.status === "failed" ? (
-                    <button className="action-button secondary" disabled={reviewLocked || !failedStep || retryLimitReached || pipelineDetailLoading[document.id]} onClick={() => retryLivePipelineStep(document as CreatedKnowledgeDocument, failedStep?.name)} title={reviewLocked ? t("projectImportReviewExtractionLockedHelp") : undefined} type="button"><RotateCcw size={16} /> {retryLimitReached ? t("projectImportRetryLimitReached") : t("pipelineRetryFailedStep")}</button>
+                    <button className="action-button secondary" aria-describedby={retryBlockedReason ? retryDescriptionId : undefined} disabled={reviewLocked || !failedStep || retryLimitReached || Boolean(retryBlockedReason) || pipelineDetailLoading[document.id]} onClick={() => { void retryLivePipelineStep(document as CreatedKnowledgeDocument, failedStep?.name); }} title={reviewLocked ? t("projectImportReviewExtractionLockedHelp") : retryBlockedReason ? t(retryBlockedReason) : undefined} type="button">
+                      {pipelineDetailLoading[document.id] ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {pipelineDetailLoading[document.id] ? t("knowledgeDetailRetryingStep") : retryLimitReached ? t("projectImportRetryLimitReached") : retryBlockedReason ? t("ocrRetryDisabled") : t("pipelineRetryFailedStep")}
+                    </button>
                   ) : null}
                   {reviewLocked ? <span className="ready-summary"><ShieldCheck size={15} /> {t("projectImportReviewExtractionLocked")}</span> : null}
                   {stageAction ? (
@@ -1615,18 +1640,24 @@ function ProjectImportPage() {
                     </select>
                   </div>
                 </div>
+                {pipeline.status === "failed" ? <>
+                  <OCRBudgetStatus step={failedStep?.ocr} />
+                  <ChunkingIssueSummary issue={failedStep?.ocr?.chunking_issue} />
+                  {retryBlockedReason ? <p className="document-retry-notice" id={retryDescriptionId} role="status">{t(retryBlockedReason)}</p> : null}
+                  {retryNotice ? <p className="document-retry-notice field-error" role="alert">{retryNotice}</p> : null}
+                </> : null}
                 {cardSteps?.length ? (
                   <details className="pipeline-step-detail">
                     <summary>{t("projectImportPipelineStepDetails")}</summary>
                     {stepStats ? (
                       <div className="pipeline-step-overview" aria-label={format("projectImportPipelineStepOverviewAria", { completed: stepStats.completed, total: stepStats.total, percent: stepStats.percent })}>
                         <div>
-                          <strong>{format("projectImportPipelineStepProgress", { completed: stepStats.completed, total: stepStats.total })}</strong>
+                          <strong>{format("projectImportPipelineStepProgress", { completed: formatCount(stepStats.completed, locale), total: formatCount(stepStats.total, locale) })}</strong>
                           <small>{format("projectImportPipelineStepOverall", { percent: stepStats.percent })}</small>
                         </div>
-                        <span className="step-overview-pill completed"><CheckCircle2 size={13} /> {format("projectImportPipelineStepCompletedCount", { count: stepStats.completed })}</span>
-                        <span className="step-overview-pill active"><Clock3 size={13} /> {format("projectImportPipelineStepActiveCount", { count: stepStats.active })}</span>
-                        <span className={`step-overview-pill ${stepStats.failed ? "failed" : "neutral"}`}><AlertTriangle size={13} /> {format("projectImportPipelineStepFailedCount", { count: stepStats.failed })}</span>
+                        <span className="step-overview-pill completed"><CheckCircle2 size={13} /> {format("projectImportPipelineStepCompletedCount", { count: formatCount(stepStats.completed, locale) })}</span>
+                        <span className="step-overview-pill active"><Clock3 size={13} /> {format("projectImportPipelineStepActiveCount", { count: formatCount(stepStats.active, locale) })}</span>
+                        <span className={`step-overview-pill ${stepStats.failed ? "failed" : "neutral"}`}><AlertTriangle size={13} /> {format("projectImportPipelineStepFailedCount", { count: formatCount(stepStats.failed, locale) })}</span>
                       </div>
                     ) : null}
                     <ol className="pipeline-step-card-grid">
@@ -1639,19 +1670,19 @@ function ProjectImportPage() {
                               <header>
                                 <span className="pipeline-step-number">{index + 1}</span>
                                 <strong>{pipelineStepLabel(step.name, t)}</strong>
-                                <span className={`pipeline-step-status step-${statusKind}`}>
+                              </header>
+                              <span className={`pipeline-step-status step-${statusKind}`}>
                                   {statusKind === "completed" ? <CheckCircle2 size={13} /> : statusKind === "failed" ? <AlertTriangle size={13} /> : <Clock3 size={13} />}
                                   {pipelineStepStatusLabel(step.status, t)}
-                                </span>
-                              </header>
+                              </span>
                               <div className="pipeline-step-progress" aria-label={format("projectImportPipelineStepPercentAria", { step: pipelineStepLabel(step.name, t), percent: progress })}>
                                 <span style={{ width: `${progress}%` }} />
                               </div>
                               <div className="pipeline-step-meta">
-                                <span>{format("projectImportRetryCount", { count: step.retryCount })}</span>
-                                {step.artifactRef ? <span className="pipeline-step-artifact">{step.artifactRef}</span> : null}
+                                <span>{format("projectImportRetryCount", { count: formatCount(step.retryCount, locale) })}</span>
                               </div>
                               {step.error ? <p className="pipeline-step-error"><AlertTriangle size={14} /> {localize(step.error)}</p> : null}
+                              {step.artifactRef ? <details className="pipeline-step-technical"><summary>{t("pipelineTechnicalDetails")}</summary><code className="pipeline-step-artifact">{step.artifactRef}</code></details> : null}
                             </article>
                             {index < cardSteps.length - 1 ? <span className="pipeline-step-arrow" aria-hidden="true"><ArrowRight size={16} /></span> : null}
                           </li>

@@ -16,6 +16,7 @@ from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion
 from app.db.session import get_session_factory
 from app.domain.data_sync import execute_data_source_sync, queue_due_scheduled_data_syncs
 from app.domain.chunk_artifacts import RECONCILIATION_TOPIC, execute_chunk_artifact_reconciliation
+from app.domain.document_content_updates import CONTENT_UPDATE_TOPIC, execute_content_update
 from app.domain.extraction_pipeline import execute_auto_extraction
 from app.domain.file_processing_dispatch import (TOPIC as DOCUMENT_TOPIC, claim_task, configured_capabilities,
     finalizable_task_ids, finalize_task, mark_stale_tasks, prepare_dispatch, quiesce_task, require_claim)
@@ -444,7 +445,7 @@ def dispatch_outbox() -> None:
     with factory.begin() as session:
         now = datetime.now(UTC)
         events = list(session.scalars(select(OutboxEvent).where(
-            OutboxEvent.topic.in_(("identity.sync.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, ARCHIVE_CLEANUP_TOPIC)),
+            OutboxEvent.topic.in_(("identity.sync.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, CONTENT_UPDATE_TOPIC, ARCHIVE_CLEANUP_TOPIC)),
             OutboxEvent.available_at <= now,
             or_(OutboxEvent.status == "pending", (OutboxEvent.status == "dispatching") & (OutboxEvent.lease_expires_at < now)),
         ).with_for_update(skip_locked=True).limit(20)))
@@ -575,6 +576,7 @@ def _outbox_task(topic: str):
         GRAPH_SYNC_TOPIC: run_graph_sync,
         NOTIFICATION_TOPIC: run_notification_event,
         RECONCILIATION_TOPIC: run_chunk_artifact_reconciliation,
+        CONTENT_UPDATE_TOPIC: run_document_content_update,
         ARCHIVE_CLEANUP_TOPIC: run_project_archive_cleanup,
     }
     return tasks[topic]
@@ -631,6 +633,13 @@ def run_chunk_artifact_reconciliation(version_id: str) -> None:
     factory = get_session_factory()
     with factory() as session:
         execute_chunk_artifact_reconciliation(session, UUID(version_id), settings)
+
+
+@celery_app.task(name="app.worker.run_document_content_update",acks_late=True,reject_on_worker_lost=True)
+def run_document_content_update(update_id: str) -> None:
+    factory = get_session_factory()
+    with factory() as session:
+        execute_content_update(session,UUID(update_id),settings)
 
 
 @celery_app.task(name="app.worker.run_project_chat_validation", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)

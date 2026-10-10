@@ -5,7 +5,7 @@ import os
 import time
 
 from app.core.errors import AppError
-from app.db.models import FileProcessingExecution as Execution
+from app.db.models import FileProcessingExecution as Execution, DocumentVersion
 from app.domain.document_execution import (begin_execution, bind_local_workload,
     claim_execution, record_progress, release_execution, transition_execution)
 from app.domain.file_processing_dispatch import configured_capabilities, require_claim
@@ -33,13 +33,20 @@ class PDFPages:
     def __iter__(self):
         for number in range(1, len(self)+1):
             self.owner.fence()
-            yield f"physical-{number}.pdf", "application/pdf", self.owner.store.read(number)
+            body = self.owner.store.read(number)
+            if self.owner.result["operation"] == "raster":
+                from app.domain.local_pdf.png import validate_png
+                validate_png(body, max_bytes=self.owner.settings.pdf_max_page_bytes, max_pixels=self.owner.settings.pdf_max_pixels)
+                yield f"physical-{number}.png", "image/png", body
+            else:
+                yield f"physical-{number}.pdf", "application/pdf", body
 
 
 class PDFProcessing:
-    def __init__(self, *, session, settings, claim, program, language_resolver):
+    def __init__(self, *, session, settings, claim, program, language_resolver, raster_dpi=None):
         self.session, self.settings, self.claim = session, settings, claim
         self.program, self.language_resolver = program, language_resolver
+        self.raster_dpi = raster_dpi
         self.local = self.store = self.result = self.admission = None
         self.released = False
         self.sequence = 0
@@ -83,7 +90,7 @@ class PDFProcessing:
         require_claim(self.session, self.claim)
         self.sequence += 1
         record_progress(self.session, execution_id=self.admission.execution_id, generation=self.admission.generation,
-                        sequence=self.sequence, phase="parsing", completed=completed, total=total, unit="pages")
+                        sequence=self.sequence, phase="rendering_images" if self.local.operation == "raster" else "parsing", completed=completed, total=total, unit="pages")
         self.session.commit()
 
     def release(self, terminal, result=None):
@@ -134,6 +141,28 @@ class PDFProcessing:
         need(self.admission is None)
         try:
             languages = self.language_resolver()
+            if self.program in {"raster", "text_or_raster"}:
+                version = self.session.get(DocumentVersion, parent.document_version_id)
+                configured = dict((version.chunk_strategy or {}).get("ocr_snapshot") or {})
+                from sqlalchemy import select
+                from app.db.models import PipelineRunStep, AIModelUsageEvent
+                from app.domain.ocr_image_receipts import checkpoint
+                from app.domain.ocr_token_settings import from_snapshot, load_settings
+                if from_snapshot(configured) is None:
+                    step = self.session.scalar(select(PipelineRunStep).where(
+                        PipelineRunStep.run_id == self.claim.run_id, PipelineRunStep.step_name == "ocr_extract"))
+                    paid = step is not None and self.session.scalar(select(AIModelUsageEvent.id).where(
+                        AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.attempted.is_(True)).limit(1))
+                    if step is not None and not paid and not checkpoint(step.artifact_payload):
+                        configured.update(load_settings(self.session).snapshot())
+                        version.chunk_strategy = {**(version.chunk_strategy or {}), "ocr_snapshot": configured}
+                mode = configured.get("pdf_input_mode", "page_images")
+                dpi = configured.get("pdf_ocr_dpi", self.settings.pdf_ocr_dpi)
+                need(mode == "page_images" and type(dpi) is int and 100 <= dpi <= 300, "invalid_request")
+                self.raster_dpi = dpi
+                if "pdf_input_mode" not in configured or "pdf_ocr_dpi" not in configured:
+                    configured.update(pdf_input_mode=mode, pdf_ocr_dpi=dpi)
+                    version.chunk_strategy = {**(version.chunk_strategy or {}), "ocr_snapshot": configured}
             admission = claim_execution(self.session, run_id=self.claim.run_id, kind="parser",
                 capabilities=configured_capabilities(self.settings), parent_generation=self.claim.generation)
             if admission is None:
@@ -143,7 +172,7 @@ class PDFProcessing:
                 raise AppError("file_processing_parser_recovery_required", "An existing parser cannot be replayed", status_code=409)
             self.admission = admission
             row = self.session.get(Execution, admission.execution_id)
-            self.local = LocalPDF(self.settings, row.policy_snapshot, heartbeat=self.heartbeat, progress=self.progress)
+            self.local = LocalPDF(self.settings, row.policy_snapshot, heartbeat=self.heartbeat, progress=self.progress, raster_dpi=self.raster_dpi)
             need(begin_execution(self.session, execution_id=row.id, generation=row.generation))
             self.session.flush()
             bind_local_workload(self.session, execution_id=row.id, generation=row.generation,
@@ -173,4 +202,9 @@ class PDFProcessing:
     def split_pages(self, body):
         self.prepare(body)
         need(self.result["operation"] == "split", "invalid_output")
+        return PDFPages(self)
+
+    def image_pages(self, body):
+        self.prepare(body)
+        need(self.result["operation"] == "raster", "invalid_output")
         return PDFPages(self)

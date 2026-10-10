@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class ORMModel(BaseModel):
@@ -220,6 +220,25 @@ class PipelineSummary(BaseModel):
     execution: PipelineExecutionSummary | None = None
 
 
+class ChunkingIssue(BaseModel):
+    code: Literal["chunk_atomic_unit_too_large", "chunk_model_capacity_unavailable", "chunk_source_unresolved"]
+    unit_type: str = "document"
+    node_id: str | None = None
+    table_id: str | None = None
+    row_start: int | None = None
+    row_end: int | None = None
+    start_offset: int = 0
+    end_offset: int = 0
+    offset_unit: Literal["unicode_code_point"] = "unicode_code_point"
+    canonical_sha256: str | None = None
+    input_tokens: int | None = None
+    input_token_limit: int | None = None
+    tokenizer_version: str | None = None
+    capacity_source: str = "unavailable"
+    can_edit_content: bool = False
+    action_required: str = "check_source"
+
+
 class PipelineStepSummary(BaseModel):
     id: UUID
     step_name: str
@@ -231,6 +250,17 @@ class PipelineStepSummary(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
+    input_mode: Literal["page_images"] | None = None
+    ocr_call_state: Literal["idle", "in_flight", "unconfirmed"] | None = None
+    page_output_token_limit: int | None = None
+    document_output_token_limit: int | None = None
+    confirmed_output_tokens: int | None = None
+    remaining_output_tokens: int | None = None
+    chunking_issue: ChunkingIssue | None = None
+    retry_allowed: bool | None = None
+    processed_pages: int | None = None
+    total_pages: int | None = None
+    error_code: str | None = None
 
 
 class PipelineRunDetail(PipelineSummary):
@@ -689,6 +719,30 @@ class ManualChunkCreatePayload(BaseModel):
     lock_version: int = Field(ge=1)
 
 
+class ContentUpdatePayload(BaseModel):
+    model_config = {"extra": "forbid"}
+    document_lock_version: int = Field(ge=1, strict=True)
+    lock_version: int = Field(ge=1, strict=True)
+    base_content_revision: int = Field(ge=1, strict=True)
+    base_canonical_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+    markdown: str
+    reason: str | None = Field(default=None, max_length=500)
+    recover_update_id: UUID | None = None
+
+
+class ContentCancelPayload(BaseModel):
+    model_config = {"extra": "forbid"}
+    document_lock_version: int = Field(ge=1, strict=True)
+    lock_version: int = Field(ge=1, strict=True)
+    base_content_revision: int = Field(ge=1, strict=True)
+    base_canonical_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
+
+
+class ContentRetryPayload(BaseModel):
+    model_config = {"extra": "forbid"}
+    lock_version: int = Field(ge=1, strict=True)
+
+
 class ChunkEditPayload(BaseModel):
     content: str = Field(min_length=1, max_length=50000)
     markdown_content: str | None = Field(default=None, max_length=50000)
@@ -853,6 +907,9 @@ class KnowledgeDetailResponse(BaseModel):
     markdown_available_count: int = 0
     missing_markdown_count: int = 0
     manual_edit_enabled: bool = False
+    content_edit_mode: str = "readonly"
+    content_edit_reason: str | None = None
+    content_update: dict[str, Any] | None = None
     manual_edit_reason: str | None = None
     tag_edit_reason: str | None = None
     active_chunk_count: int = 0
@@ -931,6 +988,18 @@ class DocumentLayoutNestedList(BaseModel):
     items: list[DocumentLayoutListItem] = Field(default_factory=list)
 
 
+class DocumentLayoutSourceFragment(BaseModel):
+    fragment_id: str
+    kind: Literal["text", "table_header", "table_cell", "list_item", "code", "image"]
+    ordinal_path: list[int] = Field(default_factory=list)
+    start_offset: int = Field(ge=0)
+    end_offset: int = Field(ge=0)
+    offset_unit: Literal["unicode_code_point"] = "unicode_code_point"
+    repeated_context: bool = False
+    text_start_offset: int | None = Field(default=None, ge=0)
+    text_end_offset: int | None = Field(default=None, ge=0)
+
+
 class DocumentLayoutBlock(BaseModel):
     id: str
     type: Literal["heading", "paragraph", "list", "table", "image", "caption", "code", "blockquote", "horizontal_rule", "unknown"] = "paragraph"
@@ -959,6 +1028,7 @@ class DocumentLayoutBlock(BaseModel):
     source_end_offset: int | None = None
     continuation_text_start: int | None = None
     continuation_text_end: int | None = None
+    source_fragments: list[DocumentLayoutSourceFragment] = Field(default_factory=list)
 
 
 class DocumentLayoutPage(BaseModel):
@@ -1461,11 +1531,32 @@ class NotificationCountResponse(BaseModel):
     unread_count: int
 
 
-class SystemParametersPayload(BaseModel):
+class SystemParametersCorePayload(BaseModel):
     max_upload_size_mb: int
     default_timezone: str
     staging_index_ttl_days: int
     session_expired_form_draft_ttl_minutes: int = 30
+
+
+class SystemParametersPayload(SystemParametersCorePayload):
+    ocr_page_max_output_tokens: int
+    ocr_document_max_tokens: int
+    ocr_token_defaults: dict[str, int]
+    ocr_token_settings_hash: str
+
+
+class SystemParametersUpdatePayload(SystemParametersCorePayload):
+    ocr_page_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
+    ocr_document_max_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
+    expected_ocr_token_settings_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+
+    @model_validator(mode="before")
+    @classmethod
+    def reject_explicit_null(cls, value):
+        if isinstance(value, dict) and any(key in value and value[key] is None for key in
+                ("ocr_page_max_output_tokens", "ocr_document_max_tokens")):
+            raise ValueError("OCR output settings must be positive integers")
+        return value
 
 
 class UploadConfigResponse(BaseModel):
