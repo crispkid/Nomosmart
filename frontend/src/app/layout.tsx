@@ -3,6 +3,8 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
 import { LocaleProvider } from "@/components/LocaleProvider";
+import { graphCacheInteger } from "@/lib/graphLayoutCache";
+import { feedbackInteger } from "@/lib/feedback";
 import { htmlLangForLocale, isSupportedLocale, localePreferenceKey } from "@/lib/i18n";
 import type { RuntimeConfig } from "@/lib/runtimeConfig";
 import { authLogoutTimeout } from "@/lib/authSessionLifecycle";
@@ -20,8 +22,13 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   const preference = (await cookies()).get(localePreferenceKey)?.value ?? null;
   const initialLocale = isSupportedLocale(preference) ? preference : "zh";
   const runtimeConfig: RuntimeConfig = {
+    graphLayoutCacheMaxEntries: graphCacheInteger(process.env.FRONTEND_GRAPH_LAYOUT_CACHE_MAX_ENTRIES, 8, 64),
+    graphLayoutCacheMaxNodes: graphCacheInteger(process.env.FRONTEND_GRAPH_LAYOUT_CACHE_MAX_NODES, 8000, 128000),
     authLogoutTimeoutMs: authLogoutTimeout(process.env.FRONTEND_AUTH_LOGOUT_TIMEOUT_MS),
     uploadWaitNoticeMs: uploadWaitNoticeMs(process.env.FRONTEND_UPLOAD_WAIT_NOTICE_MS),
+    feedbackToastDurationMs: feedbackInteger(process.env.FRONTEND_FEEDBACK_TOAST_DURATION_MS, 5000, 3000, 20000),
+    feedbackToastVisibleLimit: feedbackInteger(process.env.FRONTEND_FEEDBACK_TOAST_VISIBLE_LIMIT, 2, 1, 3),
+    feedbackRecentLimit: feedbackInteger(process.env.FRONTEND_FEEDBACK_RECENT_LIMIT, 20, 1, 100),
     appOrigin: process.env.FRONTEND_APP_ORIGIN ?? process.env.NEXT_PUBLIC_APP_ORIGIN ?? "http://127.0.0.1:3000",
     apiBaseUrl: process.env.FRONTEND_PUBLIC_API_BASE_URL ?? process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api/backend",
     oidcIssuerUrl: process.env.FRONTEND_OIDC_ISSUER_URL ?? process.env.NEXT_PUBLIC_OIDC_ISSUER_URL ?? "http://127.0.0.1:8080/realms/nomosmart",

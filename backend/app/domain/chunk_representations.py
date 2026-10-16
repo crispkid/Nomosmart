@@ -9,7 +9,7 @@ from uuid import UUID, uuid5
 from app.core.errors import AppError
 from app.domain.markdown_structure import MarkdownStructureParser, visible_markdown_text
 from app.domain.retrieval_text import RetrievalTextNormalizer, provisional_retrieval_hash
-from app.domain.structure_chunking import CHUNKER_VERSION, ChunkDraft, ChunkingConfig, StructureAwareChunker
+from app.domain.structure_chunking import ChunkDraft, ChunkingConfig, StructureAwareChunker
 from app.domain.tokenization import UnicodeTokenCounter
 
 

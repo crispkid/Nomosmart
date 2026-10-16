@@ -73,11 +73,11 @@ compatibility:
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.2.0"
+    tag: "0.2.1"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.2.0"
+    tag: "0.2.1"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway
@@ -115,6 +115,11 @@ sftpKnownHosts:
   configMapName: ""
   key: ssh_known_hosts
 
+# Existing ConfigMap containing only a public enterprise CA (never private keys).
+ftpsCa:
+  configMapName: ""
+  key: ca.crt
+
 frontend:
   service:
     type: ClusterIP
@@ -132,6 +137,11 @@ frontend:
     FRONTEND_OIDC_AUDIENCE: nomosmart-backend
     FRONTEND_AUTH_LOGOUT_TIMEOUT_MS: "10000"
     FRONTEND_UPLOAD_WAIT_NOTICE_MS: "30000"
+    FRONTEND_FEEDBACK_TOAST_DURATION_MS: "5000"
+    FRONTEND_FEEDBACK_TOAST_VISIBLE_LIMIT: "2"
+    FRONTEND_GRAPH_LAYOUT_CACHE_MAX_ENTRIES: "8"
+    FRONTEND_GRAPH_LAYOUT_CACHE_MAX_NODES: "8000"
+    FRONTEND_FEEDBACK_RECENT_LIMIT: "20"
   resources:
     requests: {cpu: 100m, memory: 256Mi}
     limits: {cpu: 500m, memory: 512Mi}
@@ -145,6 +155,9 @@ backend:
     port: 8000
   env:
     APP_ENV: development
+    # Exact business Secret/key entries only; do not grant all platform keys.
+    # Example: "knowledge-source#token". An empty list fails closed in production.
+    RUNTIME_SECRET_ALLOWED_REFS: ""
     APP_HOST: 0.0.0.0
     APP_PORT: "8000"
     LOG_LEVEL: INFO
@@ -194,12 +207,6 @@ backend:
     DOCUMENT_TITLE_CONTEXT_ENABLED: "true"
     TABLE_CHUNK_MAX_ROWS: "10"
     REMOVE_REPEATED_HEADER_FOOTER: "true"
-    PANDOC_COMMAND: pandoc
-    # Deprecated / ignored for DOCX; the built-in Pandoc sandbox is mandatory.
-    PANDOC_SANDBOX_COMMAND: ""
-    PANDOC_TIMEOUT_SECONDS: "120"
-    PANDOC_MAX_MEMORY_MB: "512"
-    PANDOC_CACHE_DIR: /tmp/nomosmart-pandoc-cache
     TESSERACT_COMMAND: tesseract
     TESSERACT_PDF_COMMAND: pdftoppm
     PDF_INFO_COMMAND: pdfinfo
@@ -217,6 +224,7 @@ backend:
     HTTP_SOURCE_ALLOWED_HOSTS: ""
     HTTP_SOURCE_ALLOWED_CIDRS: ""
     SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
+    FTPS_CA_CERT_PATH: ""
     VALIDATION_MAX_ATTEMPTS: "3"
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"
@@ -234,7 +242,7 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.2.0 target from deploy/migrations/release-contract.json.
+  # NomoSmart 0.2.1 target from deploy/migrations/release-contract.json.
   requiredVersion: "053"
   requiredChecksum: "-616112917"
   baselineChecksum: "-1949712409"

@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3, FileText, FolderKanban, History, Loader2, UserCheck, UserRound } from "lucide-react";
@@ -114,7 +115,7 @@ export default function ApprovalPage() {
         <StatCard label={t("approvalPublishControl")} value={String(pendingPublish.length)} helper={t("approvalPublishControlHelp")} tone="gold" />
       </div>
 
-      {error ? <section className="empty-state" role="alert"><h2>{t("approvalLoadFailed")}</h2><p>{localize(error)}</p></section> : null}
+      {error ? <FeedbackMessage title={t("approvalLoadFailed")}>{localize(error)}</FeedbackMessage> : null}
       {publishResult ? <section className="approval-result approve"><CheckCircle2 size={17} /> {localize(publishResult)}</section> : null}
 
       <nav aria-label={t("approval")} className="tab-strip">

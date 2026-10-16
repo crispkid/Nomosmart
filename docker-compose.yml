@@ -5,6 +5,7 @@ x-nomosmart-env-file: &nomosmart_env_file
     required: false
 
 x-backend-volumes: &backend_volumes
+  - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
   - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
   - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
@@ -160,12 +161,6 @@ x-backend-environment: &backend_environment
   TABLE_CHUNK_MAX_ROWS: ${TABLE_CHUNK_MAX_ROWS:-10}
   REMOVE_REPEATED_HEADER_FOOTER: ${REMOVE_REPEATED_HEADER_FOOTER:-true}
   INGESTION_WORKER_LEASE_SECONDS: ${INGESTION_WORKER_LEASE_SECONDS:-300}
-  PANDOC_COMMAND: ${PANDOC_COMMAND:-pandoc}
-  # Deprecated DOCX setting; built-in Pandoc --sandbox is mandatory.
-  PANDOC_SANDBOX_COMMAND: ${PANDOC_SANDBOX_COMMAND:-}
-  PANDOC_TIMEOUT_SECONDS: ${PANDOC_TIMEOUT_SECONDS:-120}
-  PANDOC_MAX_MEMORY_MB: ${PANDOC_MAX_MEMORY_MB:-512}
-  PANDOC_CACHE_DIR: ${PANDOC_CACHE_DIR:-/tmp/nomosmart-pandoc-cache}
   TESSERACT_COMMAND: ${TESSERACT_COMMAND:-tesseract}
   TESSERACT_PDF_COMMAND: ${TESSERACT_PDF_COMMAND:-pdftoppm}
   PDF_INFO_COMMAND: ${PDF_INFO_COMMAND:-pdfinfo}
@@ -181,6 +176,7 @@ x-backend-environment: &backend_environment
   HTTP_SOURCE_ALLOWED_HOSTS: ${HTTP_SOURCE_ALLOWED_HOSTS:-}
   HTTP_SOURCE_ALLOWED_CIDRS: ${HTTP_SOURCE_ALLOWED_CIDRS:-}
   SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
+  FTPS_CA_CERT_PATH: ${FTPS_CA_CERT_PATH:-}
   PUBLIC_API_RATE_LIMIT_WINDOW_SECONDS: ${PUBLIC_API_RATE_LIMIT_WINDOW_SECONDS:-60}
   PUBLIC_API_INVALID_AUTH_REQUESTS_PER_MINUTE: ${PUBLIC_API_INVALID_AUTH_REQUESTS_PER_MINUTE:-20}
   PUBLIC_API_IDEMPOTENCY_TTL_HOURS: ${PUBLIC_API_IDEMPOTENCY_TTL_HOURS:-24}
@@ -195,7 +191,8 @@ x-backend-environment: &backend_environment
   MIGRATION_REQUIRED_CHECKSUM: ${MIGRATION_REQUIRED_CHECKSUM:-}
   MIGRATION_BASELINE_CHECKSUM: ${MIGRATION_BASELINE_CHECKSUM:-}
   MIGRATION_CHECK_TIMEOUT_SECONDS: ${MIGRATION_CHECK_TIMEOUT_SECONDS:-10}
-  COMPOSE_SECRET_MOUNT_ROOT: /run/secrets
+  COMPOSE_SECRET_MOUNT_ROOT: ${COMPOSE_SECRET_MOUNT_ROOT:-/run/secrets}
+  RUNTIME_SECRET_ALLOWED_REFS: ${RUNTIME_SECRET_ALLOWED_REFS:-}
 
 services:
   edge:
@@ -237,7 +234,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.0}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.1}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -257,6 +254,11 @@ services:
       FRONTEND_OIDC_AUDIENCE: ${FRONTEND_OIDC_AUDIENCE:-nomosmart-backend}
       FRONTEND_AUTH_LOGOUT_TIMEOUT_MS: ${FRONTEND_AUTH_LOGOUT_TIMEOUT_MS:-10000}
       FRONTEND_UPLOAD_WAIT_NOTICE_MS: ${FRONTEND_UPLOAD_WAIT_NOTICE_MS:-30000}
+      FRONTEND_FEEDBACK_TOAST_DURATION_MS: ${FRONTEND_FEEDBACK_TOAST_DURATION_MS-5000}
+      FRONTEND_FEEDBACK_TOAST_VISIBLE_LIMIT: ${FRONTEND_FEEDBACK_TOAST_VISIBLE_LIMIT-2}
+      FRONTEND_GRAPH_LAYOUT_CACHE_MAX_ENTRIES: ${FRONTEND_GRAPH_LAYOUT_CACHE_MAX_ENTRIES-8}
+      FRONTEND_GRAPH_LAYOUT_CACHE_MAX_NODES: ${FRONTEND_GRAPH_LAYOUT_CACHE_MAX_NODES-8000}
+      FRONTEND_FEEDBACK_RECENT_LIMIT: ${FRONTEND_FEEDBACK_RECENT_LIMIT-20}
       NOMOSMART_UPLOAD_MAX_INFLIGHT: ${NOMOSMART_UPLOAD_MAX_INFLIGHT-2}
       NOMOSMART_UPLOAD_IO_CHUNK_KIB: ${NOMOSMART_UPLOAD_IO_CHUNK_KIB-64}
       NOMOSMART_UPLOAD_IDLE_TIMEOUT_SECONDS: ${NOMOSMART_UPLOAD_IDLE_TIMEOUT_SECONDS-60}
@@ -275,7 +277,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -286,6 +288,7 @@ services:
     expose: ["8000"]
     volumes:
       - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
+      - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
       - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
       - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
       - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
@@ -325,7 +328,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -354,7 +357,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -410,7 +413,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -456,7 +459,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
     build:
       context: ./backend
       dockerfile: Dockerfile

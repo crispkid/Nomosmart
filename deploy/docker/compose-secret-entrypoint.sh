@@ -110,7 +110,13 @@ if [ "$profile" = backend ]; then
       *) fail "unsupported Compose CA reference" ;;
     esac
   done
-  export COMPOSE_SECRET_MOUNT_ROOT="$private/secrets"
+  # Platform *_FILE credentials above stay in their private tmpfs. Business
+  # credentials are read directly from the operator's separate readonly mount;
+  # do not copy model/data-source values or replace its configured root.
+  COMPOSE_SECRET_MOUNT_ROOT=${COMPOSE_SECRET_MOUNT_ROOT:-/run/secrets}
+  case "$COMPOSE_SECRET_MOUNT_ROOT" in /*) ;; *) fail "runtime Secret root must be absolute" ;; esac
+  [ "$COMPOSE_SECRET_MOUNT_ROOT" != / ] || fail "runtime Secret root must be dedicated"
+  export COMPOSE_SECRET_MOUNT_ROOT
 elif [ "$profile" = rustfs ]; then
   [ -d /opt/rustfs-tls ] && [ ! -L /opt/rustfs-tls ] || fail "TLS mount is required" 66
   for name in rustfs_cert.pem rustfs_key.pem rustfs_ca.pem; do

@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
@@ -377,7 +378,7 @@ export default function ProjectsPage() {
           </section>
 
           {loading ? <div className="project-list-loading" role="status"><LoaderCircle className="spin" size={20} />{t("loadingData")}</div> : null}
-          {error ? <div className="error-summary" role="alert"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={() => setRefreshVersion((version) => version + 1)} type="button">{t("retry")}</button></div> : null}
+          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={() => setRefreshVersion((version) => version + 1)} type="button">{t("retry")}</button></FeedbackMessage> : null}
           {!loading && !error && projects.length === 0 ? <div className="empty-state">{hasDiscoveryCriteria ? t("projectsNoMatchingProjects") : t("projectsNoVisibleProjects")}{hasDiscoveryCriteria ? <button className="text-link" onClick={() => { setSearchInput(""); setQuery(""); clearFilters(); }} type="button">{t("projectsClearDiscovery")}</button> : null}</div> : null}
           <div className="project-grid">
             {projects.map((project) => (
@@ -407,7 +408,7 @@ export default function ProjectsPage() {
           <div className="modal-backdrop" role="presentation">
             <section aria-modal="true" className="modal-panel create-project-modal" role="dialog">
               <div className="modal-header"><div><p className="eyebrow">{t("knowledgeProjectLabel")}</p><h2>{t("projectsAddProject")}</h2></div><button aria-label={t("projectsCloseCreateProjectModal")} className="icon-button" onClick={() => setIsCreateOpen(false)} type="button"><X size={18} /></button></div>
-              {createError ? <div className="error-summary" role="alert"><strong>{errorMessage(createError)}</strong></div> : null}
+              {createError ? <FeedbackMessage tone="error"><strong>{errorMessage(createError)}</strong></FeedbackMessage> : null}
               {modelReadinessBlocked ? <div className="project-model-readiness" id="project-model-readiness" role="alert">
                 {modelLoadState === "loading" ? <LoaderCircle aria-hidden="true" className="spin" size={20} /> : <AlertTriangle aria-hidden="true" size={20} />}
                 <div>
@@ -439,10 +440,10 @@ export default function ProjectsPage() {
           <div className="modal-backdrop" role="presentation">
             <section aria-modal="true" className="modal-panel project-archive-modal" role="dialog">
               <div className="modal-header"><div className="modal-title-with-icon"><span className="danger-icon"><AlertTriangle size={20} /></span><div><h2>{t("projectsArchiveTitle")}</h2><p>{archiveTarget.name}</p></div></div><button aria-label={t("close")} className="icon-button" disabled={archiving} onClick={closeArchive} type="button"><X size={18} /></button></div>
-              {archiveError ? <div className="error-summary" role="alert"><strong>{errorMessage(archiveError)}</strong></div> : null}
+              {archiveError ? <FeedbackMessage tone="error"><strong>{errorMessage(archiveError)}</strong></FeedbackMessage> : null}
               {loadingArchiveImpact ? <div className="archive-impact-loading"><LoaderCircle className="spin" size={20} /> {t("loadingData")}</div> : null}
               {archiveImpact ? <>
-                <div className="project-archive-warning"><AlertTriangle size={18} /><div><strong>{t("projectsArchivePermanentWarning")}</strong><p>{t("projectsArchivePermanentHelp")}</p></div></div>
+                <FeedbackMessage tone="warning"><div><strong>{t("projectsArchivePermanentWarning")}</strong><p>{t("projectsArchivePermanentHelp")}</p></div></FeedbackMessage>
                 <dl className="archive-impact-grid">
                   <div><dt>{t("projectsArchiveRetainedDocuments")}</dt><dd>{archiveImpact.completed_document_count}</dd></div>
                   <div><dt>{t("projectsArchiveRetainedVersions")}</dt><dd>{archiveImpact.completed_version_count}</dd></div>

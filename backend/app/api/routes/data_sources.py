@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.api.routes.documents import _project_document
 from app.domain.project_access import get_scoped_project as _get_scoped_project
-from app.api.schemas import DataSourceConnectionPayload, DataSourceConnectionTestResponse, DataSourceCreateResponse, DataSourceResponse, DataSyncRunResponse
+from app.api.schemas import DataSourceConnectionOptions, DataSourceConnectionPayload, DataSourceConnectionTestPayload, DataSourceConnectionTestResponse, DataSourceCreateResponse, DataSourceResponse, DataSyncRunResponse
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, OutboxEvent, Project
@@ -27,7 +27,7 @@ from app.domain.uploads import canonical_extension, sanitize_original_filename, 
 from app.security.context import IdentityContext, get_identity_context
 from app.security.project_roles import PROJECT_EDITOR_ROLES, require_project_role
 from app.services.audit import add_audit
-from app.security.secrets import validate_runtime_secret_reference
+from app.security.secrets import validate_runtime_secret_reference, validate_runtime_secret_mount
 
 
 router = APIRouter(prefix="/projects/{project_id}/data-sources", tags=["data-sources"])
@@ -50,23 +50,34 @@ def _lock_enqueue_project(session: Session, project_id: UUID) -> Project:
     return project
 
 
+@router.get("/connection-options", response_model=DataSourceConnectionOptions)
+def data_source_connection_options(project_id: UUID, request: Request, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> DataSourceConnectionOptions:
+    project = _get_scoped_project(session, project_id, context)
+    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required for data source configuration")
+    modes = ["secret_reference"]
+    if request.app.state.settings.app_env != "production":
+        modes.append("inline")
+    return DataSourceConnectionOptions(credential_modes=modes)
+
+
 @router.post("/validate-connection", response_model=DataSourceConnectionTestResponse)
 def validate_data_source_connection(
     project_id: UUID,
-    payload: DataSourceConnectionPayload,
+    payload: DataSourceConnectionTestPayload,
+    request: Request,
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> DataSourceConnectionTestResponse:
     project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required for data source configuration")
-    _validate_data_source_payload(payload, settings=None)
+    _validate_data_source_payload(payload, settings=request.app.state.settings)
     return DataSourceConnectionTestResponse(status="configuration_valid", detail_code="configuration_valid", message="Data source configuration is valid; no network connection was attempted.", credential_configured=bool(payload.credential or payload.credential_secret_ref))
 
 
 @router.post("/test-connection", response_model=DataSourceConnectionTestResponse)
 def test_data_source_connection(
     project_id: UUID,
-    payload: DataSourceConnectionPayload,
+    payload: DataSourceConnectionTestPayload,
     request: Request,
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
@@ -100,7 +111,7 @@ def test_saved_data_source_connection(
     connection = session.get(DataConnection, data_source_id)
     if connection is None or connection.project_id != project.id:
         raise AppError("data_source_not_found", "Data source was not found", status_code=404)
-    fingerprint = data_connection_fingerprint(connection)
+    fingerprint = data_connection_fingerprint(connection, ftps_ca_cert_path=request.app.state.settings.ftps_ca_cert_path)
     started = datetime.now(UTC)
     try:
         probe = probe_stored_data_connection(request.app.state.settings, connection)
@@ -220,7 +231,7 @@ def create_data_source(
     session.refresh(version)
     session.refresh(sync_run)
     return DataSourceCreateResponse(
-        data_source=_data_source_response(connection),
+        data_source=_data_source_response(connection, ftps_ca_cert_path=request.app.state.settings.ftps_ca_cert_path),
         document=_project_document(session, document, version, None, visible_project_ids=set(context.visible_project_ids)),
         sync_run=sync_run,
     )
@@ -294,6 +305,8 @@ def _validate_data_source_payload(payload: DataSourceConnectionPayload, *, setti
             raise AppError("s3_connection_endpoint_invalid", "S3 endpoint must be an HTTP(S) URL without credentials or query parameters", status_code=422)
     if payload.service_type == "SFTP" and not payload.verify_host_key:
         raise AppError("sftp_host_key_verification_required", "SFTP host-key verification is required", status_code=422)
+    if payload.service_type == "FTPS" and not payload.verify_tls:
+        raise AppError("ftps_tls_verification_required", "FTPS certificate verification is required", status_code=422)
     credential_required = payload.service_type != "HTTP_API" or payload.auth_mode in {"bearer", "api_key_header"}
     if credential_required and not (payload.credential or payload.credential_secret_ref):
         raise AppError("data_source_credential_required", "Data source requires a credential or secret reference", status_code=422)
@@ -309,8 +322,11 @@ def _validate_data_source_payload(payload: DataSourceConnectionPayload, *, setti
         if settings is None:
             raise AppError("data_source_secret_ref_invalid", "Runtime Secret settings are unavailable", status_code=503)
         validate_runtime_secret_reference(settings, payload.credential_secret_ref)
+        validate_runtime_secret_mount(settings, payload.credential_secret_ref)
     if payload.schedule_mode == "cron" and not _valid_five_field_cron(payload.cron_expression or ""):
         raise AppError("data_source_cron_invalid", "Data source schedule must be a five-field cron expression", status_code=422)
+    if isinstance(payload, DataSourceConnectionTestPayload) and payload.service_type == "HTTP_API" and not payload.file_name:
+        return
     try:
         sanitize_original_filename(payload.file_name)
         validate_source_extension(payload.file_name, http_response=payload.service_type == "HTTP_API")
@@ -387,7 +403,7 @@ def _safe_payload_summary(payload: DataSourceConnectionPayload) -> dict[str, obj
         "auth_mode": payload.auth_mode if payload.service_type == "HTTP_API" else None,
         "headers_configured": len(payload.headers) if payload.service_type == "HTTP_API" else None,
         "remote_path_configured": bool(payload.remote_path),
-        "file_extension": canonical_extension(payload.file_name),
+        "file_extension": canonical_extension(payload.file_name) if payload.file_name else None,
         "schedule_mode": payload.schedule_mode,
         "cron_expression": payload.cron_expression if payload.schedule_mode == "cron" else None,
         "timezone": payload.timezone,
@@ -412,7 +428,10 @@ def _credential_plaintext(payload: DataSourceConnectionPayload) -> str | None:
     return json.dumps({"access_key": payload.username, "secret_key": payload.credential}, separators=(",", ":"), sort_keys=True)
 
 
-def _data_source_response(connection: DataConnection) -> DataSourceResponse:
+def _data_source_response(connection: DataConnection, *, ftps_ca_cert_path: str = "") -> DataSourceResponse:
+    test_status = connection.last_test_status
+    if connection.service_type == "FTPS" and test_status == "success" and connection.last_test_fingerprint != data_connection_fingerprint(connection, ftps_ca_cert_path=ftps_ca_cert_path):
+        test_status = "stale"
     return DataSourceResponse(
         id=connection.id,
         project_id=connection.project_id,
@@ -432,7 +451,7 @@ def _data_source_response(connection: DataConnection) -> DataSourceResponse:
         created_at=connection.created_at,
         updated_at=connection.updated_at,
         credential_configured=bool(connection.credential_encrypted or connection.credential_secret_ref),
-        last_test_status=connection.last_test_status,
+        last_test_status=test_status,
         last_tested_at=connection.last_tested_at,
         last_test_fingerprint=connection.last_test_fingerprint,
         last_test_latency_ms=connection.last_test_latency_ms,

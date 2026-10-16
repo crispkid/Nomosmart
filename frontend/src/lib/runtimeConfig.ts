@@ -6,6 +6,11 @@ export type RuntimeConfig = {
   oidcAudience: string;
   authLogoutTimeoutMs?: number;
   uploadWaitNoticeMs?: number;
+  feedbackToastDurationMs?: number;
+  feedbackToastVisibleLimit?: number;
+  feedbackRecentLimit?: number;
+  graphLayoutCacheMaxEntries?: number;
+  graphLayoutCacheMaxNodes?: number;
 };
 
 declare global {

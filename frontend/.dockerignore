@@ -1,10 +1,15 @@
 node_modules
 .next
+.next-dev
 out
 .turbo
 coverage
 test-results
 playwright-report
+.vitest-attachments
+tests/__screenshots__
+.playwright-cli
+output
 .eslintcache
 *.log
 *.tsbuildinfo

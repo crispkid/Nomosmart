@@ -5,6 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { DocumentGraphPreview } from "@/components/DocumentGraphPreview";
 import { getDocumentVersionGraph, type ProjectGraphResponse } from "@/lib/api";
 import { versionGraphEvidence } from "@/lib/versionGraphEvidence";
+import { useGraphSourceBinding } from "@/lib/useGraphSourceBinding";
 import { useI18n } from "@/lib/i18nClient";
 
 type GraphErrorKey = "graphProjectionNotReady" | "graphProjectForbiddenStatus" | "graphProjectUnavailableStatus";
@@ -18,6 +19,7 @@ export function VersionGraphPreview({ projectId, documentId, versionId, document
   const scope = `${projectId}/${documentId}/${versionId}`;
   const [loaded, setLoaded] = useState<{ scope: string; graph: ProjectGraphResponse | null; error: GraphErrorKey | null } | null>(null);
   const graph = authReady && loaded?.scope === scope ? loaded.graph : null;
+  const binding = useGraphSourceBinding(graph);
   const error = authReady && loaded?.scope === scope ? loaded.error : null;
   useEffect(() => {
     let cancelled = false;
@@ -34,6 +36,6 @@ export function VersionGraphPreview({ projectId, documentId, versionId, document
   const evidence = versionGraphEvidence(graph, versionId, documentTitle);
   return <>
     {graph.truncated ? <p role="status">{format("graphVersionTruncatedStatus", { limit: graph.node_limit })}</p> : null}
-    <DocumentGraphPreview documentTitle={documentTitle} version={version} documentTags={evidence.documentTags} graphChunks={evidence.chunks} />
+    <DocumentGraphPreview layoutScope={scope} layoutBinding={binding} documentTitle={documentTitle} version={version} documentTags={evidence.documentTags} graphChunks={evidence.chunks} />
   </>;
 }

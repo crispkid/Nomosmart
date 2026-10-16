@@ -1,6 +1,9 @@
 "use client";
 
-import { ocrFailureKey, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/ocrPresentation";
+import { UiValidationError } from "@/lib/transportError";
+import { useFeedback } from "@/components/FeedbackProvider";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
+import { ocrFailureKey, ocrFailureTone, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/ocrPresentation";
 
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -23,7 +26,7 @@ import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, searchProjectMemberCandidates, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSourceCreateResponse, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberCandidate, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
+import { createDataSource, getDataSourceConnectionOptions, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, searchProjectMemberCandidates, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSourceCreateResponse, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberCandidate, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
@@ -70,10 +73,7 @@ type PendingStatusChange = {
   lockVersion?: number;
   requiresConfirmation: boolean;
 };
-type LifecycleNotice = {
-  title: string;
-  message: string;
-};
+
 type VersionSwitchTarget = {
   document: CreatedKnowledgeDocument;
   version: CreatedKnowledgeDocument["versions"][number];
@@ -194,6 +194,7 @@ function pipelineSteps(detail: PipelineRunDetail | undefined, t: Translate): Cre
     progress: step.progress_percent,
     retryCount: step.retry_count,
     artifactRef: step.output_artifact_ref,
+    errorCode: step.error_code,
     error: (step.error_message || step.error_code) && !(step.ocr_call_state === "in_flight" && step.error_code === "ocr_image_provider_result_unknown") ? t(ocrFailureKey(step)) : null,
     ocr: step.step_name === "ocr_extract" || step.chunking_issue ? step : undefined
   }));
@@ -473,7 +474,7 @@ function ProjectImportPage() {
   const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
   const [statusSubmitting, setStatusSubmitting] = useState(false);
   const [statusError, setStatusError] = useState("");
-  const [lifecycleNotice, setLifecycleNotice] = useState<LifecycleNotice | null>(null);
+  const { notify } = useFeedback();
   const [pipelineDetailLoading, setPipelineDetailLoading] = useState<Record<string, boolean>>({});
   const [pipelineRetryNotices, setPipelineRetryNotices] = useState<Record<string, { pipelineId: string; message: string }>>({});
   const [syncRunsByDataSource, setSyncRunsByDataSource] = useState<Record<string, DataSyncRunResponse[]>>({});
@@ -921,13 +922,18 @@ function ProjectImportPage() {
     setCreatedImports((current) => [document, ...current]);
   }
 
+  const loadLiveDataSourceOptions = useCallback(async () => {
+    if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
+    return getDataSourceConnectionOptions(apiFetch, params.id);
+  }, [apiFetch, params.id, projectReady]);
+
   async function testLiveDataSource(payload: DataServicePayload) {
-    if (!projectReady) throw new Error(t("projectImportUploadNotAllowed"));
+    if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
     await testDataSourceConnection(apiFetch, params.id, payload);
   }
 
   async function createLiveDataSource(payload: DataServicePayload) {
-    if (!projectReady) throw new Error(t("projectImportUploadNotAllowed"));
+    if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
     const response = await createDataSource(apiFetch, params.id, payload);
     return serviceDocumentFromResponse(response, t);
   }
@@ -947,7 +953,7 @@ function ProjectImportPage() {
   }
 
   async function createLiveReferences(mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) {
-    if (!projectReady) throw new Error(t("projectImportUploadNotAllowed"));
+    if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
     const response = await importProjectDocumentReferences(apiFetch, params.id, { mode, items });
     const created = await Promise.all(response.results.filter((result) => result.status === "created" && result.document).map(async (result) => {
       const document = result.document!;
@@ -1022,7 +1028,7 @@ function ProjectImportPage() {
   }
 
   async function uploadLiveDocuments(files: File[], options: { ocrModelId: string | null; forceOcr: boolean; startExtraction: boolean }, onProgressDocuments?: (documents: CreatedKnowledgeDocument[]) => void): Promise<UploadBatchResult<CreatedKnowledgeDocument>> {
-    if (!canUpload) throw new Error(t("projectImportUploadNotAllowed"));
+    if (!canUpload) throw new UiValidationError("projectImportUploadNotAllowed");
     const attempt = uploadAttempts.current.begin();
     const scope = processingPollScope.current;
     const active = () => scope === processingPollScope.current && uploadAttempts.current.accepts(attempt);
@@ -1075,9 +1081,9 @@ function ProjectImportPage() {
   }
 
   async function retryUploadModalPipeline(document: CreatedKnowledgeDocument, onProgressDocument?: (document: CreatedKnowledgeDocument) => void) {
-    if (!canStartExtraction) throw new Error(t("projectImportUploadNotAllowed"));
+    if (!canStartExtraction) throw new UiValidationError("projectImportUploadNotAllowed");
     const failedStep = document.pipeline.steps?.find((step) => step.status === "failed");
-    if (!document.latestVersionId || !document.pipeline.id || !failedStep) throw new Error(t("knowledgeDetailRetryFailed"));
+    if (!document.latestVersionId || !document.pipeline.id || !failedStep) throw new UiValidationError("knowledgeDetailRetryFailed");
     const scope = processingPollScope.current;
     const attempt = uploadAttempts.current.begin();
     const observing = () => scope === processingPollScope.current && uploadAttempts.current.canPresent(attempt);
@@ -1272,11 +1278,6 @@ function ProjectImportPage() {
     return () => window.removeEventListener("keydown", handleEscape);
   }, [pendingStatusChange, statusSubmitting]);
 
-  useEffect(() => {
-    if (!lifecycleNotice) return;
-    const timeoutId = window.setTimeout(() => setLifecycleNotice(null), 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [lifecycleNotice]);
 
   function impactSummaryProjects(referenceCount: number, activeVersionCount: number) {
     const summary = [];
@@ -1288,7 +1289,6 @@ function ProjectImportPage() {
   async function requestStatusChange(document: DocumentItem, requestedStatus: string, currentStatus: string) {
     if (requestedStatus === currentStatus) return;
     setStatusError("");
-    setLifecycleNotice(null);
     if (requestedStatus === "inactive" || requestedStatus === "deleted") {
       const baseChange: PendingStatusChange = { documentId: document.id, documentTitle: document.title, from: currentStatus, to: requestedStatus, projects: document.impactedProjects, isLive: Boolean("isLive" in document && document.isLive), lockVersion: "lockVersion" in document ? document.lockVersion : undefined, requiresConfirmation: true };
       setPendingStatusChange(baseChange);
@@ -1322,10 +1322,7 @@ function ProjectImportPage() {
           return next;
         });
         if (currentStatus === "inactive" && requestedStatus === "active") {
-          setLifecycleNotice({
-            title: t("projectImportReactivatedTitle"),
-            message: t("projectImportReactivatedMessage")
-          });
+          notify({ id: crypto.randomUUID(), scope: `project:${params.id}`, tone: "success", title: "projectImportReactivatedTitle", reason: "projectImportReactivatedMessage" });
         }
       } catch (error) {
         setStatusError(operationalErrorMessage(error, t, format, "projectImportStatusUpdateFailed"));
@@ -1344,7 +1341,7 @@ function ProjectImportPage() {
     setStatusError("");
     if (change.isLive) {
       try {
-        if (change.lockVersion === undefined) throw new Error(t("projectImportMissingLockVersion"));
+        if (change.lockVersion === undefined) throw new UiValidationError("projectImportMissingLockVersion");
         const updated = await updateDocumentLifecycle(apiFetch, params.id, change.documentId, { lock_version: change.lockVersion, status: change.to, impact_confirmed: change.requiresConfirmation, reason: change.to === "deleted" ? "soft delete from project document list" : "lifecycle update from project document list" });
         if (change.to === "deleted" || updated.status === "deleted") {
           setLiveDocuments((current) => current.filter((item) => item.id !== change.documentId));
@@ -1379,19 +1376,6 @@ function ProjectImportPage() {
 
   return (
     <AppShell title={project?.name ?? t("projectImportFallbackProjectTitle")}>
-      {lifecycleNotice ? (
-        <div className="lifecycle-notice-popup" role="status" aria-live="polite">
-          <CheckCircle2 size={18} />
-          <div>
-            <strong>{localize(lifecycleNotice.title)}</strong>
-            <span>{localize(lifecycleNotice.message)}</span>
-          </div>
-          <button aria-label={t("projectImportDismissLifecycleNotice")} onClick={() => setLifecycleNotice(null)} type="button">
-            <X size={15} />
-          </button>
-        </div>
-      ) : null}
-
       <div className="project-import-page">
       <div className="project-context">
         <Link className="text-link" href="/projects"><ArrowLeft size={16} /> {t("projectImportBackToProjects")}</Link>
@@ -1590,9 +1574,9 @@ function ProjectImportPage() {
                   </div>
                   <span>{pipeline.progress}%</span>
                   {pipeline.observationInterrupted ? (
-                    <span className="error-summary" role="status"><AlertTriangle size={15} /> {t("uploadProgressInterrupted")}</span>
+                    <FeedbackMessage tone="error"> {t("uploadProgressInterrupted")}</FeedbackMessage>
                   ) : pipeline.error ? (
-                    <span className="error-summary"><AlertTriangle size={15} /> {localize(pipeline.error)}</span>
+                    <FeedbackMessage tone={ocrFailureTone({ error_code: pipeline.steps?.find(step => step.status === "failed")?.errorCode })}> {localize(pipeline.error)}</FeedbackMessage>
                   ) : (
                     <span className="ready-summary"><Clock3 size={15} /> {t(document.sourceType === "File upload" && !fileObservationMode(document)
                       ? "projectImportPipelineLastConfirmed" : "projectImportPipelineLiveUpdating")}</span>
@@ -1644,7 +1628,7 @@ function ProjectImportPage() {
                   <OCRBudgetStatus step={failedStep?.ocr} />
                   <ChunkingIssueSummary issue={failedStep?.ocr?.chunking_issue} />
                   {retryBlockedReason ? <p className="document-retry-notice" id={retryDescriptionId} role="status">{t(retryBlockedReason)}</p> : null}
-                  {retryNotice ? <p className="document-retry-notice field-error" role="alert">{retryNotice}</p> : null}
+                  {retryNotice ? <FeedbackField>{retryNotice}</FeedbackField> : null}
                 </> : null}
                 {cardSteps?.length ? (
                   <details className="pipeline-step-detail">
@@ -1660,35 +1644,20 @@ function ProjectImportPage() {
                         <span className={`step-overview-pill ${stepStats.failed ? "failed" : "neutral"}`}><AlertTriangle size={13} /> {format("projectImportPipelineStepFailedCount", { count: formatCount(stepStats.failed, locale) })}</span>
                       </div>
                     ) : null}
-                    <ol className="pipeline-step-card-grid">
-                      {cardSteps.map((step, index) => {
-                        const statusKind = pipelineStepStatusKind(step.status);
-                        const progress = pipelineStepProgress(step);
-                        return (
-                          <li className="pipeline-step-card-item" key={step.name}>
-                            <article className={`pipeline-step-card step-${statusKind}`}>
-                              <header>
-                                <span className="pipeline-step-number">{index + 1}</span>
-                                <strong>{pipelineStepLabel(step.name, t)}</strong>
-                              </header>
-                              <span className={`pipeline-step-status step-${statusKind}`}>
-                                  {statusKind === "completed" ? <CheckCircle2 size={13} /> : statusKind === "failed" ? <AlertTriangle size={13} /> : <Clock3 size={13} />}
-                                  {pipelineStepStatusLabel(step.status, t)}
-                              </span>
-                              <div className="pipeline-step-progress" aria-label={format("projectImportPipelineStepPercentAria", { step: pipelineStepLabel(step.name, t), percent: progress })}>
-                                <span style={{ width: `${progress}%` }} />
-                              </div>
-                              <div className="pipeline-step-meta">
-                                <span>{format("projectImportRetryCount", { count: formatCount(step.retryCount, locale) })}</span>
-                              </div>
-                              {step.error ? <p className="pipeline-step-error"><AlertTriangle size={14} /> {localize(step.error)}</p> : null}
-                              {step.artifactRef ? <details className="pipeline-step-technical"><summary>{t("pipelineTechnicalDetails")}</summary><code className="pipeline-step-artifact">{step.artifactRef}</code></details> : null}
-                            </article>
-                            {index < cardSteps.length - 1 ? <span className="pipeline-step-arrow" aria-hidden="true"><ArrowRight size={16} /></span> : null}
-                          </li>
-                        );
-                      })}
-                    </ol>
+                    <table className="feedback-step-table">
+                      <thead><tr><th>{t("pipelineCurrentStep")}</th><th>{t("systemStatusColumn")}</th><th>{t("knowledgeDetailPipelineProgress")}</th><th>{t("systemDetails")}</th></tr></thead>
+                      <tbody>{cardSteps.map((step, index) => {
+                        const statusKind = pipelineStepStatusKind(step.status), progress = pipelineStepProgress(step);
+                        return <tr key={step.name}>
+                          <th scope="row"><span className="feedback-step-number">{index + 1}</span>{pipelineStepLabel(step.name, t)}</th>
+                          <td><span className={`feedback-step-status feedback-${statusKind === "failed" ? "error" : statusKind === "completed" ? "success" : "info"}`}>
+                            {statusKind === "completed" ? <CheckCircle2 size={14} /> : statusKind === "failed" ? <AlertTriangle size={14} /> : <Clock3 size={14} />}{pipelineStepStatusLabel(step.status, t)}
+                          </span></td>
+                          <td><div className="pipeline-step-progress" role="progressbar" aria-label={pipelineStepLabel(step.name, t)} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}><span style={{ width: `${progress}%` }} /></div><small>{progress}% · {format("projectImportRetryCount", { count: formatCount(step.retryCount, locale) })}</small></td>
+                          <td>{step.error ? <FeedbackField>{localize(step.error)}</FeedbackField> : null}{step.artifactRef ? <details className="pipeline-step-technical"><summary>{t("pipelineTechnicalDetails")}</summary><code className="pipeline-step-artifact">{step.artifactRef}</code></details> : null}</td>
+                        </tr>;
+                      })}</tbody>
+                    </table>
                   </details>
                 ) : null}
                 </>}
@@ -1732,7 +1701,7 @@ function ProjectImportPage() {
       ) : null}
 
       {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
-      {canUpload && dataServiceModalOpen ? <DataServiceModal onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
+      {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
       {referenceModalOpen ? (
         <ProjectReferenceModal
           error={referenceSourcesError}
@@ -1759,7 +1728,7 @@ function ProjectImportPage() {
                 <X size={18} />
               </button>
             </div>
-            {permissionError ? <div className="error-summary" role="alert"><strong>{projectImportErrorMessage(permissionError, t, format)}</strong><button className="text-link" onClick={loadProjectPermissions} type="button">{t("retry")}</button></div> : null}
+            {permissionError ? <FeedbackMessage tone="error"><strong>{projectImportErrorMessage(permissionError, t, format)}</strong><button className="text-link" onClick={loadProjectPermissions} type="button">{t("retry")}</button></FeedbackMessage> : null}
             {permissionLoading ? <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("loadingData")}</p></div> : (
               <div className="project-permission-body">
                 <section className="create-section project-permission-section">
@@ -1855,7 +1824,7 @@ function ProjectImportPage() {
               </div>
             </div>
             {versionUpdateNotice ? <div className="reference-result compact"><CheckCircle2 size={18} /><span><strong>{localize(versionUpdateNotice)}</strong></span></div> : null}
-            {versionUpdateError ? <div className="error-summary" role="alert"><strong>{localize(versionUpdateError)}</strong></div> : null}
+            {versionUpdateError ? <FeedbackMessage tone="error"><strong>{localize(versionUpdateError)}</strong></FeedbackMessage> : null}
             {versionDocument.sourceType === "File upload" ? (
               <div className="version-update-action">
                 <div><strong>{t("projectImportUpdateDocument")}</strong><small>{t("projectImportUpdateDocumentHelp")}</small></div>
@@ -1926,8 +1895,8 @@ function ProjectImportPage() {
                 </div>
               </div>
             ) : null}
-            {versionReferenceSource?.pendingEventCount ? <div className="reference-version-alert"><AlertTriangle size={17} /><span><strong>{format("projectImportReferencePendingEvents", { count: versionReferenceSource.pendingEventCount })}</strong><small>{t("projectImportReferencePendingEventsHelp")}</small></span></div> : null}
-            {versionReferenceSource && !versionReferenceSource.pendingEventCount && versionReferenceSource.latestActiveVersion !== versionReferenceSource.snapshotVersion ? <div className="reference-version-alert"><AlertTriangle size={17} /><span><strong>{t("projectImportReferenceNewVersionTitle")}</strong><small>{format("projectImportReferenceNewVersionHelp", { snapshot: versionReferenceSource.snapshotVersion, latest: versionReferenceSource.latestActiveVersion })}</small></span></div> : null}
+            {versionReferenceSource?.pendingEventCount ? <FeedbackMessage tone="warning"><span><strong>{format("projectImportReferencePendingEvents", { count: versionReferenceSource.pendingEventCount })}</strong><small>{t("projectImportReferencePendingEventsHelp")}</small></span></FeedbackMessage> : null}
+            {versionReferenceSource && !versionReferenceSource.pendingEventCount && versionReferenceSource.latestActiveVersion !== versionReferenceSource.snapshotVersion ? <FeedbackMessage tone="warning"><span><strong>{t("projectImportReferenceNewVersionTitle")}</strong><small>{format("projectImportReferenceNewVersionHelp", { snapshot: versionReferenceSource.snapshotVersion, latest: versionReferenceSource.latestActiveVersion })}</small></span></FeedbackMessage> : null}
             <div className="version-list-heading"><strong>{t("projectImportVersionHistory")}</strong><small>{t("projectImportVersionHistoryHelp")}</small></div>
             <div className="version-list">
               {displayedVersions.map((version) => {
@@ -1972,7 +1941,7 @@ function ProjectImportPage() {
               <button aria-label={t("projectImportCloseVersionSwitchWarning")} className="icon-button" disabled={versionSwitchBusy} onClick={() => setVersionSwitchTarget(null)} type="button"><X size={18} /></button>
             </div>
             <div className="warning-body"><ListRestart size={24} /><div><strong>{versionSwitchTarget.version.label}</strong><small>{t("projectImportSwitchActiveHelp")}</small></div></div>
-            {versionSwitchError ? <div className="error-summary" role="alert"><AlertTriangle size={15} /> {localize(versionSwitchError)}</div> : null}
+            {versionSwitchError ? <FeedbackMessage tone="error"> {localize(versionSwitchError)}</FeedbackMessage> : null}
             <label className="field-stack">
               <span>{t("projectImportSwitchActiveReason")}</span>
               <textarea disabled={versionSwitchBusy} onChange={(event) => setVersionSwitchReason(event.target.value)} value={versionSwitchReason} />
@@ -1999,7 +1968,7 @@ function ProjectImportPage() {
               <button aria-label={t("projectImportCloseLifecycleWarning")} className="icon-button" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button"><X size={18} /></button>
             </div>
 	            <div className="warning-body"><AlertTriangle size={24} /><div><strong>{pendingStatusChange.documentTitle}</strong><small>{t("projectImportLifecycleWarningHelp")}</small></div></div>
-	            {statusError ? <div className="error-summary" role="alert"><AlertTriangle size={15} /> {localize(statusError)}</div> : null}
+	            {statusError ? <FeedbackMessage tone="error"> {localize(statusError)}</FeedbackMessage> : null}
 	            <div className="status-change-preview">
               <span><small>{t("projectImportCurrentStatus")}</small><strong>{documentStatusLabel(pendingStatusChange.from, t)}</strong></span>
               <ArrowRight size={18} />

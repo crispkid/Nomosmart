@@ -1,11 +1,23 @@
 import type { ApiError } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18n";
+import { MutationOutcomeUnknown, TransportError, UiValidationError } from "./transportError.ts";
 
 type Translate = (key: TranslationKey) => string;
 type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 
 const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
+  unsupported_upload_type: "uploadModalHelp",
+  ftps_tls_verification_required: "ftpsTlsVerificationRequired",
+  ftps_ca_unavailable: "ftpsCaUnavailable",
+  ftps_certificate_invalid: "ftpsCertificateInvalid",
+  remote_file_unavailable: "remoteFileUnavailable",
+  remote_operation_unsupported: "remoteOperationUnsupported",
+  invalid_file_signature: "uploadInvalidContent",
+  notification_business_action_required: "notificationBusinessActionRequired",
   model_usage_persistence_unconfirmed: "modelUsagePersistenceUnconfirmed",
+  embedding_build_in_progress: "embeddingBuildInProgress",
+  embedding_build_provider_result_unknown: "embeddingBuildResultUnknown",
+  embedding_usage_identity_conflict: "modelUsagePersistenceUnconfirmed",
   query_usage_identity_conflict: "queryUsageIdentityConflict",
   chunk_atomic_unit_too_large: "chunkAtomicUnitTooLarge",
   chunk_model_capacity_unavailable: "chunkModelCapacityUnavailable",
@@ -44,6 +56,10 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   authentication_required: "apiUnauthorized",
   invalid_project_model: "projectsModelConfigurationRequired",
   model_credential_required: "apiConfigurationRequired",
+  model_credential_invalid: "systemModelCredentialInvalid",
+  runtime_secret_unavailable: "systemCredentialReferenceUnavailable",
+  runtime_secret_reference_denied: "systemCredentialReferenceDenied",
+  legacy_model_credential_forbidden: "systemLegacyCredentialForbidden",
   permission_denied: "apiForbidden",
   project_archived: "apiConflict",
   project_model_configuration_required: "projectsModelConfigurationRequired",
@@ -72,7 +88,7 @@ function statusTranslationKey(status: number): TranslationKey {
 }
 
 function withRequestId(message: string, requestId: string | undefined, format: Format): string {
-  return requestId ? format("apiErrorWithRequestId", { message, requestId }) : message;
+  return requestId && /^[A-Za-z0-9_-]{1,80}$/.test(requestId) ? format("apiErrorWithRequestId", { message, requestId }) : message;
 }
 
 export function operationalErrorMessage(
@@ -82,7 +98,8 @@ export function operationalErrorMessage(
   fallbackKey: TranslationKey = "apiGenericError",
 ): string {
   const apiError = asApiError(error);
-  if (!apiError) return t(error instanceof Error && error.name === "AbortError" ? "apiRequestCancelled" : "apiNetworkError");
+  if (error instanceof UiValidationError) return t(error.key);
+  if (!apiError) return t(error instanceof MutationOutcomeUnknown ? "feedbackResultUnknown" : error instanceof TransportError ? "apiNetworkError" : error instanceof Error && error.name === "AbortError" ? "apiRequestCancelled" : error instanceof Error && error.name === "TimeoutError" ? "feedbackResultUnknown" : fallbackKey);
   const key = codeTranslationKeys[apiError.code] ?? (apiError.code === "api_error" ? fallbackKey : statusTranslationKey(apiError.status));
   return withRequestId(t(key), apiError.requestId, format);
 }

@@ -53,10 +53,10 @@ from app.db.session import get_db
 from app.domain.ai_provider import generate_rag_answer
 from app.domain.chat_citations import chunk_display_markdown, citation_persistence_payload, compact_citation_view, hydrate_citation_groups, validate_citation_markers
 from app.domain.chat_retrieval import fuse_ranked_hits, is_markdown_heading_only, is_structural_only
-from app.domain.embeddings import embed_chunks, embed_query
+from app.domain.embeddings import embed_query
 from app.domain.model_usage import record_model_usage
 from app.domain.chunk_artifacts import chunk_artifact_state, require_ready_chunk_artifacts
-from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, staging_index_name
+from app.domain.extraction_pipeline import staging_index_name
 from app.domain.review_publish import published_index_name
 from app.domain.system_prompts import resolve_system_prompt
 from app.security.context import IdentityContext, get_identity_context
@@ -1298,9 +1298,15 @@ def mark_all_notifications_read(context: IdentityContext = Depends(get_identity_
 
 @router.post("/notifications/{notification_id}/resolve", response_model=NotificationResponse)
 def resolve_notification(notification_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Notification:
+    from app.domain.notifications import notification_resolution_policy
     notification = _scoped_notification(session, notification_id, context)
+    if notification.resolved_at is not None:
+        return notification
+    if not notification_resolution_policy(notification)[0]:
+        raise AppError("notification_business_action_required", "Complete the related business action before resolving this notification", status_code=409)
     notification.is_read = True
     notification.resolved_at = datetime.now(UTC)
+    notification.resolved_reason = "manual:informational_acknowledgement"
     session.commit()
     session.refresh(notification)
     return notification
@@ -1314,7 +1320,7 @@ def _notification_scope_query(context: IdentityContext):
 
 
 def _scoped_notification(session: Session, notification_id: UUID, context: IdentityContext) -> Notification:
-    notification = session.get(Notification, notification_id)
+    notification = session.scalar(_notification_scope_query(context).where(Notification.id == notification_id).with_for_update())
     if (
         notification is None
         or notification.recipient_user_id != context.user_id

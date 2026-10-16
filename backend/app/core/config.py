@@ -251,13 +251,6 @@ class Settings(MigrationProbeSettings):
     document_title_context_enabled: bool = True
     table_chunk_max_rows: int = Field(default=10, ge=1, le=1000)
     remove_repeated_header_footer: bool = True
-    pandoc_command: str = "pandoc"
-    # Deprecated input retained for configuration compatibility. DOCX uses the
-    # built-in Pandoc sandbox; image OCR's separate sandbox is unchanged.
-    pandoc_sandbox_command: str = ""
-    pandoc_timeout_seconds: int = Field(default=120, ge=10, le=1800)
-    pandoc_max_memory_mb: int = Field(default=512, ge=128, le=8192)
-    pandoc_cache_dir: str = "/tmp/nomosmart-pandoc-cache"
     tesseract_command: str = "tesseract"
     tesseract_pdf_command: str = "pdftoppm"
     pdf_info_command: str = "pdfinfo"
@@ -279,6 +272,7 @@ class Settings(MigrationProbeSettings):
     http_source_allowed_hosts: str = ""
     http_source_allowed_cidrs: str = ""
     sftp_known_hosts_path: str = "/etc/nomosmart/ssh_known_hosts"
+    ftps_ca_cert_path: str = Field(default="", validation_alias="FTPS_CA_CERT_PATH")
     public_api_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
     public_api_invalid_auth_requests_per_minute: int = Field(default=20, ge=1, le=10000)
     public_api_idempotency_ttl_hours: int = Field(default=24, ge=1, le=720)
@@ -385,8 +379,6 @@ class Settings(MigrationProbeSettings):
                 errors.append("REDIS_TLS_CA_CERT_PATH is required in Sentinel mode")
         if self.public_api_content_retention_days > self.public_api_record_retention_days:
             errors.append("PUBLIC_API_CONTENT_RETENTION_DAYS must not exceed PUBLIC_API_RECORD_RETENTION_DAYS")
-        if not self.pandoc_command.strip():
-            errors.append("PANDOC_COMMAND must be configured")
         if not self.deployment_bootstrap_release.strip():
             errors.append("DEPLOYMENT_BOOTSTRAP_RELEASE must identify the current deployment")
         if not self.break_glass_alerting_evidence.strip() or "CHANGE_ME" in self.break_glass_alerting_evidence.upper():

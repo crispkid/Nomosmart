@@ -69,6 +69,11 @@ spec:
             {{- include "nomosmart.runtimeSecretVolumeMount" . | nindent 12 }}
             {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
             - {name: pdf-scratch, mountPath: /run/pdf-work}
+          {{- if .Values.ftpsCa.configMapName }}
+            - name: ftps-ca
+              mountPath: /etc/nomosmart/ftps-ca
+              readOnly: true
+          {{- end }}
           {{- if .Values.sftpKnownHosts.configMapName }}
             - name: sftp-known-hosts
               mountPath: /etc/nomosmart/ssh_known_hosts
@@ -82,6 +87,14 @@ spec:
       volumes:
         {{- include "nomosmart.runtimeSecretVolume" . | nindent 8 }}
         {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+      {{- if .Values.ftpsCa.configMapName }}
+        - name: ftps-ca
+          configMap:
+            name: {{ .Values.ftpsCa.configMapName | quote }}
+            items:
+              - key: {{ .Values.ftpsCa.key | quote }}
+                path: ca.crt
+      {{- end }}
         - name: pdf-scratch
           emptyDir: {sizeLimit: {{ .Values.worker.pdfScratchSize | quote }}}
       {{- if .Values.sftpKnownHosts.configMapName }}

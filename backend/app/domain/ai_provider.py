@@ -15,9 +15,8 @@ import httpx
 
 from app.api.schemas import ProjectChatCitation
 from app.core.config import Settings, get_settings
-from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.security.secrets import resolve_runtime_secret
+from app.domain.model_credentials import resolve_model_credential
 from app.db.models import AIModel
 from app.domain.system_prompts import SystemPromptResolution, backend_default_prompt
 
@@ -569,22 +568,7 @@ def _auth_headers(model: AIModel, settings: Settings) -> dict[str, str]:
 
 
 def _resolve_api_key(model: AIModel, settings: Settings) -> str | None:
-    if model.api_key_secret_ref:
-        return resolve_runtime_secret(settings, model.api_key_secret_ref)
-    if model.api_key_encrypted:
-        if settings.app_env == "production":
-            raise AppError("legacy_model_credential_forbidden", "Legacy model credentials are not permitted in production", status_code=503)
-        cipher = EnvelopeCipher(settings.encryption_key_bytes)
-        contexts = [f"ai-model:{model.id}", f"ai-model:{model.name}"]
-        last_error: AppError | None = None
-        for context in contexts:
-            try:
-                return cipher.decrypt(model.api_key_encrypted, context=context)
-            except AppError as exc:
-                last_error = exc
-        if last_error:
-            raise last_error
-    return None
+    return resolve_model_credential(settings, model)
 
 
 def _model_name(model: AIModel) -> str:

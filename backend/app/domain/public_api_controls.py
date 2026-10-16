@@ -136,8 +136,3 @@ def enforce_rate_limit(settings: Settings, *, dimension: str, limit: int) -> Non
 def encrypt_payload(settings: Settings, response_id: object, field: str, value: object) -> str:
     serialized = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return EnvelopeCipher(settings.encryption_key_bytes).encrypt(serialized, context=f"public-response:{response_id}:{field}")
-
-
-def decrypt_payload(settings: Settings, response_id: object, field: str, value: str) -> Any:
-    plaintext = EnvelopeCipher(settings.encryption_key_bytes).decrypt(value, context=f"public-response:{response_id}:{field}")
-    return json.loads(plaintext)

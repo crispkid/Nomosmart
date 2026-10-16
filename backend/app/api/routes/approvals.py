@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import re
 from datetime import datetime
 from typing import Any
 from uuid import UUID
@@ -23,9 +22,6 @@ from app.api.schemas import (
     ApprovalTaskDetail,
     ApprovalTaskResponse,
     ApprovalTaskPage,
-    DocumentLayoutArtifact,
-    DocumentLayoutBlock,
-    DocumentLayoutPage,
     DocumentSummary,
     DocumentVersionSummary,
     KnowledgeTagResponse,
@@ -36,14 +32,13 @@ from app.api.schemas import (
 )
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
 from app.domain.approval_access import approval_request_read_predicate, can_decide_approval, require_approval_read
-from app.domain.document_layout import hydrate_document_layout_inline_markdown
+from app.domain.document_layout import project_document_layout as _document_layout
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
 from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, IdempotencyKey, Project, ProjectOwner, ReviewRecord, Tag, User
 from app.db.session import get_db
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation
 from app.domain.markdown_artifacts import normalize_source_mappings, resolve_markdown_artifact
-from app.domain.markdown_structure import MarkdownStructureParser
 from app.domain.review_publish import LiveNeo4jGraphSyncAdapter, LiveOpenSearchPublishedAdapter, approve_task, publish_version, reject_task, switch_active_version
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import require_project_scope
@@ -588,6 +583,7 @@ def _approval_task_response(session: Session, task: ApprovalTask) -> ApprovalTas
         priority=approval_request.priority if approval_request is not None else "normal",
         source_type=document.source_type if document is not None else None,
         assignee_user_id=task.assignee_user_id,
+        original_manager_user_id=task.original_manager_user_id,
         review_stage=task.review_stage,
         status=task.status,
         lock_version=task.lock_version,
@@ -1006,40 +1002,10 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
     )
 
 
-def _document_layout(version: DocumentVersion, markdown_text: str | None = None) -> DocumentLayoutArtifact:
-    strategy = version.chunk_strategy or {}
-    raw = strategy.get("document_layout")
-    if isinstance(raw, dict):
-        hydrated = raw
-        if markdown_text:
-            try:
-                hydrated = hydrate_document_layout_inline_markdown(raw, MarkdownStructureParser().parse(markdown_text))
-            except Exception:
-                hydrated = raw
-        try:
-            return DocumentLayoutArtifact.model_validate(hydrated)
-        except Exception:
-            return DocumentLayoutArtifact(status="failed", reason_code="layout_invalid", source="document_version.chunk_strategy")
-    source_text = strategy.get("source_text")
-    if isinstance(source_text, str) and source_text.strip():
-        blocks = [_layout_block_from_text(index, content) for index, content in enumerate(_split_layout_text(source_text), start=1)]
-        return DocumentLayoutArtifact(status="available", source="uploaded_text_snapshot", pages=[DocumentLayoutPage(page_number=1, width=794, height=1123, blocks=blocks)])
-    return DocumentLayoutArtifact(status="missing", reason_code="layout_artifact_missing", source="document_version.chunk_strategy", pages=[])
 
 
-def _split_layout_text(text: str) -> list[str]:
-    return [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
 
 
-def _layout_block_from_text(index: int, content: str) -> DocumentLayoutBlock:
-    stripped = content.strip()
-    heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
-    if heading:
-        return DocumentLayoutBlock(id=f"paragraph-{index}", type="heading", source_anchor=f"paragraph-{index}", text=heading.group(2), level=len(heading.group(1)), confidence=1.0)
-    if re.match(r"^[-*]\s+", stripped):
-        items = [re.sub(r"^[-*]\s+", "", line.strip()) for line in stripped.splitlines() if line.strip()]
-        return DocumentLayoutBlock(id=f"paragraph-{index}", type="list", source_anchor=f"paragraph-{index}", items=items, confidence=1.0)
-    return DocumentLayoutBlock(id=f"paragraph-{index}", type="paragraph", source_anchor=f"paragraph-{index}", text=stripped, confidence=1.0)
 
 
 def _tag_details_query(session: Session, source_model, link_filter) -> list[KnowledgeTagResponse]:

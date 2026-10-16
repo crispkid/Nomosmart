@@ -5,6 +5,8 @@ import { chunkGraphTitle, type DocumentGraphChunk, type DocumentGraphTag } from 
 import { useI18n } from "@/lib/i18nClient";
 
 type DocumentGraphPreviewProps = {
+  layoutScope?: string;
+  layoutBinding?: string | null;
   documentTags?: DocumentGraphTag[];
   documentTitle?: string;
   graphChunks?: DocumentGraphChunk[];
@@ -52,7 +54,7 @@ function boundedPoint(point: { x: number; y: number }) {
   };
 }
 
-export function DocumentGraphPreview({
+export function DocumentGraphPreview({ layoutScope, layoutBinding,
   documentTags = [],
   documentTitle,
   graphChunks = [],
@@ -186,6 +188,8 @@ export function DocumentGraphPreview({
 
   return (
     <GraphExplorer
+      layoutScope={layoutScope}
+      layoutBinding={layoutBinding}
       edges={edges}
       emptyMessage={t("graphExplorerEmpty")}
       nodes={nodes}

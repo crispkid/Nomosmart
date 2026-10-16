@@ -83,6 +83,8 @@ def create_model(
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.CREATE)
     if payload.model_type not in SUPPORTED_MODEL_TYPES:
         raise AppError("invalid_model_type", "Model type is invalid", status_code=422)
+    if not payload.is_active and payload.is_default:
+        raise AppError("inactive_model_cannot_be_default", "Inactive model cannot be the default", status_code=422)
     provider = _normalize_provider(payload.provider)
     _validate_credential_input(request.app.state.settings, payload.api_key, payload.api_key_secret_ref)
     config = _normalized_config(
@@ -247,13 +249,18 @@ def update_model(
         next_has_credential = model.api_key_configured
     next_active = changes.get("is_active", model.is_active)
     next_default = changes.get("is_default", model.is_default)
+    if not next_active and next_default:
+        if changes.get("is_default") is True:
+            raise AppError("inactive_model_cannot_be_default", "Inactive model cannot be the default", status_code=422)
+        changes["is_default"] = False
+        next_default = False
     if clear_credential and _provider_requires_credential(next_provider) and (next_active or next_default):
         raise AppError(
             "active_model_credential_required",
             "Disable the model and remove its default status before clearing its credential",
             status_code=409,
         )
-    if "provider" in changes or "config" in changes or "endpoint" in changes or replacement_api_key or replacement_secret_ref or clear_credential:
+    if next_active or next_default or "provider" in changes or "config" in changes or "endpoint" in changes or replacement_api_key or replacement_secret_ref or clear_credential:
         changes["provider"] = next_provider
         changes["config"] = _normalized_config(
             provider=next_provider,
@@ -269,10 +276,6 @@ def update_model(
     credential_confirmed = bool(replacement_api_key or replacement_secret_ref or clear_credential)
     if old_authority != new_authority and model.api_key_configured and not credential_confirmed:
         raise AppError("model_credential_reconfirmation_required", "Changing provider or endpoint requires credential confirmation", status_code=422)
-    if not next_active and next_default:
-        if changes.get("is_default") is True:
-            raise AppError("inactive_model_cannot_be_default", "Inactive model cannot be the default", status_code=422)
-        changes["is_default"] = False
     if changes.get("is_default") is True:
         session.execute(
             update(AIModel)

@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
+import { useGraphSourceBinding } from "@/lib/useGraphSourceBinding";
 import { useAuth } from "@/components/AuthProvider";
 import { GraphExplorer, type GraphExplorerEdge, type GraphExplorerNode } from "@/components/GraphExplorer";
 import { getProjectGraph, getProjectGraphNeighbors, type ProjectGraphResponse } from "@/lib/api";
@@ -368,6 +369,8 @@ export function ProjectGraphPreview() {
   const params = useParams<{ id?: string }>();
   const { apiFetch, authReady } = useAuth();
   const { format, t } = useI18n();
+  const scopeRef = useRef<string | null>(null);
+  useLayoutEffect(() => { scopeRef.current = authReady ? params?.id ?? null : null; return () => { scopeRef.current = null; }; }, [authReady, params?.id, apiFetch]);
   const [liveGraph, setLiveGraph] = useState<ProjectGraphResponse | null>(null);
   const [graphStatus, setGraphStatus] = useState<"empty" | "error" | "not-ready" | "forbidden" | "live" | "loading">("loading");
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
@@ -393,8 +396,10 @@ export function ProjectGraphPreview() {
     if (!authReady || !projectId || expandingNodeId === nodeId || graphStatus !== "live") return;
     setExpandingNodeId(nodeId);
     getProjectGraphNeighbors(apiFetch, projectId, nodeId, 80).then((neighborGraph) => {
-      setLiveGraph((current) => current ? mergeProjectGraphs(current, neighborGraph) : neighborGraph);
+      if (scopeRef.current !== projectId || neighborGraph.project_id !== projectId) return;
+      setLiveGraph((current) => current?.project_id === projectId ? mergeProjectGraphs(current, neighborGraph) : neighborGraph);
     }).catch((error: { code?: string }) => {
+      if (scopeRef.current !== projectId) return;
       if (["graph_projection_not_ready", "graph_identity_conflict"].includes(error.code ?? "")) {
         setLiveGraph(null);
         setGraphStatus("not-ready");
@@ -402,7 +407,8 @@ export function ProjectGraphPreview() {
     }).finally(() => setExpandingNodeId((current) => current === nodeId ? null : current));
   }
 
-  const graph = useMemo(() => liveGraph ? buildProjectExplorerGraph(liveGraph, {
+  const authorizedGraph = authReady && liveGraph?.project_id === params?.id ? liveGraph : null;
+  const graph = useMemo(() => authorizedGraph ? buildProjectExplorerGraph(authorizedGraph, {
     chunkCount: t("graphExplorerChunkCount"),
     chunkNumber: (number) => format("graphExplorerChunkNumber", { number }),
     chunkGroupDetail: (count) => format("graphChunkGroupDetail", { count }),
@@ -427,8 +433,9 @@ export function ProjectGraphPreview() {
     upload: t("graphRelationSourceUpload"),
     version: t("graphExplorerVersion"),
     versionStatus: t("graphExplorerVersionStatus")
-  }) : { edges: [], nodes: [] }, [format, liveGraph, t]);
+  }) : { edges: [], nodes: [] }, [format, authorizedGraph, t]);
 
+  const binding = useGraphSourceBinding(authorizedGraph);
   const statusLabel = graphStatus === "live" && liveGraph?.truncated
     ? format("graphProjectTruncatedStatus", { limit: liveGraph.node_limit, nodes: graph.nodes.length })
     : graphStatus === "live"
@@ -443,6 +450,8 @@ export function ProjectGraphPreview() {
 
   return (
     <GraphExplorer
+      layoutScope={params?.id ? `project/${params.id}` : undefined}
+      layoutBinding={binding}
       edges={graph.edges}
       emptyMessage={statusLabel}
       nodes={graph.nodes}

@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, FileText, FolderKanban, Layers3, LoaderCircle, RefreshCcw, Search, Trash2, X } from "lucide-react";
 import type { ReferenceSourceDocumentResponse, ReferenceSourceProjectResponse, ReferenceSourceVersionResponse } from "@/lib/api";
@@ -106,7 +107,7 @@ export function ProjectReferenceModal({
         </div>
         {resultCount !== null ? <div className="reference-result"><CheckCircle2 size={20} /><span><strong>{format("referenceResultTitle", { count: resultCount })}</strong><small>{t("referenceResultHelp")}</small></span></div> : null}
         {loading ? <div className="empty-state compact" role="status"><LoaderCircle size={22} /><p>{t("referenceLoadingSources")}</p></div> : null}
-        {error ? <div className="error-summary" role="alert"><strong>{localize(error)}</strong><button className="text-link" onClick={onRefresh} type="button"><RefreshCcw size={15} /> {t("retry")}</button></div> : null}
+        {error ? <FeedbackMessage tone="error"><strong>{localize(error)}</strong><button className="text-link" onClick={onRefresh} type="button"><RefreshCcw size={15} /> {t("retry")}</button></FeedbackMessage> : null}
         {!loading && !error && !sources.length ? <div className="empty-state compact"><FolderKanban size={24} /><p>{t("projectImportNoReferenceProjects")}</p></div> : null}
         {!loading && !error && sources.length ? (
           <div className="reference-picker-layout">
@@ -161,8 +162,8 @@ export function ProjectReferenceModal({
             </aside>
           </div>
         ) : null}
-        {oldRiskOpen ? <div className="reference-old-warning"><AlertTriangle size={18} /><span><strong>{t("referenceOldWarningTitle")}</strong><small>{t("referenceOldWarningHelp")}</small></span></div> : null}
-        {submitErrors.length ? <div className="reference-old-warning error"><AlertTriangle size={18} /><span><strong>{t("referenceCreateFailed")}</strong><small>{submitErrors.map(localize).join(" · ")}</small></span></div> : null}
+        {oldRiskOpen ? <FeedbackMessage tone="warning"><span><strong>{t("referenceOldWarningTitle")}</strong><small>{t("referenceOldWarningHelp")}</small></span></FeedbackMessage> : null}
+        {submitErrors.length ? <FeedbackMessage tone="error"><span><strong>{t("referenceCreateFailed")}</strong><small>{submitErrors.map(localize).join(" · ")}</small></span></FeedbackMessage> : null}
         <div className="modal-actions">
           <button className="action-button secondary" disabled={submitting} onClick={onClose} type="button">{t("cancel")}</button>
           <button className="action-button" disabled={!selectedItems.length || submitting || (mode === "reference" && selectedItems.length !== 1)} onClick={() => { void execute(); }} type="button">

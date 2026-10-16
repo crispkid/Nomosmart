@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Code2, FileText } from "lucide-react";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
@@ -184,7 +185,7 @@ export function ApprovalEvidenceViewer({
               )) : <small>{t("knowledgeDetailNoTags")}</small>}
             </div>
           </div>
-          {sourceLocationError ? <div className="source-location-error">{t("sourceLocationError")}</div> : null}
+          {sourceLocationError ? <FeedbackMessage tone="error">{t("sourceLocationError")}</FeedbackMessage> : null}
         </section>
         <section aria-label={t("approvalEvidenceChunksAria")}>
           <div className="approval-chunk-list-header"><strong>{t("approvalEvidenceChunkResults")}</strong><span>{format("approvalEvidenceChunkListHelp", { count: displayChunks.length })}</span></div>

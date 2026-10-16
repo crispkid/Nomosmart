@@ -1,4 +1,6 @@
 import { apiBaseUrl } from "@/lib/oidc";
+import { MutationOutcomeUnknown, TransportError } from "@/lib/transportError";
+import { feedbackFailureReporter } from "@/lib/feedback";
 
 export type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";
 export type PermissionGrant = {
@@ -37,12 +39,24 @@ export function canAnyView(grants: PermissionGrant[], moduleName: string): boole
 }
 
 export async function apiJson<T>(apiFetch: ApiFetch, path: string, init: RequestInit = {}): Promise<T> {
-  const response = await apiFetch(`${apiBaseUrl()}${path}`, { ...init, cache: "no-store" });
+  init.signal?.throwIfAborted();
+  const mutation = !["GET", "HEAD", "OPTIONS"].includes((init.method ?? "GET").toUpperCase());
+  const reportFailure = feedbackFailureReporter();
+  let response: Response;
+  try { response = await apiFetch(`${apiBaseUrl()}${path}`, { ...init, cache: "no-store" }); }
+  catch (error) {
+    if (mutation && (error instanceof TransportError || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name)))) { reportFailure(true); throw new MutationOutcomeUnknown(); }
+    throw error;
+  }
   if (!response.ok) {
-    throw await apiResponseError(response);
+    const error = await apiResponseError(response);
+    if (mutation && (error.code === "backend_proxy_unreachable" || (error.code === "api_error" && error.status >= 500))) { reportFailure(true); throw new MutationOutcomeUnknown(); }
+    if (mutation) reportFailure(["model_usage_persistence_unconfirmed", "embedding_build_provider_result_unknown", "ocr_image_provider_result_unknown", "content_update_provider_result_unknown"].includes(error.code));
+    throw error;
   }
   if (response.status === 204) return undefined as T;
-  return await response.json() as T;
+  try { return await response.json() as T; }
+  catch (error) { if (mutation) { reportFailure(true); throw new MutationOutcomeUnknown(); } throw error; }
 }
 
 async function apiResponseError(response: Response): Promise<ApiError> {
@@ -69,6 +83,9 @@ export type UserSummary = {
   is_active: boolean;
   knowledge_owner: boolean;
   system_notes: string | null;
+  manager_delegate_user_id?: string | null;
+  manager_delegate_start_at?: string | null;
+  manager_delegate_end_at?: string | null;
   last_synced_at: string | null;
 };
 
@@ -93,6 +110,9 @@ export type PermissionValue = {
 
 export type PermissionMatrixResponse = { lock_version: number; permissions: PermissionValue[] };
 export type RoleUsersResponse = { lock_version: number; users: { user_id: string; source: string }[] };
+export type CountedPage<T> = { items: T[]; total: number };
+export type SystemListOptions = { q?: string; offset?: number; limit?: number; isActive?: boolean; signal?: AbortSignal };
+export type DataSourceConnectionOptions = { credential_modes: ("secret_reference" | "inline")[] };
 export type ExternalGroupResponse = { id: string; source: string; external_group_id: string; group_dn: string | null; group_name: string; path: string | null; identity_origin: "ldap" | "ad" | "keycloak_local"; is_active: boolean; last_synced_at: string | null; member_count: number; mapped_role_id: string | null };
 export type ExternalGroupRoleMapping = { external_group_id: string; role_id: string };
 export type RoleExternalGroupMappingResponse = { role_id: string; external_group_id: string | null; lock_version: number; derived_member_count: number };
@@ -591,6 +611,7 @@ export type ApprovalTaskResponse = {
   priority: string;
   source_type: string | null;
   assignee_user_id: string | null;
+  original_manager_user_id?: string | null;
   review_stage: string;
   status: string;
   lock_version: number;
@@ -750,6 +771,8 @@ export type KnowledgeDetailResponse = {
   tag_edit_reason?: string | null;
   active_chunk_count: number;
   chunk_artifact_status: "ready" | "queued" | "running" | "failed" | "chunks_required";
+  chunk_artifact_error_code?: string | null;
+  chunk_artifact_retry_allowed?: boolean | null;
   next_stage_allowed: boolean;
   next_stage_block_reason: string | null;
   document_tags: KnowledgeTagResponse[];
@@ -960,25 +983,6 @@ export type DocumentReferenceImportResponse = {
   }>;
 };
 
-export type DocumentReferenceEventResponse = {
-  id: string;
-  reference_id: string;
-  event_type: string;
-  source_project_id: string;
-  source_document_id: string;
-  old_source_version_id: string | null;
-  new_source_version_id: string | null;
-  message: string;
-  is_read: boolean;
-  resolved_at: string | null;
-  created_at: string;
-};
-
-export type ImpactedReferenceProjectsResponse = {
-  source_document_id: string;
-  projects: { target_project_id: string; reference_count: number }[];
-};
-
 export type ProjectGraphResponse = {
   project_id: string | null;
   nodes: { id: string; type: string; label: string; metadata: Record<string, unknown> }[];
@@ -1175,6 +1179,8 @@ export type NotificationResponse = {
   is_read: boolean;
   resolved_at: string | null;
   created_at: string;
+  can_resolve_manual?: boolean;
+  resolution_block_reason?: string | null;
 };
 
 export type NotificationCountResponse = {
@@ -1200,14 +1206,6 @@ export type SystemParametersUpdatePayload = Pick<SystemParametersPayload, "max_u
 
 export type UploadConfigResponse = {
   max_upload_size_mb: number;
-};
-
-export type SessionDraftCreateResponse = {
-  draft_id: string;
-  form_key: string;
-  return_path: string;
-  expires_at: string;
-  field_count: number;
 };
 
 export type SessionDraftRestoreResponse = {
@@ -1306,18 +1304,38 @@ export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListO
     throw await apiResponseError(response);
   }
   const items = await response.json() as ProjectResponse[];
-  const parsedTotal = Number(response.headers.get("X-Total-Count"));
-  return { items, total: Number.isFinite(parsedTotal) ? parsedTotal : items.length };
+  const header = response.headers.get("X-Total-Count");
+  const total = Number(header);
+  if (!Array.isArray(items) || header === null || !/^\d+$/.test(header) || !Number.isSafeInteger(total)) throw new Error("pagination_metadata_invalid");
+  return { items, total };
 }
-export async function listProjects(apiFetch: ApiFetch, status: "active" | "archived" = "active") { return (await listProjectsPage(apiFetch, { status, limit: 200 })).items; }
+export async function listProjects(apiFetch: ApiFetch, status: "active" | "archived" = "active") { return collectOffsetPages(offset => listProjectsPage(apiFetch, { status, offset, limit: 200 })); }
 export async function getProject(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`); }
 export async function createProject(apiFetch: ApiFetch, payload: ProjectCreatePayload) { return apiJson<ProjectResponse>(apiFetch, "/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getProjectArchiveImpact(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectArchiveImpactResponse>(apiFetch, `/projects/${projectId}/archive-impact`); }
 export async function archiveProject(apiFetch: ApiFetch, projectId: string, payload: { lock_version: number; confirmation_name: string }) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function retryProjectArchiveCleanup(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive-cleanup/retry`, { method: "POST" }); }
 export async function listIntegrationClients(apiFetch: ApiFetch) {
-  return (await apiJson<IntegrationClientPage>(apiFetch, "/integration-clients?limit=100")).items;
+  const items = new Map<string, IntegrationClientResponse>();
+  const cursors = new Set<string>();
+  let cursor: string | undefined;
+  do {
+    const page = await listIntegrationClientsPage(apiFetch, { cursor, limit: 100 });
+    page.items.forEach(item => items.set(item.id, item));
+    if (!page.has_more) return [...items.values()];
+    if (!page.next_cursor || cursors.has(page.next_cursor)) throw new Error("pagination_metadata_invalid");
+    cursors.add(page.next_cursor); cursor = page.next_cursor;
+  } while (cursor);
+  throw new Error("pagination_metadata_invalid");
 }
+export async function listIntegrationClientsPage(apiFetch: ApiFetch, options: { name?: string; cursor?: string; limit?: number; signal?: AbortSignal } = {}) {
+  const params = new URLSearchParams({ limit: String(options.limit ?? 20) });
+  if (options.name?.trim()) params.set("name", options.name.trim());
+  if (options.cursor) params.set("cursor", options.cursor);
+  return apiJson<IntegrationClientPage>(apiFetch, `/integration-clients?${params}`, { signal: options.signal });
+}
+export async function getIntegrationClient(apiFetch: ApiFetch, id: string) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${id}`); }
+export async function getDataSourceConnectionOptions(apiFetch: ApiFetch, projectId: string) { return apiJson<DataSourceConnectionOptions>(apiFetch, `/projects/${projectId}/data-sources/connection-options`); }
 export async function createIntegrationClient(apiFetch: ApiFetch, payload: IntegrationClientPayload) { return apiJson<IntegrationClientCreateResponse>(apiFetch, "/integration-clients", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function updateIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: Partial<IntegrationClientPayload> & { lock_version: number }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function replaceIntegrationClientProjectScopes(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; project_ids: string[] }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/project-scopes`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
@@ -1540,15 +1558,61 @@ function reportQuery(params: ReportQueryParams & { locale?: string }) {
   if (params.usageStatus) query.set("usage_status", params.usageStatus);
   return query.toString();
 }
-export async function listNotifications(apiFetch: ApiFetch) { return (await apiJson<{ items: NotificationResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/notifications")).items; }
+export type NotificationPage = { items: NotificationResponse[]; has_more: boolean; next_cursor: string | null };
+export async function listNotificationPage(apiFetch: ApiFetch, filters: { resolved?: boolean; cursor?: string } = {}) {
+  const query = new URLSearchParams();
+  if (filters.resolved !== undefined) query.set("resolved", String(filters.resolved));
+  if (filters.cursor) query.set("cursor", filters.cursor);
+  return apiJson<NotificationPage>(apiFetch, `/notifications${query.size ? `?${query}` : ""}`);
+}
 export async function getNotificationUnreadCount(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/unread-count"); }
 export async function markNotificationRead(apiFetch: ApiFetch, notificationId: string) { return apiJson<NotificationResponse>(apiFetch, `/notifications/${notificationId}/read`, { method: "POST" }); }
 export async function markAllNotificationsRead(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/read-all", { method: "POST" }); }
 export async function resolveNotification(apiFetch: ApiFetch, notificationId: string) { return apiJson<NotificationResponse>(apiFetch, `/notifications/${notificationId}/resolve`, { method: "POST" }); }
-export async function listUsers(apiFetch: ApiFetch, scope: "system" | "project_members" = "system") { return apiJson<UserSummary[]>(apiFetch, scope === "system" ? "/users" : `/users?scope=${scope}`); }
+async function arrayPage<T>(apiFetch: ApiFetch, path: string, signal?: AbortSignal): Promise<CountedPage<T>> {
+  signal?.throwIfAborted();
+  const response = await apiFetch(`${apiBaseUrl()}${path}`, { cache: "no-store", signal });
+  if (!response.ok) throw await apiResponseError(response);
+  const items = await response.json() as T[];
+  const header = response.headers.get("X-Total-Count");
+  const total = Number(header);
+  if (!Array.isArray(items) || header === null || !/^\d+$/.test(header) || !Number.isSafeInteger(total)) throw new Error("pagination_metadata_invalid");
+  return { items, total };
+}
+async function collectOffsetPages<T extends { id: string }>(read: (offset: number) => Promise<CountedPage<T>>): Promise<T[]> {
+  const rows = new Map<string, T>();
+  let offset = 0;
+  for (;;) {
+    const page = await read(offset);
+    const before = rows.size;
+    page.items.forEach(row => rows.set(row.id, row));
+    offset += page.items.length;
+    if (offset >= page.total) {
+      if (rows.size !== page.total) throw new Error("pagination_changed_reload");
+      return [...rows.values()];
+    }
+    if (!page.items.length || rows.size === before) throw new Error("pagination_metadata_invalid");
+  }
+}
+function systemListQuery(options: SystemListOptions) {
+  const params = new URLSearchParams({ offset: String(options.offset ?? 0), limit: String(options.limit ?? 20) });
+  if (options.q?.trim()) params.set("q", options.q.trim());
+  if (options.isActive !== undefined) params.set("is_active", String(options.isActive));
+  return params;
+}
+export async function listUsersPage(apiFetch: ApiFetch, options: SystemListOptions & { scope?: "system" | "project_members"; authSource?: string } = {}): Promise<CountedPage<UserSummary>> {
+  const params = systemListQuery(options);
+  params.set("scope", options.scope ?? "system");
+  if (options.authSource) params.set("auth_source", options.authSource);
+  return arrayPage(apiFetch, `/users?${params}`, options.signal);
+}
+export async function listRolesPage(apiFetch: ApiFetch, options: SystemListOptions = {}): Promise<CountedPage<RoleResponse>> { return arrayPage(apiFetch, `/roles?${systemListQuery(options)}`, options.signal); }
+export async function getUser(apiFetch: ApiFetch, id: string) { return apiJson<UserSummary>(apiFetch, `/users/${id}`); }
+export async function getRole(apiFetch: ApiFetch, id: string) { return apiJson<RoleResponse>(apiFetch, `/roles/${id}`); }
+export async function listUsers(apiFetch: ApiFetch, scope: "system" | "project_members" = "system") { return collectOffsetPages(offset => listUsersPage(apiFetch, { scope, offset, limit: 200 })); }
 export async function updateUser(apiFetch: ApiFetch, userId: string, payload: { manager_delegate_user_id?: string | null; manager_delegate_start_at?: string | null; manager_delegate_end_at?: string | null; knowledge_owner?: boolean | null; system_notes?: string | null }) { return apiJson<UserSummary>(apiFetch, `/users/${userId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function updateUserStatus(apiFetch: ApiFetch, userId: string, isActive: boolean) { return apiJson<UserSummary>(apiFetch, `/users/${userId}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ is_active: isActive }) }); }
-export async function listRoles(apiFetch: ApiFetch) { return apiJson<RoleResponse[]>(apiFetch, "/roles"); }
+export async function listRoles(apiFetch: ApiFetch) { return collectOffsetPages(offset => listRolesPage(apiFetch, { offset, limit: 200 })); }
 export async function createRole(apiFetch: ApiFetch, payload: { name: string; description?: string | null }) { return apiJson<RoleResponse>(apiFetch, "/roles", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function updateRole(apiFetch: ApiFetch, roleId: string, payload: { lock_version: number; name?: string; description?: string | null; is_active?: boolean }) { return apiJson<RoleResponse>(apiFetch, `/roles/${roleId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function deleteRole(apiFetch: ApiFetch, roleId: string, lockVersion: number, confirmationName: string) {

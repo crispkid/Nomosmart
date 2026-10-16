@@ -31,7 +31,6 @@ RUN python3 -m venv /opt/uv \
 FROM ubuntu:24.04@sha256:69cecf4bbf72d2d44a9eef1b71fb98c7fb973d78af11399deccef19beb008ad9 AS runner
 WORKDIR /app
 
-ARG PANDOC_VERSION=3.1.3+ds-2
 ARG TESSERACT_VERSION=5.3.4-1build5
 ARG TESSDATA_VERSION=1:4.1.0-2
 ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
@@ -50,7 +49,6 @@ RUN apt-get update \
     openssl=${OPENSSL_VERSION} \
     libssl3t64=${OPENSSL_VERSION} \
     libpq5 \
-    pandoc=${PANDOC_VERSION} \
     poppler-utils \
     poppler-data \
     python3 \
@@ -65,6 +63,7 @@ COPY --from=builder /opt/venv /opt/venv
 COPY --chown=nomosmart:nomosmart app ./app
 # PDF tools run in the existing Worker; app/domain/local_pdf is copied above.
 COPY --chown=nomosmart:nomosmart main.py migrate.py models.py connection.py ./
+COPY --chown=nomosmart:nomosmart scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
 
 USER nomosmart
 EXPOSE 8000

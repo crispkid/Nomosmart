@@ -3,12 +3,10 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
-  Bell,
   BookOpenText,
   ChevronDown,
   CheckSquare,
   Database,
-  ExternalLink,
   Gauge,
   LayoutDashboard,
   LogOut,
@@ -18,31 +16,17 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
-import { getNotificationUnreadCount, listNotifications, markAllNotificationsRead, markNotificationRead, resolveNotification, type NotificationResponse } from "@/lib/api";
-import { isSupportedLocale, supportedLocales, useI18n, type TranslationKey } from "@/lib/i18nClient";
-
-const notificationCopyKeys: Record<string, { title: TranslationKey; message: TranslationKey }> = {
-  "review.manager.pending": { title: "notificationReviewManagerPendingTitle", message: "notificationReviewManagerPendingMessage" },
-  "review.owner.pending": { title: "notificationReviewOwnerPendingTitle", message: "notificationReviewOwnerPendingMessage" },
-  "review.approved": { title: "notificationReviewApprovedTitle", message: "notificationReviewApprovedMessage" },
-  "review.rejected": { title: "notificationReviewRejectedTitle", message: "notificationReviewRejectedMessage" },
-  "document.published": { title: "notificationDocumentPublishedTitle", message: "notificationDocumentPublishedMessage" },
-  "document.active_switched": { title: "notificationDocumentActiveSwitchedTitle", message: "notificationDocumentActiveSwitchedMessage" },
-};
+import { NotificationCenter } from "./NotificationCenter";
+import { FeedbackMessage, feedbackIcons } from "./FeedbackMessage";
+import { isSupportedLocale, supportedLocales, useI18n } from "@/lib/i18nClient";
 
 export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
-  const { apiFetch, can, logout, userDisplayName } = useAuth();
+  const { can, logout, userDisplayName } = useAuth();
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
-  const [notificationMenuOpen, setNotificationMenuOpen] = useState(false);
-  const [notifications, setNotifications] = useState<NotificationResponse[]>([]);
-  const [notificationUnreadCount, setNotificationUnreadCount] = useState(0);
-  const [notificationsLoading, setNotificationsLoading] = useState(false);
-  const [notificationsError, setNotificationsError] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const { locale, format, setLocale, t } = useI18n();
+  const { locale, setLocale, t } = useI18n();
   const languageMenuRef = useRef<HTMLDivElement>(null);
-  const notificationMenuRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const navItems = [
@@ -55,25 +39,13 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   ];
 
   useEffect(() => {
-    let cancelled = false;
-    getNotificationUnreadCount(apiFetch).then((result) => {
-      if (!cancelled) setNotificationUnreadCount(result.unread_count);
-    }).catch(() => {
-      if (!cancelled) setNotificationUnreadCount(0);
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch]);
-
-  useEffect(() => {
     function closeOnOutside(event: PointerEvent) {
       if (languageMenuRef.current && !languageMenuRef.current.contains(event.target as Node)) setLanguageMenuOpen(false);
-      if (notificationMenuRef.current && !notificationMenuRef.current.contains(event.target as Node)) setNotificationMenuOpen(false);
       if (menuRef.current && !menuRef.current.contains(event.target as Node)) setUserMenuOpen(false);
     }
     function closeOnEscape(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setLanguageMenuOpen(false);
-        setNotificationMenuOpen(false);
         setUserMenuOpen(false);
       }
     }
@@ -96,68 +68,6 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
     if (!isSupportedLocale(nextLocale)) return;
     setLocale(nextLocale);
     setLanguageMenuOpen(false);
-  }
-
-  async function openNotifications() {
-    const nextOpen = !notificationMenuOpen;
-    setNotificationMenuOpen(nextOpen);
-    if (!nextOpen) return;
-    setNotificationsLoading(true);
-    setNotificationsError(false);
-    try {
-      const [items, count] = await Promise.all([listNotifications(apiFetch), getNotificationUnreadCount(apiFetch)]);
-      setNotifications(items);
-      setNotificationUnreadCount(count.unread_count);
-    } catch {
-      setNotificationsError(true);
-    } finally {
-      setNotificationsLoading(false);
-    }
-  }
-
-  async function markRead(notificationId: string) {
-    try {
-      const updated = await markNotificationRead(apiFetch, notificationId);
-      setNotifications((items) => items.map((item) => item.id === notificationId ? updated : item));
-      setNotificationUnreadCount((count) => Math.max(0, count - 1));
-    } catch {
-      setNotificationsError(true);
-    }
-  }
-
-  async function markAllRead() {
-    try {
-      await markAllNotificationsRead(apiFetch);
-      setNotifications((items) => items.map((item) => ({ ...item, is_read: true })));
-      setNotificationUnreadCount(0);
-    } catch {
-      setNotificationsError(true);
-    }
-  }
-
-  async function resolveItem(notificationId: string) {
-    try {
-      const updated = await resolveNotification(apiFetch, notificationId);
-      setNotifications((items) => items.map((item) => item.id === notificationId ? updated : item));
-      setNotificationUnreadCount((count) => Math.max(0, count - 1));
-    } catch {
-      setNotificationsError(true);
-    }
-  }
-
-  function notificationHref(notification: NotificationResponse) {
-    const payload = notification.action_payload;
-    if (typeof payload.path === "string") return payload.path;
-    if (notification.action_type === "review" && typeof payload.approval_task_id === "string") return `/approve/${payload.approval_task_id}`;
-    if (notification.project_id) return `/project/${notification.project_id}/import`;
-    return "/";
-  }
-
-  function notificationCopy(notification: NotificationResponse) {
-    const keys = notificationCopyKeys[notification.notification_type];
-    if (!keys) return { title: t("notificationGenericTitle"), message: t("notificationGenericMessage") };
-    const versionId = typeof notification.action_payload.document_version_id === "string" ? notification.action_payload.document_version_id : "—";
-    return { title: t(keys.title), message: format(keys.message, { version: versionId.slice(0, 8) }) };
   }
 
   const activeLocale = supportedLocales.find((item) => item.code === locale) ?? supportedLocales[0];
@@ -204,45 +114,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
               </div>
             ) : null}
           </div>
-          <div className="notification-menu user-menu" ref={notificationMenuRef}>
-            <button aria-expanded={notificationMenuOpen} aria-haspopup="menu" className="icon-button notification-trigger" aria-label={t("notifications")} onClick={openNotifications} type="button">
-              <Bell size={18} />
-              {notificationUnreadCount > 0 ? <span className="notification-badge">{notificationUnreadCount > 99 ? "99+" : notificationUnreadCount}</span> : null}
-            </button>
-            {notificationMenuOpen ? (
-              <div className="user-menu-panel notification-panel" role="menu">
-                <div className="notification-panel-header">
-                  <div>
-                    <strong>{t("notificationCenter")}</strong>
-                    <small>{notificationUnreadCount > 0 ? `${notificationUnreadCount} ${t("notificationUnread")}` : t("notificationAllRead")}</small>
-                  </div>
-                  <button disabled={!notificationUnreadCount} onClick={markAllRead} type="button">{t("notificationMarkAllRead")}</button>
-                </div>
-                {notificationsLoading ? <p className="notification-state">{t("notificationLoading")}</p> : null}
-                {notificationsError ? <p className="notification-state error">{t("notificationError")}</p> : null}
-                {!notificationsLoading && !notificationsError && notifications.length === 0 ? <p className="notification-state">{t("notificationEmpty")}</p> : null}
-                <div className="notification-list">
-                  {notifications.map((notification) => {
-                    const copy = notificationCopy(notification);
-                    return <article className={`notification-row severity-${notification.severity}${notification.is_read ? " read" : " unread"}`} key={notification.id} role="menuitem">
-                      <div>
-                        <strong>{copy.title}</strong>
-                        <p>{copy.message}</p>
-                        <small>{new Date(notification.created_at).toLocaleString(locale)}</small>
-                      </div>
-                      <div className="notification-actions">
-                        <Link href={notificationHref(notification)} onClick={() => setNotificationMenuOpen(false)} title={t("notificationOpen")}>
-                          <ExternalLink size={14} />
-                        </Link>
-                        {!notification.is_read ? <button onClick={() => markRead(notification.id)} type="button">{t("notificationMarkRead")}</button> : null}
-                        {!notification.resolved_at ? <button onClick={() => resolveItem(notification.id)} type="button">{t("notificationResolve")}</button> : null}
-                      </div>
-                    </article>;
-                  })}
-                </div>
-              </div>
-            ) : null}
-          </div>
+          <NotificationCenter />
           <div className="user-menu" ref={menuRef}>
             <button aria-expanded={userMenuOpen} aria-haspopup="menu" className="user-pill" onClick={() => setUserMenuOpen((open) => !open)} type="button">
               <ShieldCheck size={17} />
@@ -275,11 +147,7 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
 export function ForbiddenState({ title, description }: { title?: string; description?: string }) {
   const { t } = useI18n();
   return (
-    <section className="empty-state forbidden-state" role="status">
-      <ShieldCheck size={30} />
-      <h2>{title ?? t("forbiddenTitle")}</h2>
-      <p>{description ?? t("forbiddenDescription")}</p>
-    </section>
+    <FeedbackMessage tone="warning" title={title ?? t("forbiddenTitle")}>{description ?? t("forbiddenDescription")}</FeedbackMessage>
   );
 }
 
@@ -327,7 +195,9 @@ export function StatusBadge({ status }: { status: string }) {
     deleted: t("statusDeleted"),
     review_rejected: t("statusReviewRejected")
   };
-  return <span className={`status-badge status-${status}`}>{labels[status] ?? status.replaceAll("_", " ")}</span>;
+  const tone = ["failed", "review_rejected", "deleted"].includes(status) ? "error" : ["completed", "approved", "published_active", "active", "submission_ready", "publish_ready", "skipped"].includes(status) ? "success" : status === "inactive" || !labels[status] ? "warning" : "info";
+  const Icon = feedbackIcons[tone];
+  return <span className={`status-badge feedback-status-badge feedback-${tone}`}><Icon size={14} aria-hidden="true" />{labels[status] ?? t("feedbackStatusUnknown")}</span>;
 }
 
 export function PageGrid({ children }: { children: React.ReactNode }) {

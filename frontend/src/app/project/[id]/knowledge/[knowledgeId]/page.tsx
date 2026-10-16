@@ -1,16 +1,19 @@
 "use client";
 
+import { contentUpdateFeedback, type ContentUpdateFeedback } from "@/lib/contentUpdateFeedback";
+import { FeedbackMessage, FeedbackField, feedbackIcons } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Download, Edit3, FileText, Loader2, Network, Plus, RotateCcw, Tags, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Plus, RotateCcw, Tags, Trash2, Wand2, X } from "lucide-react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useAuth } from "@/components/AuthProvider";
 import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
 import { OriginalFileDownload } from "@/components/OriginalFileDownload";
+import { IconActionButton } from "@/components/IconActionButton";
 import { useSourceViewPosition } from "@/lib/sourceViewPosition";
 import { FileProcessingStatus } from "@/components/FileProcessingStatus";
 import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
@@ -22,7 +25,7 @@ import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice"
 import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
 import { VersionGraphPreview } from "@/components/VersionGraphPreview";
-import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type PipelineRunDetail } from "@/lib/api";
+import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type PipelineRunDetail } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { mappedSelectionRange } from "@/lib/manualSourceSelection";
@@ -250,11 +253,11 @@ function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked
         <FileProcessingStatus execution={pipeline?.execution} queued={pipeline?.status === "queued"} />
         <OCRBudgetStatus step={imageOcrStep} />
         <ChunkingIssueSummary issue={failedStep?.chunking_issue} />
-        {!failedStep?.chunking_issue && (failedStep?.error_message || pipeline?.error_message) ? <p className="pipeline-error-message">{t(pipelineFailureKey(failedStep, failedStep?.error_message ?? pipeline?.error_message))}</p> : null}
+        {!failedStep?.chunking_issue && (failedStep?.error_message || pipeline?.error_message) ? <FeedbackField>{t(pipelineFailureKey(failedStep, failedStep?.error_message ?? pipeline?.error_message))}</FeedbackField> : null}
         {imageOcrRetryBlocked(failedStep) ? <small className="field-note">{t(failedStep?.chunking_issue ? "chunkIssueRetryBlocked" : "ocrImagePartialReview")}</small> : null}
         {reviewLocked ? <small className="field-note">{t("knowledgeDetailReviewLockedReason")}</small> : null}
         {retryLimitReached ? <small className="field-note">{t("knowledgeDetailRetryLimitReached")}</small> : null}
-        {retryError ? <small className="field-error">{t("knowledgeDetailRetryFailed")}</small> : null}
+        {retryError ? <FeedbackField>{t("knowledgeDetailRetryFailed")}</FeedbackField> : null}
         {!embedded && canRetry && failedStep ? (
           <button className="action-button secondary" disabled={retryingStep === failedStep.step_name} type="button" onClick={() => onRetry(failedStep.step_name)}>
             {retryingStep === failedStep.step_name ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {retryingStep === failedStep.step_name ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
@@ -265,17 +268,20 @@ function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked
   );
 }
 
-function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryError, reviewLocked, onRetry, onEdit, t, format }: { detail: KnowledgeDetailResponse; projectId: string; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; onEdit: () => void; t: Translate; format: Format }) {
+function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryError, reviewLocked, onRetry, onEdit, t, format, contentFeedback }: { detail: KnowledgeDetailResponse; projectId: string; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; onEdit: () => void; t: Translate; format: Format; contentFeedback: ContentUpdateFeedback | null }) {
   const failedStep = failedPipelineStep(detail.pipeline);
   const retryLimitReached = (failedStep?.retry_count ?? 0) >= 3;
+  const activelyProcessing = isPipelineActive(detail.pipeline) && detail.pipeline?.execution?.phase !== "recovery_required";
   const canRetry = Boolean(detail.pipeline?.id && failedStep && !reviewLocked && !retryLimitReached && !imageOcrRetryBlocked(failedStep) && detail.content_update?.status !== "blocked");
+  const tone = contentFeedback?.tone ?? (failedStep ? "error" : activelyProcessing ? "info" : "warning");
+  const Icon = feedbackIcons[tone];
   return (
-    <section className={`knowledge-detail-gate${failedStep ? " failed" : ""}`} aria-live="polite">
+    <section className={`knowledge-detail-gate feedback-workflow feedback-${tone}`} role={tone === "error" ? "alert" : "status"}>
       <div className="knowledge-detail-gate-heading">
-        <span aria-hidden="true">{failedStep ? <AlertTriangle size={24} /> : <Loader2 className="spin" size={24} />}</span>
+        <span aria-hidden="true">{contentFeedback ? <Icon size={24} /> : activelyProcessing ? <Loader2 className="spin" size={24} /> : <AlertTriangle size={24} />}</span>
         <div>
           <strong>{failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailCompletionGateTitle")}</strong>
-          <p>{failedStep ? t("knowledgeDetailPipelineFailedHelp") : t("knowledgeDetailCompletionGateHelp")}</p>
+          <p>{contentFeedback ? t(contentFeedback.message) : failedStep ? t("knowledgeDetailPipelineFailedHelp") : t("knowledgeDetailCompletionGateHelp")}</p>
         </div>
       </div>
       <LayoutPipelineFallback embedded detail={detail} format={format} onRetry={onRetry} retryError={retryError} retryingStep={retryingStep} reviewLocked={reviewLocked} t={t} />
@@ -398,8 +404,9 @@ export default function KnowledgePage() {
   const manualReadBusy = Boolean(readinessKey && manualReadKey === readinessKey);
   const [documentView, setDocumentView] = useState<DocumentView>("original");
   const [graphOpen, setGraphOpen] = useState(false);
-  const [contentEditor, setContentEditor] = useState<{ chunkId?: string } | null>(null);
-  const [contentNotice, setContentNotice] = useState<"unchanged" | "submitted" | "recovery_cancelled" | null>(null);
+  const [contentEditor, setContentEditor] = useState<{ chunkId?: string; versionId: string } | null>(null);
+  const [originalDownloadFailed, setOriginalDownloadFailed] = useState(false);
+  const [contentNotice, setContentNotice] = useState<"submitted" | "recovery_cancelled" | null>(null);
   const [selectedChunkIds, setSelectedChunkIds] = useState<string[]>([]);
   const [selectionRequest, setSelectionRequest] = useState(0);
   const [chunkScrollRequest, setChunkScrollRequest] = useState<{ chunkId: string; sequence: number } | null>(null);
@@ -436,6 +443,7 @@ export default function KnowledgePage() {
   const tagMutationLocked = mutationLocked || Boolean(liveDetail?.tag_edit_reason)
     || ["active", "inactive"].includes(liveDetail?.version.status ?? "");
   const knowledgeGateBlocked = liveDetail ? completionGateBlocksKnowledgeDetail(liveDetail) : false;
+  const contentFeedback = contentUpdateFeedback(liveDetail?.content_update, contentNotice);
 
   const fetchDetail = useCallback((signal?: AbortSignal) => getKnowledgeDetail(apiFetch, params.id, params.knowledgeId, signal), [apiFetch, params.id, params.knowledgeId]);
 
@@ -789,11 +797,12 @@ export default function KnowledgePage() {
 
   async function handleContentSaved(result: ContentUpdateResult) {
     if (result.changed || result.status === "recovery_cancelled") {
-      const refreshed = await fetchDetail();
+      const refreshed = (await getDocumentVersionSubmissionEvidence(apiFetch, params.id, liveDetail!.document.id, result.document_version_id)).detail;
       if (refreshed.version.id !== result.document_version_id) throw new Error("content_update_scope_changed");
       setLiveDetail(refreshed); setSelectedChunkIds([]); setGraphOpen(false);
     }
-    setContentNotice(result.status === "recovery_cancelled" ? "recovery_cancelled" : result.changed ? "submitted" : "unchanged");
+    // The editor emits the no-change toast; do not add a second acknowledgement.
+    setContentNotice(result.status === "recovery_cancelled" ? "recovery_cancelled" : result.changed ? "submitted" : null);
   }
 
   async function confirmChunkDeletion() {
@@ -835,9 +844,10 @@ export default function KnowledgePage() {
         </div>
       </div>
 
-      {contentNotice || liveDetail?.content_update ? <div className="review-banner" role="status"><CheckCircle2 size={20} /><span>{t(contentNotice === "recovery_cancelled" || liveDetail?.content_update?.status === "cancelled" ? "contentEditRecoveryCancelled" : contentNotice === "unchanged" ? "contentEditUnchanged" : liveDetail?.content_update?.status === "chunks_required" ? "contentEditNoChunks" : liveDetail?.content_update?.status === "blocked" ? "contentEditModelUnknown" : liveDetail?.content_update?.status === "failed" ? (liveDetail?.content_update?.promoted ? "contentEditCleanupFailed" : "contentEditSyncFailed") : ["queued", "running"].includes(liveDetail?.content_update?.status ?? "") ? (liveDetail?.content_update?.promoted ? "contentEditCleaning" : "contentEditSyncing") : "contentEditSaved")}</span></div> : null}
+      {(liveDetail?.chunk_artifact_error_code === "embedding_build_provider_result_unknown" || liveDetail?.chunk_artifact_error_code === "model_usage_persistence_unconfirmed") && contentFeedback?.reasonCode !== liveDetail?.chunk_artifact_error_code ? <FeedbackMessage tone="warning">{t(liveDetail.chunk_artifact_error_code === "model_usage_persistence_unconfirmed" ? "modelUsagePersistenceUnconfirmed" : "embeddingBuildResultUnknown")}</FeedbackMessage> : null}
+      {!knowledgeGateBlocked && contentFeedback ? <FeedbackMessage tone={contentFeedback.tone}>{t(contentFeedback.message)}</FeedbackMessage> : null}
       {liveDetail && knowledgeGateBlocked ? (
-        <KnowledgeDetailCompletionGate detail={liveDetail} format={format} onRetry={handleRetryStep} onEdit={() => setContentEditor({})} projectId={params.id} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
+        <KnowledgeDetailCompletionGate contentFeedback={contentFeedback} detail={liveDetail} format={format} onRetry={handleRetryStep} onEdit={() => setContentEditor({ versionId: liveDetail!.version.id })} projectId={params.id} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
       ) : (
         <>
       <div className="content-grid split extraction-workspace">
@@ -845,8 +855,9 @@ export default function KnowledgePage() {
           title={t("contentEditDocumentPanelTitle")}
           action={
             <div className="content-edit-panel-actions">
-              <OriginalFileDownload metadata={liveDetail?.original_file} />
-              {liveDetail?.document.capabilities?.can_edit_chunks ? <button className="action-button content-edit-open" type="button" disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} aria-describedby={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly" ? "content-edit-disabled-reason" : undefined} onClick={() => setContentEditor({})}><Edit3 size={16} />{t("contentEditAction")}</button> : null}
+              <div className="content-edit-button-scroll"><div className="content-edit-button-row">
+              <OriginalFileDownload metadata={liveDetail?.original_file} compact onFailureChange={setOriginalDownloadFailed} />
+              {liveDetail?.document.capabilities?.can_edit_chunks ? <IconActionButton className="action-button content-edit-open" label={t("contentEditAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} aria-describedby={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly" ? "content-edit-disabled-reason" : undefined} onClick={() => setContentEditor({ versionId: liveDetail!.version.id })}><Edit3 size={18} aria-hidden="true" /></IconActionButton> : null}
             <div className="document-view-toggle" aria-label={t("approvalEvidenceViewMode")} role="group">
               <button
                 aria-pressed={documentView === "original"}
@@ -877,6 +888,8 @@ export default function KnowledgePage() {
                 <Tags size={15} /> {t("knowledgeDetailTagTab")}
               </button>
             </div>
+              </div></div>
+              {originalDownloadFailed ? <FeedbackField>{t("knowledgeDetailDownloadFailed")}</FeedbackField> : null}
               {liveDetail?.document.capabilities?.can_edit_chunks && (!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly") ? <small className="content-edit-disabled-reason" id="content-edit-disabled-reason" role="status">{t(liveDetail.content_edit_reason === "project_editor_required" ? "apiForbidden" : liveDetail.content_edit_reason === "content_edit_review_locked" ? "knowledgeDetailReviewLockedReason" : "contentEditUnavailable")}</small> : null}
             </div>
           }
@@ -900,7 +913,7 @@ export default function KnowledgePage() {
                   t={t}
                 />
               </div>
-              {tagError ? <small className="field-error">{t("knowledgeDetailTagOperationFailed")}</small> : null}
+              {tagError ? <FeedbackField>{t("knowledgeDetailTagOperationFailed")}</FeedbackField> : null}
             </div>
           ) : (
           <>
@@ -929,10 +942,10 @@ export default function KnowledgePage() {
               >
                 {manualChunkBusy ? <Loader2 className="spin" size={15} /> : <Edit3 size={15} />} {t("knowledgeDetailManualChunking")}
               </button>
-              {manualChunkError ? <small className="field-error">{t("knowledgeDetailManualChunkFailed")}</small> : null}
+              {manualChunkError ? <FeedbackField>{t("knowledgeDetailManualChunkFailed")}</FeedbackField> : null}
             </div>
           ) : null}
-          {sourceLocationError ? <div className="source-location-error">{t("sourceLocationError")}</div> : null}
+          {sourceLocationError ? <FeedbackMessage tone="error">{t("sourceLocationError")}</FeedbackMessage> : null}
         </Panel>
 
         <Panel
@@ -975,7 +988,7 @@ export default function KnowledgePage() {
                     </span>
                     <span className="chunk-card-actions">
                       <small className="chunk-technical-id">{chunk.id}</small>
-                      {liveDetail?.document.capabilities?.can_edit_chunks ? <button type="button" className="chunk-delete-button" aria-label={t("contentEditChunkAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} onClick={event => { event.stopPropagation(); setContentEditor({ chunkId: chunk.id }); }} onKeyDown={event => event.stopPropagation()}><Edit3 size={17} /></button> : null}
+                      {liveDetail?.document.capabilities?.can_edit_chunks ? <button type="button" className="chunk-delete-button" aria-label={t("contentEditChunkAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} onClick={event => { event.stopPropagation(); setContentEditor({ chunkId: chunk.id, versionId: liveDetail!.version.id }); }} onKeyDown={event => event.stopPropagation()}><Edit3 size={17} /></button> : null}
                       <button
                         aria-label={format("knowledgeDetailDeleteChunkAria", { number: chunk.index })}
                         className="chunk-delete-button"
@@ -1023,7 +1036,7 @@ export default function KnowledgePage() {
           <header><span className="danger-icon"><Trash2 size={20} /></span><div><small>{format("knowledgeDetailChunkLabel", { number: deleteTarget.index })}</small><h2 id="delete-chunk-title">{t("knowledgeDetailDeleteChunkTitle")}</h2></div><button aria-label={t("close")} className="modal-close-button" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button"><X size={18} /></button></header>
           <p>{t("knowledgeDetailDeleteChunkHelp")}</p>
           <blockquote>{deleteTarget.content.slice(0, 180)}{deleteTarget.content.length > 180 ? "..." : ""}</blockquote>
-          {deleteError ? <div className="error-summary" role="alert"><strong>{deleteError}</strong></div> : null}
+          {deleteError ? <FeedbackMessage tone="error"><strong>{deleteError}</strong></FeedbackMessage> : null}
           <footer><button className="action-button secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={deleteBusy} onClick={() => void confirmChunkDeletion()} type="button">{deleteBusy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}{t("knowledgeDetailConfirmDeleteChunk")}</button></footer>
         </section>
       </div> : null}
@@ -1048,7 +1061,7 @@ export default function KnowledgePage() {
       ) : null}
         </>
       )}
-      {contentEditor && liveDetail ? <DocumentContentEditorModal projectId={params.id} documentId={liveDetail.document.id} versionId={liveDetail.version.id} chunkId={contentEditor.chunkId} onClose={() => setContentEditor(null)} onSaved={handleContentSaved} /> : null}
+      {contentEditor && liveDetail ? <DocumentContentEditorModal projectId={params.id} documentId={liveDetail.document.id} versionId={contentEditor.versionId} chunkId={contentEditor.chunkId} onClose={() => setContentEditor(null)} onSaved={handleContentSaved} /> : null}
     </AppShell>
   );
 }

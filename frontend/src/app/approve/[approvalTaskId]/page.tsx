@@ -1,5 +1,7 @@
 "use client";
 
+import { useFeedback } from "@/components/FeedbackProvider";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -135,6 +137,7 @@ export default function ApprovalDetailPage() {
   const [decision, setDecision] = useState<Decision | null>(null);
   const [comment, setComment] = useState("");
   const [result, setResult] = useState<string | null>(null);
+  const { notify } = useFeedback();
   const [decisionOutcome, setDecisionOutcome] = useState<DecisionOutcome | null>(null);
   const [submittingDecision, setSubmittingDecision] = useState(false);
   const [publishingVersion, setPublishingVersion] = useState(false);
@@ -284,8 +287,10 @@ export default function ApprovalDetailPage() {
   const reviewRecords = liveDetail?.review_records ?? [];
   const readOnly = liveDetail?.read_only ?? true;
   const readOnlyReason = readOnlyReasonLabel(liveDetail?.read_only_reason, t);
-  const canDecide = !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && liveDetail?.task.status === "pending";
-  const canPublish = !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved" && liveDetail.document.capabilities?.can_publish === true;
+  const decisionUnknown = Boolean(decisionOutcome?.detail && localize(decisionOutcome.detail) === t("feedbackResultUnknown"));
+  const publicationUnknown = Boolean(publishError && localize(publishError) === t("feedbackResultUnknown"));
+  const canDecide = !decisionUnknown && !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && liveDetail?.task.status === "pending";
+  const canPublish = !publicationUnknown && !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved" && liveDetail.document.capabilities?.can_publish === true;
   const contentCounts = displayChunks.reduce((counts, chunk) => ({ ...counts, [chunk.type]: counts[chunk.type] + 1 }), { text: 0, image: 0, table: 0, chart: 0 });
   const averageConfidence = displayChunks.length ? Math.round(displayChunks.reduce((sum, chunk) => sum + chunk.confidence, 0) / displayChunks.length * 100) : 0;
   const workflow = liveDetail ? reviewWorkflow(liveDetail) : { manager: "pending", owner: "pending", publish: "pending" } as const;
@@ -330,6 +335,7 @@ export default function ApprovalDetailPage() {
         const refreshed = await getApprovalTask(apiFetch, liveDetail.task.id).catch(() => null);
         if (refreshed) setLiveDetail(refreshed);
         setDecisionOutcome(approvalDecisionSuccessOutcome(submittedDecision, submittedStage, t));
+        notify({ id: crypto.randomUUID(), scope: `review:${liveDetail.task.id}`, tone: "success", title: submittedDecision === "approve" ? "feedbackApproved" : "feedbackRejected" });
       }
       closeDecision();
     } catch (error) {
@@ -366,10 +372,10 @@ export default function ApprovalDetailPage() {
       <section className="submission-shell approval-detail-shell" aria-labelledby="approval-summary-title">
         <div className="live-data-badge"><CheckCircle2 size={14} /> {t("approvalLivePublishPath")}</div>
         {readOnly ? (
-          <div className="approval-readonly-alert" role="status">
+          <FeedbackMessage tone="info">
             <ShieldCheck size={17} />
             <span><strong>{t("approvalReadOnlyEvidence")}</strong><small>{readOnlyReason}</small></span>
-          </div>
+          </FeedbackMessage>
         ) : null}
         <header className="submission-heading">
           <div>
@@ -501,19 +507,17 @@ export default function ApprovalDetailPage() {
         <footer aria-busy={publishingVersion} className="submission-actions approval-decision-bar">
           <p><ShieldCheck size={17} /><span>{t("approvalOptimisticLockHelp")}</span></p>
           {decisionOutcome ? (
-            <div className={`approval-result ${decisionOutcome.kind === "error" ? "reject" : "approve"}`}>
-              {decisionOutcome.kind === "error" ? <XCircle size={17} /> : <CheckCircle2 size={17} />}
-              <span><strong>{localize(decisionOutcome.title)}</strong><small>{localize(decisionOutcome.detail)}</small></span>
-            </div>
+            decisionOutcome.kind === "error" ? <FeedbackMessage title={decisionUnknown ? t("feedbackWarningTitle") : localize(decisionOutcome.title)} actions={decisionUnknown ? <button className="action-button secondary" type="button" onClick={() => {
+              if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setDecisionOutcome(null); }).catch(() => undefined);
+            }}>{t("feedbackQueryOutcome")}</button> : undefined}>{localize(decisionOutcome.detail)}</FeedbackMessage> : null
           ) : result ? (
             <div className="approval-result approve"><CheckCircle2 size={17} /> {localize(result)}</div>
           ) : (
             <div className="approval-decision-stack">
               {publishError ? (
-                <div className="approval-result reject" role="alert">
-                  <XCircle size={17} />
-                  <span><strong>{t("approvalPublishFailed")}</strong><small>{localize(publishError)}</small></span>
-                </div>
+                <FeedbackMessage title={publicationUnknown ? t("feedbackWarningTitle") : t("approvalPublishFailed")} actions={publicationUnknown ? <button className="action-button secondary" type="button" onClick={() => {
+                  if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setPublishError(null); }).catch(() => undefined);
+                }}>{t("feedbackQueryOutcome")}</button> : undefined}>{localize(publishError)}</FeedbackMessage>
               ) : null}
               <div aria-live="polite" className="approval-decision-actions" role={publishingVersion ? "status" : undefined}>
                 <button className="action-button" disabled={!canDecide} onClick={() => { setDecisionOutcome(null); setDecision("approve"); }} type="button"><ShieldCheck size={17} /> {t("approve")}</button>
@@ -532,7 +536,7 @@ export default function ApprovalDetailPage() {
 
       {graphOpen ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-graph-title" aria-modal="true" className="modal-panel document-graph-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{format("approvalStagingGraphVersion", { version: approval.version })}</p><h2 id="approval-graph-title">{t("approvalPreReviewGraphPreview")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setGraphOpen(false)} type="button"><X size={18} /></button></div><DocumentGraphPreview documentTags={(liveDetail?.document_tags ?? []).map(tag => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))} documentTitle={approval.document} graphChunks={graphChunks} version={approval.version} /></section></div> : null}
 
-      {decision ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-decision-title" aria-modal="true" className="modal-panel approval-decision-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{currentStageLabel}</p><h2 id="approval-decision-title">{decision === "approve" ? t("approvalApproveDocumentVersion") : t("approvalRejectDocumentVersion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={closeDecision} type="button"><X size={18} /></button></div><p>{approval.document} · {approval.version}</p><label><span>{decision === "approve" ? t("approvalCommentOptional") : t("rejectionReasonRequired")}</span><textarea aria-invalid={!canSubmitApprovalDecision(decision, comment)} autoFocus onChange={(event) => setComment(event.target.value)} placeholder={decision === "approve" ? t("approvalApproveCommentPlaceholder") : t("approvalRejectReasonPlaceholder")} rows={4} value={comment} /></label>{decision === "reject" && !canSubmitApprovalDecision(decision, comment) ? <small className="field-error">{t("rejectionReasonError")}</small> : null}<div className="modal-actions"><button className="action-button secondary" onClick={closeDecision} type="button">{t("cancel")}</button><button className={`action-button${decision === "reject" ? " danger" : ""}`} disabled={submittingDecision || !canSubmitApprovalDecision(decision, comment)} onClick={() => { void submitDecision(); }} type="button">{decision === "approve" ? t("approvalConfirmApprove") : t("approvalConfirmReject")}</button></div></section></div> : null}
+      {decision ? <div className="modal-backdrop" role="presentation"><section aria-labelledby="approval-decision-title" aria-modal="true" className="modal-panel approval-decision-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{currentStageLabel}</p><h2 id="approval-decision-title">{decision === "approve" ? t("approvalApproveDocumentVersion") : t("approvalRejectDocumentVersion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={closeDecision} type="button"><X size={18} /></button></div><p>{approval.document} · {approval.version}</p><label><span>{decision === "approve" ? t("approvalCommentOptional") : t("rejectionReasonRequired")}</span><textarea aria-invalid={!canSubmitApprovalDecision(decision, comment)} autoFocus onChange={(event) => setComment(event.target.value)} placeholder={decision === "approve" ? t("approvalApproveCommentPlaceholder") : t("approvalRejectReasonPlaceholder")} rows={4} value={comment} /></label>{decision === "reject" && !canSubmitApprovalDecision(decision, comment) ? <FeedbackField>{t("rejectionReasonError")}</FeedbackField> : null}<div className="modal-actions"><button className="action-button secondary" onClick={closeDecision} type="button">{t("cancel")}</button><button className={`action-button${decision === "reject" ? " danger" : ""}`} disabled={submittingDecision || !canSubmitApprovalDecision(decision, comment)} onClick={() => { void submitDecision(); }} type="button">{decision === "approve" ? t("approvalConfirmApprove") : t("approvalConfirmReject")}</button></div></section></div> : null}
     </AppShell>
   );
 }

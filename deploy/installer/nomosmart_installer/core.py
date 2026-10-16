@@ -226,11 +226,6 @@ def ensure_private_directory(path: Path) -> None:
         raise PreconditionError(f"private directory permissions are too broad: {path}")
 
 
-def require_private_file(path: Path) -> None:
-    if not path.is_file() or path.is_symlink():
-        raise PreconditionError(f"protected input must be a regular file: {path}")
-    if stat.S_IMODE(path.stat().st_mode) & 0o077:
-        raise PreconditionError(f"protected input permissions are too broad: {path}")
 
 
 def atomic_private_write(path: Path, value: str, *, overwrite: bool = True) -> None:

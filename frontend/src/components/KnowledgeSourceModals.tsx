@@ -1,15 +1,17 @@
 "use client";
 
+import { FeedbackConfirm } from "./FeedbackConfirm";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useUploadWaitState } from "@/lib/useUploadWaitState";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, Check, CheckCircle2, ChevronDown, ChevronRight, Cloud, FileText, FolderSync, KeyRound, LoaderCircle, LockKeyhole, RotateCcw, Server, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
-import type { AIModelResponse } from "@/lib/api";
-import { ocrRetryBlocked, type OcrProgress } from "@/lib/ocrPresentation";
+import type { AIModelResponse, DataSourceConnectionOptions } from "@/lib/api";
+import { ocrRetryBlocked, ocrFailureTone, type OcrProgress } from "@/lib/ocrPresentation";
 import { formatCount } from "@/lib/numberFormat";
 import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
 import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { ALLOWED_DOCUMENT_EXTENSIONS, DEFAULT_MAX_UPLOAD_BYTES, UPLOAD_REASON_EMPTY, UPLOAD_REASON_READY, UPLOAD_REASON_TOO_LARGE, UPLOAD_REASON_UNSUPPORTED, buildFriendlyCron, documentExtension, formatFileSize, validateFileDescriptor, validateFiveFieldCron } from "@/lib/knowledgeImport";
+import { ALLOWED_DOCUMENT_EXTENSIONS, HTTP_RESPONSE_EXTENSIONS, DEFAULT_MAX_UPLOAD_BYTES, UPLOAD_REASON_EMPTY, UPLOAD_REASON_READY, UPLOAD_REASON_TOO_LARGE, UPLOAD_REASON_UNSUPPORTED, buildFriendlyCron, documentExtension, formatFileSize, validateFileDescriptor, validateFiveFieldCron } from "@/lib/knowledgeImport";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 import { runtimeConfig } from "@/lib/runtimeConfig";
 import { UploadProgressBar } from "@/components/UploadProgressBar";
@@ -96,7 +98,7 @@ export type CreatedKnowledgeDocument = {
     completedAt?: string | null;
     eta: string;
     error: string;
-    steps?: Array<{ name: string; status: string; progress: number; retryCount: number; artifactRef?: string | null; error?: string | null; ocr?: OcrProgress }>;
+    steps?: Array<{ name: string; status: string; progress: number; retryCount: number; artifactRef?: string | null; error?: string | null; errorCode?: string | null; ocr?: OcrProgress }>;
     observationInterrupted?: boolean;
     cleanupObservationStopped?: boolean;
   };
@@ -368,15 +370,15 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
     <section aria-busy={submitting || retryingPipeline} aria-labelledby="upload-files-title" aria-modal="true" className={`modal-panel source-modal optimized-source-modal${modalLocked ? " source-modal-locked" : ""}`} role="dialog">
       <header className="source-modal-header"><div><p className="eyebrow">{t("uploadModalEyebrow")}</p><h2 id="upload-files-title">{t("uploadModalTitle")}</h2><small>{t("uploadModalHelp")}</small></div><button aria-label={t("uploadModalClose")} className="icon-button" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="source-modal-body">
-        <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> PDF · DOCX · TXT · MD</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: formatCount(maxUploadMb, locale) })}</span></div>
+        <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> {t("uploadSupportedFormats")}</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: formatCount(maxUploadMb, locale) })}</span></div>
         <section className="upload-ocr-panel">
           <label><span>{t("uploadOcrModel")}</span><select disabled={modalLocked || ocrModels.length === 0} onChange={(event) => setOcrModelId(event.target.value || null)} value={resolvedOcrModelId ?? ""}><option value="">{ocrModels.length ? t("uploadUseDefaultOcr") : t("uploadNoOcrModel")}</option>{ocrModels.filter((model) => model.is_active).map((model) => <option key={model.id} value={model.id}>{model.name}{model.is_default ? t("uploadDefaultSuffix") : ""}</option>)}</select></label>
           <label className="service-check-field"><input checked={forceOcr} disabled={modalLocked} onChange={(event) => setForceOcr(event.target.checked)} type="checkbox" /><span>{t("uploadForceOcr")}</span></label>
-          {forceOcr ? <div className="upload-force-ocr-warning"><AlertTriangle size={16} /><span>{t("uploadForceOcrWarning")}</span></div> : null}
+          {forceOcr ? <FeedbackMessage tone="warning"><span>{t("uploadForceOcrWarning")}</span></FeedbackMessage> : null}
         </section>
         <label className={`source-file-drop source-file-drop-primary ${dragging ? "dragging" : ""}`} onDragEnter={() => { if (!modalLocked) setDragging(true); }} onDragLeave={() => setDragging(false)} onDragOver={(event) => event.preventDefault()} onDrop={handleDrop} tabIndex={modalLocked ? -1 : 0}>
           <span className="upload-drop-icon"><UploadCloud size={30} /></span><strong>{t("uploadDropTitle")}</strong><small>{t("uploadDropHelp")}</small><em>{t("uploadSelectFiles")}</em>
-          <input accept=".pdf,.docx,.txt,.md,.markdown" disabled={modalLocked} multiple onChange={(event) => selectFiles(Array.from(event.target.files ?? []))} type="file" />
+          <input accept=".pdf,.txt,.md,.markdown" disabled={modalLocked} multiple onChange={(event) => selectFiles(Array.from(event.target.files ?? []))} type="file" />
         </label>
         <div className={`upload-behavior-callout ${files.length > 1 ? "batch" : "single"}`}><span>{files.length > 1 ? <FileText size={18} /> : <ArrowRight size={18} />}</span><div><strong>{files.length > 1 ? t("uploadBatchTitle") : t("uploadSingleTitle")}</strong><small>{files.length > 1 ? t("uploadBatchHelp") : t("uploadSingleHelp")}</small></div></div>
         {files.length ? <section className="upload-files-section"><div className="upload-files-heading"><div><strong>{results ? t("uploadResults") : t("uploadSelectedFiles")}</strong><small>{format("uploadValidationSummary", { files: files.length, valid: validCount })}</small></div>{!results ? <button aria-label={format("uploadClearAllLabel", { count: files.length })} className="clear-all-files-button" disabled={modalLocked} onClick={() => selectFiles([])} type="button"><Trash2 size={16} /> {t("uploadClearAll")}</button> : null}</div><div className="upload-selection-list optimized-upload-list">{(results ?? validation).map((item, index) => { const file = files[index]; const extension = documentExtension(file.name).toUpperCase(); return <div className={item.ok ? "valid" : "invalid"} key={`${item.name}-${index}`}><span className="file-type-badge">{extension}</span><span className="upload-file-identity"><strong title={item.name}>{item.name}</strong><small>{formatFileSize(file.size)} · {localizeUploadReason(item.reason, t, format, maxUploadMb)}</small></span><span className="upload-file-status">{item.ok ? <><CheckCircle2 size={16} /> {results ? t("uploadAdded") : t("uploadReady")}</> : <><AlertTriangle size={16} /> {t("uploadFailed")}</>}</span></div>; })}</div></section> : null}
@@ -392,7 +394,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
           {progressStalled ? <p className="upload-progress-notice">{t(liveProgressDocument ? "uploadProgressWaitLong" : "uploadWaitLong")}</p> : null}
           {liveProgressDocument?.pipeline.observationInterrupted ? <p className="upload-progress-notice" role="alert">{t("uploadProgressInterrupted")}</p> : null}
           {canLeaveWaiting ? <p className="upload-progress-notice">{t("uploadReturnDoesNotCancel")}</p> : null}
-          {overlayFailed && (failedStep?.error || liveProgressDocument?.pipeline.error) ? <p className="upload-progress-error-message">{failedStep?.error || liveProgressDocument?.pipeline.error}</p> : null}
+          {overlayFailed && (failedStep?.error || liveProgressDocument?.pipeline.error) ? <FeedbackMessage tone={ocrFailureTone({ error_code: failedStep?.errorCode ?? failedStep?.ocr?.error_code })}>{failedStep?.error || liveProgressDocument?.pipeline.error}</FeedbackMessage> : null}
           <OCRBudgetStatus step={livePipelineSteps.find(step => step.name === "ocr_extract")?.ocr} />
           <ChunkingIssueSummary issue={failedStep?.ocr?.chunking_issue} />
           {ocrRetryBlocked(failedStep?.ocr) ? <p className="upload-progress-notice">{t(failedStep?.ocr?.chunking_issue ? "chunkIssueRetryBlocked" : "ocrImagePartialReview")}</p> : null}
@@ -436,7 +438,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
           ) : null}
         </div>
       </div> : null}
-      {discardOpen ? <div className="inline-confirm-backdrop"><div className="inline-confirm" role="alertdialog"><AlertTriangle size={22} /><div><strong>{t("uploadDiscardTitle")}</strong><small>{t("uploadDiscardHelp")}</small></div><div><button className="action-button secondary" onClick={() => setDiscardOpen(false)} type="button">{t("continueEditing")}</button><button className="action-button danger" onClick={onClose} type="button">{t("discardAndClose")}</button></div></div></div> : null}
+      {discardOpen ? <FeedbackConfirm title={t("uploadDiscardTitle")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => setDiscardOpen(false)} onConfirm={onClose}>{t("uploadDiscardHelp")}</FeedbackConfirm> : null}
     </section>
   </div>;
 }
@@ -451,6 +453,7 @@ export type DataServicePayload = {
   port: number;
   username: string;
   credential: string | null;
+  credential_secret_ref?: string | null;
   bucket?: string | null;
   region?: string | null;
   remote_path: string;
@@ -472,12 +475,14 @@ export function DataServiceModal({
   onClose,
   onCreate,
   onCreateDataSource,
-  onTestConnection
+  onTestConnection,
+  onLoadConnectionOptions
 }: {
   onClose: () => void;
   onCreate: (document: CreatedKnowledgeDocument) => void;
-  onCreateDataSource?: (payload: DataServicePayload) => Promise<CreatedKnowledgeDocument>;
-  onTestConnection?: (payload: DataServicePayload) => Promise<void>;
+  onCreateDataSource: (payload: DataServicePayload) => Promise<CreatedKnowledgeDocument>;
+  onTestConnection: (payload: DataServicePayload) => Promise<void>;
+  onLoadConnectionOptions?: () => Promise<DataSourceConnectionOptions>;
 }) {
   const { t, format, localize } = useI18n();
   const [step, setStep] = useState<1 | 2 | 3>(1);
@@ -486,6 +491,11 @@ export function DataServiceModal({
   const [port, setPort] = useState("443");
   const [username, setUsername] = useState("");
   const [credential, setCredential] = useState("");
+  const [credentialSecretRef, setCredentialSecretRef] = useState("");
+  const [credentialMode, setCredentialMode] = useState<"secret_reference" | "inline">("secret_reference");
+  const [credentialModes, setCredentialModes] = useState<DataSourceConnectionOptions["credential_modes"]>([]);
+  const [credentialOptionsState, setCredentialOptionsState] = useState<"loading" | "ready" | "error">("loading");
+  const credentialGeneration = useRef({ version: 0 });
   const [url, setUrl] = useState("");
   const [authMode, setAuthMode] = useState<"none" | "bearer" | "api_key_header">("none");
   const [apiKeyHeaderName, setApiKeyHeaderName] = useState("X-API-Key");
@@ -503,6 +513,9 @@ export function DataServiceModal({
   const [weekday, setWeekday] = useState("1");
   const [advancedCron, setAdvancedCron] = useState("0 2 * * *");
   const [timezone, setTimezone] = useState("Asia/Taipei");
+  const [verifyTls, setVerifyTls] = useState(true);
+  const testGeneration = useRef(0);
+  useEffect(() => () => { testGeneration.current++; }, []);
   const [testState, setTestState] = useState<"idle" | "testing" | "success" | "failed">("idle");
   const [testMessage, setTestMessage] = useState("");
   const [submitError, setSubmitError] = useState("");
@@ -512,7 +525,8 @@ export function DataServiceModal({
   const friendlyCron = buildFriendlyCron(frequency as "minutes" | "hourly" | "daily" | "weekly", Number(hour), Number(minute), Number(weekday), Number(interval));
   const cronExpression = cronMode === "advanced" ? advancedCron.trim() : friendlyCron ?? "";
   const cronValid = validateFiveFieldCron(cronExpression);
-  const extensionValid = ALLOWED_DOCUMENT_EXTENSIONS.includes(documentExtension(fileName) as (typeof ALLOWED_DOCUMENT_EXTENSIONS)[number]);
+  const sourceExtensions: readonly string[] = serviceType === "HTTP_API" ? HTTP_RESPONSE_EXTENSIONS : ALLOWED_DOCUMENT_EXTENSIONS;
+  const extensionValid = sourceExtensions.includes(documentExtension(fileName));
   const parsedHeaders = useMemo(() => {
     if (!headersText.trim()) return {};
     try {
@@ -522,10 +536,12 @@ export function DataServiceModal({
       return {};
     }
   }, [headersText]);
-  const connectionReady = serviceType === "HTTP_API" ? Boolean(url && (authMode === "none" || credential) && (authMode !== "api_key_header" || apiKeyHeaderName)) : Boolean(host && username && credential && (serviceType !== "S3" || bucket));
+  const configuredCredential = credentialMode === "secret_reference" ? credentialSecretRef.trim() : credential;
+  const credentialModeAllowed = credentialOptionsState === "ready" && credentialModes.includes(credentialMode);
+  const connectionReady = credentialModeAllowed && (serviceType === "HTTP_API" ? Boolean(url && (authMode === "none" || configuredCredential) && (authMode !== "api_key_header" || apiKeyHeaderName)) : Boolean(host && username && configuredCredential && (serviceType !== "S3" || (bucket && region)) && fileName && extensionValid));
   const sourceValid = Boolean(fileName) && extensionValid && (serviceType === "HTTP_API" || Boolean(path)) && (scheduleMode === "once" || (cronValid && timezone));
   const formValid = connectionReady && testState === "success" && sourceValid;
-  const dirty = Boolean(host || username || credential || bucket || path || fileName || step > 1);
+  const dirty = Boolean(host || username || credential || credentialSecretRef || bucket || path || fileName || url || step > 1);
 
   useEffect(() => {
     function handleEscape(event: KeyboardEvent) {
@@ -536,6 +552,29 @@ export function DataServiceModal({
     window.addEventListener("keydown", handleEscape);
     return () => window.removeEventListener("keydown", handleEscape);
   }, [dirty, onClose, submitting]);
+
+  async function loadCredentialOptions() {
+    const generation = ++credentialGeneration.current.version;
+    setCredentialOptionsState("loading"); setCredentialModes([]); invalidateConnection();
+    try {
+      if (!onLoadConnectionOptions) throw new Error("serviceCredentialOptionsFailed");
+      const result = await onLoadConnectionOptions();
+      if (generation !== credentialGeneration.current.version) return;
+      if (!result.credential_modes.includes("secret_reference") || result.credential_modes.some(mode => !["secret_reference", "inline"].includes(mode))) throw new Error("serviceCredentialOptionsFailed");
+      setCredentialModes(result.credential_modes); setCredentialOptionsState("ready");
+      if (!result.credential_modes.includes(credentialMode)) { setCredentialMode("secret_reference"); setCredential(""); }
+    } catch { if (generation === credentialGeneration.current.version) setCredentialOptionsState("error"); }
+  }
+  useEffect(() => {
+    const epoch = credentialGeneration.current;
+    const timer = setTimeout(() => { void loadCredentialOptions(); }, 0);
+    return () => { clearTimeout(timer); epoch.version++; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onLoadConnectionOptions]);
+  function renderCredentialField() { return <>
+    {credentialModes.includes("inline") ? <label><span>{t("serviceCredentialMode")}</span><select disabled={submitting} onChange={event => { setCredentialMode(event.target.value as "secret_reference" | "inline"); setCredential(""); setCredentialSecretRef(""); invalidateConnection(); }} value={credentialMode}><option value="secret_reference">{t("serviceCredentialSecretReference")}</option><option value="inline">{t("serviceCredentialInline")}</option></select></label> : null}
+    <label><span>{t(credentialMode === "secret_reference" ? "serviceCredentialSecretReference" : "serviceCredentialInline")}</span><input aria-label={t(credentialMode === "secret_reference" ? "serviceCredentialSecretReference" : "serviceCredentialInline")} autoComplete="off" disabled={!credentialModeAllowed || submitting} maxLength={credentialMode === "secret_reference" ? 1000 : 8000} onChange={event => { if (credentialMode === "secret_reference") setCredentialSecretRef(event.target.value); else setCredential(event.target.value); invalidateConnection(); }} placeholder={credentialMode === "secret_reference" ? t("serviceCredentialReferencePlaceholder") : undefined} type={credentialMode === "secret_reference" ? "text" : "password"} value={credentialMode === "secret_reference" ? credentialSecretRef : credential} /><small>{t(credentialMode === "secret_reference" ? "serviceCredentialReferenceHelp" : "serviceCredentialInlineHelp")}</small></label>
+  </>; }
 
   function requestClose() {
     if (submitting) return;
@@ -550,7 +589,8 @@ export function DataServiceModal({
       host,
       port: Number(port),
       username,
-      credential: credential || null,
+      credential: credentialMode === "inline" && (serviceType !== "HTTP_API" || authMode !== "none") ? credential || null : null,
+      credential_secret_ref: credentialMode === "secret_reference" && (serviceType !== "HTTP_API" || authMode !== "none") ? credentialSecretRef.trim() || null : null,
       bucket: serviceType === "S3" ? bucket : null,
       region: serviceType === "S3" ? region || null : null,
       remote_path: path,
@@ -558,7 +598,7 @@ export function DataServiceModal({
       schedule_mode: scheduleMode,
       cron_expression: scheduleMode === "cron" ? cronExpression : null,
       timezone,
-      verify_tls: serviceType === "FTPS" || serviceType === "S3",
+      verify_tls: serviceType === "HTTP_API" ? verifyTls : serviceType === "FTPS" || serviceType === "S3",
       verify_host_key: serviceType === "SFTP",
       url: serviceType === "HTTP_API" ? url : null,
       headers: serviceType === "HTTP_API" ? parsedHeaders : {},
@@ -569,7 +609,7 @@ export function DataServiceModal({
     };
   }
 
-  function invalidateConnection() { setTestState("idle"); setTestMessage(""); }
+  function invalidateConnection() { testGeneration.current++; setTestState("idle"); setTestMessage(""); }
 
   function switchService(next: ServiceType) {
     setServiceType(next);
@@ -579,13 +619,15 @@ export function DataServiceModal({
 
   async function testConnection() {
     if (!connectionReady || testState === "testing") return;
+    const generation = ++testGeneration.current;
     setTestState("testing");
     setTestMessage("");
     try {
-      if (onTestConnection) await onTestConnection(dataSourcePayload());
-      else await new Promise((resolve) => window.setTimeout(resolve, 450));
+      await onTestConnection(dataSourcePayload());
+      if (generation !== testGeneration.current) return;
       setTestState("success");
     } catch (error) {
+      if (generation !== testGeneration.current) return;
       setTestMessage(operationalErrorMessage(error, t, format, "serviceConnectionFailedHelp"));
       setTestState("failed");
     }
@@ -595,26 +637,8 @@ export function DataServiceModal({
     if (!formValid || submitting) return;
     setSubmitting(true);
     setSubmitError("");
-    const location = serviceType === "HTTP_API" ? url : serviceType === "S3" ? `${bucket}/${path.replace(/^\/+|\/+$/g, "")}/${fileName}` : `${host}:${port}/${path.replace(/^\/+|\/+$/g, "")}/${fileName}`;
-    const id = `service-${Date.now()}`;
     try {
-      const document = onCreateDataSource ? await onCreateDataSource(dataSourcePayload()) : {
-        id,
-        title: fileName,
-        version: "v1.0",
-        owner: "Peter Wang",
-        documentStatus: "inactive",
-        versionStatus: "draft",
-        extractionSuccessful: false,
-        sourceType: `${serviceType} service`,
-        sourceState: "syncing" as const,
-        serviceSource: { serviceType, location, scheduleMode, cronExpression: scheduleMode === "cron" ? cronExpression : undefined, timezone },
-        chunks: 0,
-        updatedAt: t("serviceDemoNow"),
-        impactedProjects: [],
-        versions: [],
-        pipeline: { status: "running" as PipelineStatus, progress: 0, currentStep: t("serviceStepInitialSync"), waitingRole: "", elapsed: "00m 01s", eta: t("serviceEtaRemote"), error: "" }
-      };
+      const document = await onCreateDataSource(dataSourcePayload());
       onCreate(document);
       onClose();
     } catch (error) {
@@ -636,12 +660,12 @@ export function DataServiceModal({
       <header className="source-modal-header"><div><p className="eyebrow">{t("serviceEyebrow")}</p><h2 id="data-service-title">{t("serviceTitle")}</h2><small>{t("serviceHelp")}</small></div><button aria-label={t("serviceClose")} className="icon-button" disabled={submitting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="service-progress-shell"><ol aria-label={t("serviceStepsAria")} className="service-stepper">{stepLabels.map((label, index) => { const number = index + 1; const complete = number < step; const current = number === step; return <li aria-current={current ? "step" : undefined} className={complete ? "complete" : current ? "current" : "upcoming"} key={label}><span className="step-marker">{complete ? <Check size={16} /> : number}</span><div className="step-copy"><small>{format("serviceStepNumber", { number })}</small><strong>{label}</strong></div></li>; })}</ol><span aria-label={format("serviceProtocolAria", { type: serviceType, port })} className="service-protocol-pill">{serviceType} · {port}</span></div>
       <div className="source-modal-body wizard-body">
-        {step === 1 ? <section className="wizard-step-panel"><div className="wizard-section-heading"><div><strong>{t("serviceSelectTypeTitle")}</strong><small>{t("serviceSelectTypeHelp")}</small></div></div><div className="service-type-tabs service-type-cards" role="tablist">{(["S3", "FTP", "FTPS", "SFTP", "HTTP_API"] as ServiceType[]).map((type, index) => <button aria-selected={serviceType === type} autoFocus={index === 0} className={serviceType === type ? "active" : ""} key={type} onClick={() => switchService(type)} role="tab" type="button">{type === "S3" || type === "HTTP_API" ? <Cloud size={20} /> : <Server size={20} />}<span><strong>{type}</strong><small>{type === "S3" ? t("serviceObjectStorage") : type === "HTTP_API" ? t("serviceHttpGet") : type === "FTP" ? t("serviceStandardTransfer") : t("serviceSecureTransfer")}</small></span>{serviceType === type ? <CheckCircle2 size={16} /> : null}</button>)}</div><div className="service-form-grid compact-service-form">{serviceType === "HTTP_API" ? <><label><span>{t("serviceHttpGetUrl")}</span><input onChange={(event) => { setUrl(event.target.value); invalidateConnection(); }} placeholder="https://api.example.com/document.json" value={url} /></label><label><span>{t("serviceAuthMode")}</span><select onChange={(event) => { setAuthMode(event.target.value as "none" | "bearer" | "api_key_header"); invalidateConnection(); }} value={authMode}><option value="none">{t("serviceAuthNone")}</option><option value="bearer">{t("serviceAuthBearer")}</option><option value="api_key_header">{t("serviceAuthApiKeyHeader")}</option></select></label>{authMode === "api_key_header" ? <label><span>{t("serviceApiKeyHeader")}</span><input onChange={(event) => { setApiKeyHeaderName(event.target.value); invalidateConnection(); }} value={apiKeyHeaderName} /></label> : null}{authMode !== "none" ? <label><span>{t("serviceCredentialReference")}</span><input autoComplete="new-password" onChange={(event) => { setCredential(event.target.value); invalidateConnection(); }} type="password" value={credential} /></label> : null}<label><span>{t("serviceHeadersJson")}</span><textarea onChange={(event) => { setHeadersText(event.target.value); invalidateConnection(); }} placeholder={'{"Accept":"application/json"}'} value={headersText} /></label><label className="service-check-field"><input defaultChecked type="checkbox" /><span>{t("serviceVerifyTls")}</span></label></> : <><label><span>{serviceType === "S3" ? t("serviceS3Endpoint") : t("serviceHost")}</span><input onChange={(event) => { setHost(event.target.value); invalidateConnection(); }} placeholder={serviceType === "S3" ? "https://s3.example.com" : "files.example.com"} value={host} /></label><label><span>{t("labelPort")}</span><input inputMode="numeric" onChange={(event) => { setPort(event.target.value); invalidateConnection(); }} value={port} /></label>{serviceType === "S3" ? <><label><span>{t("labelBucket")}</span><input onChange={(event) => { setBucket(event.target.value); invalidateConnection(); }} placeholder="knowledge-source" value={bucket} /></label><label><span>{t("serviceRegionOptional")}</span><input onChange={(event) => { setRegion(event.target.value); invalidateConnection(); }} placeholder="ap-northeast-1" value={region} /></label></> : null}{serviceType === "FTPS" ? <label><span>{t("serviceFtpsSecurityMode")}</span><select defaultValue="explicit" onChange={invalidateConnection}><option value="explicit">Explicit TLS</option><option value="implicit">Implicit TLS</option></select></label> : null}<label><span>{t("labelUsernameAccessKey")}</span><input autoComplete="username" onChange={(event) => { setUsername(event.target.value); invalidateConnection(); }} value={username} /></label><label><span>{serviceType === "SFTP" ? t("servicePasswordPrivateKeyReference") : t("serviceCredentialReference")}</span><input autoComplete="new-password" onChange={(event) => { setCredential(event.target.value); invalidateConnection(); }} type="password" value={credential} /></label>{serviceType === "SFTP" ? <label className="service-check-field"><input defaultChecked type="checkbox" /><span>{t("serviceVerifySsh")}</span></label> : null}{serviceType === "FTPS" || serviceType === "S3" ? <label className="service-check-field"><input defaultChecked type="checkbox" /><span>{t("serviceVerifyTls")}</span></label> : null}</>}</div><div className={`connection-test-card ${testState}`}><span>{testState === "testing" ? <LoaderCircle className="spin" size={20} /> : testState === "success" ? <CheckCircle2 size={20} /> : testState === "failed" ? <AlertTriangle size={20} /> : <KeyRound size={20} />}</span><div><strong>{connectionTitle}</strong><small>{connectionHelp}</small></div><button className="action-button secondary" disabled={!connectionReady || testState === "testing"} onClick={testConnection} type="button">{testState === "success" || testState === "failed" ? t("serviceRetest") : t("serviceTestConnection")}</button></div></section> : null}
-        {step === 2 ? <section className="wizard-step-panel"><div className="wizard-section-heading"><div><strong>{t("serviceRemoteFileTitle")}</strong><small>{t("serviceRemoteFileHelp")}</small></div><span className="service-context-pill">{serviceType} · {host}</span></div><div className="service-form-grid"><label><span>{t("serviceRemotePath")}</span><input autoFocus onChange={(event) => setPath(event.target.value)} placeholder="policies/2026" value={path} /></label><label><span>{t("serviceSingleFileName")}</span><input aria-invalid={Boolean(fileName) && !extensionValid} onChange={(event) => setFileName(event.target.value)} placeholder="policy.pdf" value={fileName} />{fileName && !extensionValid ? <small className="field-error">{t("serviceInvalidExtension")}</small> : null}</label></div><fieldset className="schedule-fieldset optimized-schedule"><legend><CalendarClock size={17} /> {t("serviceSyncMode")}</legend><div className="schedule-mode-options schedule-choice-cards"><label className={scheduleMode === "once" ? "active" : ""}><input checked={scheduleMode === "once"} name="schedule" onChange={() => setScheduleMode("once")} type="radio" /><span><strong>{t("serviceOnce")}</strong><small>{t("serviceOnceHelp")}</small></span></label><label className={scheduleMode === "cron" ? "active" : ""}><input checked={scheduleMode === "cron"} name="schedule" onChange={() => setScheduleMode("cron")} type="radio" /><span><strong>{t("serviceCron")}</strong><small>{t("serviceCronHelp")}</small></span></label></div>{scheduleMode === "cron" ? <div className="cron-builder"><div className="cron-mode-tabs"><button className={cronMode === "friendly" ? "active" : ""} onClick={() => setCronMode("friendly")} type="button">{t("serviceFriendly")}</button><button className={cronMode === "advanced" ? "active" : ""} onClick={() => setCronMode("advanced")} type="button">{t("serviceAdvancedCron")}</button></div>{cronMode === "friendly" ? <div className="friendly-cron-fields"><label><span>{t("serviceFrequency")}</span><select onChange={(event) => setFrequency(event.target.value)} value={frequency}><option value="minutes">{t("serviceEveryMinutes")}</option><option value="hourly">{t("serviceEveryHours")}</option><option value="daily">{t("serviceDaily")}</option><option value="weekly">{t("serviceWeekly")}</option></select></label>{frequency === "minutes" || frequency === "hourly" ? <label><span>{t("serviceInterval")}</span><input max={frequency === "minutes" ? 59 : 23} min="1" onChange={(event) => setInterval(event.target.value)} type="number" value={interval} /></label> : null}{frequency === "weekly" ? <label><span>{t("serviceWeekday")}</span><select onChange={(event) => setWeekday(event.target.value)} value={weekday}><option value="1">{t("serviceMonday")}</option><option value="2">{t("serviceTuesday")}</option><option value="3">{t("serviceWednesday")}</option><option value="4">{t("serviceThursday")}</option><option value="5">{t("serviceFriday")}</option><option value="6">{t("serviceSaturday")}</option><option value="0">{t("serviceSunday")}</option></select></label> : null}{frequency !== "minutes" ? <label><span>{frequency === "hourly" ? t("serviceHourlyMinute") : t("serviceTime")}</span>{frequency === "hourly" ? <input max="59" min="0" onChange={(event) => setMinute(event.target.value)} type="number" value={minute} /> : <span className="time-inputs"><input aria-label={t("serviceHourAria")} max="23" min="0" onChange={(event) => setHour(event.target.value)} type="number" value={hour} /><b>:</b><input aria-label={t("serviceMinuteAria")} max="59" min="0" onChange={(event) => setMinute(event.target.value)} type="number" value={minute} /></span>}</label> : null}</div> : <label className="advanced-cron-field"><span>{t("serviceFiveFieldCron")}</span><input aria-invalid={!cronValid} onChange={(event) => setAdvancedCron(event.target.value)} value={advancedCron} />{!cronValid ? <small className="field-error">{t("serviceInvalidCron")}</small> : null}</label>}<label className="timezone-field"><span>{t("serviceTimezone")}</span><select onChange={(event) => setTimezone(event.target.value)} value={timezone}><option>Asia/Taipei</option><option>Asia/Tokyo</option><option>America/New_York</option><option>Europe/London</option></select></label><div className="cron-preview"><FolderSync size={17} /><span><strong>{cronExpression || t("serviceCronIncomplete")}</strong><small>{cronPreviewHelp} · {timezone} · {t("serviceNextRun")}</small></span></div></div> : null}</fieldset></section> : null}
+        {step === 1 ? <section className="wizard-step-panel">{credentialOptionsState === "error" ? <FeedbackMessage tone="error" title={t("serviceCredentialOptionsFailed")} actions={<button className="action-button secondary" onClick={() => void loadCredentialOptions()} type="button">{t("retry")}</button>}><p>{t("serviceCredentialOptionsRetry")}</p></FeedbackMessage> : credentialOptionsState === "loading" ? <FeedbackMessage tone="info"><p>{t("serviceCredentialOptionsLoading")}</p></FeedbackMessage> : null}<div className="wizard-section-heading"><div><strong>{t("serviceSelectTypeTitle")}</strong><small>{t("serviceSelectTypeHelp")}</small></div></div><div className="service-type-tabs service-type-cards" role="tablist">{(["S3", "FTP", "FTPS", "SFTP", "HTTP_API"] as ServiceType[]).map((type, index) => <button aria-selected={serviceType === type} autoFocus={index === 0} className={serviceType === type ? "active" : ""} key={type} onClick={() => switchService(type)} role="tab" type="button">{type === "S3" || type === "HTTP_API" ? <Cloud size={20} /> : <Server size={20} />}<span><strong>{type}</strong><small>{type === "S3" ? t("serviceObjectStorage") : type === "HTTP_API" ? t("serviceHttpGet") : type === "FTP" ? t("serviceStandardTransfer") : t("serviceSecureTransfer")}</small></span>{serviceType === type ? <CheckCircle2 size={16} /> : null}</button>)}</div><div className="service-form-grid compact-service-form">{serviceType === "HTTP_API" ? <><label><span>{t("serviceHttpGetUrl")}</span><input onChange={(event) => { setUrl(event.target.value); invalidateConnection(); }} placeholder="https://api.example.com/document.json" value={url} /></label><label><span>{t("serviceAuthMode")}</span><select onChange={(event) => { setAuthMode(event.target.value as "none" | "bearer" | "api_key_header"); invalidateConnection(); }} value={authMode}><option value="none">{t("serviceAuthNone")}</option><option value="bearer">{t("serviceAuthBearer")}</option><option value="api_key_header">{t("serviceAuthApiKeyHeader")}</option></select></label>{authMode === "api_key_header" ? <label><span>{t("serviceApiKeyHeader")}</span><input onChange={(event) => { setApiKeyHeaderName(event.target.value); invalidateConnection(); }} value={apiKeyHeaderName} /></label> : null}{authMode !== "none" ? renderCredentialField() : null}<label><span>{t("serviceHeadersJson")}</span><textarea onChange={(event) => { setHeadersText(event.target.value); invalidateConnection(); }} placeholder={'{"Accept":"application/json"}'} value={headersText} /></label><label className="service-check-field"><input checked={verifyTls} onChange={(event) => { setVerifyTls(event.target.checked); invalidateConnection(); }} type="checkbox" /><span>{t("serviceVerifyTls")}</span></label></> : <><label><span>{serviceType === "S3" ? t("serviceS3Endpoint") : t("serviceHost")}</span><input onChange={(event) => { setHost(event.target.value); invalidateConnection(); }} placeholder={serviceType === "S3" ? "https://s3.example.com" : "files.example.com"} value={host} /></label><label><span>{t("labelPort")}</span><input inputMode="numeric" onChange={(event) => { setPort(event.target.value); invalidateConnection(); }} value={port} /></label>{serviceType === "S3" ? <><label><span>{t("labelBucket")}</span><input onChange={(event) => { setBucket(event.target.value); invalidateConnection(); }} placeholder="knowledge-source" value={bucket} /></label><label><span>{t("serviceRegionRequired")}</span><input onChange={(event) => { setRegion(event.target.value); invalidateConnection(); }} placeholder="ap-northeast-1" value={region} /></label></> : null}{serviceType === "FTPS" ? <label><span>{t("serviceFtpsSecurityMode")}</span><select defaultValue="explicit" onChange={invalidateConnection}><option value="explicit">Explicit TLS</option><option value="implicit">Implicit TLS</option></select></label> : null}<label><span>{t("labelUsernameAccessKey")}</span><input autoComplete="username" onChange={(event) => { setUsername(event.target.value); invalidateConnection(); }} value={username} /></label>{renderCredentialField()}{serviceType === "SFTP" ? <label className="service-check-field"><input defaultChecked type="checkbox" /><span>{t("serviceVerifySsh")}</span></label> : null}{serviceType === "FTPS" || serviceType === "S3" ? <label className="service-check-field"><input defaultChecked type="checkbox" /><span>{t("serviceVerifyTls")}</span></label> : null}</>}</div>{serviceType !== "HTTP_API" ? <div className="service-form-grid compact-service-form"><label><span>{t("serviceRemotePath")}</span><input onChange={event => { setPath(event.target.value); invalidateConnection(); }} value={path} /></label><label><span>{t("serviceFileName")}</span><input onChange={event => { setFileName(event.target.value); invalidateConnection(); }} value={fileName} /><small>{t("serviceConnectionFileHelp")}</small></label></div> : null}<div className={`connection-test-card ${testState}`}><span>{testState === "testing" ? <LoaderCircle className="spin" size={20} /> : testState === "success" ? <CheckCircle2 size={20} /> : testState === "failed" ? <AlertTriangle size={20} /> : <KeyRound size={20} />}</span><div><strong>{connectionTitle}</strong><small>{connectionHelp}</small></div><button className="action-button secondary" disabled={!connectionReady || testState === "testing"} onClick={testConnection} type="button">{testState === "success" || testState === "failed" ? t("serviceRetest") : t("serviceTestConnection")}</button></div></section> : null}
+        {step === 2 ? <section className="wizard-step-panel">{testState !== "success" ? <FeedbackMessage tone="info" title={t("serviceSourceRetestRequired")} actions={<button className="action-button secondary" disabled={!connectionReady || testState === "testing"} onClick={() => void testConnection()} type="button">{t("serviceRetest")}</button>} /> : null}<div className="wizard-section-heading"><div><strong>{t("serviceRemoteFileTitle")}</strong><small>{t("serviceRemoteFileHelp")}</small></div><span className="service-context-pill">{serviceType} · {host}</span></div><div className="service-form-grid"><label><span>{t("serviceRemotePath")}</span><input autoFocus onChange={(event) => { setPath(event.target.value); invalidateConnection(); }} placeholder="policies/2026" value={path} /></label><label><span>{t("serviceSingleFileName")}</span><input aria-invalid={Boolean(fileName) && !extensionValid} onChange={(event) => { setFileName(event.target.value); invalidateConnection(); }} placeholder="policy.pdf" value={fileName} />{fileName && !extensionValid ? <FeedbackField>{t(serviceType === "HTTP_API" ? "serviceApiInvalidExtension" : "serviceInvalidExtension")}</FeedbackField> : null}</label></div><fieldset className="schedule-fieldset optimized-schedule"><legend><CalendarClock size={17} /> {t("serviceSyncMode")}</legend><div className="schedule-mode-options schedule-choice-cards"><label className={scheduleMode === "once" ? "active" : ""}><input checked={scheduleMode === "once"} name="schedule" onChange={() => setScheduleMode("once")} type="radio" /><span><strong>{t("serviceOnce")}</strong><small>{t("serviceOnceHelp")}</small></span></label><label className={scheduleMode === "cron" ? "active" : ""}><input checked={scheduleMode === "cron"} name="schedule" onChange={() => setScheduleMode("cron")} type="radio" /><span><strong>{t("serviceCron")}</strong><small>{t("serviceCronHelp")}</small></span></label></div>{scheduleMode === "cron" ? <div className="cron-builder"><div className="cron-mode-tabs"><button className={cronMode === "friendly" ? "active" : ""} onClick={() => setCronMode("friendly")} type="button">{t("serviceFriendly")}</button><button className={cronMode === "advanced" ? "active" : ""} onClick={() => setCronMode("advanced")} type="button">{t("serviceAdvancedCron")}</button></div>{cronMode === "friendly" ? <div className="friendly-cron-fields"><label><span>{t("serviceFrequency")}</span><select onChange={(event) => setFrequency(event.target.value)} value={frequency}><option value="minutes">{t("serviceEveryMinutes")}</option><option value="hourly">{t("serviceEveryHours")}</option><option value="daily">{t("serviceDaily")}</option><option value="weekly">{t("serviceWeekly")}</option></select></label>{frequency === "minutes" || frequency === "hourly" ? <label><span>{t("serviceInterval")}</span><input max={frequency === "minutes" ? 59 : 23} min="1" onChange={(event) => setInterval(event.target.value)} type="number" value={interval} /></label> : null}{frequency === "weekly" ? <label><span>{t("serviceWeekday")}</span><select onChange={(event) => setWeekday(event.target.value)} value={weekday}><option value="1">{t("serviceMonday")}</option><option value="2">{t("serviceTuesday")}</option><option value="3">{t("serviceWednesday")}</option><option value="4">{t("serviceThursday")}</option><option value="5">{t("serviceFriday")}</option><option value="6">{t("serviceSaturday")}</option><option value="0">{t("serviceSunday")}</option></select></label> : null}{frequency !== "minutes" ? <label><span>{frequency === "hourly" ? t("serviceHourlyMinute") : t("serviceTime")}</span>{frequency === "hourly" ? <input max="59" min="0" onChange={(event) => setMinute(event.target.value)} type="number" value={minute} /> : <span className="time-inputs"><input aria-label={t("serviceHourAria")} max="23" min="0" onChange={(event) => setHour(event.target.value)} type="number" value={hour} /><b>:</b><input aria-label={t("serviceMinuteAria")} max="59" min="0" onChange={(event) => setMinute(event.target.value)} type="number" value={minute} /></span>}</label> : null}</div> : <label className="advanced-cron-field"><span>{t("serviceFiveFieldCron")}</span><input aria-invalid={!cronValid} onChange={(event) => setAdvancedCron(event.target.value)} value={advancedCron} />{!cronValid ? <FeedbackField>{t("serviceInvalidCron")}</FeedbackField> : null}</label>}<label className="timezone-field"><span>{t("serviceTimezone")}</span><select onChange={(event) => setTimezone(event.target.value)} value={timezone}><option>Asia/Taipei</option><option>Asia/Tokyo</option><option>America/New_York</option><option>Europe/London</option></select></label><div className="cron-preview"><FolderSync size={17} /><span><strong>{cronExpression || t("serviceCronIncomplete")}</strong><small>{cronPreviewHelp} · {timezone} · {t("serviceNextRun")}</small></span></div></div> : null}</fieldset></section> : null}
         {step === 3 ? <section className="wizard-step-panel"><div className="wizard-section-heading"><div><strong>{t("serviceReviewTitle")}</strong><small>{t("serviceReviewHelp")}</small></div><span className="review-safe-badge"><LockKeyhole size={14} /> {t("serviceSecretHidden")}</span></div><div className="service-review-grid"><div><small>{t("serviceConnection")}</small><strong>{serviceType}</strong><span>{host}:{port}</span>{serviceType === "S3" ? <span>{bucket}{region ? ` · ${region}` : ""}</span> : null}</div><div><small>{t("serviceSourceFile")}</small><strong>{fileName}</strong><span>{path}</span><span>{t("serviceSingleFileSync")}</span></div><div><small>{t("serviceSchedule")}</small><strong>{scheduleMode === "once" ? t("serviceOnce") : t("serviceCron")}</strong><span>{scheduleMode === "cron" ? cronExpression : t("serviceRunOnceNow")}</span><span>{timezone}{scheduleMode === "cron" ? ` · ${t("serviceNextRun")}` : ""}</span></div></div><div className="service-create-explainer"><FolderSync size={22} /><div><strong>{t("serviceCreateExplainerTitle")}</strong><ol><li>{t("serviceCreateStepDocument")}</li><li>{t("serviceCreateStepSync")}</li><li>{t("serviceCreateStepExtraction")}</li></ol></div></div>{submitError ? <div className="upload-result-summary upload-error-summary" role="alert"><AlertTriangle size={20} /><div><strong>{t("uploadIncomplete")}</strong><small>{localize(submitError)}</small></div></div> : null}</section> : null}
       </div>
       <footer className="source-modal-footer wizard-footer"><small>{footerHelp}</small><div><button className="action-button secondary" disabled={submitting} onClick={requestClose} type="button">{t("cancel")}</button>{step > 1 ? <button className="action-button secondary" disabled={submitting} onClick={() => setStep((step - 1) as 1 | 2)} type="button"><ArrowLeft size={16} /> {t("previousStep")}</button> : null}{step < 3 ? <button className="action-button" disabled={step === 1 ? !stepOneValid : !stepTwoValid} onClick={() => setStep((step + 1) as 2 | 3)} type="button">{t("nextStep")} <ArrowRight size={16} /></button> : <button className="action-button" disabled={!formValid || submitting} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <FolderSync size={16} />} {t("serviceCreate")}</button>}</div></footer>
-      {discardOpen ? <div className="inline-confirm-backdrop"><div className="inline-confirm" role="alertdialog"><AlertTriangle size={22} /><div><strong>{t("serviceDiscardTitle")}</strong><small>{t("serviceDiscardHelp")}</small></div><div><button className="action-button secondary" onClick={() => setDiscardOpen(false)} type="button">{t("continueEditing")}</button><button className="action-button danger" onClick={onClose} type="button">{t("discardAndClose")}</button></div></div></div> : null}
+      {discardOpen ? <FeedbackConfirm title={t("serviceDiscardTitle")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => setDiscardOpen(false)} onConfirm={onClose}>{t("serviceDiscardHelp")}</FeedbackConfirm> : null}
     </section>
   </div>;
 }

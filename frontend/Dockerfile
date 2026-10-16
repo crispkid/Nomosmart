@@ -3,7 +3,7 @@
 # CHG-294 R2: Node's bundled crypto and Alpine's crypto are separate repair targets.
 FROM node:24.21.0-alpine3.24@sha256:be80f76cf40ec8e42b9bec49f60a55e0660f30af58d3e5a25530785b30ea67e2 AS base
 RUN apk add --no-cache --upgrade \
-    openssl=3.5.8-r0 libssl3=3.5.8-r0 libcrypto3=3.5.8-r0
+    openssl=3.5.9-r0 libssl3=3.5.9-r0 libcrypto3=3.5.9-r0 zlib=1.3.2-r1
 
 # CHG-301 R2: repair npm's own bundled dependencies, not application locks.
 ADD --checksum=sha256:9f58bff01604cb1b14008fef14dceb14d836a49225e45c6c2e37de3be3e707f0 https://registry.npmjs.org/npm/-/npm-11.19.1.tgz /tmp/npm-11.19.1.tgz

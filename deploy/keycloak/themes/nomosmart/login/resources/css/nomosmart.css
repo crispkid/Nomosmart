@@ -431,7 +431,7 @@ textarea {
 
 .nomosmart-auth .pf-v5-c-helper-text__item.pf-m-error,
 .nomosmart-auth .pf-m-error .kc-feedback-text {
-  color: var(--nomosmart-danger-text);
+  color: #9e3f3b;
   font-weight: 600;
 }
 
@@ -566,30 +566,29 @@ textarea {
 .nomosmart-auth-alert.pf-m-danger {
   border-color: #efc2c0;
   border-left-color: var(--nomosmart-coral);
-  background: #fff7f6;
-  color: var(--nomosmart-danger-text);
+  background: #fff2f1;
+  color: #9e3f3b;
 }
 
 .nomosmart-auth-alert.pf-m-warning {
   border-color: #eadfae;
   border-left-color: var(--nomosmart-gold);
-  background: #fffdf4;
-  color: #6d6338;
+  background: #fff9e6;
+  color: #7a5e17;
 }
 
-.nomosmart-auth-alert.pf-m-success,
-.nomosmart-auth-alert.pf-m-info {
+.nomosmart-auth-alert.pf-m-success {
   border-color: var(--nomosmart-sage);
   border-left-color: var(--nomosmart-green);
-  background: #f5fbf7;
+  background: #eaf7f1;
   color: var(--nomosmart-deep-green);
 }
 
 .nomosmart-auth-alert .pf-v5-c-alert__title {
   color: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.55;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.6;
   overflow-wrap: anywhere;
 }
 
@@ -806,3 +805,6 @@ textarea {
     animation-iteration-count: 1 !important;
   }
 }
+
+.nomosmart-auth-alert.pf-m-info { background: #eef4f6; color: #2e3a42; border-color: #e6ebef; }
+.nomosmart-auth .pf-m-error .kc-feedback-text { color: #9e3f3b; font-size: 14px; }

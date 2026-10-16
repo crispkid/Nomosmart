@@ -61,6 +61,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
         "nomosmart.env.example", "compose-secret-entrypoint.sh", "secret-env-entrypoint.sh",
         "postgresql-init.sh", "ssh_known_hosts.example", "embedding-capabilities.example.json",
     )),
+    ("deploy/docker/ftps-ca", ("README.md",)),
     ("sql/migrations", (".",)),
     ("deploy/keycloak/themes/nomosmart", (".",)),
     ("deploy/opensearch", ("install-repository-s3.sh",)),

@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { transportFetch } from "@/lib/transportError";
+import { FeedbackProvider } from "./FeedbackProvider";
+import { GraphLayoutSession } from "./GraphLayoutSession";
+import { clearGraphLayoutSession } from "@/lib/graphLayoutCache";
+import { createOperationGuardRegistry, type OperationGuardRegistry } from "@/lib/operationGuard";
+
+import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { ApplicationAccessDenied } from "@/components/ApplicationAccessDenied";
 import { AuthConnectionRecovery } from "@/components/AuthConnectionRecovery";
@@ -30,6 +36,7 @@ type AuthValue = {
   logout: () => Promise<void>;
   can: (moduleName: string, functionName: string, action: PermissionAction) => boolean;
   canViewModule: (moduleName: string) => boolean;
+  operationGuards: OperationGuardRegistry;
 };
 const AuthContext = createContext<AuthValue | null>(null);
 const unavailableAccountCodes = new Set(["user_disabled", "user_not_synchronized"]);
@@ -52,6 +59,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
   const [restorePrompt, setRestorePrompt] = useState<{ draftId: string; nonce: string; returnPath: string } | null>(null);
   const [lifecycle] = useState(() => new AuthSessionLifecycle());
+  const operationIdentity = JSON.stringify([currentUser?.user_id, currentUser?.permissions, applicationAccess, Boolean(tokens), lifecycle.generation()]);
+  const operationGuards = useMemo(() => createOperationGuardRegistry(operationIdentity), [operationIdentity]);
+  useLayoutEffect(() => () => operationGuards.clear(), [operationGuards]);
   const [callbackFlow] = useState(() => new OidcCallbackFlow());
   const logoutPromise = useRef<Promise<void> | null>(null);
   const recheckPromise = useRef<Promise<void> | null>(null);
@@ -210,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       lifecycle.assertActive(generation);
       // The caller owns this request, not the shared credential refresh.
       init.signal?.throwIfAborted();
-      const response = await fetch(input, { ...init, headers: { ...init.headers, Authorization: `Bearer ${accessToken}` } });
+      const response = await transportFetch(input, { ...init, headers: { ...init.headers, Authorization: `Bearer ${accessToken}` } });
       lifecycle.assertActive(generation);
       init.signal?.throwIfAborted();
       return response;
@@ -394,6 +404,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     callbackFlow.invalidate();
+    operationGuards.clear();
+    clearGraphLayoutSession();
     if (logoutPromise.current) return logoutPromise.current;
     recoveryProbe.current?.stop(); recoveryProbe.current = null;
     const idToken = lifecycle.current()?.idToken;
@@ -412,7 +424,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const url = new URL(`${config.issuer}/protocol/openid-connect/logout`); url.searchParams.set("client_id", config.clientId); url.searchParams.set("post_logout_redirect_uri", config.logoutUrl); if (idToken) url.searchParams.set("id_token_hint", idToken); window.location.assign(url.toString());
     })();
     return logoutPromise.current;
-  }, [callbackFlow, lifecycle]);
+  }, [callbackFlow, lifecycle, operationGuards]);
   const installTokens = useCallback((nextTokens: OidcTokens) => {
     if (lifecycle.isClosing()) return false;
     lifecycle.install(nextTokens);
@@ -449,9 +461,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const hasPermission = useCallback((moduleName: string, functionName: string, action: PermissionAction) => can(currentUser?.permissions ?? [], moduleName, functionName, action), [currentUser]);
   const canViewModule = useCallback((moduleName: string) => canAnyView(currentUser?.permissions ?? [], moduleName), [currentUser]);
   const localizedAuthError = authError ? localize(authError) : null;
-  const value = useMemo(() => ({ tokens, currentUser, applicationAccess, authReady, authError: localizedAuthError, userDisplayName, installTokens, subscribeOidcCallback, apiFetch, logout, can: hasPermission, canViewModule }), [apiFetch, applicationAccess, authReady, canViewModule, currentUser, hasPermission, installTokens, subscribeOidcCallback, localizedAuthError, logout, tokens, userDisplayName]);
+  const value = useMemo(() => ({ tokens, currentUser, applicationAccess, authReady, authError: localizedAuthError, userDisplayName, installTokens, subscribeOidcCallback, apiFetch, logout, can: hasPermission, canViewModule, operationGuards }), [apiFetch, applicationAccess, authReady, canViewModule, currentUser, hasPermission, installTokens, operationGuards, subscribeOidcCallback, localizedAuthError, logout, tokens, userDisplayName]);
   const protectedContentReady = Boolean(tokens && authReady && currentUser && applicationAccess === "granted");
   return <AuthContext.Provider value={value}>
+    <GraphLayoutSession identity={protectedContentReady ? operationIdentity : null}>
+    <FeedbackProvider currentUser={currentUser} enabled={Boolean(tokens && applicationAccess === "granted")}>
     {routeBypassesAuth ? children : connectionRecovery !== "idle" ? <AuthConnectionRecovery busy={connectionRecovery === "checking"} failed={connectionRecovery === "failed"} onRetry={() => retryConnection()} /> : applicationAccess === "denied" && tokens ? (
       <ApplicationAccessDenied
         onLogout={logout}
@@ -462,6 +476,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       />
     ) : protectedContentReady ? children : <><noscript><meta httpEquiv="refresh" content="5;url=/login" /></noscript><main className="auth-loading" role={localizedAuthError ? "alert" : "status"}>{localizedAuthError ? `${t("authLoadFailed")}: ${localizedAuthError}` : t("authCheckingSession")}</main></>}
     {restorePrompt ? <div className="auth-session-modal" role="dialog" aria-modal="true" aria-labelledby="draft-restore-title"><section><h2 id="draft-restore-title">{t("restoreDraftTitle")}</h2><p>{t("restoreDraftHelp")}</p><footer><button className="action-button secondary" onClick={() => { void discardDraft(); }} type="button">{t("discardDraft")}</button><button className="action-button" onClick={() => { void restoreDraft(); }} type="button">{t("restoreDraft")}</button></footer></section></div> : null}
+    </FeedbackProvider>
+    </GraphLayoutSession>
   </AuthContext.Provider>;
 }
 

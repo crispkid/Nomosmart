@@ -46,13 +46,13 @@ data:
   ONBOARDING_ADMIN_ALLOW_CIDR: {{ .Values.bootstrap.onboardingAdminAllowCidr | quote }}
   NEO4J_COMMUNITY_ADMIN_EQUIVALENT_ACCEPTED: {{ .Values.acceptedRisks.neo4jCommunityAdminEquivalent | quote }}
   KUBERNETES_SECRET_MOUNT_ROOT: "/var/run/nomosmart-secrets"
-  RUNTIME_SECRET_ALLOWED_REFS: {{ printf "%s#*" (include "nomosmart.secretName" .) | quote }}
   {{- $generatedBackend := list "REDIS_URL" "REDIS_SENTINEL_NODES" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ENDPOINT_URL" "S3_CA_CERT_PATH" "OPENSEARCH_URL" "OPENSEARCH_CA_CERT_PATH" "NEO4J_URI" "NEO4J_CA_CERT_PATH" "OIDC_ISSUER_URL" "OIDC_DISCOVERY_URL" "OIDC_JWKS_URL" "KEYCLOAK_ADMIN_API_URL" "KEYCLOAK_ADMIN_INTERNAL_URL" }}
   {{- range $key, $value := .Values.backend.env }}
-  {{- if and (not (has $key $generatedBackend)) (not (hasKey $uploadSettings $key)) }}
+  {{- if and (ne $key "FTPS_CA_CERT_PATH") (not (has $key $generatedBackend)) (not (hasKey $uploadSettings $key)) }}
   {{ $key }}: {{ $value | quote }}
   {{- end }}
   {{- end }}
+  FTPS_CA_CERT_PATH: {{ ternary "/etc/nomosmart/ftps-ca/ca.crt" (.Values.backend.env.FTPS_CA_CERT_PATH | default "") (ne .Values.ftpsCa.configMapName "") | quote }}
   {{- $generatedFrontend := list "NEXT_PUBLIC_APP_ORIGIN" "NEXT_PUBLIC_OIDC_ISSUER_URL" "FRONTEND_APP_ORIGIN" "FRONTEND_OIDC_ISSUER_URL" "FRONTEND_OIDC_INTERNAL_ISSUER_URL" }}
   {{- range $key, $value := .Values.frontend.env }}
   {{- if and (not (has $key $generatedFrontend)) (not (hasKey $uploadSettings $key)) }}

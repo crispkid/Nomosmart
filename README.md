@@ -10,11 +10,11 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.2.0` adds document content editing after OCR, synchronized chunk/tag/vector/graph updates, configurable OCR output budgets, continuous document reading, structure-aware chunking, obsolete-data cleanup, and durable query model usage records. It uses the installation-validation release process; complete functional suites and coverage remain separate acceptance requirements. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json).
+Release `0.2.1` contains maintenance fixes for operational feedback, model and source management, authentication and build tooling, document format restrictions, graph layout, and obsolete derived-data cleanup. Knowledge document uploads accept PDF, TXT and Markdown; standalone CSV question batches, API JSON/CSV and database sources remain supported. This is a limited-scope patch using the installation-validation profile (`production_ready=false`). Unchanged, source-matched workflow evidence is reused; complete frontend/backend suites and 80% coverage, full failure/concurrency and deployment matrices, scale/endurance tests and backup/restore remain deferred. Supporting services retain their official dependency lock and declared advisory status.
 
 ## 2. Key Features
 
-- **Import from common sources** — Accepts PDF, DOCX, TXT, and Markdown files, and connects to FTP, FTPS, SFTP, S3, and HTTP APIs.
+- **Import from common sources** — Accepts PDF, UTF-8 TXT, and Markdown (.md/.markdown) files, and connects to FTP, FTPS, SFTP, S3, and HTTP APIs.
 - **Process documents** — Runs parsing and OCR, creates standard Markdown, splits content into useful sections, adds tags, and creates embeddings.
 - **Manage versions** — Keeps source files, document versions, displayed content, sections, tags, references, and the currently published version.
 - **Review and publish** — Sends content through review steps and publishes approved versions.
@@ -51,7 +51,7 @@ Before the application reports that it is ready, setup jobs create or update the
 
 | Layer | Technology | Purpose |
 | --- | --- | --- |
-| Frontend | Next.js 16.3.3, React 19.2.3, TypeScript 5 | Web application, OIDC flow, and Backend proxy |
+| Frontend | Next.js 16.3.8, React 19.2.3, TypeScript 5 | Web application, OIDC flow, and Backend proxy |
 | Backend | Python 3.12, FastAPI, SQLAlchemy, Pydantic | REST API, configuration, domain logic, and persistence |
 | Background processing | Celery 5.5+, Redis 7.4 | Ingestion, synchronization, validation, and scheduled work |
 | Database | PostgreSQL 18.4, Flyway 13.6 | Authoritative state and forward-only migrations |
@@ -59,7 +59,7 @@ Before the application reports that it is ready, setup jobs create or update the
 | Search | OpenSearch 2.19 | Keyword, vector, hybrid, and staging indexes |
 | Graph | Neo4j 5.26 Community | Knowledge relationships and traversal |
 | Identity | Keycloak 26.0.8, OIDC, LDAP/AD federation | Authentication, directory synchronization, and role mapping |
-| Deployment | Docker Compose v2, Helm chart 0.2.0 | Single-host and Kubernetes deployment |
+| Deployment | Docker Compose v2, Helm chart 0.2.1 | Single-host and Kubernetes deployment |
 
 ## 5. Project Structure
 
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. Getting Started
 
-Release `0.2.0` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
+Release `0.2.1` includes the Docker Desktop installation fixes for Compose, bundled Helm, external-services Helm and Source Development. Local Kubernetes Methods 2 and 3 use the [Docker Desktop/static PV guide](deploy/local/README.md), explicit PVs and a dedicated local ingress controller. Select the appropriate local or production profile, verify the package, and complete the required initialization steps.
 
 ### 6.1 Select an installation method
 
@@ -119,19 +119,19 @@ Kubernetes production installation requires at least three Ready schedulable nod
 
 The repository is private. A GitHub account with repository access is required for cloning and downloading the Release; image pulls also need access to the NomoSmart GHCR packages. Authenticate Git with your credential manager. Keep access tokens out of configuration examples and command-line arguments.
 
-For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.2.0 Release:
+For Kubernetes installation, install the GitHub CLI and download the installation archive from the 0.2.1 Release:
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.2.0"
-gh release download v0.2.0 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.2.0.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.2.0"
-tar -xzf "$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.2.0"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.2.1"
+gh release download v0.2.1 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.2.1.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.2.1"
+tar -xzf "$HOME/nomosmart-downloads/0.2.1/nomosmart-0.2.1.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.2.1"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.1/nomosmart-0.2.1"
 ```
 
 Use a new download directory for each release. Follow Section 8.2 to check the extracted package before use. GitHub access and GHCR pull access are separate: provide a registry credential with package-read permission through the installer’s `registry_pull_secret`. The full profile also needs network access to Docker Hub, Quay, GHCR, OpenSearch artifacts, and the upstream CloudNativePG/Barman download locations listed in the lock file.
@@ -157,7 +157,7 @@ Docker Compose is the simplest way to run the complete platform on one machine. 
 
 ### 7.0 Start and manage Docker with one command
 
-This entry point is included in the 0.2.0 source and installation package. Previously published `v0.1.1` tags and archives remain unchanged; use their manual installation steps below. When first managing an existing source deployment, use `up --build` to apply the current source.
+This entry point is included in the 0.2.1 source and installation package. Previously published `v0.1.1` tags and archives remain unchanged; use their manual installation steps below. When first managing an existing source deployment, use `up --build` to apply the current source.
 
 From a source checkout or a verified package, with Docker running and Python 3.11 or newer and OpenSSL available; low-port inspection may also require `lsof`:
 
@@ -185,7 +185,7 @@ These flags and `--project-name` configure only a fresh installation; they canno
 Clone the Repository and enter its root directory:
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -196,7 +196,7 @@ Record the reviewed source revision containing the installation fixes:
 git rev-parse HEAD
 ```
 
-Keep the exact commit SHA with the installation record. Use the `v0.2.0` source tag to reproduce this release.
+Keep the exact commit SHA with the installation record. Use the `v0.2.1` source tag to reproduce this release.
 
 ### 7.2 Verify host tools
 
@@ -769,7 +769,7 @@ Source development runs the Frontend, Backend, Worker, and Beat directly on a de
 ### 10.1 Install source dependencies
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -934,7 +934,7 @@ Runtime settings are read when the process or Pod starts. Restart the affected B
 | Upload | `NOMOSMART_UPLOAD_IDLE_TIMEOUT_SECONDS` / `NOMOSMART_UPLOAD_TOTAL_TIMEOUT_SECONDS` | `60` / `600` | Idle and total upload time limits |
 | Upload | `NOMOSMART_UPLOAD_SCRATCH_DIR` / `NOMOSMART_UPLOAD_SCRATCH_MAX_MIB` | `/tmp/nomosmart-upload` / `256` | Temporary upload directory and capacity |
 | Ingestion | `TARGET_CHUNK_TOKENS` / `MAX_CHUNK_TOKENS` / `MIN_CHUNK_TOKENS` / `CHUNK_OVERLAP_TOKENS` | `500` / `700` / `80` / `60` | Structure-aware chunk sizing |
-| Ingestion | `PANDOC_COMMAND` / `TESSERACT_COMMAND` / `TESSERACT_PDF_COMMAND` | `pandoc` / `tesseract` / `pdftoppm` | Document conversion and OCR executables |
+| Ingestion | `TESSERACT_COMMAND` / `TESSERACT_PDF_COMMAND` | `tesseract` / `pdftoppm` | PDF/image OCR executables |
 | Remote sources | `HTTP_SOURCE_ALLOWED_HOSTS` / `HTTP_SOURCE_ALLOWED_CIDRS` | Empty allowlist | Approved HTTP/API destinations |
 | Remote sources | `SFTP_KNOWN_HOSTS_PATH` | `/etc/nomosmart/ssh_known_hosts` | SFTP host-key trust file |
 | Public API | `PUBLIC_API_RATE_LIMIT_WINDOW_SECONDS` | `60` | Rate-limit window |
@@ -967,7 +967,7 @@ Secret files must be regular files. Production files outside `/run/secrets/` gra
 
 For Neo4j, `bolt://` and `neo4j://` use an authenticated connection on an operator-controlled internal network. `bolt+s://` and `neo4j+s://` require certificate and hostname verification. Use the system trust store or set `NEO4J_CA_CERT_PATH`; the matching Helm setting is `neo4j.external.caSecretName`. A TLS connection never falls back to plaintext, and `+ssc` is not accepted.
 
-DOCX files are processed by the existing Worker through Pandoc with its built-in `--sandbox`. `PANDOC_COMMAND` must contain one executable name without extra arguments. Timeout, memory, and cache limits remain configurable. `PANDOC_SANDBOX_COMMAND` is ignored. External resources referenced by a DOCX file are rejected, while normal HTTP, HTTPS, and email links remain text links and are not downloaded.
+Knowledge-file upload, replacement and remote-file ingestion accept only PDF, UTF-8 TXT and Markdown (.md/.markdown). Convert other formats before uploading. HTTP/API JSON/CSV data responses, database sources and the separate CSV question batch remain supported. Historical Word sources and existing artifacts remain downloadable under their original permissions; source re-extraction is rejected. Existing canonical Markdown can still be edited. Pandoc and PANDOC_* runtime settings are retired; old environment values are ignored.
 
 ### 11.5 Local configuration example
 
@@ -1266,7 +1266,7 @@ Use a directory account for this verification; the local emergency account verif
 | Process health | `/api/v1/health` | Returns `{"status":"healthy"}` |
 | Dependency readiness | `/api/v1/ready` | Returns `ready` details or HTTP 503 |
 
-The FastAPI application version is `0.2.0`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
+The FastAPI application version is `0.2.1`; API paths retain `/v1`. Backend authorization combines local role permissions and project-scoped Owner, Editor, and Viewer governance.
 
 ### 12.2 Public chat example
 

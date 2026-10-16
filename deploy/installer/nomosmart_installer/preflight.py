@@ -49,12 +49,6 @@ def _regular(path: Path, *, context: str) -> None:
         raise PreconditionError(f"{context} must be a regular file: {path}")
 
 
-def _private_parent(path: Path, *, context: str) -> None:
-    parent = path.parent
-    if not parent.is_dir() or parent.is_symlink():
-        raise PreconditionError(f"{context} parent directory must already exist")
-    if stat.S_IMODE(parent.stat().st_mode) != 0o700:
-        raise PreconditionError(f"{context} parent directory must be mode 0700")
 
 
 def _local_artifacts(config: InstallConfig) -> None:

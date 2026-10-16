@@ -10,11 +10,11 @@ NomoSmart 會讀取檔案與已連接的資料來源，必要時執行 OCR，再
 
 平台適合知識負責人、編輯者、審核者、系統管理員、整合開發者與一般使用者。PostgreSQL 保存應用程式資料；Redis 與 Celery 處理背景工作；S3 相容儲存空間保存原始檔與產出內容；OpenSearch 負責搜尋；Neo4j 保存知識關係；Keycloak 提供登入與企業目錄整合。
 
-`0.2.0` 新增 OCR 後全文內容調整，同步更新切片、貼標、向量與圖譜；並提供可調 OCR 輸出限制、連續文件閱讀、保留完整段落與表格的切片、舊衍生資料清理及查詢模型用量持久化。本版沿用安裝驗證型發布流程；完整功能套件與覆蓋率仍為另列的驗收要求。 本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。
+`0.2.1` 包含操作提示、模型與資料來源管理、登入與建置工具、文件格式限制、圖譜排版及過期衍生資料清理等維護修正。知識文件上傳限 PDF、TXT、Markdown；獨立 CSV 問答批次、API JSON／CSV 與資料庫來源保留。本版採有限範圍的安裝驗證流程（`production_ready=false`），未變更且來源相符的流程沿用既有證據。完整前後端套件與各80%覆蓋率、完整故障／競態與部署矩陣、大規模／長時間及備份還原驗收仍列未完成。周邊服務沿官方相依鎖定及明列的安全告知。
 
 ## 2. 核心功能
 
-- **從常見來源匯入資料** — 支援 PDF、DOCX、TXT、Markdown，以及 FTP、FTPS、SFTP、S3 與 HTTP API。
+- **從常見來源匯入資料** — 知識文件限 PDF、TXT、Markdown，亦可連接 FTP、FTPS、SFTP、S3 與 HTTP API。
 - **整理文件內容** — 執行文件解析與 OCR、產生標準 Markdown、切分段落、加入標籤並建立 Embedding。
 - **管理文件版本** — 保存來源檔、文件版本、顯示內容、段落、標籤、引用關係與目前發布版本。
 - **審核與發布** — 讓內容依照既定流程完成審核，再發布核准的版本。
@@ -51,7 +51,7 @@ Next.js Frontend -----------> FastAPI Backend
 
 | Layer | Technology | Purpose |
 | --- | --- | --- |
-| Frontend | Next.js 16.3.3、React 19.2.3、TypeScript 5 | Web Application、OIDC Flow 與 Backend Proxy |
+| Frontend | Next.js 16.3.8、React 19.2.3、TypeScript 5 | Web Application、OIDC Flow 與 Backend Proxy |
 | Backend | Python 3.12、FastAPI、SQLAlchemy、Pydantic | REST API、設定、Domain Logic 與 Persistence |
 | Background Processing | Celery 5.5+、Redis 7.4 | 匯入、同步、驗證與排程工作 |
 | Database | PostgreSQL 18.4、Flyway 13.6 | 權威資料與 Forward-only Migration |
@@ -59,7 +59,7 @@ Next.js Frontend -----------> FastAPI Backend
 | Search | OpenSearch 2.19 | Keyword、Vector、Hybrid 與 Staging Index |
 | Graph | Neo4j 5.26 Community | 知識關係與 Traversal |
 | Identity | Keycloak 26.0.8、OIDC、LDAP/AD Federation | 認證、目錄同步與角色映射 |
-| Deployment | Docker Compose v2、Helm Chart 0.2.0 | 單機與 Kubernetes 部署 |
+| Deployment | Docker Compose v2、Helm Chart 0.2.1 | 單機與 Kubernetes 部署 |
 
 ## 5. 專案結構
 
@@ -79,7 +79,7 @@ Nomosmart/
 
 ## 6. 開始使用
 
-`0.2.0` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
+`0.2.1` 納入 Compose、Helm bundled、Helm external-services 與 Source Development 的 Docker Desktop 安裝修正。本機 Kubernetes 的方法二、三依 [Docker Desktop／靜態 PV 安裝指南](deploy/local/README.zh-TW.md) 設定明確的 PV 與專用本機 Ingress。選擇適用的本機或正式設定、驗證套件完整性，並完成必要初始化步驟。
 
 ### 6.1 選擇安裝方法
 
@@ -119,19 +119,19 @@ Kubernetes Production 安裝需要至少三個 Ready 且可排程的 Node、符�
 
 Repository 為私有。Clone 與下載 Release 需要具備存取權限的 GitHub 帳號，拉取映像也需要 NomoSmart GHCR Package 的存取權限。Git 認證請使用 Credential Manager；Token 保存在受保護的認證工具中，不填入設定範例或命令參數。
 
-使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.2.0 Release 安裝包：
+使用 Kubernetes 安裝時，先安裝 GitHub CLI，再下載 0.2.1 Release 安裝包：
 
 ```bash
 gh auth login --hostname github.com --git-protocol https --web
 gh auth setup-git
 gh auth status
-install -d -m 0700 "$HOME/nomosmart-downloads/0.2.0"
-gh release download v0.2.0 --repo crispkid/Nomosmart \
-  --pattern nomosmart-0.2.0.tar.gz \
-  --dir "$HOME/nomosmart-downloads/0.2.0"
-tar -xzf "$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0.tar.gz" \
-  -C "$HOME/nomosmart-downloads/0.2.0"
-export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.0/nomosmart-0.2.0"
+install -d -m 0700 "$HOME/nomosmart-downloads/0.2.1"
+gh release download v0.2.1 --repo crispkid/Nomosmart \
+  --pattern nomosmart-0.2.1.tar.gz \
+  --dir "$HOME/nomosmart-downloads/0.2.1"
+tar -xzf "$HOME/nomosmart-downloads/0.2.1/nomosmart-0.2.1.tar.gz" \
+  -C "$HOME/nomosmart-downloads/0.2.1"
+export NOMOSMART_RELEASE_DIR="$HOME/nomosmart-downloads/0.2.1/nomosmart-0.2.1"
 ```
 
 每個版本使用新的下載目錄，解壓後依第 8.2 節檢查完整性。GitHub Repository 與 GHCR 拉取權限分開管理；安裝器的 `registry_pull_secret` 應指向具有 Package 讀取權限的 Registry Credential。整包模式也需要連線至 Docker Hub、Quay、GHCR、OpenSearch artifacts，以及 lock 檔列出的 CloudNativePG／Barman 官方下載位置。
@@ -157,7 +157,7 @@ Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它�
 
 ### 7.0 使用單一指令啟動與管理 Docker
 
-此入口已包含於 0.2.0 原始碼與安裝包。已發布的 `v0.1.1` Tag／Archive 維持原樣，請依其下方手動步驟安裝。首次管理既有 Source 部署時，若要套用目前原始碼，使用 `up --build`。
+此入口已包含於 0.2.1 原始碼與安裝包。已發布的 `v0.1.1` Tag／Archive 維持原樣，請依其下方手動步驟安裝。首次管理既有 Source 部署時，若要套用目前原始碼，使用 `up --build`。
 
 從 Source Checkout 或已驗證的 Package 目錄執行；先啟動 Docker，並備妥 Python 3.11 以上版本／OpenSSL；低埠檢查可能需要 `lsof`：
 
@@ -185,7 +185,7 @@ Docker Compose 是在單一電腦上啟動完整平台最直接的方法。它�
 Clone Repository 並進入根目錄：
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart
 git status --short
 ```
@@ -196,7 +196,7 @@ git status --short
 git rev-parse HEAD
 ```
 
-保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.2.0` 原始碼 Tag 重現本版。
+保存確切的 Commit SHA 作為安裝紀錄。使用 `v0.2.1` 原始碼 Tag 重現本版。
 
 ### 7.2 驗證主機工具
 
@@ -769,7 +769,7 @@ Source Development 會直接在開發者電腦上執行 Frontend、Backend、Wor
 ### 10.1 安裝 Source Dependency
 
 ```bash
-git clone --branch v0.2.0 --depth 1 https://github.com/crispkid/Nomosmart.git
+git clone --branch v0.2.1 --depth 1 https://github.com/crispkid/Nomosmart.git
 cd Nomosmart/backend
 uv sync --locked --all-extras
 cd ../frontend
@@ -967,7 +967,7 @@ Secret File 必須是 Regular File。Production 中位於 `/run/secrets/` 之外
 
 Neo4j 使用 `bolt://` 或 `neo4j://` 時，會在管理人員控制的內部網路上建立需要帳號密碼的連線。使用 `bolt+s://` 或 `neo4j+s://` 時，必須驗證 Certificate 與 Hostname；可以使用系統 Trust Store，或設定 `NEO4J_CA_CERT_PATH`。對應的 Helm 設定是 `neo4j.external.caSecretName`。TLS 連線失敗時不會改用明文連線，也不接受 `+ssc`。
 
-DOCX 由現有 Worker 呼叫 Pandoc 處理，並固定使用 Pandoc 內建的 `--sandbox`。`PANDOC_COMMAND` 只能填一個執行檔名稱，不可加入其他參數。Timeout、Memory 與 Cache Limit 可透過設定調整；`PANDOC_SANDBOX_COMMAND` 會被忽略。DOCX 引用的外部資源會被拒絕，一般 HTTP、HTTPS 與 Email 連結只保留為文字連結，不會下載內容。
+知識文件上傳與遠端文件匯入只接受 PDF、TXT、Markdown（`.md`／`.markdown`）；其他格式在進入文件處理前拒絕。PDF 由現有 Worker 的 PDF／OCR 流程處理，TXT／Markdown沿文字流程。獨立 CSV 問答批次、API JSON／CSV 與資料庫來源不受此文件格式限制影響。
 
 ### 11.5 本機設定範例
 
@@ -1266,7 +1266,7 @@ Windows AD 使用相同欄位，並調整下列目錄設定：
 | Process Health | `/api/v1/health` | 回傳 `{"status":"healthy"}` |
 | Dependency Readiness | `/api/v1/ready` | 回傳 `ready` Detail 或 HTTP 503 |
 
-FastAPI 應用程式版本為 `0.2.0`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
+FastAPI 應用程式版本為 `0.2.1`，API 路徑保留 `/v1`。Backend Authorization 會合併 Local Role Permission 與 Project-scope Owner、Editor、Viewer Governance。
 
 ### 12.2 Public Chat 範例
 

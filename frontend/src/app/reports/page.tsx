@@ -1,5 +1,6 @@
 "use client";
 
+import { FeedbackMessage, FeedbackSeverityBadge } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, Download, FileText, Gauge, GitBranch, LoaderCircle, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { AppShell, ForbiddenState, Panel } from "@/components/AppShell";
@@ -196,7 +197,7 @@ export default function ReportsPage() {
   return (
     <AppShell title={t("reports")}>
       <section className="fixture-banner report-fixture-banner"><LockKeyhole size={17} /><div><strong>{hasReportData ? t("reportLiveData") : t("reportLiveLoading")}</strong><span>{hasReportData ? t("reportLiveDataHelp") : t("reportLiveLoadingHelp")}</span></div></section>
-      {error ? <section className="form-error" role="alert">{t("reportLoadFailed")}：{localize(error)}</section> : null}
+      {error ? <FeedbackMessage title={t("reportLoadFailed")}>{localize(error)}</FeedbackMessage> : null}
 
       <section className="report-filter-bar" aria-label={t("reportFilterLabel")}>
         <label><CalendarDays size={16} /><span>{t("reportDateFrom")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateFrom: event.target.value }))} type="date" value={draftFilters.dateFrom} /></label>
@@ -283,7 +284,7 @@ function ReportPanel({ title, table, columns, badge }: { title: string; table: T
   const { localize, t } = useI18n();
   const response = table.response;
   return <Panel title={title} action={<div className="report-panel-actions">{badge ? <span className="report-scope-pill">{badge}</span> : null}<button aria-busy={table.exporting} className="action-button secondary report-export-button" disabled={table.exporting || table.loading} onClick={table.onExport} type="button">{table.exporting ? <LoaderCircle aria-hidden="true" className="spin" size={16} /> : <Download aria-hidden="true" size={16} />}<span>{table.exporting ? t("reportDownloading") : t("reportDownloadCsv")}</span></button></div>}>
-    {table.error ? <div className="form-error compact" role="alert">{t("reportTableLoadFailed")}：{localize(table.error)}</div> : null}
+    {table.error ? <FeedbackMessage tone="error">{t("reportTableLoadFailed")}：{localize(table.error)}</FeedbackMessage> : null}
     {table.loading ? <div className="report-table-loading" role="status"><LoaderCircle className="spin" size={20} /><span>{t("reportTableLoading")}</span></div> : null}
     {!table.loading && response?.rows.length ? <ReportTable rows={response.rows as CsvRow[]} columns={columns} /> : null}
     {!table.loading && !response?.rows.length && !table.error ? <ReportEmptyState /> : null}
@@ -318,7 +319,7 @@ function ReportEmptyState() {
 
 function ReportTable({ rows, columns }: { rows: CsvRow[]; columns: Array<[string, string]> }) {
   const { locale, t } = useI18n();
-  return <div className="system-table-wrap report-table-wrap"><table className="system-table"><thead><tr>{columns.map(([key, label]) => <th className={reportIdentityClass(key)} key={key}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(([key]) => <td className={reportIdentityClass(key)} key={key}>{formatReportCell(key, row[key], locale, t("reportCostNotProvided"))}</td>)}</tr>)}</tbody></table></div>;
+  return <div className="system-table-wrap report-table-wrap"><table className="system-table"><thead><tr>{columns.map(([key, label]) => <th className={reportIdentityClass(key)} key={key}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(([key]) => <td className={reportIdentityClass(key)} key={key}>{key === "level" ? <FeedbackSeverityBadge severity={String(row[key] ?? "info")} /> : formatReportCell(key, row[key], locale, t("reportCostNotProvided"))}</td>)}</tr>)}</tbody></table></div>;
 }
 
 function reportIdentityClass(key: string) {

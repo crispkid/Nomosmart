@@ -1,11 +1,12 @@
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy import String, cast, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import UserLocalUpdate, UserStatusUpdate, UserSummary
 from app.core.errors import AppError
+from app.domain.approval_access import eligible_manager_reviewer
 from app.db.models import Role, RolePermission, RoleUser, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
@@ -18,7 +19,11 @@ router = APIRouter(prefix="/users", tags=["users"])
 
 @router.get("", response_model=list[UserSummary])
 def list_users(
+    response: Response,
     scope: str = Query(default="system", pattern="^(system|project_members)$"),
+    q: str | None = Query(default=None, max_length=100),
+    auth_source: str | None = Query(default=None, max_length=100),
+    is_active: bool | None = None,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     context: IdentityContext = Depends(get_identity_context),
@@ -26,8 +31,7 @@ def list_users(
 ) -> list[User]:
     if scope == "project_members":
         require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
-        return list(
-            session.scalars(
+        statement = (
                 select(User)
                 .join(RoleUser, RoleUser.user_id == User.id)
                 .join(RolePermission, RolePermission.role_id == RoleUser.role_id)
@@ -41,13 +45,29 @@ def list_users(
                     RolePermission.can_view.is_(True),
                 )
                 .distinct()
-                .order_by(User.display_name, User.id)
-                .offset(offset)
-                .limit(limit)
-            )
         )
+    else:
+        require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
+        statement = select(User)
+    if q and q.strip():
+        value = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{value}%"
+        statement = statement.where(or_(*(column.ilike(pattern, escape="\\") for column in (User.display_name, User.given_name, User.family_name, User.email, User.employee_id, User.department, User.auth_source, User.keycloak_user_id, cast(User.id, String)))))
+    if auth_source:
+        statement = statement.where(User.auth_source == auth_source)
+    if is_active is not None:
+        statement = statement.where(User.is_active.is_(is_active))
+    response.headers["X-Total-Count"] = str(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
+    return list(session.scalars(statement.order_by(User.display_name, User.id).offset(offset).limit(limit)))
+
+
+@router.get("/{user_id}", response_model=UserSummary)
+def get_user(user_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> User:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
-    return list(session.scalars(select(User).order_by(User.display_name, User.id).offset(offset).limit(limit)))
+    user = session.get(User, user_id)
+    if user is None:
+        raise AppError("user_not_found", "User was not found", status_code=404)
+    return user
 
 
 @router.put("/{user_id}", response_model=UserSummary)
@@ -66,8 +86,8 @@ def update_user_local_fields(
     delegate_id = changes.get("manager_delegate_user_id")
     if delegate_id is not None:
         delegate = session.get(User, delegate_id)
-        if delegate is None or not delegate.is_active:
-            raise AppError("invalid_manager_delegate", "Manager delegate must be an active user", status_code=422)
+        if delegate is None or not eligible_manager_reviewer(session, delegate_id):
+            raise AppError("invalid_manager_delegate", "Manager delegate must be active with application access", status_code=422)
     for field, value in changes.items():
         setattr(user, field, value)
     safe_changes = {key: str(value) if isinstance(value, UUID) else value for key, value in changes.items()}

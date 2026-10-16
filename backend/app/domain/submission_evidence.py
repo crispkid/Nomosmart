@@ -18,7 +18,6 @@ from app.db.models import (
     Document,
     DocumentVersion,
     DocumentVersionTag,
-    PipelineRun,
     PipelineRunStep,
     Project,
     ProjectOwner,
@@ -31,6 +30,8 @@ from app.domain.chunk_artifacts import chunk_artifact_state
 from app.domain.embeddings import load_staging_embeddings
 from app.domain.chat_citations import citation_persistence_payload
 from app.domain.extraction_pipeline import AUTO_EXTRACTION_STEPS
+from app.domain.content_pipeline_evidence import current_pipeline, update_submission_state
+from app.domain.graph_projection import build_graph_projection
 
 
 @dataclass(frozen=True)
@@ -51,16 +52,7 @@ def build_submission_evidence(
     version: DocumentVersion,
 ) -> SubmissionEvidenceProjection:
     generated_at = datetime.now(UTC)
-    pipeline = session.scalar(
-        select(PipelineRun)
-        .where(
-            PipelineRun.project_id == project.id,
-            PipelineRun.document_id == document.id,
-            PipelineRun.document_version_id == version.id,
-        )
-        .order_by(PipelineRun.created_at.desc(), PipelineRun.id.desc())
-        .limit(1)
-    )
+    pipeline = current_pipeline(session, version.id, project_id=project.id, document_id=document.id)
     steps = (
         list(
             session.scalars(
@@ -170,13 +162,23 @@ def build_submission_evidence(
         block_reasons.append("document_deleted")
     if version.status != "submission_ready":
         block_reasons.append("version_not_submission_ready")
+    update_summary = None
     if pipeline is None:
         block_reasons.append("pipeline_missing")
-    elif pipeline.status != "submission_ready":
-        block_reasons.append("pipeline_not_submission_ready")
-    step_status = {step.step_name: step.status for step in steps}
-    if pipeline is not None and any(step_status.get(name) != "completed" for name in AUTO_EXTRACTION_STEPS):
-        block_reasons.append("pipeline_steps_incomplete")
+    elif pipeline.run_type == "document_content_update":
+        ready_update, update_summary = update_submission_state(session, project, document, version, pipeline, steps)
+        if pipeline.status != "completed":
+            block_reasons.append("pipeline_not_submission_ready")
+        if not ready_update:
+            block_reasons.append("pipeline_steps_incomplete")
+        if graph_preview.get("source_digest") != build_graph_projection(session, project, document, version, chunks).source_digest:
+            block_reasons.append("graph_preview_not_ready")
+    else:
+        if pipeline.run_type != "document_extraction" or pipeline.status != "submission_ready":
+            block_reasons.append("pipeline_not_submission_ready")
+        step_status = {step.step_name: step.status for step in steps}
+        if any(step_status.get(name) != "completed" for name in AUTO_EXTRACTION_STEPS):
+            block_reasons.append("pipeline_steps_incomplete")
     if not artifacts_ready:
         block_reasons.append("chunk_artifacts_not_ready")
     if not chunks:
@@ -220,6 +222,7 @@ def build_submission_evidence(
         "pipeline": {
             "id": str(pipeline.id) if pipeline else None,
             "status": pipeline.status if pipeline else None,
+            "content_update": update_summary,
             "steps": [
                 {
                     "id": str(step.id),

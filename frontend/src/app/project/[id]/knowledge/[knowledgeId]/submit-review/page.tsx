@@ -1,5 +1,7 @@
 "use client";
 
+import { useFeedback } from "@/components/FeedbackProvider";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -50,6 +52,7 @@ export default function SubmitReviewPage() {
   const [evidence, setEvidence] = useState<SubmissionEvidenceResponse | null>(null);
   const [chatRecords, setChatRecords] = useState<ProjectChatRecordResponse[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { notify } = useFeedback();
   const [submissionResult, setSubmissionResult] = useState<ApprovalRequestResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -172,6 +175,7 @@ export default function SubmitReviewPage() {
         lock_version: evidence.lock_version
       });
       setSubmissionResult(response);
+      notify({ id: crypto.randomUUID(), scope: `document:${params.knowledgeId}`, tone: "success", title: "feedbackSubmitted" });
     } catch (error) {
       setSubmitError(operationalErrorMessage(error, t, format, "submitReviewFailed"));
     } finally {
@@ -200,7 +204,7 @@ export default function SubmitReviewPage() {
           <div><p className="eyebrow">{t("submitReviewEyebrow")}</p><h2 id="submission-summary-title">{t("submissionSummary")}</h2><p>{t("submitReviewSummaryHelp")}</p></div>
             <div className="submission-readiness"><CheckCircle2 size={18} /><span><strong>{evidence?.next_stage_allowed ? t("submitReviewReady") : t("notificationLoading")}</strong><small>{localizedBlockReasons.length ? localizedBlockReasons.join(", ") : versionId ? t("submitReviewVersionIdReady") : t("submitReviewWaitingVersion")}</small></span></div>
         </header>
-        {loadError ? <div className="batch-upload-error">{localize(loadError)}</div> : null}
+        {loadError ? <FeedbackMessage tone="error">{localize(loadError)}</FeedbackMessage> : null}
 
         <div className="submission-summary-grid">
           <section className="submission-section submission-document-section">
@@ -269,9 +273,9 @@ export default function SubmitReviewPage() {
 
         <footer className="submission-actions">
           <p><ShieldCheck size={17} /><span>{t("submitReviewLockHelp")}</span></p>
-          {!evidence?.can_submit_review ? <small className="field-error">{t("submitReviewPermissionDenied")}</small> : null}
-          {evidence && !evidence.next_stage_allowed ? <small className="field-error">{localizedBlockReasons.join(", ")}</small> : null}
-          {submitError ? <small className="field-error">{localize(submitError)}</small> : null}
+          {!evidence?.can_submit_review ? <FeedbackField>{t("submitReviewPermissionDenied")}</FeedbackField> : null}
+          {evidence && !evidence.next_stage_allowed ? <FeedbackField>{localizedBlockReasons.join(", ")}</FeedbackField> : null}
+          {submitError ? <FeedbackField>{localize(submitError)}</FeedbackField> : null}
           <button className="action-button" disabled={submitting || !detail || !canSubmitReview} onClick={() => { void submitReview(); }} type="button"><Send size={17} /> {submitting ? t("submitReviewSubmitting") : t("submitReview")}</button>
         </footer>
       </section>

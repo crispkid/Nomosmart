@@ -1,5 +1,7 @@
 "use client";
 
+import { UiValidationError } from "@/lib/transportError";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
@@ -32,7 +34,7 @@ type ConversationEntry = {
   status?: "answered" | "no_answer";
 };
 
-function parseCsv(text: string, t: Translate) {
+function parseCsv(text: string) {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -59,7 +61,7 @@ function parseCsv(text: string, t: Translate) {
       cell = "";
     } else cell += character;
   }
-  if (inQuotes) throw new Error(t("projectChatCsvUnclosedQuote"));
+  if (inQuotes) throw new UiValidationError("projectChatCsvUnclosedQuote");
   row.push(cell);
   if (row.some((value) => value.trim())) rows.push(row);
   return rows;
@@ -339,12 +341,12 @@ export default function ChatTestPage() {
     try {
       const contents = await file.text();
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
-      const rows = parseCsv(contents, t);
+      const rows = parseCsv(contents);
       const headers = rows[0]?.map((header, index) => (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim()) ?? [];
       const questionIndex = headers.indexOf("question");
-      if (questionIndex < 0) throw new Error(t("projectChatCsvMissingQuestion"));
+      if (questionIndex < 0) throw new UiValidationError("projectChatCsvMissingQuestion");
       const questions = rows.slice(1).map((row) => row[questionIndex]?.trim() ?? "").filter(Boolean);
-      if (!questions.length) throw new Error(t("projectChatCsvNoQuestions"));
+      if (!questions.length) throw new UiValidationError("projectChatCsvNoQuestions");
       setUploadQuestions(questions);
     } catch (error) {
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
@@ -427,7 +429,7 @@ export default function ChatTestPage() {
               <div><dt>{t("labelIndex")}</dt><dd>{t("documentChatStagingScopedIndex")}</dd></div>
               <div><dt>{t("labelChunks")}</dt><dd>{format("documentChatAvailableChunks", { count: detail?.chunks.length ?? 0 })}</dd></div>
             </dl>
-            {loadError ? <div className="batch-upload-error">{localize(loadError)}</div> : null}
+            {loadError ? <FeedbackMessage tone="error">{localize(loadError)}</FeedbackMessage> : null}
             {detail?.chat_access?.mode === "published" ? <Link className="text-link" href={`/project/${params.id}/import?chat_version_id=${encodeURIComponent(detail.version.id)}`}>{t("knowledgePublishedChat")}</Link> : null}
             {detail && !canContinue && !activeConversationId && !loadError ? <p role="status">{t(detail.chat_access?.mode === "history_only" || detail.chat_access?.mode === "published" ? "knowledgeChatHistoryOnly" : "projectChatVectorIndexNotReady")}</p> : null}
           </div>
@@ -458,7 +460,7 @@ export default function ChatTestPage() {
             </div>
           </header>
           <div className="chat-thread" aria-live="polite" ref={chatThreadRef}>
-            {(activeConversationId || batchDisplay) && !canContinue ? <p role="status" className="chat-readonly-notice">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</p> : null}
+            {(activeConversationId || batchDisplay) && !canContinue ? <FeedbackMessage tone="info">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</FeedbackMessage> : null}
             {conversationEntries.length === 0 ? <div className="chat-empty-state"><MessageSquarePlus size={22} /><span>{t("emptyConversation")}</span></div> : null}
             {conversationEntries.map((entry) => (
               <div className="chat-response-pair" key={entry.id}>
@@ -484,7 +486,7 @@ export default function ChatTestPage() {
                 <div className="batch-template-row"><div><strong>{t("csvTemplate")}</strong><small>question、expected_answer、expected_keywords、selected_document_ids、category、priority</small></div><button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button></div>
                 <label className="csv-upload-field"><Upload size={22} /><span><strong>{t("selectCsvFile")}</strong><small>.csv · UTF-8</small></span><input accept=".csv,text/csv" onChange={selectCsvFile} type="file" /></label>
                 {uploadFileName ? <div className="batch-file-status"><FileText size={17} /><span><strong>{uploadFileName}</strong><small>{uploadError ? localize(uploadError) : format("documentChatValidQuestionCount", { count: uploadQuestions.length })}</small></span></div> : null}
-                {uploadError ? <div className="batch-upload-error">{localize(uploadError)}</div> : null}
+                {uploadError ? <FeedbackMessage tone="error">{localize(uploadError)}</FeedbackMessage> : null}
                 {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
               </div>
             )}
@@ -521,7 +523,7 @@ function AssistantMessage({ entry, canEvaluate, evaluation, extractionHref, onEv
       <div className="message-avatar"><Bot size={18} /></div>
       <div className="assistant-message-body">
         <small>{t("brandNomoSmartLiveBackend")} {entry.answeredAt ? `· ${formatDateTime(entry.answeredAt, locale)}` : ""}</small>
-        {entry.loading ? <ChatWaitingIndicator label={t("documentChatQueryingStaging")} /> : entry.error ? <p className="field-error">{localize(entry.error)}</p> : (
+        {entry.loading ? <ChatWaitingIndicator label={t("documentChatQueryingStaging")} /> : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
           <ChatResponseEvidence
             answer={entry.answer}
             answerFallback={t("documentChatNoVerifiableAnswer")}

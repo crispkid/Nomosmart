@@ -5,6 +5,8 @@ import json
 from urllib.parse import urlparse, urlunsplit
 
 from app.db.models import AIModel, DataConnection
+from app.core.errors import AppError
+from app.integrations.ftps_tls import ftps_trust_fingerprint
 
 
 def ai_model_connection_fingerprint(model: AIModel) -> str:
@@ -22,7 +24,7 @@ def ai_model_connection_fingerprint(model: AIModel) -> str:
     return _fingerprint(payload)
 
 
-def data_connection_fingerprint(connection: DataConnection) -> str:
+def data_connection_fingerprint(connection: DataConnection, *, ftps_ca_cert_path: str = "") -> str:
     metadata = connection.connection_metadata if isinstance(connection.connection_metadata, dict) else {}
     identity = connection.source_identity if isinstance(connection.source_identity, dict) else {}
     payload = {
@@ -42,6 +44,13 @@ def data_connection_fingerprint(connection: DataConnection) -> str:
         "timeout_seconds": metadata.get("timeout_seconds"),
         "credential_digest": _credential_digest(connection.credential_encrypted, connection.credential_secret_ref),
     }
+    if connection.service_type == "FTPS":
+        try:
+            payload["ftps_verified_trust"] = ftps_trust_fingerprint(ftps_ca_cert_path)
+        except AppError:
+            # Unusable trust invalidates old success without breaking a list read.
+            # The live probe/download still raises the precise safe error.
+            payload["ftps_verified_trust"] = "unavailable"
     return _fingerprint(payload)
 
 

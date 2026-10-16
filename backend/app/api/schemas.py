@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator, model_validator
 
 
 class ORMModel(BaseModel):
@@ -25,6 +25,9 @@ class UserSummary(ORMModel):
     is_active: bool
     knowledge_owner: bool = False
     system_notes: str | None = None
+    manager_delegate_user_id: UUID | None = None
+    manager_delegate_start_at: datetime | None = None
+    manager_delegate_end_at: datetime | None = None
     last_synced_at: datetime | None
 
 
@@ -380,6 +383,10 @@ class DocumentReextractResponse(BaseModel):
     status: str
 
 
+class DataSourceConnectionOptions(BaseModel):
+    credential_modes: list[Literal["secret_reference", "inline"]]
+
+
 class DataSourceConnectionPayload(BaseModel):
     service_type: Literal["FTP", "FTPS", "SFTP", "S3", "HTTP_API"]
     name: str = Field(min_length=1, max_length=255)
@@ -403,6 +410,16 @@ class DataSourceConnectionPayload(BaseModel):
     api_key_header_name: str | None = Field(default=None, max_length=100)
     timeout_seconds: int = Field(default=30, ge=1, le=120)
     max_bytes: int | None = Field(default=None, ge=1)
+
+
+class DataSourceConnectionTestPayload(DataSourceConnectionPayload):
+    file_name: str = Field(default="", max_length=255)
+
+    @model_validator(mode="after")
+    def require_remote_file_name(self):
+        if self.service_type != "HTTP_API" and not self.file_name:
+            raise ValueError("Remote file connection tests require a file name")
+        return self
 
 
 class DataSourceConnectionTestResponse(BaseModel):
@@ -793,6 +810,7 @@ class ApprovalTaskResponse(ORMModel):
     priority: str = "normal"
     source_type: str | None = None
     assignee_user_id: UUID | None
+    original_manager_user_id: UUID | None = None
     review_stage: str
     status: str
     lock_version: int
@@ -914,6 +932,8 @@ class KnowledgeDetailResponse(BaseModel):
     tag_edit_reason: str | None = None
     active_chunk_count: int = 0
     chunk_artifact_status: Literal["ready", "queued", "running", "failed", "chunks_required"] = "chunks_required"
+    chunk_artifact_error_code: str | None = None
+    chunk_artifact_retry_allowed: bool | None = None
     next_stage_allowed: bool = False
     next_stage_block_reason: str | None = None
     chat_access: DocumentChatAccess | None = None
@@ -1520,6 +1540,18 @@ class NotificationResponse(ORMModel):
     resolved_at: datetime | None
     created_at: datetime
 
+    @computed_field
+    @property
+    def can_resolve_manual(self) -> bool:
+        from app.domain.notifications import notification_resolution_policy
+        return notification_resolution_policy(self)[0]
+
+    @computed_field
+    @property
+    def resolution_block_reason(self) -> str | None:
+        from app.domain.notifications import notification_resolution_policy
+        return notification_resolution_policy(self)[1]
+
 
 class NotificationPage(BaseModel):
     items: list[NotificationResponse]
@@ -1641,6 +1673,14 @@ class AIModelUpdate(BaseModel):
     is_active: bool | None = None
     is_default: bool | None = None
     config: dict[str, Any] | None = None
+
+    @field_validator("name", "provider", "is_active", "is_default", "config", mode="before")
+    @classmethod
+    def required_fields_cannot_be_cleared(cls, value: Any) -> Any:
+        # Defaults are not validated: omission retains the current field.
+        if value is None:
+            raise ValueError("Required model field cannot be null")
+        return value
 
 
 class AIModelDeleteRequest(BaseModel):
