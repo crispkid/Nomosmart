@@ -10,7 +10,27 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.2.1` contains maintenance fixes for operational feedback, model and source management, authentication and build tooling, document format restrictions, graph layout, and obsolete derived-data cleanup. Knowledge document uploads accept PDF, TXT and Markdown; standalone CSV question batches, API JSON/CSV and database sources remain supported. This is a limited-scope patch using the installation-validation profile (`production_ready=false`). Unchanged, source-matched workflow evidence is reused; complete frontend/backend suites and 80% coverage, full failure/concurrency and deployment matrices, scale/endurance tests and backup/restore remain deferred. Supporting services retain their official dependency lock and declared advisory status.
+### 1.1 Release 0.2.1 — 2026-10-17
+
+- **Operational interface:** Consistent notices and modal feedback, clearer pending/error states, duplicate-submit protection, and a compact document toolbar.
+- **Graph performance:** Background layout, cached initial positions, and reuse of unchanged layout calculations.
+- **Secure file sources:** FTPS certificate and hostname verification, optional enterprise CA support, and clearer inaccessible-file messages.
+- **Reliability fixes:** Model validation, API-key expiry handling, complete list/search results, role refresh, credential references, development login, and Docker/build cache isolation.
+- **Content cleanup:** Safer replacement of obsolete document chunks, vectors, tag links, indexes, and graph-related data while preserving protected history and current results. A separate maintenance command handles eligible residue from soft-deleted documents.
+
+### 1.2 Compatibility and upgrade
+
+Knowledge document uploads now accept only PDF, UTF-8 TXT, and Markdown (`.md` / `.markdown`). Convert other document formats before upload. Standalone CSV question batches, API JSON/CSV sources, and database sources remain supported.
+
+The API remains `v1`; the database migration target remains `053`, with no new migration in this patch. For an upgrade from `0.2.0`, download and verify the `0.2.1` release package, retain existing runtime configuration, secrets, TLS/CA material, and persistent volumes, and follow the matching installation method in section 6. Do not run reset or uninstall steps for an upgrade. FTPS servers must present a valid certificate for the configured hostname; provide the enterprise CA through the documented CA mount when required.
+
+Updating the application does not automatically run the separate maintenance command against historical residue. Review its protection checks and selected scope before using it.
+
+### 1.3 Acceptance scope
+
+This is a limited-scope maintenance release using the installation-validation profile (`production_ready=false`). Source-matched workflow evidence and the first candidate's actual login, permission, and restart checks are reused. The final package's fresh startup was blocked by isolated test preparation; that result remains **BLOCKED**, with the unchanged application payload and documentation-only differences recorded in the Release attachment `installation-verification.json`.
+
+Complete frontend/backend suites and separate 80% coverage, full failure/concurrency and deployment matrices, scale/endurance tests, and backup/restore remain deferred. Supporting services retain their official dependency lock and declared advisory status. The verification attachment and package evidence record the completed checks and remaining risks.
 
 ## 2. Key Features
 
