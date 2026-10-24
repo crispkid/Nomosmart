@@ -545,3 +545,9 @@ local-data/
 /deploy/installer/tests/
 
 /frontend/tests/chg362Workflows.live.mjs
+
+# Private validation links and evidence never belong to a release commit.
+/backend/.venv
+/frontend/node_modules
+/frontend/.vitest-attachments/
+/backend/historical_tests/
