@@ -937,7 +937,11 @@ def _compose_image_settings(compose_project: str) -> tuple[str, ...]:
         try:
             payload = _load_json(_bounded_file(root, "release-manifest.json"), label="release manifest")
             _bounded_file(root, "SHA256SUMS")
-            if payload.get("schema_version") == 3:
+            if payload.get("schema_version") == 4:
+                from nomosmart_release.contract_v4 import validate_manifest as validate_local_manifest
+                validate_local_manifest(payload)
+                images = payload["application_images"]
+            elif payload.get("schema_version") == 3:
                 validate_installation_manifest(payload)
                 images = payload["application_images"]
             else:
