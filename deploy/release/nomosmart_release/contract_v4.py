@@ -150,6 +150,7 @@ def verify_coverage_summary(name: str, summary: dict[str, Any]) -> None:
         total = summary.get("totals", {})
         covered_lines, covered_branches = total.get("covered_lines"), total.get("covered_branches")
         statements, branches = total.get("num_statements"), total.get("num_branches")
-        _coverage_ratio(covered_lines, statements); _coverage_ratio(covered_branches, branches)
-        if _coverage_ratio(covered_lines + covered_branches, statements + branches) < 80:
-            raise ReleaseContractError("backend application/branch coverage is below 80 percent")
+        line_ratio = _coverage_ratio(covered_lines, statements)
+        branch_ratio = _coverage_ratio(covered_branches, branches)
+        if line_ratio < 80 or branch_ratio < 80:
+            raise ReleaseContractError("backend lines or branches coverage is below 80 percent")
