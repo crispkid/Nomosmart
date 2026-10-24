@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState, type MouseEvent } from "react";
 import { AppShell, Panel } from "@/components/AppShell";
+import { ApiCodeExample } from "@/components/ApiCodeExample";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 
 type DocSection = {
@@ -422,7 +423,7 @@ export default function ApiDocumentationPage() {
                       ))}
                     </ul>
                   )}
-                  {section.code ? <pre><code>{section.code}</code></pre> : null}
+                  {section.code ? <ApiCodeExample code={section.code} title={t(section.title)} /> : null}
                   </section>
                 </Panel>
               </div>

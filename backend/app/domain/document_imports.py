@@ -13,10 +13,9 @@ from app.core.config import Settings
 from app.core.errors import AppError
 from app.db.models import AIModel, Document, DocumentContentState, DocumentVersion, OutboxEvent, PipelineRun, Project
 from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize_pipeline_steps
-from app.domain.docx_security import inspect_docx_package
 from app.domain.document_codes import allocate_document_code
 from app.domain.ocr_timeout_policy import split_snapshot
-from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension
+from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension, require_extractable_source
 from app.domain.upload_content import UploadContent, as_content
 
 
@@ -44,7 +43,7 @@ class ObjectStorage:
         raise NotImplementedError
 
 
-def validate_file_payload(file: UploadedFilePayload, settings: Settings) -> tuple[str, str]:
+def validate_file_payload(file: UploadedFilePayload, settings: Settings, *, http_response: bool = False) -> tuple[str, str]:
     original_name = sanitize_original_filename(file.filename)
     if not file.source.size:
         raise AppError("empty_upload_file", "Uploaded file is empty", status_code=422)
@@ -52,25 +51,34 @@ def validate_file_payload(file: UploadedFilePayload, settings: Settings) -> tupl
     if file.source.size > max_bytes:
         raise AppError("upload_too_large", f"Uploaded file exceeds {settings.max_upload_size_mb} MB", status_code=413)
     try:
-        validate_source_extension(original_name)
+        validate_source_extension(original_name, http_response=http_response)
         identity = build_storage_identity(file.content, original_name)
     except ValueError as exc:
         raise AppError("unsupported_upload_type", "Uploaded file type is not supported", status_code=422) from exc
-    _validate_magic(file.content, identity.canonical_extension)
+    _validate_magic(file.content, identity.canonical_extension, file.content_type)
     return original_name, identity.canonical_extension
 
 
-def _validate_magic(content: bytes | UploadContent, extension: str) -> None:
+def _validate_magic(content: bytes | UploadContent, extension: str, content_type: str | None = None) -> None:
     source = as_content(content)
+    mime = (content_type or "").split(";", 1)[0].strip().lower()
+    allowed_mimes = {"", "application/octet-stream", "binary/octet-stream", "text/plain"}
+    by_extension = {".pdf": {"application/pdf"}, ".txt": set(), ".md": {"text/markdown", "text/x-markdown"}, ".csv": {"text/csv", "application/csv"}, ".json": {"application/json", "text/json"}}
+    if mime not in allowed_mimes | by_extension.get(extension, set()):
+        raise AppError("invalid_file_signature", "File content type does not match the supported document format", status_code=422)
     if extension == ".pdf" and not source.prefix(4).startswith(b"%PDF"):
         raise AppError("invalid_file_signature", "PDF file signature is invalid", status_code=422)
-    if extension == ".docx":
-        inspect_docx_package(content, max_source_bytes=max(source.size, 1))
-    if extension in {".txt", ".md"}:
+    if extension in {".txt", ".md", ".csv", ".json"}:
+        prefix = source.prefix(512).lstrip(b"\xef\xbb\xbf \r\n\t").lower()
+        if prefix.startswith((b"pk\x03\x04", b"\xd0\xcf\x11\xe0", b"%pdf", b"\x89png", b"\xff\xd8\xff", b"gif87a", b"gif89a", b"<!doctype html", b"<html")):
+            raise AppError("invalid_file_signature", "Text document contains an unsupported file format", status_code=422)
+        decoder = codecs.getincrementaldecoder("utf-8")()
         try:
-            # Preserve the existing signature contract; full decoding below decides
-            # whether a text source exists, just as the legacy snapshot did.
-            source.prefix(8192).decode("utf-8")
+            for block in source.chunks():
+                if b"\x00" in block:
+                    raise AppError("invalid_file_signature", "Text document contains binary data", status_code=422)
+                decoder.decode(block)
+            decoder.decode(b"", final=True)
         except UnicodeDecodeError as exc:
             raise AppError("invalid_file_signature", "Text file must be UTF-8 compatible", status_code=422) from exc
 
@@ -129,7 +137,7 @@ def ocr_execution_snapshot(model: AIModel, *, force_ocr: bool, canonical_extensi
 
 
 def source_text_snapshot(file: UploadedFilePayload, extension: str) -> str | None:
-    if extension not in {".txt", ".md"} or not isinstance(file.content, bytes):
+    if extension not in {".txt", ".md", ".csv", ".json"} or not isinstance(file.content, bytes):
         return None
     try:
         text = file.content.decode("utf-8")
@@ -141,7 +149,7 @@ def source_text_snapshot(file: UploadedFilePayload, extension: str) -> str | Non
 def _source_text_metadata(file: UploadedFilePayload, extension: str, snapshot: str | None) -> dict[str, object]:
     if snapshot:
         return {"source_text": snapshot, "source_text_origin": "uploaded_file_utf8"}
-    if extension in {".txt", ".md"} and isinstance(file.content, UploadContent):
+    if extension in {".txt", ".md", ".csv", ".json"} and isinstance(file.content, UploadContent):
         decoder = codecs.getincrementaldecoder("utf-8")()
         nonblank = False
         try:
@@ -344,8 +352,9 @@ def start_document_extraction(
     requested_ocr_model_id: UUID | None,
     force_ocr: bool,
 ) -> PipelineRun:
-    if (version.canonical_extension or "").lower() == ".doc":
-        raise AppError("legacy_doc_reextraction_unsupported", "Legacy DOC files cannot be re-extracted; upload a DOCX replacement", status_code=422)
+    from app.domain.embedding_attempts import require_no_pending_embedding_attempt
+    require_no_pending_embedding_attempt(version)
+    require_extractable_source(version.canonical_extension, http_response=document.source_type == "http_api_service")
     if version.status not in {"draft", "ready_for_extraction"}:
         raise AppError("document_version_not_ready", "Document version is not ready for extraction", status_code=409)
     ensure_no_active_pipeline(session, version.id)
@@ -405,6 +414,7 @@ def create_reextraction_revision(
         raise AppError("document_version_not_found", "Source document version was not found", status_code=404)
     if not source.content_sha256 or source.content_sha256.lower() != source_content_sha256.lower():
         raise AppError("source_fingerprint_conflict", "Source content changed; reload before re-extraction", status_code=409)
+    require_extractable_source(source.canonical_extension, http_response=document.source_type == "http_api_service")
     if source.status not in {"active", "inactive", "submission_ready", "approved"}:
         raise AppError("reextraction_source_not_ready", "Source version is not eligible for re-extraction", status_code=409)
     existing_work = session.scalar(
@@ -497,38 +507,6 @@ def create_reextraction_revision(
     return document, version, pipeline
 
 
-def queue_document_extraction(
-    session: Session,
-    *,
-    project: Project,
-    document: Document,
-    version: DocumentVersion,
-) -> PipelineRun:
-    existing = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id, PipelineRun.status.in_(("queued", "running", "submission_ready"))).limit(1))
-    if existing is not None:
-        return existing
-    model = session.get(AIModel, version.ocr_model_id) if version.ocr_model_id else None
-    if model is None:
-        raise AppError("ocr_model_required", "An active OCR model is required", status_code=422)
-    now = datetime.now(UTC)
-    pipeline = PipelineRun(
-        id=uuid4(),
-        project_id=project.id,
-        document_id=document.id,
-        document_version_id=version.id,
-        project_generation=project.work_generation,
-        run_type="document_extraction",
-        status="queued",
-        progress_percent=0,
-        triggered_by=document.created_by,
-        created_at=now,
-    )
-    version.status = "queued"
-    session.add(pipeline)
-    session.flush()
-    initialize_pipeline_steps(session, pipeline, ocr_model_id=model.id, ocr_name=model.name, force_ocr=bool((version.chunk_strategy or {}).get("force_ocr")))
-    enqueue_outbox(session, project=project, topic="document.extraction.requested", aggregate_type="pipeline_run", aggregate_id=pipeline.id, payload={"pipeline_run_id": str(pipeline.id)})
-    return pipeline
 
 
 def enqueue_outbox(session: Session, *, project: Project, topic: str, aggregate_type: str, aggregate_id: UUID, payload: dict[str, str]) -> OutboxEvent:

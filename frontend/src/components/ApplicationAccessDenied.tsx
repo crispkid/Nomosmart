@@ -1,5 +1,8 @@
 "use client";
 
+import { BrowserTitle } from "@/lib/browserTitle";
+
+import { FeedbackMessage } from "./FeedbackMessage";
 import { useState } from "react";
 import { Languages, LogOut, RefreshCw, ShieldX } from "lucide-react";
 import { supportedLocales, useI18n } from "@/lib/i18nClient";
@@ -29,7 +32,7 @@ export function ApplicationAccessDenied({
   }
 
   return (
-    <main className="application-access-denied-page">
+    <main className="application-access-denied-page"><BrowserTitle label={t("applicationAccessDeniedTitle")} />
       <header className="application-access-denied-toolbar">
         <div className="brand">
           <span className="brand-mark">N</span>
@@ -59,15 +62,12 @@ export function ApplicationAccessDenied({
           <strong>{userDisplayName}</strong>
         </div>
 
-        <div className="application-access-guidance" role="alert">
-          <ShieldX aria-hidden="true" size={18} />
-          <span>{t("applicationAccessDeniedGuidance")}</span>
-        </div>
+        <FeedbackMessage tone="warning" announce={recheckResult === "idle"}>{t("applicationAccessDeniedGuidance")}</FeedbackMessage>
 
         {recheckResult !== "idle" ? (
-          <p className="application-access-recheck-status" role="status" aria-live="polite">
+          <FeedbackMessage tone={recheckResult === "denied" ? "warning" : "error"}>
             {t(recheckResult === "denied" ? "applicationAccessDeniedStillDenied" : "applicationAccessDeniedRecheckFailed")}
-          </p>
+          </FeedbackMessage>
         ) : null}
 
         <div className="application-access-actions">

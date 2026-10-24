@@ -17,6 +17,9 @@ function allowedDevOrigins() {
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
+  typescript: {
+    tsconfigPath: process.env.NODE_ENV === "development" ? "tsconfig.dev.json" : "tsconfig.json"
+  },
   allowedDevOrigins: allowedDevOrigins()
 };
 

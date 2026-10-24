@@ -56,6 +56,29 @@ def record_query_embedding_usage(
         correlation_id=correlation_id, vector_count=vector_count,
         created_at=created_at, metadata={"model_config_version": model.config_version},
     )
+    return _commit_usage_event(expected, session_factory=session_factory, conflict_code="query_usage_identity_conflict")
+
+
+def record_reconciliation_embedding_usage(
+    *, model: AIModel, event_id: UUID, project_id: UUID, document_id: UUID,
+    document_version_id: UUID, status: str, chunk_count: int,
+    token_usage: dict[str, Any] | None = None, vector_count: int | None = None,
+    latency_ms: int | None = None, error_code: str | None = None, attempted: bool = True,
+    created_at: datetime | None = None, session_factory: sessionmaker[Session] | None = None,
+) -> AIModelUsageEvent:
+    """One committed manual-build attempt; no pending business parents."""
+    if model.model_type != "Embedding" or status not in {"success", "failed"}:
+        raise AppError("embedding_usage_identity_conflict", "Embedding usage context is invalid", status_code=409)
+    expected = _build_model_usage_event(model=model, event_id=event_id, usage_purpose="embedding_build",
+        source_channel="pipeline", status=status, token_usage=token_usage, vector_count=vector_count,
+        chunk_count=chunk_count, latency_ms=latency_ms, error_code=error_code, attempted=attempted,
+        project_id=project_id, document_id=document_id, document_version_id=document_version_id,
+        created_at=created_at, metadata={"model_config_version": model.config_version})
+    return _commit_usage_event(expected, session_factory=session_factory, conflict_code="embedding_usage_identity_conflict")
+
+
+def _commit_usage_event(expected: AIModelUsageEvent, *, session_factory: sessionmaker[Session] | None,
+                        conflict_code: str) -> AIModelUsageEvent:
     attributes = inspect(AIModelUsageEvent).column_attrs
     values = {a.columns[0].name: getattr(expected, a.key) for a in attributes}
     factory = session_factory or get_session_factory()
@@ -64,12 +87,12 @@ def record_query_embedding_usage(
             timeout = str(get_settings().model_usage_write_timeout_seconds * 1000) + "ms"
             writer.execute(text("SELECT set_config('lock_timeout', :timeout, true), set_config('statement_timeout', :timeout, true)"), {"timeout": timeout})
             writer.execute(insert(AIModelUsageEvent.__table__).values(**values).on_conflict_do_nothing(index_elements=["id"]))
-            persisted = writer.scalar(select(AIModelUsageEvent).where(AIModelUsageEvent.id == event_id))
+            persisted = writer.scalar(select(AIModelUsageEvent).where(AIModelUsageEvent.id == expected.id))
             if persisted is None or any(
                 getattr(persisted, a.key) != getattr(expected, a.key)
                 for a in attributes if a.key != "created_at"
             ):
-                raise AppError("query_usage_identity_conflict", "Query usage identity conflicts with persisted evidence", status_code=409)
+                raise AppError(conflict_code, "Model usage identity conflicts with persisted evidence", status_code=409)
             writer.commit()
             # A custom real session factory may expire on commit. Materialize
             # the evidence before its connection closes; no caller is touched.
@@ -77,11 +100,11 @@ def record_query_embedding_usage(
             writer.expunge(persisted)
             return persisted
     except SQLAlchemyError:
-        logger.error("query_usage_persistence_unconfirmed", extra={"usage_event_id": str(event_id), "model_id": str(model.id), "usage_purpose": "query_embedding"})
+        logger.error("query_usage_persistence_unconfirmed", extra={"usage_event_id": str(expected.id), "model_id": str(expected.model_id), "usage_purpose": expected.usage_purpose})
         raise AppError(
             "model_usage_persistence_unconfirmed",
             "Model usage persistence is unconfirmed; do not automatically retry the model",
-            status_code=503, details={"usage_event_id": str(event_id), "automatic_retry_allowed": False},
+            status_code=503, details={"usage_event_id": str(expected.id), "automatic_retry_allowed": False},
         ) from None
 
 

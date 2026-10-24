@@ -31,7 +31,11 @@ from urllib.parse import urlsplit
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[2]
-PG_IMAGE = "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a"
+try:
+    from scripts.current_test_runtime import runtime_images
+except ModuleNotFoundError:
+    from current_test_runtime import runtime_images
+PG_IMAGE = runtime_images({"pg": "sha256:d44dceab9181bb118b01c269135d2443aa4d519e55916017c26a7fc3db6b6a7a"}, ROOT)["pg"]
 LABEL = "nomosmart.v049.backup-test"
 MAX_STREAM = 512 * 1024 * 1024
 SOURCE_LIMIT = 256 * 1024 * 1024
@@ -59,7 +63,7 @@ def require(value, code):
 
 
 def clean_env():
-    return {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "TERM") if key in os.environ}
+    return {key: os.environ[key] for key in ("PATH", "HOME", "TMPDIR", "TERM", "NOMOSMART_CURRENT_TEST_RUNTIME") if key in os.environ}
 
 
 def run(args, *, data=None, timeout=30):

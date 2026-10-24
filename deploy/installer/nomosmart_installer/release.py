@@ -29,7 +29,7 @@ class InstallerReleaseVerifier:
 
     def verify(self) -> dict[str, Any]:
         release = self.config.release
-        if release.purpose == "installation-validation" and (
+        if release.purpose in {"installation-validation", "local-verified-release"} and (
             not release.required or not release.isolated_environment_acknowledged
         ):
             raise PreconditionError("installation-validation requires an explicitly acknowledged isolated target")
@@ -41,7 +41,7 @@ class InstallerReleaseVerifier:
             }
         if (
             release.package_dir is None
-            or (release.purpose == "production" and not release.trusted_signer_fingerprint)
+            or (release.purpose in {"production", "local-verified-release"} and not release.trusted_signer_fingerprint)
         ):
             raise PreconditionError(
                 "Release package trust configuration is incomplete"

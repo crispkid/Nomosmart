@@ -1,7 +1,11 @@
 "use client";
 
-import { type PointerEvent, type WheelEvent, useEffect, useMemo, useRef, useState } from "react";
-import { forceCenter, forceCollide, forceLink, forceManyBody, forceSimulation, forceX, forceY } from "d3-force";
+import { boundedGraphZoom, graphVisualScale, MIN_GRAPH_ZOOM, MAX_GRAPH_ZOOM, stepGraphZoom } from "@/lib/graphZoom";
+
+import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { GRAPH_HEIGHT, GRAPH_WIDTH, graphNodeDimensions } from "@/lib/graphLayoutProtocol";
+import { useGraphLayout } from "@/lib/useGraphLayout";
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { BarChart3, FileText, FolderKanban, ImageIcon, Info, Link2, Network, RotateCcw, Scissors, Table2, Tag, ZoomIn, ZoomOut } from "lucide-react";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
@@ -53,6 +57,8 @@ type GraphExplorerProps = {
   edges: GraphExplorerEdge[];
   emptyMessage?: string;
   layout?: "umbrella";
+  layoutScope?: string;
+  layoutBinding?: string | null;
   nodes: GraphExplorerNode[];
   onNodeSelect?: (nodeId: string) => void;
   scopeLabel: string;
@@ -60,14 +66,13 @@ type GraphExplorerProps = {
   title: string;
 };
 
-const VIEWBOX_WIDTH = 1080;
-const VIEWBOX_HEIGHT = 640;
-const MIN_ZOOM = 0.01;
-const MAX_ZOOM = 3;
+const MIN_ZOOM = MIN_GRAPH_ZOOM;
+const MAX_ZOOM = MAX_GRAPH_ZOOM;
 
 
 type GraphZoomBand = "structure" | "chunk" | "tag" | "inspection";
 type VisibleGraphExplorerNode = GraphExplorerNode & { isHint?: boolean };
+type GraphPanExtent = { minX: number; maxX: number; minY: number; maxY: number; nodeWidth: number; nodeHeight: number };
 
 const contentTypeLabelKeys: Record<GraphExplorerContentType, TranslationKey> = {
   chart: "graphContentChart",
@@ -88,7 +93,19 @@ function semanticZoomBand(zoom: number): GraphZoomBand {
 }
 
 function visualScaleForZoom(zoom: number) {
-  return zoom;
+  return graphVisualScale(zoom);
+}
+
+function constrainGraphPan(position: { x: number; y: number }, extent: GraphPanExtent | null, width: number, height: number, scale: number) {
+  if (!extent) return { x: 0, y: 0 };
+  // Leave room for a complete outer node while allowing every node to reach the
+  // viewport centre. Limits follow the layout, including manual positions.
+  const travelX = Math.max(0, (width - extent.nodeWidth * scale) / 2 - 16);
+  const travelY = Math.max(0, (height - extent.nodeHeight * scale) / 2 - 16);
+  return {
+    x: clamp(position.x, Math.min(0, (GRAPH_WIDTH / 2 - extent.maxX) * scale - travelX), Math.max(0, (GRAPH_WIDTH / 2 - extent.minX) * scale + travelX)),
+    y: clamp(position.y, Math.min(0, (GRAPH_HEIGHT / 2 - extent.maxY) * scale - travelY), Math.max(0, (GRAPH_HEIGHT / 2 - extent.minY) * scale + travelY))
+  };
 }
 
 function nodeVisibilityAtZoom(node: GraphExplorerNode, zoom: number, selectedNodeId: string | null) {
@@ -101,16 +118,11 @@ function nodeVisibilityAtZoom(node: GraphExplorerNode, zoom: number, selectedNod
   }
   if (node.maxZoom && zoom > node.maxZoom) return { hint: false, visible: false };
   if (node.minZoom && zoom < node.minZoom) return { hint: false, visible: false };
+  if ((node.semanticLayer === 3 && zoom < 1.5) || (node.semanticLayer === 4 && zoom < 2)) return { hint: true, visible: true };
   return { hint: false, visible: true };
 }
 
-function nodeDimensions(node: GraphExplorerNode) {
-  if (node.kind === "project") return { w: 160, h: 160, type: "circle" as const };
-  if (node.kind === "document") return { w: 160, h: 64, type: "rect" as const };
-  if (node.kind === "chunk") return { w: 140, h: 48, type: "rect" as const };
-  if (node.kind === "tag") return { w: 100, h: 32, type: "rect" as const };
-  return { w: 120, h: 48, type: "rect" as const };
-}
+const nodeDimensions = graphNodeDimensions;
 
 function edgeEndpoint(from: GraphExplorerNode, to: GraphExplorerNode, paddingOverride?: number) {
   const { w, h, type } = nodeDimensions(from);
@@ -205,11 +217,12 @@ function useRelationMap<TNode extends GraphExplorerNode>(nodes: TNode[], edges: 
   }, [edges, nodes, selected]);
 }
 
-export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title }: GraphExplorerProps) {
+export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title, layoutScope, layoutBinding }: GraphExplorerProps) {
   const { format, t } = useI18n();
   const canvasRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const panRef = useRef({ x: 0, y: 0 });
+  const panExtentRef = useRef<GraphPanExtent | null>(null);
   
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
@@ -217,14 +230,17 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
   const [selected, setSelected] = useState<{ id: string; type: "edge" | "node" } | null>(null);
   const [draggingCanvas, setDraggingCanvas] = useState(false);
   const [draggingNodeId, setDraggingNodeId] = useState<string | null>(null);
+  const graphLayout = useGraphLayout(nodes, edges, layoutScope, layoutBinding);
+  const positionScope = layoutScope ?? "standalone";
+  const [manualScope, setManualScope] = useState(positionScope);
   const [nodePositions, setNodePositions] = useState<Record<string, { x: number; y: number }>>({});
   const canvasDrag = useRef<{ moved: boolean; originX: number; originY: number; pointerId: number; startX: number; startY: number } | null>(null);
   const nodeDrag = useRef<{ id: string; moved: boolean; originX: number; originY: number; pointerId: number; startX: number; startY: number } | null>(null);
   const suppressCanvasClick = useRef(false);
   const suppressNodeClick = useRef(false);
   const positionedNodes = useMemo(
-    () => nodes.map((node) => ({ ...node, ...(nodePositions[node.id] ?? {}) })),
-    [nodePositions, nodes]
+    () => nodes.map((node) => ({ ...node, ...(graphLayout.positions[node.id] ?? {}), ...(manualScope === positionScope ? nodePositions[node.id] ?? {} : {}) })),
+    [nodePositions, nodes, graphLayout.positions, manualScope, positionScope]
   );
   const zoomBand = semanticZoomBand(zoom);
   const visualScale = visualScaleForZoom(zoom);
@@ -235,6 +251,20 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
       return visibility.visible ? [{ ...node, isHint: visibility.hint }] : [];
     });
   }, [positionedNodes, selected, zoom]);
+  const panExtent = useMemo<GraphPanExtent | null>(() => {
+    if (!visibleNodes.length) return null;
+    const extent = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, nodeWidth: 0, nodeHeight: 0 };
+    for (const node of visibleNodes) {
+      const { w, h } = nodeDimensions(node);
+      extent.minX = Math.min(extent.minX, node.x);
+      extent.maxX = Math.max(extent.maxX, node.x);
+      extent.minY = Math.min(extent.minY, node.y);
+      extent.maxY = Math.max(extent.maxY, node.y);
+      extent.nodeWidth = Math.max(extent.nodeWidth, w);
+      extent.nodeHeight = Math.max(extent.nodeHeight, h);
+    }
+    return extent;
+  }, [visibleNodes]);
   const { edgeById, nodeById, relatedEdgeIds, relatedNodeIds } = useRelationMap(visibleNodes, edges, selected);
   const selectedNode = selected?.type === "node" ? nodeById.get(selected.id) ?? null : null;
   const selectedEdge = selected?.type === "edge" ? edgeById.get(selected.id) ?? null : null;
@@ -242,79 +272,41 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
   const selectedTarget = selectedEdge ? nodeById.get(selectedEdge.target) : null;
   const detailLevel = zoomBand === "structure" ? t("graphLayerStructure") : zoomBand === "chunk" ? t("graphLayerFocus") : t("graphLayerDetail");
 
-  const simulationRef = useRef<any>(null);
-  const simNodesRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { panExtentRef.current = panExtent; }, [panExtent]);
 
   useEffect(() => {
-    if (!nodes.length) return;
-    
-    const hasProject = nodes.some(n => n.kind === "project");
-    
-    const simNodes = nodes.map(n => {
-      const existing = simNodesRef.current.get(n.id);
-      const base: any = existing ? { ...n, x: existing.x, y: existing.y, vx: existing.vx, vy: existing.vy } : { ...n };
-      
-      const isRoot = hasProject ? n.kind === "project" : n.id === "document";
-      if (isRoot) {
-        base.fx = VIEWBOX_WIDTH / 2;
-        base.fy = VIEWBOX_HEIGHT / 2;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const observer = new ResizeObserver(() => {
+      const previous = panRef.current;
+      const next = constrainGraphPan(previous, panExtentRef.current, canvas.clientWidth, canvas.clientHeight, visualScale);
+      if (next.x === previous.x && next.y === previous.y) return;
+      panRef.current = next;
+      setPan(next);
+      if (sceneRef.current) sceneRef.current.style.transform = `translate(${next.x}px, ${next.y}px) scale(${visualScale})`;
+      const drag = canvasDrag.current;
+      if (drag) {
+        drag.originX += next.x - previous.x;
+        drag.originY += next.y - previous.y;
       }
-      return base;
     });
-    const simLinks = edges.map(e => ({ ...e, source: e.source, target: e.target }));
-    
-    const nodeMap = new Map();
-    simNodes.forEach(n => nodeMap.set(n.id, n));
-    simNodesRef.current = nodeMap;
+    observer.observe(canvas);
+    return () => observer.disconnect();
+    // Manual node drags update the next pan's bounds without moving the canvas.
+  }, [graphLayout.positions, nodes, positionScope, selected, visualScale]);
 
-    const simulation = forceSimulation(simNodes)
-      .force("link", forceLink(simLinks).id((d: any) => d.id).distance((d: any) => {
-        const s = nodeMap.get(d.source.id ?? d.source);
-        const t = nodeMap.get(d.target.id ?? d.target);
-        if (s?.kind === "project" || t?.kind === "project") return 380;
-        if (s?.kind === "document" || t?.kind === "document") return 270;
-        if ((s?.kind === "tag" && t?.kind === "chunk") || (s?.kind === "chunk" && t?.kind === "tag")) return 150;
-        return 190;
-      }))
-      .force("charge", forceManyBody().strength((d: any) => {
-        if (d.kind === "project") return -6200;
-        if (d.kind === "document") return -3400;
-        if (d.kind === "group") return -1600;
-        if (d.kind === "chunk") return -1350;
-        return -1150;
-      }))
-      .force("x", forceX((d: any) => d.x).strength((d: any) => d.kind === "project" ? 0.2 : d.semanticLayer ? 0.1 : 0.05))
-      .force("y", forceY((d: any) => d.y).strength((d: any) => d.kind === "project" ? 0.2 : d.semanticLayer ? 0.1 : 0.05))
-      .force("center", forceCenter(VIEWBOX_WIDTH / 2, VIEWBOX_HEIGHT / 2))
-      .force("collide", forceCollide().radius((d: any) => {
-        const { w, h } = nodeDimensions(d);
-        return Math.max(w, h) * 0.5 * 1.85;
-      }).iterations(4))
-      .stop();
-
-    // Run simulation statically
-    for (let i = 0; i < 400; ++i) {
-      simulation.tick();
-    }
-
-    const initialPositions: Record<string, { x: number, y: number }> = {};
-    simNodes.forEach(n => {
-      initialPositions[n.id] = { x: n.x, y: n.y };
-    });
-    // Use setTimeout to avoid synchronous setState inside useEffect
-    setTimeout(() => {
-      setNodePositions(initialPositions);
-    }, 0);
-
-    simulationRef.current = simulation;
-
-    return () => {
-      simulation.stop();
-    };
-  }, [nodes, edges]);
+  useEffect(() => {
+    // Scope transitions clear interaction state; input-reference changes do not.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelected(null); setPan({ x: 0, y: 0 }); panRef.current = { x: 0, y: 0 };
+    setZoom(1); zoomRef.current = 1;
+    canvasDrag.current = null; nodeDrag.current = null;
+    setDraggingCanvas(false); setDraggingNodeId(null);
+    setNodePositions({}); setManualScope(positionScope);
+  }, [positionScope]);
 
   function changeZoom(nextZoom: number) {
-    const bounded = clamp(nextZoom, MIN_ZOOM, MAX_ZOOM);
+    const bounded = boundedGraphZoom(nextZoom);
     zoomRef.current = bounded;
     setZoom(bounded);
   }
@@ -329,27 +321,30 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
     }
     setSelected(null);
     
-    const defaultPositions: Record<string, { x: number, y: number }> = {};
-    if (simNodesRef.current) {
-      simNodesRef.current.forEach((n) => {
-        defaultPositions[n.id] = { x: n.x, y: n.y };
-      });
-    }
-    setNodePositions(defaultPositions);
+    setNodePositions({});
+    setManualScope(positionScope);
   }
 
-  function handleWheel(event: WheelEvent<HTMLDivElement>) {
-    event.preventDefault();
-    event.stopPropagation();
-    // Use multiplicative scaling for smoother zooming at small zoom levels
-    const zoomFactor = Math.exp(event.deltaY * -0.002);
-    changeZoom(zoomRef.current * zoomFactor);
-  }
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    function handleWheel(event: globalThis.WheelEvent) {
+      event.preventDefault();
+      event.stopPropagation();
+      const units = event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? canvas!.clientHeight : 1;
+      const delta = clamp(event.deltaY * units, -100, 100);
+      const bounded = boundedGraphZoom(zoomRef.current * Math.exp(delta * -0.0005));
+      zoomRef.current = bounded;
+      setZoom(bounded);
+    }
+    canvas.addEventListener("wheel", handleWheel, { passive: false });
+    return () => canvas.removeEventListener("wheel", handleWheel);
+  }, []);
 
   function startCanvasDrag(event: PointerEvent<HTMLDivElement>) {
     if (event.button !== 0) return;
     event.currentTarget.setPointerCapture(event.pointerId);
-    canvasDrag.current = { moved: false, originX: pan.x, originY: pan.y, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
+    canvasDrag.current = { moved: false, originX: panRef.current.x, originY: panRef.current.y, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
     suppressCanvasClick.current = false;
     setDraggingCanvas(true);
   }
@@ -360,9 +355,10 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
     const deltaX = event.clientX - drag.startX;
     const deltaY = event.clientY - drag.startY;
     if (Math.hypot(deltaX, deltaY) > 4) drag.moved = true;
-    const bounds = event.currentTarget.getBoundingClientRect();
-    const newX = clamp(drag.originX + deltaX, -bounds.width * 5, bounds.width * 5);
-    const newY = clamp(drag.originY + deltaY, -bounds.height * 5, bounds.height * 5);
+    const { x: newX, y: newY } = constrainGraphPan(
+      { x: drag.originX + deltaX, y: drag.originY + deltaY }, panExtent,
+      event.currentTarget.clientWidth, event.currentTarget.clientHeight, visualScaleForZoom(zoomRef.current)
+    );
     panRef.current = { x: newX, y: newY };
     if (sceneRef.current) {
       sceneRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${visualScaleForZoom(zoomRef.current)})`;
@@ -383,7 +379,7 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
     if (event.button !== 0) return;
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    const position = nodePositions[node.id] ?? { x: node.x, y: node.y };
+    const position = manualScope === positionScope ? nodePositions[node.id] ?? graphLayout.positions[node.id] ?? { x: node.x, y: node.y } : graphLayout.positions[node.id] ?? { x: node.x, y: node.y };
     nodeDrag.current = { id: node.id, moved: false, originX: position.x, originY: position.y, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY };
     suppressNodeClick.current = false;
     setDraggingNodeId(node.id);
@@ -399,17 +395,13 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
     const newX = drag.originX + deltaX;
     const newY = drag.originY + deltaY;
     setNodePositions((current) => ({
-      ...current,
+      ...(manualScope === positionScope ? current : {}),
       [drag.id]: {
         x: newX,
         y: newY
       }
     }));
-    const simNode = simNodesRef.current.get(drag.id);
-    if (simNode) {
-      simNode.fx = newX;
-      simNode.fy = newY;
-    }
+    setManualScope(positionScope);
   }
 
   function stopNodeDrag(event: PointerEvent<HTMLButtonElement>) {
@@ -431,7 +423,7 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
   }
 
   return (
-    <section className={`graph-explorer graph-explorer-layout-${layout}`} data-graph-explorer="true" data-graph-layout={layout}>
+    <section data-graph-layout-state={graphLayout.state} className={`graph-explorer graph-explorer-layout-${layout}`} data-graph-explorer="true" data-graph-layout={layout}>
       <div className="graph-explorer-left">
         <header className="graph-explorer-toolbar">
           <div className="graph-explorer-heading">
@@ -446,11 +438,14 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
             {statusLabel ? <em>{statusLabel}</em> : null}
           </div>
           <div className="graph-explorer-zoom" aria-label={t("graphExplorerZoomControls")}>
-            <button aria-label={t("graphZoomOut")} disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(zoom * 0.8)} type="button"><ZoomOut size={16} /></button>
-            <button aria-label={t("graphZoomIn")} disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(zoom * 1.25)} type="button"><ZoomIn size={16} /></button>
-            <button aria-label={t("graphReset")} disabled={!selected && pan.x === 0 && pan.y === 0 && Object.keys(nodePositions).length === 0} onClick={reset} type="button"><RotateCcw size={16} /></button>
+            <button aria-label={t("graphZoomOut")} disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(stepGraphZoom(zoom, -1))} type="button"><ZoomOut size={16} /></button>
+            <output aria-label={format("graphZoomPercent", { percent: Math.round(zoom * 100) })} aria-live="polite">{Math.round(zoom * 100)}%</output>
+            <button aria-label={t("graphZoomIn")} disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(stepGraphZoom(zoom, 1))} type="button"><ZoomIn size={16} /></button>
+            <button aria-label={t("graphReset")} disabled={!selected && pan.x === 0 && pan.y === 0 && zoom === 1 && Object.keys(nodePositions).length === 0 && Object.keys(graphLayout.positions).length === 0} onClick={reset} type="button"><RotateCcw size={16} /></button>
           </div>
         </header>
+
+        {graphLayout.state === "pending" ? <div className="graph-layout-feedback"><FeedbackMessage title={t("graphLayoutPending")} tone="info" /></div> : graphLayout.state === "error" ? <div className="graph-layout-feedback"><FeedbackMessage title={t("graphLayoutFailed")} tone="error" actions={<button className="action-button secondary" onClick={graphLayout.retry} type="button"><RotateCcw size={14} />{t("graphLayoutRetry")}</button>} /></div> : null}
 
         <div
           aria-label={t("graphCanvasAria")}
@@ -465,13 +460,12 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
           onPointerLeave={stopCanvasDrag}
           onPointerMove={moveCanvas}
           onPointerUp={stopCanvasDrag}
-          onWheel={handleWheel}
           ref={canvasRef}
           role="application"
           tabIndex={0}
         >
           {visibleNodes.length ? (
-            <div ref={sceneRef} className="graph-explorer-scene" data-zoom-band={zoomBand} style={{ transform: `translate(${pan.x}px, ${pan.y}px) scale(${visualScale})` }}>
+            <div ref={sceneRef} className="graph-explorer-scene" data-zoom-band={zoomBand} style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT, left: "50%", top: "50%", right: "auto", bottom: "auto", marginLeft: -GRAPH_WIDTH / 2, marginTop: -GRAPH_HEIGHT / 2, transform: `translate(${pan.x}px, ${pan.y}px) scale(${visualScale})` }}>
               <svg aria-label={t("graphEdgesAria")} className="graph-explorer-edges" role="group" style={{ overflow: "visible" }}>
                 <defs>
                   <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">

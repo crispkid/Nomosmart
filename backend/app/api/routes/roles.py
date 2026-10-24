@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query, Request
-from sqlalchemy import and_, delete, or_, select
+from fastapi import APIRouter, Depends, Query, Request, Response
+from sqlalchemy import and_, delete, func, or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -31,21 +31,32 @@ def _managed_permission_filter():
 
 @router.get("", response_model=list[RoleResponse])
 def list_roles(
+    response: Response,
+    q: str | None = Query(default=None, max_length=100),
+    is_active: bool | None = None,
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> list[Role]:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
-    return list(
-        session.scalars(
-            select(Role)
-            .where(Role.deleted_at.is_(None))
-            .order_by(Role.name, Role.id)
-            .offset(offset)
-            .limit(limit)
-        )
-    )
+    statement = select(Role).where(Role.deleted_at.is_(None))
+    if q and q.strip():
+        value = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        statement = statement.where(or_(Role.name.ilike(f"%{value}%", escape="\\"), Role.description.ilike(f"%{value}%", escape="\\")))
+    if is_active is not None:
+        statement = statement.where(Role.is_active.is_(is_active))
+    response.headers["X-Total-Count"] = str(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
+    return list(session.scalars(statement.order_by(Role.name, Role.id).offset(offset).limit(limit)))
+
+
+@router.get("/{role_id}", response_model=RoleResponse)
+def get_role(role_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Role:
+    require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
+    role = session.get(Role, role_id)
+    if role is None or role.deleted_at is not None:
+        raise AppError("role_not_found", "Role was not found", status_code=404)
+    return role
 
 
 @router.post("", response_model=RoleResponse, status_code=201)

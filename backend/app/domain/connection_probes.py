@@ -11,10 +11,11 @@ import httpx
 
 from app.api.schemas import DataSourceConnectionPayload
 from app.core.config import Settings
-from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
+from app.domain.model_credentials import resolve_model_credential
 from app.db.models import AIModel, DataConnection
 from app.domain.connection_evidence import ai_model_connection_fingerprint, data_connection_fingerprint
+from app.integrations.ftps_tls import ftps_trust_fingerprint
 from app.integrations.remote_sources import FTPRemoteSourceClient, FTPSRemoteSourceClient, HTTPRemoteSourceClient, SFTPRemoteSourceClient
 from app.integrations.s3_storage import S3ClientConfig, S3ObjectStorage
 from app.security.secrets import resolve_runtime_secret
@@ -44,7 +45,7 @@ def probe_data_source_candidate(settings: Settings, payload: DataSourceConnectio
     started = time.monotonic()
     credential = _resolve_candidate_credential(settings, payload.credential, payload.credential_secret_ref)
     _probe_data_source_values(settings, payload, credential)
-    fingerprint = _candidate_fingerprint(payload, credential_configured=bool(credential))
+    fingerprint = _candidate_fingerprint(payload, credential_configured=bool(credential), ftps_ca_cert_path=settings.ftps_ca_cert_path)
     return ConnectionProbeResult(fingerprint, _latency_ms(started), "remote_object_ready")
 
 
@@ -64,8 +65,8 @@ def probe_stored_data_connection(settings: Settings, connection: DataConnection)
         HTTPRemoteSourceClient().probe(url=str(identity.get("url") or ""), headers=_http_headers(settings, connection), timeout_seconds=timeout, verify_tls=bool(metadata.get("verify_tls", True)), allowed_hosts=settings.http_source_allowed_hostnames, allowed_networks=settings.http_source_allowed_networks)
     else:
         credential = _decrypted_credential(settings, connection)
-        _probe_file_protocol(connection.service_type, str(metadata.get("host") or ""), int(metadata.get("port") or 0), str(metadata.get("username") or ""), credential, remote_path, file_name, timeout, settings.sftp_known_hosts_path)
-    return ConnectionProbeResult(data_connection_fingerprint(connection), _latency_ms(started), "remote_object_ready")
+        _probe_file_protocol(connection.service_type, str(metadata.get("host") or ""), int(metadata.get("port") or 0), str(metadata.get("username") or ""), credential, remote_path, file_name, timeout, settings.sftp_known_hosts_path, settings.ftps_ca_cert_path)
+    return ConnectionProbeResult(data_connection_fingerprint(connection, ftps_ca_cert_path=settings.ftps_ca_cert_path), _latency_ms(started), "remote_object_ready")
 
 
 def _probe_data_source_values(settings: Settings, payload: DataSourceConnectionPayload, credential: str | None) -> None:
@@ -83,15 +84,15 @@ def _probe_data_source_values(settings: Settings, payload: DataSourceConnectionP
         config = _candidate_s3_config(payload, credential)
         S3ObjectStorage(config).object_status(bucket=payload.bucket or "", key=_object_key(payload.remote_path, payload.file_name))
         return
-    _probe_file_protocol(payload.service_type, payload.host, payload.port, payload.username, credential, payload.remote_path, payload.file_name, payload.timeout_seconds, settings.sftp_known_hosts_path)
+    _probe_file_protocol(payload.service_type, payload.host, payload.port, payload.username, credential, payload.remote_path, payload.file_name, payload.timeout_seconds, settings.sftp_known_hosts_path, settings.ftps_ca_cert_path)
 
 
-def _probe_file_protocol(service_type: str, host: str, port: int, username: str, credential: str, remote_path: str, file_name: str, timeout: int, known_hosts_path: str) -> None:
+def _probe_file_protocol(service_type: str, host: str, port: int, username: str, credential: str, remote_path: str, file_name: str, timeout: int, known_hosts_path: str, ftps_ca_cert_path: str = "") -> None:
     arguments = {"host": host, "port": port, "username": username, "credential": credential, "remote_path": remote_path, "file_name": file_name, "timeout_seconds": timeout}
     if service_type == "FTP":
         FTPRemoteSourceClient().probe(**arguments)
     elif service_type == "FTPS":
-        FTPSRemoteSourceClient().probe(**arguments)
+        FTPSRemoteSourceClient().probe(**arguments, ca_cert_path=ftps_ca_cert_path)
     elif service_type == "SFTP":
         SFTPRemoteSourceClient().probe(**arguments, known_hosts_path=known_hosts_path)
     else:
@@ -179,19 +180,7 @@ def _model_base_url(value: str) -> str:
 
 
 def _resolve_model_credential(settings: Settings, model: AIModel) -> str | None:
-    if model.api_key_secret_ref:
-        return resolve_runtime_secret(settings, model.api_key_secret_ref)
-    if model.api_key_encrypted:
-        if settings.app_env == "production":
-            raise AppError("legacy_model_credential_forbidden", "Legacy model credentials are not permitted in production", status_code=503)
-        cipher = EnvelopeCipher(settings.encryption_key_bytes)
-        for context in (f"ai-model:{model.id}", f"ai-model:{model.name}"):
-            try:
-                return cipher.decrypt(model.api_key_encrypted, context=context)
-            except AppError:
-                continue
-        raise AppError("model_credential_invalid", "Model provider credential could not be decrypted", status_code=503)
-    return None
+    return resolve_model_credential(settings, model)
 
 
 def _resolve_candidate_credential(settings: Settings, credential: str | None, secret_ref: str | None) -> str | None:
@@ -213,11 +202,13 @@ def _candidate_s3_config(payload: DataSourceConnectionPayload, credential: str) 
     return S3ClientConfig(endpoint_url=payload.host, region=payload.region or "", access_key=str(values["access_key"]), secret_key=str(values["secret_key"]), verify_tls=payload.verify_tls, session_token=str(values.get("session_token") or "") or None)
 
 
-def _candidate_fingerprint(payload: DataSourceConnectionPayload, *, credential_configured: bool) -> str:
+def _candidate_fingerprint(payload: DataSourceConnectionPayload, *, credential_configured: bool, ftps_ca_cert_path: str = "") -> str:
     import hashlib
 
     values = payload.model_dump(exclude={"credential"}, mode="json")
     values["credential_configured"] = credential_configured
+    if payload.service_type == "FTPS":
+        values["ftps_verified_trust"] = ftps_trust_fingerprint(ftps_ca_cert_path)
     return hashlib.sha256(json.dumps(values, sort_keys=True, separators=(",", ":")).encode("utf-8")).hexdigest()
 
 

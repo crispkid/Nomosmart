@@ -4,6 +4,7 @@ import json
 import logging
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import unquote
 
 from app.core.readiness_diagnostics import safe_readiness_checks
 
@@ -56,6 +57,19 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=False)
 
 
+class ApprovalAccessLogPrivacy(logging.Filter):
+    """Preserve Uvicorn access facts while excluding approval filter values."""
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        if isinstance(record.args, tuple) and len(record.args) == 5 and isinstance(record.args[2], str):
+            target = record.args[2]
+            path = target.split("?", 1)[0]
+            decoded = unquote(path)
+            if "/approvals/" in decoded or decoded.endswith("/approvals"):
+                record.args = (*record.args[:2], path, *record.args[3:])
+        return True
+
+
 def configure_logging(level: str = "INFO", output_format: str = "json") -> None:
     handler = logging.StreamHandler()
     handler.setFormatter(JsonFormatter() if output_format == "json" else logging.Formatter("%(levelname)s %(name)s %(message)s"))
@@ -63,3 +77,6 @@ def configure_logging(level: str = "INFO", output_format: str = "json") -> None:
     root.handlers.clear()
     root.addHandler(handler)
     root.setLevel(level.upper())
+    access = logging.getLogger("uvicorn.access")
+    if not any(isinstance(item, ApprovalAccessLogPrivacy) for item in access.filters):
+        access.addFilter(ApprovalAccessLogPrivacy())

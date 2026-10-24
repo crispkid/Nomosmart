@@ -1,12 +1,14 @@
 "use client";
 
+import { FeedbackField } from "@/components/FeedbackMessage";
+import { IconActionButton } from "@/components/IconActionButton";
 import { useEffect, useRef, useState } from "react";
 import { Download, Loader2 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { useI18n } from "@/lib/i18nClient";
 import { getKnowledgeArtifactBlob, type OriginalFileViewerMetadata } from "@/lib/api";
 
-export function OriginalFileDownload({ metadata }: { metadata?: OriginalFileViewerMetadata | null }) {
+export function OriginalFileDownload({ metadata, compact = false, onFailureChange }: { metadata?: OriginalFileViewerMetadata | null; compact?: boolean; onFailureChange?: (failed: boolean) => void }) {
   const { apiFetch } = useAuth();
   const { t } = useI18n();
   const [state, setState] = useState<{ path?: string; busy: boolean; failed: boolean }>({ busy: false, failed: false });
@@ -14,6 +16,7 @@ export function OriginalFileDownload({ metadata }: { metadata?: OriginalFileView
   const path = metadata?.download_url ?? undefined;
   const busy = state.path === path && state.busy, failed = state.path === path && state.failed;
   useEffect(() => () => controller.current?.abort(), [path]);
+  useEffect(() => { onFailureChange?.(failed); }, [failed, onFailureChange]);
   if (!path) return null;
   async function download() {
     if (controller.current && !controller.current.signal.aborted) return;
@@ -35,11 +38,11 @@ export function OriginalFileDownload({ metadata }: { metadata?: OriginalFileView
       if (!request.signal.aborted) setState(previous => ({ ...previous, busy: false }));
     }
   }
-  return <div className="original-file-download">
-    <button className="action-button secondary" disabled={busy} onClick={download} type="button">
-      {busy ? <Loader2 className="spin" size={15} /> : <Download size={15} />}
-      {t(busy ? "documentDownloadBusy" : "knowledgeDetailDownloadOriginal")}
-    </button>
-    {failed ? <small className="field-error" role="alert">{t("knowledgeDetailDownloadFailed")}</small> : null}
+  const label = t(busy ? "documentDownloadBusy" : "knowledgeDetailDownloadOriginal");
+  const icon = busy ? <Loader2 className="spin" size={compact ? 18 : 15} aria-hidden="true" /> : <Download size={compact ? 18 : 15} aria-hidden="true" />;
+  return <div className={`original-file-download${compact ? " compact" : ""}`}>
+    {compact ? <IconActionButton className="action-button secondary" label={label} disabled={busy} aria-busy={busy} onClick={download}>{icon}</IconActionButton> :
+      <button className="action-button secondary" disabled={busy} onClick={download} type="button">{icon}{label}</button>}
+    {failed && !(compact && onFailureChange) ? <FeedbackField>{t("knowledgeDetailDownloadFailed")}</FeedbackField> : null}
   </div>;
 }

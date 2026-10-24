@@ -1,11 +1,19 @@
 "use client";
 
+import { ApprovalFilters } from "@/components/ApprovalFilters";
+import { approvalListFilters, emptyApprovalFilters, type ApprovalFilterValues } from "@/lib/approvalFilters";
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { ReadResourceStatus } from "@/components/ReadResourceStatus";
+import { useReadResource } from "@/lib/useReadResource";
+import { useCursorList } from "@/lib/useCursorList";
+import { usePendingPublishList } from "@/lib/usePendingPublishList";
+import { useCallback, useId, useMemo, useRef, useState } from "react";
+import { tabIndexForKey } from "@/lib/workspaceNavigation";
 import { ArrowRight, CheckCircle2, Clock3, FileText, FolderKanban, History, Loader2, UserCheck, UserRound } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { AppShell, Panel, StatCard, StatusBadge } from "@/components/AppShell";
-import { getApprovalSummary, listApprovalHistory, listMyApprovalSubmissions, listPendingApprovals, listPendingPublishApprovals, listRejectedApprovals, publishDocumentVersion, type ApprovalPendingPublishResponse, type ApprovalRequestResponse, type ApprovalSummary, type ApprovalTaskResponse } from "@/lib/api";
+import { getApprovalSummary, listApprovalHistoryPage, listMyApprovalSubmissionsPage, listPendingApprovalsPage, listPendingPublishApprovalsPage, listRejectedApprovalsPage, publishDocumentVersion, type ApprovalPendingPublishResponse } from "@/lib/api";
 import { t as translate, type Locale } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
@@ -44,90 +52,101 @@ function displaySubmitterDetail(item: SubmitterDisplay, t: Translate) {
 }
 
 export default function ApprovalPage() {
-  const { apiFetch, authReady } = useAuth();
-  const { locale, format, localize } = useI18n();
+  const tabGroupId = useId();
+  const tabRefs = useRef<(HTMLButtonElement | null)[]>([]);
+  const { apiFetch, authReady, operationGuards } = useAuth();
+  const { locale, format } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
-  const [summary, setSummary] = useState<ApprovalSummary | null>(null);
-  const [pending, setPending] = useState<ApprovalTaskResponse[]>([]);
-  const [submissions, setSubmissions] = useState<ApprovalRequestResponse[]>([]);
-  const [history, setHistory] = useState<ApprovalTaskResponse[]>([]);
-  const [rejected, setRejected] = useState<ApprovalTaskResponse[]>([]);
-  const [pendingPublish, setPendingPublish] = useState<ApprovalPendingPublishResponse[]>([]);
+  const [filterState, setFilterState] = useState({ scope: operationGuards, values: emptyApprovalFilters });
+  const filters = filterState.scope === operationGuards ? filterState.values : emptyApprovalFilters;
+  const queries = useMemo(() => ({ pending: approvalListFilters(filters, "pending"), mine: approvalListFilters(filters, "mine"), history: approvalListFilters(filters, "history"), rejected: approvalListFilters(filters, "rejected") }), [filters]);
+  const applyFilters = (values: ApprovalFilterValues) => setFilterState({ scope: operationGuards, values });
+  const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
+  const readPending = useCallback((cursor?: string | null) => listPendingApprovalsPage(apiFetch, cursor, queries.pending), [apiFetch, queries.pending]);
+  const readMine = useCallback((cursor?: string | null) => listMyApprovalSubmissionsPage(apiFetch, cursor, queries.mine), [apiFetch, queries.mine]);
+  const readHistory = useCallback((cursor?: string | null) => listApprovalHistoryPage(apiFetch, cursor, queries.history), [apiFetch, queries.history]);
+  const readRejected = useCallback((cursor?: string | null) => listRejectedApprovalsPage(apiFetch, cursor, queries.rejected), [apiFetch, queries.rejected]);
+  const readPublish = useCallback((cursor?: string | null) => listPendingPublishApprovalsPage(apiFetch, cursor), [apiFetch]);
+  const summaryRead = useReadResource(readSummary, operationGuards, authReady);
+  const publishRead = usePendingPublishList(readPublish, operationGuards, authReady);
+  const pendingRead = useCursorList(readPending, operationGuards, authReady);
+  const mineRead = useCursorList(readMine, operationGuards, authReady);
+  const historyRead = useCursorList(readHistory, operationGuards, authReady);
+  const rejectedRead = useCursorList(readRejected, operationGuards, authReady);
+  const summary = summaryRead.data;
+  const pending = pendingRead.items;
+  const submissions = mineRead.items;
+  const history = historyRead.items;
+  const rejected = rejectedRead.items;
+  const pendingPublish = publishRead.items;
   const [activeTab, setActiveTab] = useState<"mine" | "pending" | "history" | "rejected">("pending");
-  const [publishingVersionId, setPublishingVersionId] = useState<string | null>(null);
-  const [publishResult, setPublishResult] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!authReady) return;
-    let cancelled = false;
-    async function load() {
-      setLoading(true);
-      setError(null);
-      try {
-        const [summaryRow, pendingRows, submissionRows, historyRows, rejectedRows, pendingPublishRows] = await Promise.all([
-          getApprovalSummary(apiFetch),
-          listPendingApprovals(apiFetch),
-          listMyApprovalSubmissions(apiFetch),
-          listApprovalHistory(apiFetch),
-          listRejectedApprovals(apiFetch),
-          listPendingPublishApprovals(apiFetch)
-        ]);
-        if (cancelled) return;
-        setSummary(summaryRow);
-        setPending(pendingRows);
-        setSubmissions(submissionRows);
-        setHistory(historyRows);
-        setRejected(rejectedRows);
-        setPendingPublish(pendingPublishRows);
-      } catch (err) {
-        if (!cancelled) setError(operationalErrorMessage(err, t, format, "approvalLoadFailed"));
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    }
-    void load();
-    return () => { cancelled = true; };
-  }, [apiFetch, authReady, format, t]);
+  const [publishing, setPublishing] = useState<{ scope: typeof operationGuards; versionId: string } | null>(null);
+  const inFlightPublish = useRef<typeof publishing>(null);
+  const publishingVersionId = publishing?.scope === operationGuards ? publishing.versionId : null;
+  const [publication, setPublication] = useState<{ scope: typeof operationGuards; generation?: number; error?: unknown } | null>(null);
+  const currentPublication = publication?.scope === operationGuards ? publication : null;
+  const activeRead = activeTab === "mine" ? mineRead : activeTab === "history" ? historyRead : activeTab === "rejected" ? rejectedRead : pendingRead;
+  const loadedLabel = (ready: boolean, count: number) => ready ? format("uiLoadedCount", { count }) : "—";
+  const summaryValue = (value?: number) => summaryRead.status === "ready" ? String(value ?? 0) : summaryRead.status === "loading" ? "…" : "—";
+  const summaryHelper = summaryRead.status === "ready" ? format("approvalPendingHelper", { manager: summary?.pending_manager_review ?? 0, owner: summary?.pending_owner_review ?? 0 }) : t(summaryRead.status === "loading" ? "uiReadLoading" : "uiReadUnavailable");
 
   async function publishApprovedVersion(item: ApprovalPendingPublishResponse) {
-    setPublishingVersionId(item.document_version_id);
-    setError(null);
-    setPublishResult(null);
+    if (!publishRead.isCurrent() || inFlightPublish.current?.scope === operationGuards) return;
+    const operation = { scope: operationGuards, versionId: item.document_version_id };
+    inFlightPublish.current = operation;
+    setPublishing(operation);
+    setPublication(null);
     try {
       const result = await publishDocumentVersion(apiFetch, item.document_version_id, { lock_version: item.lock_version, impact_confirmed: true });
-      setPendingPublish((current) => current.filter((row) => row.document_version_id !== item.document_version_id));
-      setPublishResult(format("approvalPublishedGeneration", { generation: result.publication_generation }));
+      if (!publishRead.isCurrent()) return;
+      setPublication({ scope: operationGuards, generation: result.publication_generation });
+      await publishRead.afterPublish(item.document_version_id);
     } catch (err) {
-      setError(operationalErrorMessage(err, t, format, "approvalPublishFailed"));
+      if (publishRead.isCurrent()) setPublication({ scope: operationGuards, error: err });
     } finally {
-      setPublishingVersionId(null);
+      if (inFlightPublish.current === operation) inFlightPublish.current = null;
+      if (publishRead.isCurrent()) setPublishing(null);
     }
   }
 
   return (
     <AppShell title={t("approval")}>
+      <p className="form-helper">{t("approvalFilterSummaryScope")}</p>
       <div className="page-grid approval-summary-grid">
-        <StatCard label={t("approvalPendingMine")} value={String(summary?.pending_total ?? 0)} helper={format("approvalPendingHelper", { manager: summary?.pending_manager_review ?? 0, owner: summary?.pending_owner_review ?? 0 })} tone={summary?.pending_total ? "coral" : "sage"} />
-        <StatCard label={t("approvalMySubmissions")} value={String(summary?.my_submissions ?? submissions.length)} helper={t("approvalMySubmissionsHelp")} />
-        <StatCard label={t("approvalPublishControl")} value={String(pendingPublish.length)} helper={t("approvalPublishControlHelp")} tone="gold" />
+        <StatCard label={t("approvalPendingMine")} value={summaryValue(summary?.pending_total)} helper={summaryHelper} tone={summary?.pending_total ? "coral" : "sage"} />
+        <StatCard label={t("approvalMySubmissions")} value={summaryValue(summary?.my_submissions)} helper={t("approvalMySubmissionsHelp")} />
+        <StatCard label={t("approvalPublishControl")} value={publishRead.loading ? "…" : publishRead.total !== null ? String(publishRead.total) : "—"} helper={t(publishRead.stale ? "approvalPendingPublishStale" : "approvalPublishControlHelp")} tone="gold" />
       </div>
 
-      {error ? <section className="empty-state" role="alert"><h2>{t("approvalLoadFailed")}</h2><p>{localize(error)}</p></section> : null}
-      {publishResult ? <section className="approval-result approve"><CheckCircle2 size={17} /> {localize(publishResult)}</section> : null}
+      <ReadResourceStatus label={t("approval")} loading={summaryRead.status === "loading"} error={summaryRead.error} onRetry={summaryRead.reload} />
+      {activeTab !== "mine" ? <ReadResourceStatus label={t("approvalPublishControl")} loading={false} error={publishRead.error} onRetry={publishRead.retry} /> : null}
+      {currentPublication?.error ? <FeedbackMessage title={t("approvalPublishFailed")}>{operationalErrorMessage(currentPublication.error, t, format, "approvalPublishFailed")}</FeedbackMessage> : null}
+      {currentPublication?.generation !== undefined ? <section className="approval-result approve"><CheckCircle2 size={17} /> {format("approvalPublishedGeneration", { generation: currentPublication.generation })}</section> : null}
 
-      <nav aria-label={t("approval")} className="tab-strip">
-        <button aria-selected={activeTab === "mine"} className={activeTab === "mine" ? "active" : ""} onClick={() => setActiveTab("mine")} role="tab" type="button">{t("approvalMySubmissions")} <span>{submissions.length}</span></button>
-        <button aria-selected={activeTab === "pending"} className={activeTab === "pending" ? "active" : ""} onClick={() => setActiveTab("pending")} role="tab" type="button">{t("approvalPendingMine")} <span>{pending.length}</span></button>
-        <button aria-selected={activeTab === "history"} className={activeTab === "history" ? "active" : ""} onClick={() => setActiveTab("history")} role="tab" type="button">{t("approvalTabHistory")} <span>{history.length}</span></button>
-        <button aria-selected={activeTab === "rejected"} className={activeTab === "rejected" ? "active" : ""} onClick={() => setActiveTab("rejected")} role="tab" type="button">{t("approvalTabRejected")} <span>{rejected.length}</span></button>
+      <nav aria-label={t("approval")} className="tab-strip" role="tablist">
+        {([
+          { id: "mine", key: "approvalMySubmissions", read: mineRead },
+          { id: "pending", key: "approvalPendingMine", read: pendingRead },
+          { id: "history", key: "approvalTabHistory", read: historyRead },
+          { id: "rejected", key: "approvalTabRejected", read: rejectedRead }
+        ] as const).map((tab, index, tabs) => <button aria-controls={`${tabGroupId}-panel`} aria-selected={activeTab === tab.id} className={activeTab === tab.id ? "active" : ""} id={`${tabGroupId}-${tab.id}`} key={tab.id} onClick={() => setActiveTab(tab.id)} onKeyDown={event => {
+          const next = tabIndexForKey(event.key, index, tabs.length);
+          if (next === null) return;
+          event.preventDefault(); setActiveTab(tabs[next].id); tabRefs.current[next]?.focus();
+        }} ref={node => { tabRefs.current[index] = node; }} role="tab" tabIndex={activeTab === tab.id ? 0 : -1} type="button">{t(tab.key)} <span>{loadedLabel(tab.read.ready, tab.read.items.length)}</span></button>)}
       </nav>
 
-      <div className="approval-workspace-stack">
+      <ApprovalFilters applied={filters} onApply={applyFilters} tab={activeTab} />
+
+      <div aria-labelledby={`${tabGroupId}-${activeTab}`} className="approval-workspace-stack" id={`${tabGroupId}-panel`} role="tabpanel" tabIndex={0}>
+      <div className="read-resource-toolbar" aria-live="polite">
+        <span>{loadedLabel(activeRead.ready, activeRead.items.length)}</span>
+        <button className="action-button secondary" disabled={activeRead.loading} onClick={() => { void activeRead.reload(); }} type="button">{t("uiReadRetry")}</button>
+      </div>
+      <ReadResourceStatus loading={activeRead.loading} error={activeRead.error} onRetry={activeRead.ready ? activeRead.loadMore : activeRead.reload} />
       {activeTab === "pending" ? (
       <Panel title={t("approvalPendingList")}>
-        <div className="table-list approval-task-list">
+        <div aria-label={t("approvalFilterResults")} className="table-list approval-task-list" role="region" tabIndex={0}>
           {pending.map((approval) => (
             <Link className="table-row approval-task-row" href={`/approve/${approval.id}`} key={approval.id}>
               <div className="row-title approval-task-title">
@@ -145,14 +164,14 @@ export default function ApprovalPage() {
               <ArrowRight size={17} />
             </Link>
           ))}
-          {!loading && pending.length === 0 ? <div className="empty-state compact"><CheckCircle2 size={24} /><p>{t("approvalNoPendingTasks")}</p></div> : null}
+          {pendingRead.ready && !pendingRead.loading && pending.length === 0 ? <div className="empty-state compact"><CheckCircle2 size={24} /><p>{t("approvalNoPendingTasks")}</p></div> : null}
         </div>
       </Panel>
       ) : null}
 
       {activeTab === "mine" ? (
       <Panel title={t("approvalMySubmissionsPanel")}>
-        <div className="table-list approval-submission-list">
+        <div aria-label={t("approvalFilterResults")} className="table-list approval-submission-list" role="region" tabIndex={0}>
           {submissions.map((submission) => (
             <div className="table-row approval-submission-row" key={submission.id}>
               <div className="row-title">
@@ -168,14 +187,21 @@ export default function ApprovalPage() {
               <StatusBadge status={submission.status} />
             </div>
           ))}
-          {!loading && submissions.length === 0 ? <div className="empty-state compact"><p>{t("approvalNoSubmissions")}</p></div> : null}
+          {mineRead.ready && !mineRead.loading && submissions.length === 0 ? <div className="empty-state compact"><p>{t("approvalNoSubmissions")}</p></div> : null}
         </div>
       </Panel>
       ) : null}
 
       {activeTab === "mine" ? (
       <Panel title={t("approvalPendingPublishPanel")}>
-        <div className="table-list approval-submission-list">
+        <p className="form-helper">{t("approvalFilterPublishScope")}</p>
+        <div className="read-resource-toolbar approval-publish-toolbar" aria-live="polite">
+          <span>{publishRead.ready ? format(publishRead.total !== null ? "approvalPendingPublishCount" : "approvalPendingPublishUnknownTotal", { count: pendingPublish.length, total: publishRead.total ?? "—" }) : "—"}</span>
+          <button aria-label={format("uiReadRetrySection", { section: t("approvalPendingPublishPanel") })} className="action-button secondary" disabled={publishRead.loading} onClick={() => { void publishRead.reload(); }} type="button">{t("uiReadRetry")}</button>
+        </div>
+        {publishRead.stale ? <p className="form-helper" role="status">{t("approvalPendingPublishStale")}</p> : null}
+        <ReadResourceStatus label={t("approvalPendingPublishPanel")} loading={publishRead.loading} error={publishRead.error} onRetry={publishRead.retry} />
+        <div aria-label={t("approvalPendingPublishPanel")} className="table-list approval-submission-list" role="region" tabIndex={0}>
           {pendingPublish.map((item) => {
             const publishingThisVersion = publishingVersionId === item.document_version_id;
             return (
@@ -193,7 +219,7 @@ export default function ApprovalPage() {
                 <StatusBadge status={item.version_status} />
                 <span aria-live="polite" className="approval-decision-actions" role={publishingThisVersion ? "status" : undefined}>
                   {item.approval_task_id ? <Link className="text-link" href={`/approve/${item.approval_task_id}`}>{t("approvalOpenApprovalDetail")} <ArrowRight size={16} /></Link> : null}
-                  <button className="action-button secondary" disabled={publishingThisVersion} onClick={() => { void publishApprovedVersion(item); }} type="button">
+                  <button className="action-button secondary" disabled={publishingVersionId !== null} onClick={() => { void publishApprovedVersion(item); }} type="button">
                     {publishingThisVersion ? <Loader2 className="spin" size={16} /> : <CheckCircle2 size={16} />}
                     {publishingThisVersion ? t("approvalPublishing") : t("publish")}
                   </button>
@@ -201,14 +227,15 @@ export default function ApprovalPage() {
               </div>
             );
           })}
-          {!loading && pendingPublish.length === 0 ? <div className="empty-state compact"><CheckCircle2 size={24} /><p>{t("approvalNoPendingPublish")}</p></div> : null}
+          {publishRead.ready && !publishRead.loading && !publishRead.error && !publishRead.stale && pendingPublish.length === 0 ? <div className="empty-state compact"><CheckCircle2 size={24} /><p>{t("approvalNoPendingPublish")}</p></div> : null}
         </div>
+        {publishRead.ready && publishRead.hasMore && !publishRead.error ? <div className="read-resource-toolbar approval-publish-toolbar"><button aria-label={t("approvalPendingPublishLoadMore")} className="action-button secondary" disabled={publishRead.loading} onClick={() => { void publishRead.loadMore(); }} type="button">{publishRead.loading ? <Loader2 className="spin" size={16} /> : null}{t("uiLoadMore")}</button></div> : null}
       </Panel>
       ) : null}
 
       {activeTab === "history" || activeTab === "rejected" ? (
         <Panel title={activeTab === "history" ? t("approvalTabHistory") : t("approvalTabRejected")}>
-          <div className="table-list approval-task-list">
+          <div aria-label={t("approvalFilterResults")} className="table-list approval-task-list" role="region" tabIndex={0}>
             {(activeTab === "history" ? history : rejected).map((approval) => (
               <Link className="table-row approval-task-row" href={`/approve/${approval.id}`} key={approval.id}>
                 <div className="row-title approval-task-title">
@@ -221,15 +248,17 @@ export default function ApprovalPage() {
                 </div>
                 <span className="approval-row-meta"><UserRound size={14} /><span><small>{t("approvalSubmitter")}</small><strong>{displaySubmitterName(approval, locale)}</strong><em>{displaySubmitterDetail(approval, t)}</em></span></span>
                 <span>{stageLabel(approval.review_stage, t)}</span>
-                <span>{new Date(approval.completed_at ?? approval.submitted_at).toLocaleString(locale === "en" ? "en-US" : "zh-TW")}</span>
+                <span className="approval-row-dates"><span>{t("approvalFilterSubmittedTime")} {new Date(approval.submitted_at).toLocaleString(locale === "en" ? "en-US" : "zh-TW")}</span>{approval.completed_at ? <small>{t("approvalFilterCompletedTime")} {new Date(approval.completed_at).toLocaleString(locale === "en" ? "en-US" : "zh-TW")}</small> : null}</span>
                 <StatusBadge status={approval.status} />
                 <ArrowRight size={17} />
               </Link>
             ))}
-            {!loading && (activeTab === "history" ? history : rejected).length === 0 ? <div className="empty-state compact"><p>{activeTab === "history" ? t("approvalNoHistory") : t("approvalNoRejected")}</p></div> : null}
+            {activeRead.ready && !activeRead.loading && (activeTab === "history" ? history : rejected).length === 0 ? <div className="empty-state compact"><p>{activeTab === "history" ? t("approvalNoHistory") : t("approvalNoRejected")}</p></div> : null}
           </div>
         </Panel>
       ) : null}
+
+      {activeRead.ready && activeRead.hasMore ? <div className="read-resource-toolbar"><button className="action-button secondary" disabled={activeRead.loading} onClick={() => { void activeRead.loadMore(); }} type="button">{activeRead.loading ? <Loader2 className="spin" size={16} /> : null}{t("uiLoadMore")}</button></div> : null}
 
       <Panel title={t("approvalTodayRules")}>
         <div className="policy-strip">

@@ -24,9 +24,8 @@ STEP_NAMES = ("generate_markdown", "parse_structure", "auto_tag", "embedding", "
 
 
 def effective_pipeline(session, version_id):
-    return session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version_id,
-        ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
-        .order_by(desc(PipelineRun.created_at)).limit(1))
+    from app.domain.content_pipeline_evidence import current_pipeline
+    return current_pipeline(session, version_id)
 
 
 def recoverable_failed_update(session, project, version):
@@ -79,6 +78,8 @@ def scoped_content(session, project_id, document_id, version_id, context, *, wri
     if write:
         document = session.scalar(select(Document).where(Document.id == document.id).with_for_update().execution_options(populate_existing=True))
         version = session.scalar(select(DocumentVersion).where(DocumentVersion.id == version.id).with_for_update().execution_options(populate_existing=True))
+        from app.domain.embedding_attempts import require_no_pending_embedding_attempt
+        require_no_pending_embedding_attempt(version)
     return project, document, version
 
 
@@ -91,6 +92,10 @@ def current_content(session: Session, version: DocumentVersion):
 
 
 def content_edit_mode(session, project, version, can_edit):
+    from app.domain.embedding_attempts import attempt_block_reason
+    stop_code = attempt_block_reason(version)
+    if stop_code:
+        return "readonly", stop_code
     if not can_edit or project.status != "active":
         return "readonly", "project_editor_required"
     if version.status in {"pending_manager_review", "pending_owner_review", "approved", "publishing", "production_indexing", "graph_syncing"}:
@@ -670,7 +675,7 @@ def execute_content_update(session: Session, update_id: UUID, settings: Settings
     from app.domain.embeddings import (embed_content_chunks,embedding_reuse_key,load_canonical_embeddings,resolve_embedding_retrieval_text)
     from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter,staging_index_name,_attach_document_tag
     from app.domain.graph_projection import build_graph_projection,preview_artifact
-    from app.db.models import EmbeddingBuild,ValidationRun
+    from app.db.models import ValidationRun
     job = session.get(DocumentContentUpdate, update_id)
     if job is not None:
         # Same parent-to-child lock order as save/cancel/retry.

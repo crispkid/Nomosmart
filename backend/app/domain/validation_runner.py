@@ -50,7 +50,29 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
     )
     if stopped_item is not None:
         return run
-    _validate_execution_manifest(session, run, project)
+    try:
+        _validate_execution_manifest(session, run, project)
+    except AppError as exc:
+        # This refusal happens before item execution or any Provider call.
+        # Persist its outcome so the UI does not poll a queued run forever.
+        unfinished = session.scalars(
+            select(ValidationRunItem).where(
+                ValidationRunItem.run_id == run.id,
+                ValidationRunItem.is_current.is_(True),
+                ValidationRunItem.status.in_(("pending", "running")),
+            )
+        )
+        for item in unfinished:
+            item.status = "error"
+            item.error_code = exc.code
+            item.error_message = exc.message
+        run.started_at = run.started_at or datetime.now(UTC)
+        session.flush()
+        _refresh_run_counts(session, run)
+        if run.status == "completed":
+            run.status = "failed"
+        session.commit()
+        raise
     pending_items = list(
         session.scalars(
             select(ValidationRunItem)

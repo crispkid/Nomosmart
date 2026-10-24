@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { AUTH_COOKIES, AUTH_FLOW_COOKIE_PREFIX, AUTH_FLOW_LIMIT, AUTH_FLOW_TTL_SECONDS, authCookieOptions, authorizationFlowId, boundedReturnPath, clearLegacyAuthorizationState, createLoginRecoveryResponse, encodeAuthorizationPacket, expireAuthCookie, inspectAuthorizationStates, parseLoginNotice, type AuthFlow, type AuthorizationPacket } from "@/lib/authState";
 import { authorizationUrl, oidcConfig, pkceChallenge, randomUrlToken } from "@/lib/oidc";
+import { isSupportedLocale, localePreferenceKey } from "@/lib/i18n";
 
 export async function GET(request: NextRequest) {
   const inventory = await inspectAuthorizationStates(request.cookies);
@@ -21,7 +22,9 @@ export async function GET(request: NextRequest) {
   } catch {
     return cleanObsolete(createLoginRecoveryResponse(request, "auth_service_unavailable", returnTo));
   }
-  const response = NextResponse.redirect(authorizationUrl(config, { state, nonce, challenge: await pkceChallenge(verifier), prompt }));
+  const preference = request.cookies.get(localePreferenceKey)?.value ?? null;
+  const locale = isSupportedLocale(preference) ? preference : "zh";
+  const response = NextResponse.redirect(authorizationUrl(config, { state, nonce, challenge: await pkceChallenge(verifier), prompt, locale }));
   const createdAt = Date.now();
   const packet: AuthorizationPacket = { version: 2, state, verifier, nonce, flow, returnTo, createdAt, expiresAt: createdAt + AUTH_FLOW_TTL_SECONDS * 1000 };
   let encoded: string;

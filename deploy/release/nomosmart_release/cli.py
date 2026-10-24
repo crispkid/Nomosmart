@@ -91,6 +91,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
         (
             "release-manifest.schema.json",
             "release-manifest-v3.schema.json",
+            "release-manifest-v4.schema.json",
             "external-dependencies.lock.json",
             "nomosmart-release",
             "nomosmart_release",
@@ -1064,7 +1065,7 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("--package", required=True, type=Path)
     verify.add_argument("--trusted-fingerprint", default="", help="Required for production packages")
     verify.add_argument("--gpg-binary", default="gpg")
-    verify.add_argument("--purpose", choices=("production", "installation-validation"), default="production")
+    verify.add_argument("--purpose", choices=("production", "installation-validation", "local-verified-release"), default="production")
 
     validation = commands.add_parser("assemble-validation", help="Assemble from completed source-bound reports")
     validation.add_argument("--repo", required=True, type=Path)
@@ -1073,6 +1074,18 @@ def _parser() -> argparse.ArgumentParser:
     validation.add_argument("--image-inventory", required=True, type=Path)
     validation.add_argument("--evidence-dir", required=True, type=Path)
     validation.add_argument("--output-dir", required=True, type=Path)
+
+    local = commands.add_parser("assemble-local", help="Assemble signed local formal release from completed gates")
+    local.add_argument("--repo", required=True, type=Path)
+    local.add_argument("--commit", required=True)
+    local.add_argument("--release-id", required=True)
+    local.add_argument("--image-inventory", required=True, type=Path)
+    local.add_argument("--evidence-dir", required=True, type=Path)
+    local.add_argument("--output-dir", required=True, type=Path)
+    local.add_argument("--signing-fingerprint", required=True)
+    local.add_argument("--public-key", required=True, type=Path)
+    local.add_argument("--gpg-binary", default="gpg")
+    local.add_argument("--gpg-home", type=Path)
 
     create = commands.add_parser("create")
     create.add_argument("--repo", required=True, type=Path)
@@ -1097,6 +1110,15 @@ def _emit(payload: object, *, stream: Any = sys.stdout) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "assemble-local":
+            from .local import assemble_local_release
+            _emit(assemble_local_release(
+                repo=args.repo, commit=args.commit, release_id=args.release_id,
+                image_inventory=args.image_inventory, evidence_dir=args.evidence_dir,
+                output_dir=args.output_dir, signing_fingerprint=args.signing_fingerprint,
+                public_key=args.public_key, gpg_binary=args.gpg_binary, gpg_home=args.gpg_home,
+            ))
+            return 0
         if args.command == "assemble-validation":
             from .validation import assemble_validation_release
             _emit(assemble_validation_release(

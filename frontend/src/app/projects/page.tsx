@@ -1,6 +1,8 @@
 "use client";
 
+import { FeedbackField, FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
+import { useModalFocus } from "@/components/useModalFocus";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
 import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
@@ -51,6 +53,8 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<ApiError | Error | null>(null);
   const [createError, setCreateError] = useState<ApiError | Error | null>(null);
+  const [nameInvalid, setNameInvalid] = useState(false);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const [creating, setCreating] = useState(false);
   const [archiveTarget, setArchiveTarget] = useState<ProjectResponse | null>(null);
   const [archiveImpact, setArchiveImpact] = useState<ProjectArchiveImpactResponse | null>(null);
@@ -80,6 +84,8 @@ export default function ProjectsPage() {
   const [llmModelId, setLlmModelId] = useState("");
   const [embeddingModelId, setEmbeddingModelId] = useState("");
   const [ocrModelId, setOcrModelId] = useState("");
+  const createDialogRef = useModalFocus(isCreateOpen, () => setIsCreateOpen(false));
+  const archiveDialogRef = useModalFocus(Boolean(archiveTarget), closeArchive);
   const filterControlRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -197,13 +203,21 @@ export default function ProjectsPage() {
   ].filter((value): value is string => Boolean(value));
   const missingModelList = new Intl.ListFormat(locale === "zh" ? "zh-Hant" : "en", { style: "long", type: "conjunction" }).format(missingModelTypes);
   const modelReadinessBlocked = modelLoadState !== "ready" || missingModelTypes.length > 0 || !hasCompatibleModelPair;
+  const selectionBlocked = !selectedLlmModel || !hasActivePairedEmbeddingModel || !ocrModelId || !effectiveEmbeddingModelId;
+  const createDisabled = !canCreate || creating || modelReadinessBlocked || selectionBlocked;
+  const readinessIsReason = canCreate && !creating && modelReadinessBlocked;
+  const createDisabledDescription = !canCreate ? t("apiForbidden") : creating ? t("projectsCreating") : t("projectsCreateSelectModels");
+  const createReasonId = createDisabled ? readinessIsReason ? "project-model-readiness" : "project-create-disabled-reason" : undefined;
 
   async function submitProject() {
+    if (creating) return;
     setCreateError(null);
     if (!name.trim()) {
-      setCreateError(Object.assign(new Error("project_name_required"), { status: 422, code: "project_name_required" }) as ApiError);
+      setNameInvalid(true);
+      nameInputRef.current?.focus();
       return;
     }
+    setNameInvalid(false);
     if (modelReadinessBlocked || !llmModelId || !effectiveEmbeddingModelId || !ocrModelId) {
       setCreateError(Object.assign(new Error("project_model_configuration_required"), { status: 422, code: "project_model_configuration_required" }) as ApiError);
       return;
@@ -351,9 +365,10 @@ export default function ProjectsPage() {
       {!canView ? <ForbiddenState /> : <>
         <div className="tab-row">
           {tabs.map((tab) => <button className={activeTab === tab.id ? "tab active" : "tab"} key={tab.id} onClick={() => changeTab(tab.id)} type="button">{t(tab.labelKey)}</button>)}
-          {activeTab === "active" ? <button className="action-button project-create-trigger" disabled={!canCreate} onClick={() => setIsCreateOpen(true)} title={!canCreate ? t("apiForbidden") : undefined} type="button">
+          {activeTab === "active" ? <button className="action-button project-create-trigger" aria-describedby={!canCreate ? "project-create-unavailable" : undefined} disabled={!canCreate} onClick={() => { setCreateError(null); setNameInvalid(false); setIsCreateOpen(true); }} type="button">
             <Plus size={16} /> {t("projectsCreateProject")}
           </button> : null}
+          {activeTab === "active" && !canCreate ? <small className="project-create-reason" id="project-create-unavailable">{t("apiForbidden")}</small> : null}
         </div>
 
         <Panel title={t("projectsListTitle")} action={<span aria-live="polite" className="project-result-summary">{format("projectsResultSummary", { first: resultFirst, last: resultLast, total: totalProjects })}</span>}>
@@ -377,7 +392,7 @@ export default function ProjectsPage() {
           </section>
 
           {loading ? <div className="project-list-loading" role="status"><LoaderCircle className="spin" size={20} />{t("loadingData")}</div> : null}
-          {error ? <div className="error-summary" role="alert"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={() => setRefreshVersion((version) => version + 1)} type="button">{t("retry")}</button></div> : null}
+          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={() => setRefreshVersion((version) => version + 1)} type="button">{t("retry")}</button></FeedbackMessage> : null}
           {!loading && !error && projects.length === 0 ? <div className="empty-state">{hasDiscoveryCriteria ? t("projectsNoMatchingProjects") : t("projectsNoVisibleProjects")}{hasDiscoveryCriteria ? <button className="text-link" onClick={() => { setSearchInput(""); setQuery(""); clearFilters(); }} type="button">{t("projectsClearDiscovery")}</button> : null}</div> : null}
           <div className="project-grid">
             {projects.map((project) => (
@@ -405,9 +420,10 @@ export default function ProjectsPage() {
 
         {isCreateOpen ? (
           <div className="modal-backdrop" role="presentation">
-            <section aria-modal="true" className="modal-panel create-project-modal" role="dialog">
-              <div className="modal-header"><div><p className="eyebrow">{t("knowledgeProjectLabel")}</p><h2>{t("projectsAddProject")}</h2></div><button aria-label={t("projectsCloseCreateProjectModal")} className="icon-button" onClick={() => setIsCreateOpen(false)} type="button"><X size={18} /></button></div>
-              {createError ? <div className="error-summary" role="alert"><strong>{errorMessage(createError)}</strong></div> : null}
+            <section ref={createDialogRef} tabIndex={-1} aria-labelledby="create-project-title" aria-modal="true" className="modal-panel create-project-modal" role="dialog">
+              <div className="modal-header"><div><p className="eyebrow">{t("knowledgeProjectLabel")}</p><h2 id="create-project-title">{t("projectsAddProject")}</h2></div><button aria-label={t("projectsCloseCreateProjectModal")} className="icon-button" onClick={() => setIsCreateOpen(false)} type="button"><X size={18} /></button></div>
+              {nameInvalid ? <FeedbackMessage title={format("feedbackFieldSummary", { count: 1 })} actions={<button className="action-button secondary" onClick={() => nameInputRef.current?.focus()} type="button">{t("feedbackGoToField")}</button>} /> : null}
+              {createError ? <FeedbackMessage tone="error"><strong>{errorMessage(createError)}</strong></FeedbackMessage> : null}
               {modelReadinessBlocked ? <div className="project-model-readiness" id="project-model-readiness" role="alert">
                 {modelLoadState === "loading" ? <LoaderCircle aria-hidden="true" className="spin" size={20} /> : <AlertTriangle aria-hidden="true" size={20} />}
                 <div>
@@ -424,25 +440,26 @@ export default function ProjectsPage() {
               </div> : null}
               <div className="create-project-scroll">
 	                <div className="create-project-grid">
-	                  <section className="create-section"><div className="create-section-title"><FileText size={18} /><h3>{t("projectsBasicInfo")}</h3></div><div className="form-grid"><label>{t("projectsName")}<input onChange={(event) => setName(event.target.value)} placeholder={t("projectsNamePlaceholder")} value={name} /></label><label className="wide">{t("systemDescription")}<textarea onChange={(event) => setDescription(event.target.value)} placeholder={t("projectsDescriptionPlaceholder")} value={description} /></label></div></section>
+	                  <section className="create-section"><div className="create-section-title"><FileText size={18} /><h3>{t("projectsBasicInfo")}</h3></div><div className="form-grid"><label><span id="project-name-label">{t("projectsName")} <span aria-hidden="true" className="project-create-required">*</span></span><input aria-labelledby="project-name-label" aria-describedby={nameInvalid ? "project-name-error" : undefined} aria-invalid={nameInvalid || undefined} name="project-name" onChange={event => { setName(event.target.value); if (event.target.value.trim()) setNameInvalid(false); }} placeholder={t("projectsNamePlaceholder")} ref={nameInputRef} required value={name} />{nameInvalid ? <FeedbackField id="project-name-error">{t("projectsNameRequired")}</FeedbackField> : null}</label><label className="wide">{t("systemDescription")}<textarea onChange={(event) => setDescription(event.target.value)} placeholder={t("projectsDescriptionPlaceholder")} value={description} /></label></div></section>
 	                  <section className="create-section"><div className="create-section-title"><FileText size={18} /><h3>{t("projectsOcrModel")}</h3></div><div className="model-option-grid">{activeOcrModels.map((model) => <label className={model.id === ocrModelId ? "model-option selected" : "model-option"} key={model.id}><input checked={model.id === ocrModelId} name="ocr-model" onChange={() => setOcrModelId(model.id)} type="radio" /><strong>{model.name}</strong><small>{model.provider} · OCR · {modelStateLabel(model.is_active)}</small></label>)}{!activeOcrModels.length ? <p className="field-note">{t("projectsNoOcrModel")}</p> : null}</div></section>
 	                  <section className="create-section"><div className="create-section-title"><BrainCircuit size={18} /><h3>{t("projectsLlmModel")}</h3></div><div className="model-option-grid">{activeChatModels.map((model) => <label className={model.id === llmModelId ? "model-option selected" : "model-option"} key={model.id}><input checked={model.id === llmModelId} name="llm-model" onChange={() => setLlmModelId(model.id)} type="radio" /><strong>{model.name}</strong><small>{model.provider} · {model.model_type} · {modelStateLabel(model.is_active)}</small></label>)}{!activeChatModels.length ? <p className="field-note">{t("projectsNoChatModel")}</p> : null}</div></section>
 	                  <section className="create-section"><div className="create-section-title"><Workflow size={18} /><h3>{t("projectsEmbeddingModel")}</h3></div><p className="field-note">{selectedLlmModel ? t("projectsEmbeddingPairHelp") : t("projectsEmbeddingModelSelectLlmHelp")}</p><div className="model-option-grid">{pairedEmbeddingModels.map((model) => <label className={model.id === effectiveEmbeddingModelId ? "model-option selected" : "model-option"} key={model.id}><input checked={model.id === effectiveEmbeddingModelId} name="embedding-model" onChange={() => setEmbeddingModelId(model.id)} type="radio" /><strong>{model.name}</strong><small>{model.provider} · Embedding · {modelStateLabel(model.is_active)}</small></label>)}{!activeEmbeddingModels.length ? <p className="field-note">{t("projectsNoEmbeddingModel")}</p> : null}{activeEmbeddingModels.length && !pairedEmbeddingModels.length ? <p className="field-note">{t("projectsNoPairedEmbeddingModel")}</p> : null}</div></section>
 	                </div>
               </div>
-              <div className="modal-actions"><button className="action-button secondary" onClick={() => setIsCreateOpen(false)} type="button">{t("cancel")}</button><button aria-describedby={modelReadinessBlocked ? "project-model-readiness" : undefined} className="action-button" disabled={creating || modelReadinessBlocked || !selectedLlmModel || !hasActivePairedEmbeddingModel || !ocrModelId || !effectiveEmbeddingModelId} onClick={submitProject} title={modelReadinessBlocked ? t("projectsCreateDisabledModels") : undefined} type="button"><Plus size={16} /> {creating ? t("projectsCreating") : t("projectsCreateProject")}</button></div>
+              {createDisabled && !readinessIsReason ? <p className="project-create-reason" id="project-create-disabled-reason" role={creating ? "status" : undefined}>{createDisabledDescription}</p> : null}
+              <div className="modal-actions"><button className="action-button secondary" onClick={() => setIsCreateOpen(false)} type="button">{t("cancel")}</button><button aria-describedby={createReasonId} className="action-button" disabled={createDisabled} onClick={submitProject} type="button"><Plus size={16} /> {creating ? t("projectsCreating") : t("projectsCreateProject")}</button></div>
             </section>
           </div>
         ) : null}
 
         {archiveTarget ? (
           <div className="modal-backdrop" role="presentation">
-            <section aria-modal="true" className="modal-panel project-archive-modal" role="dialog">
-              <div className="modal-header"><div className="modal-title-with-icon"><span className="danger-icon"><AlertTriangle size={20} /></span><div><h2>{t("projectsArchiveTitle")}</h2><p>{archiveTarget.name}</p></div></div><button aria-label={t("close")} className="icon-button" disabled={archiving} onClick={closeArchive} type="button"><X size={18} /></button></div>
-              {archiveError ? <div className="error-summary" role="alert"><strong>{errorMessage(archiveError)}</strong></div> : null}
+            <section ref={archiveDialogRef} tabIndex={-1} aria-labelledby="archive-project-title" aria-modal="true" className="modal-panel project-archive-modal" role="dialog">
+              <div className="modal-header"><div className="modal-title-with-icon"><span className="danger-icon"><AlertTriangle size={20} /></span><div><h2 id="archive-project-title">{t("projectsArchiveTitle")}</h2><p>{archiveTarget.name}</p></div></div><button aria-label={t("close")} className="icon-button" disabled={archiving} onClick={closeArchive} type="button"><X size={18} /></button></div>
+              {archiveError ? <FeedbackMessage tone="error"><strong>{errorMessage(archiveError)}</strong></FeedbackMessage> : null}
               {loadingArchiveImpact ? <div className="archive-impact-loading"><LoaderCircle className="spin" size={20} /> {t("loadingData")}</div> : null}
               {archiveImpact ? <>
-                <div className="project-archive-warning"><AlertTriangle size={18} /><div><strong>{t("projectsArchivePermanentWarning")}</strong><p>{t("projectsArchivePermanentHelp")}</p></div></div>
+                <FeedbackMessage tone="warning"><div><strong>{t("projectsArchivePermanentWarning")}</strong><p>{t("projectsArchivePermanentHelp")}</p></div></FeedbackMessage>
                 <dl className="archive-impact-grid">
                   <div><dt>{t("projectsArchiveRetainedDocuments")}</dt><dd>{archiveImpact.completed_document_count}</dd></div>
                   <div><dt>{t("projectsArchiveRetainedVersions")}</dt><dd>{archiveImpact.completed_version_count}</dd></div>

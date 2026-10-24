@@ -109,15 +109,13 @@ def _allowed_kubernetes_refs(settings: Settings) -> frozenset[str]:
     )
 
 
-def _read_mounted_secret(settings: Settings, reference: RuntimeSecretReference) -> str:
+def _mounted_secret_file(settings: Settings, reference: RuntimeSecretReference) -> Path:
     if reference.provider == "kubernetes":
         canonical = f"{reference.name}#{reference.key}"
         allowlist = _allowed_kubernetes_refs(settings)
-        wildcard = f"{reference.name}#*"
         if (
             settings.app_env == "production"
             and canonical not in allowlist
-            and wildcard not in allowlist
         ):
             raise AppError(
                 "runtime_secret_reference_denied",
@@ -127,6 +125,9 @@ def _read_mounted_secret(settings: Settings, reference: RuntimeSecretReference) 
         root = Path(settings.kubernetes_secret_mount_root)
         target = root / reference.name / str(reference.key)
     else:
+        canonical = f"compose-secret://{reference.name}"
+        if settings.app_env == "production" and canonical not in _allowed_kubernetes_refs(settings):
+            raise AppError("runtime_secret_reference_denied", "Runtime secret reference is not mounted for this workload", status_code=403)
         root = Path(settings.compose_secret_mount_root)
         target = root / reference.name
 
@@ -135,17 +136,36 @@ def _read_mounted_secret(settings: Settings, reference: RuntimeSecretReference) 
         target_resolved = target.resolve(strict=True)
         target_resolved.relative_to(root_resolved)
         details = target_resolved.stat()
-        if not stat.S_ISREG(details.st_mode):
+        if not root.is_absolute() or not stat.S_ISREG(details.st_mode) or details.st_size == 0 or not os.access(target_resolved, os.R_OK):
             raise OSError
         if settings.app_env == "production" and stat.S_IMODE(details.st_mode) & 0o077:
             raise OSError
-        value = target_resolved.read_text(encoding="utf-8").rstrip("\r\n")
     except (OSError, ValueError) as exc:
         raise AppError(
             "runtime_secret_unavailable",
             "Mounted runtime secret is unavailable",
             status_code=503,
         ) from exc
+    return target_resolved
+
+
+def validate_runtime_secret_mount(settings: Settings, reference: str) -> None:
+    """Check allowed mount metadata without opening or copying its secret value."""
+    validate_runtime_secret_reference(settings, reference)
+    if settings.app_env != "production" and reference.startswith("env:"):
+        name = reference.removeprefix("env:")
+        if not os.environ.get(name):
+            raise AppError("runtime_secret_unavailable", "Runtime secret is unavailable", status_code=503)
+        return
+    _mounted_secret_file(settings, parse_runtime_secret_reference(reference))
+
+
+def _read_mounted_secret(settings: Settings, reference: RuntimeSecretReference) -> str:
+    target = _mounted_secret_file(settings, reference)
+    try:
+        value = target.read_text(encoding="utf-8").rstrip("\r\n")
+    except (OSError, ValueError) as exc:
+        raise AppError("runtime_secret_unavailable", "Mounted runtime secret is unavailable", status_code=503) from exc
     if not value:
         raise AppError(
             "runtime_secret_unavailable",

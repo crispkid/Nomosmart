@@ -1,5 +1,6 @@
 export const DEFAULT_MAX_UPLOAD_BYTES = 100 * 1024 * 1024;
-export const ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "docx", "txt", "md", "markdown", "csv", "json"] as const;
+export const ALLOWED_DOCUMENT_EXTENSIONS = ["pdf", "txt", "md", "markdown"] as const;
+export const HTTP_RESPONSE_EXTENSIONS = [...ALLOWED_DOCUMENT_EXTENSIONS, "csv", "json"] as const;
 export const UPLOAD_REASON_UNSUPPORTED = "不支援的格式";
 export const UPLOAD_REASON_TOO_LARGE = "超過 100 MB 上限";
 export const UPLOAD_REASON_EMPTY = "檔案內容為空";

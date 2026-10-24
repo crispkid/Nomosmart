@@ -4,7 +4,13 @@ from copy import deepcopy
 from math import ceil
 import re
 import unicodedata
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+from app.api.schemas import DocumentLayoutArtifact, DocumentLayoutBlock, DocumentLayoutPage
+from app.domain.markdown_structure import MarkdownStructureParser
+
+if TYPE_CHECKING:
+    from app.db.models import DocumentVersion
 
 from app.domain.markdown_structure import DocumentNode, DocumentStructure
 
@@ -584,3 +590,39 @@ def _page(page_number: int, blocks: list[dict[str, Any]]) -> dict[str, Any]:
         "height": DEFAULT_PAGE_HEIGHT,
         "blocks": blocks,
     }
+
+
+def project_document_layout(version: DocumentVersion, markdown_text: str | None = None) -> DocumentLayoutArtifact:
+    strategy = version.chunk_strategy or {}
+    raw = strategy.get("document_layout")
+    if isinstance(raw, dict):
+        hydrated = raw
+        if markdown_text:
+            try:
+                hydrated = hydrate_document_layout_inline_markdown(raw, MarkdownStructureParser().parse(markdown_text))
+            except Exception:
+                hydrated = raw
+        try:
+            return DocumentLayoutArtifact.model_validate(hydrated)
+        except Exception:
+            return DocumentLayoutArtifact(status="failed", reason_code="layout_invalid", source="document_version.chunk_strategy")
+    source_text = strategy.get("source_text")
+    if isinstance(source_text, str) and source_text.strip():
+        blocks = [_projection_text_block(index, content) for index, content in enumerate(_projection_text_parts(source_text), start=1)]
+        return DocumentLayoutArtifact(status="available", source="uploaded_text_snapshot", pages=[DocumentLayoutPage(page_number=1, width=794, height=1123, blocks=blocks)])
+    return DocumentLayoutArtifact(status="missing", reason_code="layout_artifact_missing", source="document_version.chunk_strategy", pages=[])
+
+
+def _projection_text_parts(text: str) -> list[str]:
+    return [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
+
+
+def _projection_text_block(index: int, content: str) -> DocumentLayoutBlock:
+    stripped = content.strip()
+    heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
+    if heading:
+        return DocumentLayoutBlock(id=f"paragraph-{index}", type="heading", source_anchor=f"paragraph-{index}", text=heading.group(2), level=len(heading.group(1)), confidence=1.0)
+    if re.match(r"^[-*]\s+", stripped):
+        items = [re.sub(r"^[-*]\s+", "", line.strip()) for line in stripped.splitlines() if line.strip()]
+        return DocumentLayoutBlock(id=f"paragraph-{index}", type="list", source_anchor=f"paragraph-{index}", items=items, confidence=1.0)
+    return DocumentLayoutBlock(id=f"paragraph-{index}", type="paragraph", source_anchor=f"paragraph-{index}", text=stripped, confidence=1.0)

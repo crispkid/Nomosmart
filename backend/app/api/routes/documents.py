@@ -16,7 +16,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentLayoutArtifact, DocumentLayoutBlock, DocumentLayoutPage, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, KnowledgeTagResponse, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, KnowledgeTagResponse, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
@@ -30,7 +30,7 @@ from app.db.models import DocumentContentUpdate
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
 from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction
-from app.domain.document_layout import hydrate_document_layout_inline_markdown
+from app.domain.document_layout import project_document_layout as _document_layout
 from app.domain.document_summary import document_summary_metadata
 from app.domain.document_execution import execution_projection
 from app.domain.extraction_pipeline import retry_failed_step
@@ -1384,40 +1384,10 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
     )
 
 
-def _document_layout(version: DocumentVersion, markdown_text: str | None = None) -> DocumentLayoutArtifact:
-    strategy = version.chunk_strategy or {}
-    raw = strategy.get("document_layout")
-    if isinstance(raw, dict):
-        hydrated = raw
-        if markdown_text:
-            try:
-                hydrated = hydrate_document_layout_inline_markdown(raw, MarkdownStructureParser().parse(markdown_text))
-            except Exception:
-                hydrated = raw
-        try:
-            return DocumentLayoutArtifact.model_validate(hydrated)
-        except Exception:
-            return DocumentLayoutArtifact(status="failed", reason_code="layout_invalid", source="document_version.chunk_strategy")
-    source_text = strategy.get("source_text")
-    if isinstance(source_text, str) and source_text.strip():
-        blocks = [_layout_block_from_text(index, content) for index, content in enumerate(_split_layout_text(source_text), start=1)]
-        return DocumentLayoutArtifact(status="available", source="uploaded_text_snapshot", pages=[DocumentLayoutPage(page_number=1, width=794, height=1123, blocks=blocks)])
-    return DocumentLayoutArtifact(status="missing", reason_code="layout_artifact_missing", source="document_version.chunk_strategy", pages=[])
 
 
-def _split_layout_text(text: str) -> list[str]:
-    return [part.strip() for part in re.split(r"\n\s*\n", text) if part.strip()]
 
 
-def _layout_block_from_text(index: int, content: str) -> DocumentLayoutBlock:
-    stripped = content.strip()
-    heading = re.match(r"^(#{1,6})\s+(.+)$", stripped)
-    if heading:
-        return DocumentLayoutBlock(id=f"paragraph-{index}", type="heading", source_anchor=f"paragraph-{index}", text=heading.group(2), level=len(heading.group(1)), confidence=1.0)
-    if re.match(r"^[-*]\s+", stripped):
-        items = [re.sub(r"^[-*]\s+", "", line.strip()) for line in stripped.splitlines() if line.strip()]
-        return DocumentLayoutBlock(id=f"paragraph-{index}", type="list", source_anchor=f"paragraph-{index}", items=items, confidence=1.0)
-    return DocumentLayoutBlock(id=f"paragraph-{index}", type="paragraph", source_anchor=f"paragraph-{index}", text=stripped, confidence=1.0)
 
 
 def _scoped_document_version(session: Session, project_id: UUID, document_id: UUID, version_id: UUID) -> tuple[Document, DocumentVersion]:
@@ -1552,6 +1522,8 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
         tag_edit_reason=("review_locked" if _is_review_locked(version) else "published_tag_revision_required" if version.published_at is not None or version.status in {"active", "inactive"} else None),
         active_chunk_count=len(chunks),
         chunk_artifact_status=artifact_status,
+        chunk_artifact_error_code=next_stage_block_reason if artifact_status == "failed" else None,
+        chunk_artifact_retry_allowed=False if artifact_status == "failed" else None,
         next_stage_allowed=next_stage_allowed,
         next_stage_block_reason=next_stage_block_reason,
         chat_access=chat_access,
@@ -1561,6 +1533,9 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
 
 
 def _manual_edit_state(session: Session, version: DocumentVersion, pipeline: PipelineRun | None, context: IdentityContext) -> tuple[bool, str | None]:
+    from app.domain.embedding_attempts import attempt_block_reason
+    if (stop_code := attempt_block_reason(version)):
+        return False, stop_code
     if _is_review_locked(version):
         return False, "review_locked"
     if not has_project_role(session, version.project_id, context.user_id, PROJECT_EDITOR_ROLES):
@@ -2058,6 +2033,13 @@ def _project_document(
             .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision), desc(DocumentVersion.created_at))
         )
     )
+    effective_capabilities = dict(capabilities or {})
+    if version is not None:
+        from app.domain.uploads import require_extractable_source
+        try:
+            require_extractable_source(version.canonical_extension, http_response=document.source_type == "http_api_service")
+        except AppError:
+            effective_capabilities.update(can_start_extraction=False, can_reextract=False)
     return DocumentSummary(
         id=document.id,
         project_id=document.project_id,
@@ -2075,7 +2057,7 @@ def _project_document(
         latest_pipeline=_pipeline_summary(pipeline) if pipeline else None,
         service_source=_service_source_summary(session, document),
         reference_source=_reference_source_summary(session, document, version, visible_project_ids),
-        capabilities=capabilities or {},
+        capabilities=effective_capabilities,
     )
 
 
@@ -2227,7 +2209,7 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
             AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.attempted.is_(True),
             AIModelUsageEvent.metadata_["physical_page"].astext.is_not(None)).limit(1)) is not None
     mode = bool(receipt) or configured.get("pdf_input_mode") == "page_images"
-    error_code = receipt.get("error_code")
+    error_code = receipt.get("error_code") or ((step.artifact_payload or {}).get("error_code") if step.status == "failed" else None)
     if not error_code and step.status == "failed" and session is not None:
         error_code = session.scalar(select(AIModelUsageEvent.error_code).where(
             AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.status == "failed")
@@ -2238,7 +2220,7 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
     if not error_code and call_state == "unconfirmed":
         error_code = "ocr_image_provider_result_unknown"
     tokens = None
-    if step.step_name == "ocr_extract":
+    if step.step_name == "ocr_extract" and error_code != "unsupported_upload_type":
         try:
             tokens = from_snapshot(configured)
         except AppError:
@@ -2253,6 +2235,8 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
         elif not paid:
             used = 0
     retry_allowed = (step.status == "failed" and step.retry_count < 3 and not paid and not receipt.get("pages") and not receipt.get("intent")) if mode else None
+    if error_code == "unsupported_upload_type":
+        retry_allowed = False
     from app.domain.embedding_capacity import CHUNKING_ERROR_CODES
     issue = (step.artifact_payload or {}).get("chunking_issue") if step.status == "failed" else None
     if isinstance(issue, dict) and issue.get("code") in CHUNKING_ERROR_CODES:

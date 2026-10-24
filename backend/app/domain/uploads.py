@@ -18,8 +18,21 @@ CANONICAL_EXTENSIONS = {
     ".json": ".json",
 }
 
-FILE_SOURCE_EXTENSIONS = frozenset({".pdf", ".docx", ".txt", ".md"})
+FILE_SOURCE_EXTENSIONS = frozenset({".pdf", ".txt", ".md"})
 HTTP_RESPONSE_EXTENSIONS = frozenset({*FILE_SOURCE_EXTENSIONS, ".csv", ".json"})
+
+
+def require_extractable_source(extension: str | None, *, http_response: bool = False) -> None:
+    """New processing policy; historical metadata/downloads do not use this guard."""
+    from app.core.errors import AppError
+
+    allowed = HTTP_RESPONSE_EXTENSIONS if http_response else FILE_SOURCE_EXTENSIONS
+    if extension is not None and extension.lower() not in allowed:
+        raise AppError("unsupported_upload_type", "Only PDF, TXT and Markdown documents are supported; replace this source before extracting", status_code=422)
+
+
+def is_http_data_strategy(strategy: dict) -> bool:
+    return strategy.get("sync_adapter") == "http_api" or strategy.get("service_type") in {"HTTP_API", "http_api_service"}
 
 
 @dataclass(frozen=True)

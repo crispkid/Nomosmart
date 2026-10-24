@@ -379,13 +379,8 @@
               "type": "string",
               "pattern": "^(?:[3-9][0-9]|[1-9][0-9]{2}|1[0-7][0-9]{2}|1800)$"
             },
-            "PANDOC_COMMAND": {
-              "type": "string",
-              "minLength": 1
-            },
-            "PANDOC_SANDBOX_COMMAND": {
-              "type": "string",
-              "description": "Deprecated and ignored. DOCX uses Worker-local Pandoc --sandbox."
+            "FTPS_CA_CERT_PATH": {
+              "type": "string"
             }
           },
           "required": [
@@ -808,6 +803,23 @@
       "required": [
         "mode"
       ]
+    },
+    "ftpsCa": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "configMapName",
+        "key"
+      ],
+      "properties": {
+        "configMapName": {
+          "type": "string"
+        },
+        "key": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     }
   },
   "required": [
@@ -1169,8 +1181,7 @@
                   "KEYCLOAK_LDAP_GROUP_PATH",
                   "BREAK_GLASS_USERNAME",
                   "BREAK_GLASS_RUNBOOK_URI",
-                  "BREAK_GLASS_ALERTING_EVIDENCE",
-                  "PANDOC_COMMAND"
+                  "BREAK_GLASS_ALERTING_EVIDENCE"
                 ]
               }
             }

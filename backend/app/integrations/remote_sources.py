@@ -5,12 +5,14 @@ import ftplib  # nosec B402
 import ipaddress
 import json
 import socket
+import ssl
 from io import BytesIO, StringIO
 from urllib.parse import urlparse, urlunsplit
 
 import httpx
 
 from app.core.errors import AppError
+from app.integrations.ftps_tls import ftps_ssl_context
 from app.integrations.s3_storage import RemoteObject
 
 
@@ -88,9 +90,12 @@ class FTPRemoteSourceClient:
                 client.login(user=username, passwd=credential)
                 if remote_path.strip("/"):
                     client.cwd(remote_path.strip("/"))
+                client.voidcmd("TYPE I")
                 return client.size(file_name)
         except ftplib.error_perm as exc:
-            _raise_ftp_probe_error(exc)
+            _raise_ftp_error(exc)
+        except TimeoutError as exc:
+            raise AppError("connection_timeout", "Remote source timed out", status_code=503) from exc
         except (OSError, ftplib.Error) as exc:
             raise AppError("connection_failed", "FTP source connection failed", status_code=503) from exc
 
@@ -113,29 +118,33 @@ class FTPRemoteSourceClient:
                 client.login(user=username, passwd=credential)
                 body = _retrieve_ftp_binary(client, remote_path, file_name, max_bytes=max_bytes)
         except ftplib.error_perm as exc:
-            message = str(exc)
-            if message.startswith("550"):
-                raise AppError("remote_file_not_found", "Remote file was not found", status_code=404) from exc
-            if message.startswith("530"):
-                raise AppError("authentication_failed", "Remote authentication failed", status_code=503) from exc
-            raise AppError("connection_failed", "Remote file fetch failed", status_code=503) from exc
+            _raise_ftp_error(exc)
+        except TimeoutError as exc:
+            raise AppError("connection_timeout", "Remote source timed out", status_code=503) from exc
         except (OSError, ftplib.Error) as exc:
             raise AppError("connection_failed", "Remote file fetch failed", status_code=503) from exc
         return RemoteObject(body=body, content_type=None, content_length=len(body))
 
 
 class FTPSRemoteSourceClient:
-    def probe(self, *, host: str, port: int, username: str, credential: str, remote_path: str, file_name: str, timeout_seconds: int = 30) -> int | None:
+    def probe(self, *, host: str, port: int, username: str, credential: str, remote_path: str, file_name: str, timeout_seconds: int = 30, ca_cert_path: str = "") -> int | None:
+        context = ftps_ssl_context(ca_cert_path)
         try:
-            with ftplib.FTP_TLS() as client:
+            with ftplib.FTP_TLS(context=context) as client:
                 client.connect(host=host, port=port, timeout=timeout_seconds)
+                client.auth()
                 client.login(user=username, passwd=credential)
                 client.prot_p()
                 if remote_path.strip("/"):
                     client.cwd(remote_path.strip("/"))
+                client.voidcmd("TYPE I")
                 return client.size(file_name)
+        except ssl.SSLCertVerificationError as exc:
+            raise AppError("ftps_certificate_invalid", "FTPS certificate verification failed", status_code=503) from exc
         except ftplib.error_perm as exc:
-            _raise_ftp_probe_error(exc)
+            _raise_ftp_error(exc)
+        except TimeoutError as exc:
+            raise AppError("connection_timeout", "Remote source timed out", status_code=503) from exc
         except (OSError, ftplib.Error) as exc:
             raise AppError("connection_failed", "FTPS source connection failed", status_code=503) from exc
 
@@ -150,20 +159,22 @@ class FTPSRemoteSourceClient:
         file_name: str,
         timeout_seconds: int = 30,
         max_bytes: int | None = None,
+        ca_cert_path: str = "",
     ) -> RemoteObject:
+        context = ftps_ssl_context(ca_cert_path)
         try:
-            with ftplib.FTP_TLS() as client:
+            with ftplib.FTP_TLS(context=context) as client:
                 client.connect(host=host, port=port, timeout=timeout_seconds)
+                client.auth()
                 client.login(user=username, passwd=credential)
                 client.prot_p()
                 body = _retrieve_ftp_binary(client, remote_path, file_name, max_bytes=max_bytes)
+        except ssl.SSLCertVerificationError as exc:
+            raise AppError("ftps_certificate_invalid", "FTPS certificate verification failed", status_code=503) from exc
         except ftplib.error_perm as exc:
-            message = str(exc)
-            if message.startswith("550"):
-                raise AppError("remote_file_not_found", "Remote file was not found", status_code=404) from exc
-            if message.startswith("530"):
-                raise AppError("authentication_failed", "Remote authentication failed", status_code=503) from exc
-            raise AppError("connection_failed", "Remote file fetch failed", status_code=503) from exc
+            _raise_ftp_error(exc)
+        except TimeoutError as exc:
+            raise AppError("connection_timeout", "Remote source timed out", status_code=503) from exc
         except (OSError, ftplib.Error) as exc:
             raise AppError("connection_failed", "Remote file fetch failed", status_code=503) from exc
         return RemoteObject(body=body, content_type=None, content_length=len(body))
@@ -321,12 +332,14 @@ def _retrieve_ftp_binary(client: ftplib.FTP, remote_path: str, file_name: str, *
     return buffer.getvalue()
 
 
-def _raise_ftp_probe_error(exc: ftplib.error_perm) -> None:
-    message = str(exc)
-    if message.startswith("550"):
-        raise AppError("remote_file_not_found", "Remote file was not found", status_code=404) from exc
-    if message.startswith("530"):
+def _raise_ftp_error(exc: ftplib.error_perm) -> None:
+    code = str(exc)[:3]
+    if code == "550":
+        raise AppError("remote_file_unavailable", "Remote file is unavailable; check the path and permissions", status_code=503) from exc
+    if code == "530":
         raise AppError("authentication_failed", "Remote authentication failed", status_code=503) from exc
+    if code in {"500", "502", "504"}:
+        raise AppError("remote_operation_unsupported", "Remote source does not support the required operation", status_code=503) from exc
     raise AppError("connection_failed", "Remote source connection failed", status_code=503) from exc
 
 

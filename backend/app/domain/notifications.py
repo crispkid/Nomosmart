@@ -16,6 +16,23 @@ from app.services.audit import add_audit
 NOTIFICATION_TOPIC = "notification.event.requested"
 
 
+def notification_resolution_policy(notification: Notification) -> tuple[bool, str | None]:
+    """Read acknowledgement is separate from a business event's terminal state."""
+    if notification.resolved_at is not None:
+        return False, None
+    managed = (
+        notification.severity in {"critical", "error"}
+        or notification.notification_type in {"review.manager.pending", "review.owner.pending", "reference_source_event", "graph_sync.failed"}
+        or notification.action_type in {"graph_sync", "pipeline", "model", "configuration", "source", "reference"}
+    )
+    terminal_info = notification.notification_type in {
+        "review.approved", "review.rejected", "document.published", "document.active_switched"
+    }
+    informational = notification.severity in {"info", "success"} and notification.action_type in {None, "view", "ignore"}
+    allowed = not managed and (terminal_info or informational)
+    return allowed, None if allowed else "notification_business_action_required"
+
+
 def emit_notification_event(
     session: Session,
     *,

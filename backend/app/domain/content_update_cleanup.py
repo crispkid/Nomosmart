@@ -8,18 +8,63 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from uuid import UUID
 
 from sqlalchemy import delete, or_, select
 
 from app.core.errors import AppError
-from app.db.models import (ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest,
-    Chunk, ChunkTag, DocumentContentState, DocumentReference, EmbeddingBuild,
-    EmbeddingBuildVector, EmbeddingProfile, PipelineRunStep)
+from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, Chunk, ChunkTag, DocumentContentState, DocumentReference, EmbeddingBuild, EmbeddingBuildVector, EmbeddingProfile, PipelineRun, PipelineRunStep
+from app.domain.content_pipeline_evidence import BODY_KEYS, DERIVED_BODY_STEPS, obsolete_step_bodies
 from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, staging_index_name
 from app.domain.graph_projection import build_graph_projection
 
 BATCH_SIZE = 200
+
+
+def retire_obsolete_step_payloads(session, project, document, version, job, receipt, fence):
+    """Retain audit hashes, not graph/tag output bodies of older working runs."""
+    retired = int((receipt.get("step_payloads") or {}).get("retired_count", 0))
+    while True:
+        fence()
+        require_unprotected_version(session, version)
+        rows = list(session.scalars(select(PipelineRunStep).join(PipelineRun, PipelineRun.id == PipelineRunStep.run_id)
+            .where(PipelineRun.project_id == project.id, PipelineRun.document_id == document.id,
+                PipelineRun.document_version_id == version.id, PipelineRun.id != job.pipeline_run_id,
+                PipelineRunStep.step_name.in_(DERIVED_BODY_STEPS),
+                or_(*(PipelineRunStep.artifact_payload.op("?")(key) for key in sorted(BODY_KEYS))))
+            .order_by(PipelineRunStep.id).limit(BATCH_SIZE).with_for_update(of=PipelineRunStep)))
+        if not rows:
+            break
+        for step in rows:
+            payload = step.artifact_payload
+            if not isinstance(payload, dict):
+                raise AppError("content_cleanup_protected", "Derived output ownership is invalid", status_code=409)
+            nodes = payload.get("nodes", [])
+            if not isinstance(nodes, list):
+                raise AppError("content_cleanup_protected", "Derived output ownership is invalid", status_code=409)
+            for node in nodes:
+                if not isinstance(node, dict) or any(node.get(key) is not None and str(node[key]) != str(identity)
+                    for key, identity in (("project_id", project.id), ("document_id", document.id), ("document_version_id", version.id))):
+                    raise AppError("content_cleanup_protected", "Derived output contains another scope", status_code=409)
+            raw = json.dumps(payload, sort_keys=True, separators=(",", ":"), default=str).encode()
+            minimal = {"source": "retired_working_derived_output", "payload_retired": True,
+                "project_id": str(project.id), "document_id": str(document.id), "document_version_id": str(version.id),
+                "pipeline_run_id": str(step.run_id), "step_id": str(step.id),
+                "original_fingerprint": step.artifact_fingerprint, "original_payload_sha256": hashlib.sha256(raw).hexdigest(),
+                "retired_for_update_id": str(job.id), "retired_for_revision": job.target_revision,
+                "counts": {key: len(payload[key]) for key in sorted(BODY_KEYS) if isinstance(payload.get(key), (list, dict))}}
+            step.artifact_payload = minimal
+            step.artifact_fingerprint = hashlib.sha256(json.dumps(minimal, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+            retired += 1
+        receipt["step_payloads"] = {"retired_count": retired, "verified": False,
+            "revision": job.target_revision, "canonical_sha256": job.target_sha256}
+        job.checkpoint = {**job.checkpoint, "cleanup": dict(receipt)}
+        session.commit()
+    fence()
+    require_unprotected_version(session, version)
+    if obsolete_step_bodies(session, project, document, version, job.pipeline_run_id):
+        raise AppError("content_cleanup_failed", "Obsolete derived outputs remain", status_code=409)
+    receipt["step_payloads"] = {"retired_count": retired, "verified": True,
+        "revision": job.target_revision, "canonical_sha256": job.target_sha256}
 
 
 def require_unprotected_version(session, version):
@@ -213,12 +258,8 @@ def clean_obsolete_candidates(session, settings, project, document, version, job
     from app.domain.graph_reconciliation import clean_candidate_graph_residues
     fence()
     receipt["graph_residue"] = clean_candidate_graph_residues(session, settings, project, document, version)
+    retire_obsolete_step_payloads(session, project, document, version, job, receipt, fence)
     receipt.update(status="completed", protected_lineage_ids=protected[:BATCH_SIZE], protected_reason="cross_version_reference" if protected else None)
     job.checkpoint = {**job.checkpoint, "cleanup": receipt}
     session.flush()
     return receipt
-
-
-def select_job_pipelines(version_id):
-    from app.db.models import DocumentContentUpdate
-    return select(DocumentContentUpdate.pipeline_run_id).where(DocumentContentUpdate.document_version_id == version_id)

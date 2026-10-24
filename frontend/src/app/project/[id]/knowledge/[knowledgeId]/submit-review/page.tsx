@@ -1,5 +1,9 @@
 "use client";
 
+import { resourcePageTitle } from "@/lib/browserTitle";
+
+import { useFeedback } from "@/components/FeedbackProvider";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -47,9 +51,11 @@ export default function SubmitReviewPage() {
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [detail, setDetail] = useState<KnowledgeDetailResponse | null>(null);
+  const [titleRead, setTitleRead] = useState<{ fetch: typeof apiFetch; route: string } | null>(null);
   const [evidence, setEvidence] = useState<SubmissionEvidenceResponse | null>(null);
   const [chatRecords, setChatRecords] = useState<ProjectChatRecordResponse[]>([]);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const { notify } = useFeedback();
   const [submissionResult, setSubmissionResult] = useState<ApprovalRequestResponse | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -69,6 +75,7 @@ export default function SubmitReviewPage() {
         if (cancelled) return;
         setEvidence(submissionEvidence);
         setDetail(submissionEvidence.detail);
+        setTitleRead({ fetch: apiFetch, route: JSON.stringify([params.id, params.knowledgeId]) });
         setChatRecords(submissionEvidence.chat_records.map((record) => ({
           id: record.id,
           conversation_id: record.conversation_id,
@@ -172,6 +179,7 @@ export default function SubmitReviewPage() {
         lock_version: evidence.lock_version
       });
       setSubmissionResult(response);
+      notify({ id: crypto.randomUUID(), scope: `document:${params.knowledgeId}`, tone: "success", title: "feedbackSubmitted" });
     } catch (error) {
       setSubmitError(operationalErrorMessage(error, t, format, "submitReviewFailed"));
     } finally {
@@ -188,7 +196,7 @@ export default function SubmitReviewPage() {
   const localizedBlockReasons = evidence?.block_reasons.map((reason) => operationalCodeMessage(reason, t, format, "submitReviewWaitingVersion")) ?? [];
 
   return (
-    <AppShell title={t("submitForReview")}>
+    <AppShell title={t("submitForReview")} browserTitle={resourcePageTitle(t("submitForReview"), authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.document.title : null, authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.version.version_label : null)}>
       <div className="project-context submission-page-context">
         <Link className="text-link" href={chatTestHref}><ArrowLeft size={16} /> {t("backToChatTest")}</Link>
         <StatusBadge status={detail?.version.status ?? "processing"} />
@@ -200,7 +208,7 @@ export default function SubmitReviewPage() {
           <div><p className="eyebrow">{t("submitReviewEyebrow")}</p><h2 id="submission-summary-title">{t("submissionSummary")}</h2><p>{t("submitReviewSummaryHelp")}</p></div>
             <div className="submission-readiness"><CheckCircle2 size={18} /><span><strong>{evidence?.next_stage_allowed ? t("submitReviewReady") : t("notificationLoading")}</strong><small>{localizedBlockReasons.length ? localizedBlockReasons.join(", ") : versionId ? t("submitReviewVersionIdReady") : t("submitReviewWaitingVersion")}</small></span></div>
         </header>
-        {loadError ? <div className="batch-upload-error">{localize(loadError)}</div> : null}
+        {loadError ? <FeedbackMessage tone="error">{localize(loadError)}</FeedbackMessage> : null}
 
         <div className="submission-summary-grid">
           <section className="submission-section submission-document-section">
@@ -269,9 +277,9 @@ export default function SubmitReviewPage() {
 
         <footer className="submission-actions">
           <p><ShieldCheck size={17} /><span>{t("submitReviewLockHelp")}</span></p>
-          {!evidence?.can_submit_review ? <small className="field-error">{t("submitReviewPermissionDenied")}</small> : null}
-          {evidence && !evidence.next_stage_allowed ? <small className="field-error">{localizedBlockReasons.join(", ")}</small> : null}
-          {submitError ? <small className="field-error">{localize(submitError)}</small> : null}
+          {!evidence?.can_submit_review ? <FeedbackField>{t("submitReviewPermissionDenied")}</FeedbackField> : null}
+          {evidence && !evidence.next_stage_allowed ? <FeedbackField>{localizedBlockReasons.join(", ")}</FeedbackField> : null}
+          {submitError ? <FeedbackField>{localize(submitError)}</FeedbackField> : null}
           <button className="action-button" disabled={submitting || !detail || !canSubmitReview} onClick={() => { void submitReview(); }} type="button"><Send size={17} /> {submitting ? t("submitReviewSubmitting") : t("submitReview")}</button>
         </footer>
       </section>

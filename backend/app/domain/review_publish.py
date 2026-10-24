@@ -38,6 +38,7 @@ from app.db.models import (
 from app.domain.embeddings import EmbeddingBatch, load_canonical_embeddings, load_published_embeddings, resolve_index_retrieval_text
 from app.domain.graph_sync_jobs import enqueue_graph_sync, notify_graph_failure
 from app.domain.notifications import emit_notification_event
+from app.domain.approval_access import eligible_manager_reviewer
 from app.domain.search import vector_document_id
 from app.services.audit import add_audit
 
@@ -379,7 +380,8 @@ def submit_review(
     submitter = session.get(User, actor_user_id)
     if submitter is None or not submitter.is_active:
         raise AppError("submitter_not_found", "Submitter is unavailable", status_code=403)
-    assignee_id, delegated_from = _manager_or_delegate(submitter)
+    assignee_id, original_manager_id, assignment_reason = _manager_or_delegate(session, submitter, version.project_id)
+    delegated_from = original_manager_id if assignee_id is not None and assignee_id != original_manager_id else None
     now = datetime.now(UTC)
     manifest_hash = sha256(
         json.dumps(evidence_manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode("utf-8")
@@ -403,7 +405,7 @@ def submit_review(
             created_by=actor_user_id,
         )
     )
-    task = ApprovalTask(approval_request_id=request.id, project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, assignee_user_id=assignee_id, review_stage=MANAGER_REVIEW, status="pending", submitted_at=now, created_at=now)
+    task = ApprovalTask(approval_request_id=request.id, project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, assignee_user_id=assignee_id, original_manager_user_id=original_manager_id, review_stage=MANAGER_REVIEW, status="pending", submitted_at=now, created_at=now)
     session.add(task)
     session.flush()
     request.current_task_id = task.id
@@ -411,7 +413,7 @@ def submit_review(
     _mark_pipeline_waiting(session, version.id, MANAGER_REVIEW, "manager")
     if assignee_id:
         _notify(session, assignee_id, version.project_id, "review.manager.pending", "待主管審核", f"文件版本 {version.version_label} 等待主管審核", {"approval_task_id": str(task.id), "document_version_id": str(version.id)})
-    add_audit(session, actor_user_id=actor_user_id, action="approval.submit", resource_type="document_version", resource_id=version.id, result="success", request_id=request_id, summary={"approval_request_id": str(request.id), "manager_user_id": str(assignee_id) if assignee_id else None, "delegated_from_user_id": str(delegated_from) if delegated_from else None})
+    add_audit(session, actor_user_id=actor_user_id, action="approval.submit", resource_type="document_version", resource_id=version.id, result="success", request_id=request_id, summary={"approval_request_id": str(request.id), "manager_user_id": str(assignee_id) if assignee_id else None, "original_manager_user_id": str(original_manager_id) if original_manager_id else None, "delegated_from_user_id": str(delegated_from) if delegated_from else None, "manager_assignment_reason": assignment_reason})
     return request
 
 
@@ -423,7 +425,7 @@ def approve_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, l
     task.status = "approved"
     task.completed_at = now
     task.lock_version += 1
-    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=None, status="approved", comment=comment, created_at=now))
+    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=_delegated_from(task, actor_user_id), status="approved", comment=comment, created_at=now))
     if task.review_stage == MANAGER_REVIEW:
         _complete_pipeline_step(session, version.id, MANAGER_REVIEW, "Manager review approved")
         owner_task = ApprovalTask(approval_request_id=request.id, project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, submitter_id=task.submitter_id, assignee_user_id=None, review_stage=OWNER_REVIEW, status="pending", submitted_at=now, created_at=now)
@@ -462,7 +464,7 @@ def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lo
     version.status = "review_rejected"
     version.inactive_reason = "review_rejected"
     _mark_pipeline_rejected(session, version.id, task.review_stage, "Review rejected")
-    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=None, status="rejected", comment=comment, created_at=now))
+    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=_delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
     _notify(session, task.submitter_id, task.project_id, "review.rejected", "審核已退回", f"文件版本 {version.version_label} 已退回，請建立新 revision 修正後重新送審", {"document_version_id": str(version.id), "reason": comment})
     add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment})
     return task
@@ -774,11 +776,23 @@ def _embedding_build(session: Session, version: DocumentVersion, index_result: P
     return build
 
 
-def _manager_or_delegate(user: User) -> tuple[UUID | None, UUID | None]:
+def _manager_or_delegate(session: Session, submitter: User, project_id: UUID) -> tuple[UUID | None, UUID | None, str | None]:
+    manager_id = submitter.manager_user_id
+    manager = session.get(User, manager_id) if manager_id else None
+    if manager is None or not manager.is_active or manager.id == submitter.id:
+        return None, manager_id, "manager_unavailable"
     now = datetime.now(UTC)
-    if user.manager_delegate_user_id and (user.manager_delegate_start_at is None or user.manager_delegate_start_at <= now) and (user.manager_delegate_end_at is None or user.manager_delegate_end_at >= now):
-        return user.manager_delegate_user_id, user.manager_user_id
-    return user.manager_user_id, None
+    delegate_id = manager.manager_delegate_user_id
+    within_period = (manager.manager_delegate_start_at is None or manager.manager_delegate_start_at <= now) and (manager.manager_delegate_end_at is None or manager.manager_delegate_end_at >= now)
+    candidate_id = delegate_id if delegate_id and within_period else manager.id
+    if candidate_id == submitter.id or not eligible_manager_reviewer(session, candidate_id, project_id):
+        return None, manager.id, "manager_reviewer_unavailable"
+    return candidate_id, manager.id, None
+
+
+def _delegated_from(task: ApprovalTask, actor_user_id: UUID) -> UUID | None:
+    original = task.original_manager_user_id
+    return original if task.review_stage == MANAGER_REVIEW and original is not None and actor_user_id != original else None
 
 
 def _ensure_pending_task(task: ApprovalTask, lock_version: int) -> None:
@@ -887,11 +901,21 @@ def _fail_pipeline_step(session: Session, version_id: UUID, step_name: str, mess
 
 
 def _pipeline_for_version(session: Session, version_id: UUID) -> PipelineRun | None:
-    return session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version_id).order_by(desc(PipelineRun.created_at)).limit(1))
+    from app.domain.content_pipeline_evidence import current_pipeline
+    return current_pipeline(session, version_id)
 
 
 def _pipeline_step(session: Session, pipeline_id: UUID, step_name: str) -> PipelineRunStep | None:
-    return session.scalar(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline_id, PipelineRunStep.step_name == step_name))
+    step = session.scalar(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline_id, PipelineRunStep.step_name == step_name))
+    if step is None:
+        pipeline = session.get(PipelineRun, pipeline_id)
+        from app.domain.extraction_pipeline import REVIEW_AND_PUBLICATION_STEPS
+        if pipeline is not None and pipeline.run_type == "document_content_update" and step_name in REVIEW_AND_PUBLICATION_STEPS:
+            step = PipelineRunStep(run_id=pipeline_id, step_name=step_name, status="pending", progress_percent=0,
+                retry_count=0)
+            session.add(step)
+            session.flush()
+    return step
 
 
 def _complete_pipeline_publication(session: Session, version_id: UUID) -> None:

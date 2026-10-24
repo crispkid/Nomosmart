@@ -1,13 +1,12 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select, true
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import ApprovalRequest, ApprovalTask, ProjectOwner, ReviewRecord, Role, RoleUser, User
+from app.db.models import ApprovalRequest, ApprovalTask, ProjectMember, ProjectOwner, ReviewRecord, Role, RolePermission, RoleUser, User
 from app.security.context import IdentityContext
 from app.security.permissions import MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission
 
@@ -29,14 +28,33 @@ def is_approval_auditor(session: Session, context: IdentityContext) -> bool:
     ) is not None
 
 
+def eligible_manager_reviewer(session: Session, user_id: UUID, project_id: UUID | None = None) -> bool:
+    """Current application admission and scope, never retired Review flags."""
+    user = session.get(User, user_id)
+    if user is None or not user.is_active:
+        return False
+    admitted = session.scalar(select(RolePermission.id).join(RoleUser, RoleUser.role_id == RolePermission.role_id)
+        .join(Role, Role.id == RolePermission.role_id).where(RoleUser.user_id == user_id,
+            Role.is_active.is_(True), Role.deleted_at.is_(None),
+            or_(RolePermission.can_view, RolePermission.can_create, RolePermission.can_edit,
+                RolePermission.can_delete, RolePermission.can_execute)).limit(1))
+    if admitted is None:
+        return False
+    return project_id is None or session.scalar(select(ProjectMember.user_id).where(
+        ProjectMember.project_id == project_id, ProjectMember.user_id == user_id).limit(1)) is not None or session.get(ProjectOwner, (project_id, user_id)) is not None
+
+
 def approval_request_read_predicate(session: Session, context: IdentityContext):
     """Shared SQL visibility, evaluated before pagination or evidence access."""
     if is_approval_auditor(session, context):
         return true()
-    now = datetime.now(UTC)
     assigned = select(ApprovalTask.id).where(
         ApprovalTask.approval_request_id == ApprovalRequest.id,
         ApprovalTask.assignee_user_id == context.user_id,
+    ).exists()
+    original_manager = select(ApprovalTask.id).where(
+        ApprovalTask.approval_request_id == ApprovalRequest.id,
+        ApprovalTask.original_manager_user_id == context.user_id,
     ).exists()
     reviewed = select(ReviewRecord.id).where(
         ReviewRecord.document_version_id == ApprovalRequest.document_version_id,
@@ -44,14 +62,7 @@ def approval_request_read_predicate(session: Session, context: IdentityContext):
     ).exists()
     manager = select(User.id).where(
         User.id == ApprovalRequest.submitter_id,
-        or_(
-            User.manager_user_id == context.user_id,
-            and_(
-                User.manager_delegate_user_id == context.user_id,
-                or_(User.manager_delegate_start_at.is_(None), User.manager_delegate_start_at <= now),
-                or_(User.manager_delegate_end_at.is_(None), User.manager_delegate_end_at >= now),
-            ),
-        ),
+        User.manager_user_id == context.user_id,
     ).exists()
     owner = select(ProjectOwner.project_id).where(
         ProjectOwner.project_id == ApprovalRequest.project_id,
@@ -59,7 +70,7 @@ def approval_request_read_predicate(session: Session, context: IdentityContext):
     ).exists()
     return and_(
         ApprovalRequest.project_id.in_(context.visible_project_ids),
-        or_(ApprovalRequest.submitter_id == context.user_id, assigned, reviewed, manager, owner),
+        or_(ApprovalRequest.submitter_id == context.user_id, assigned, original_manager, reviewed, manager, owner),
     )
 
 

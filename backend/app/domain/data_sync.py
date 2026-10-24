@@ -122,7 +122,7 @@ def _execute_data_source_sync_attempt(
         raise AppError("project_archived", "Archived projects cannot synchronize data sources", status_code=409)
     remote = _fetch_remote_object(settings=settings, connection=connection, remote_storage=remote_storage)
     original_name = _remote_file_name(connection)
-    validate_file_payload(UploadedFilePayload(filename=original_name, content_type=remote.content_type, content=remote.body), settings)
+    validate_file_payload(UploadedFilePayload(filename=original_name, content_type=remote.content_type, content=remote.body), settings, http_response=connection.service_type == "HTTP_API")
     validate_source_extension(original_name, http_response=connection.service_type == "HTTP_API")
     identity = build_storage_identity(remote.body, original_name)
     latest = _latest_version(session, document.id)
@@ -308,7 +308,7 @@ def _fetch_remote_object(*, settings: Settings, connection: DataConnection, remo
         if connection.service_type == "FTP":
             return FTPRemoteSourceClient().get_object(**common)
         if connection.service_type == "FTPS":
-            return FTPSRemoteSourceClient().get_object(**common)
+            return FTPSRemoteSourceClient().get_object(**common, ca_cert_path=settings.ftps_ca_cert_path)
         return SFTPRemoteSourceClient().get_object(**common, verify_host_key=bool(metadata.get("verify_host_key", True)), known_hosts_path=settings.sftp_known_hosts_path)
     if connection.service_type == "HTTP_API":
         return HTTPRemoteSourceClient().get_object(
@@ -476,6 +476,8 @@ def _store_version_source(*, settings: Settings, storage: ObjectStorage, project
     version.uploaded_at = datetime.now(UTC)
     version.original_snapshot_uri = f"s3://{stored.bucket}/{stored.key}"
     version.chunk_strategy = {**(version.chunk_strategy or {}), "source": "data_service", "sync_adapter": document.source_type.replace("_service", "")}
+    if identity.canonical_extension in {".txt", ".md", ".csv", ".json"}:
+        version.chunk_strategy = {**version.chunk_strategy, "source_text_object": {"version": 1, "encoding": "utf-8", "sha256": identity.content_sha256}}
 
 
 def _remote_metadata(connection: DataConnection, remote, fingerprint: str) -> dict[str, object]:

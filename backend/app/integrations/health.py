@@ -1,9 +1,7 @@
 from __future__ import annotations
 
-import socket
 from dataclasses import dataclass
 import json
-from urllib.parse import urlparse
 
 import httpx
 from sqlalchemy import create_engine, text

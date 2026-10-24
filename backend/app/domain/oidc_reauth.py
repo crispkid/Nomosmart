@@ -112,9 +112,12 @@ def authenticate_oidc_reauth_callback(
     _require_open_flow(flow, current)
     assert flow is not None
     verifier = EnvelopeCipher(settings.encryption_key_bytes).decrypt(flow.pkce_verifier_encrypted, context=f"oidc-reauth:{flow.id}")
+    token_endpoint = f"{flow.issuer_url.rstrip('/')}/protocol/openid-connect/token"
+    if flow.issuer_url.rstrip("/") == settings.oidc_issuer_url.rstrip("/") and settings.oidc_token_url.strip():
+        token_endpoint = settings.oidc_token_url.strip()
     try:
         response = httpx.post(
-            f"{flow.issuer_url.rstrip('/')}/protocol/openid-connect/token",
+            token_endpoint,
             data={
                 "grant_type": "authorization_code",
                 "client_id": flow.client_id,
@@ -191,7 +194,8 @@ def _active_identity_endpoints(session: Session, settings: Settings) -> tuple[st
     row = session.scalar(select(IdentitySetting).where(IdentitySetting.is_current.is_(True)))
     configuration = row.configuration if row is not None and isinstance(row.configuration, dict) else {}
     issuer = str(configuration.get("issuer_url") or settings.oidc_issuer_url).rstrip("/")
-    jwks_url = str(configuration.get("jwks_url") or f"{issuer}/protocol/openid-connect/certs")
+    configured_jwks = settings.oidc_jwks_url if issuer == settings.oidc_issuer_url.rstrip("/") else ""
+    jwks_url = str(configuration.get("jwks_url") or configured_jwks or f"{issuer}/protocol/openid-connect/certs")
     return issuer, jwks_url
 
 

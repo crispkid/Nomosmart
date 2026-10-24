@@ -16,11 +16,10 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.security.secrets import resolve_runtime_secret
+from app.domain.model_credentials import MODEL_CREDENTIAL_ERRORS, resolve_model_credential
 from app.db.models import AIModel, Chunk, DocumentVersion, EmbeddingBuild, EmbeddingBuildVector, EmbeddingProfile, Project
-from app.domain.model_usage import record_model_usage, record_query_embedding_usage
+from app.domain.model_usage import record_model_usage, record_query_embedding_usage, record_reconciliation_embedding_usage
 from app.domain.retrieval_text import embedding_content_hash, provisional_retrieval_hash
 from app.domain.tokenization import UnicodeTokenCounter
 
@@ -42,6 +41,7 @@ def embed_chunks(
     version: DocumentVersion,
     chunks: list[Chunk],
     settings: Settings | None = None,
+    durable_reconciliation: bool = False,
 ) -> EmbeddingBatch:
     if not chunks:
         raise AppError("embedding_chunks_required", "No chunks are available for embedding", status_code=409)
@@ -53,6 +53,9 @@ def embed_chunks(
     existing = _completed_build(session, version, content_fingerprint)
     if existing is not None:
         return _load_embedding_batch(session, model, version, chunks, existing, texts=texts)
+    if durable_reconciliation:
+        return _embed_reconciliation_chunks(session, project, version, model, chunks, texts,
+                                            exact_counter, content_fingerprint, settings or get_settings())
     started = perf_counter()
     try:
         response = _post_openai_embeddings(model, settings or get_settings(), texts)
@@ -110,6 +113,91 @@ def embed_chunks(
         chunk_count=len(chunks),
         metadata={"embedding_build_id": str(build.id)},
     )
+    return EmbeddingBatch(model=model, profile=profile, vectors=vectors, usage=usage, build=build)
+
+
+def _embed_reconciliation_chunks(session, project, version, model, chunks, texts, counter, fingerprint, settings):
+    from app.domain.embedding_attempts import begin_embedding_attempt, mark_embedding_dispatched, finish_embedding_attempt, UNKNOWN_CODE
+    from app.domain.chunk_artifacts import lock_chunk_write_scope, _active_chunks
+    attempt = begin_embedding_attempt(session, project, version, model, fingerprint)
+    event_id = UUID(attempt["attempt_id"])
+    version_id = version.id
+    chunk_ids = [chunk.id for chunk in chunks]
+    started = perf_counter()
+    response = None
+    dispatched = False
+    def before_dispatch():
+        nonlocal dispatched
+        mark_embedding_dispatched(session, version, model, attempt, chunk_ids)
+        dispatched = True
+    try:
+        response = _post_openai_embeddings(model, settings, texts, before_dispatch=before_dispatch)
+        vectors = _openai_embedding_vectors(response)
+        if any(not math.isfinite(value) for vector in vectors for value in vector):
+            raise AppError("embedding_response_invalid", "Embedding vectors contain invalid values", status_code=502)
+        if len(vectors) != len(chunks):
+            raise AppError("embedding_result_count_mismatch", "Embedding vector count does not match inputs", status_code=502)
+    except Exception as exc:
+        code = getattr(exc, "code", UNKNOWN_CODE)
+        unknown = code in {"embedding_adapter_unavailable", UNKNOWN_CODE}
+        code = UNKNOWN_CODE if unknown else code
+        attempted = dispatched
+        phase = "unknown" if unknown else "failed"
+        try:
+            record_reconciliation_embedding_usage(model=model, event_id=event_id, project_id=project.id,
+                document_id=version.document_id, document_version_id=version_id, status="failed",
+                chunk_count=len(chunks), error_code=code, attempted=attempted,
+                token_usage=response.get("usage") if isinstance(response, dict) else None,
+                latency_ms=int((perf_counter() - started) * 1000),
+                created_at=datetime.fromisoformat(attempt["started_at"]))
+        except AppError as usage_error:
+            phase, code = "usage_unconfirmed", usage_error.code
+        session.rollback()
+        if finish_embedding_attempt(session, version_id, attempt, phase, error_code=code):
+            session.commit()
+        raise AppError(code, "Embedding attempt stopped; do not automatically replay", status_code=503 if unknown or phase == "usage_unconfirmed" else 409,
+                       details={"automatic_retry_allowed": False}) from None
+    usage = response.get("usage") if isinstance(response.get("usage"), dict) else {}
+    try:
+        record_reconciliation_embedding_usage(model=model, event_id=event_id, project_id=project.id,
+            document_id=version.document_id, document_version_id=version_id, status="success",
+            chunk_count=len(chunks), vector_count=len(vectors), token_usage=usage,
+            latency_ms=int((perf_counter() - started) * 1000), created_at=datetime.fromisoformat(attempt["started_at"]))
+    except AppError as exc:
+        session.rollback()
+        if finish_embedding_attempt(session, version_id, attempt, "usage_unconfirmed", error_code=exc.code):
+            session.commit()
+        raise
+    try:
+        current_project, document, current = lock_chunk_write_scope(session, version, allow_pending_attempt=True)
+        session.refresh(model)
+        if (current is None or current_project is None or document is None or current_project.status != "active"
+            or document.is_deleted or document.status == "deleted" or current.lock_version != attempt["revision"]
+            or current_project.work_generation != attempt["project_generation"]
+            or model.config_version != attempt["model_config_version"] or not model.is_active or model.deleted_at is not None
+            or [chunk.id for chunk in _active_chunks(session, version_id)] != chunk_ids):
+            raise AppError(UNKNOWN_CODE, "Embedding scope changed before result persistence", status_code=409)
+        profile = _profile_for_vectors(session, model, current, vectors, chunks=chunks)
+        for chunk, vector, text in zip(chunks, vectors, texts, strict=True):
+            strategy = chunk.chunk_strategy
+            checksum = hashlib.sha256(json.dumps(vector, separators=(",", ":"), ensure_ascii=False).encode()).hexdigest()
+            chunk.embedding_model_id = model.id
+            chunk.embedding_content_hash = embedding_content_hash(retrieval_text=text, embedding_model=str(model.id),
+                embedding_model_version=model_name(model), embedding_dimension=profile.vector_dimension,
+                normalizer_version=str(strategy["normalizer_version"]), tokenizer_version=str(strategy["tokenizer_version"]))
+            chunk.embedding_vector_ref = f"embedding://profiles/{profile.id}/versions/{current.id}/chunks/{chunk.id}#{checksum}"
+            chunk.token_count = counter.count(text) if counter else estimated_tokens(text)
+        current.embedding_model_id, current.embedding_profile_id = model.id, profile.id
+        build = _persist_embedding_build(session, model, profile, current, chunks, texts, vectors, fingerprint, usage)
+        if not finish_embedding_attempt(session, version_id, attempt, "completed", build_id=build.id):
+            raise AppError(UNKNOWN_CODE, "Embedding result fence changed", status_code=409)
+        session.commit()
+    except Exception:
+        session.rollback()
+        if finish_embedding_attempt(session, version_id, attempt, "unknown", error_code=UNKNOWN_CODE):
+            session.commit()
+        raise AppError(UNKNOWN_CODE, "Paid result persistence is unconfirmed; do not replay", status_code=503,
+                       details={"automatic_retry_allowed": False}) from None
     return EmbeddingBatch(model=model, profile=profile, vectors=vectors, usage=usage, build=build)
 
 
@@ -265,11 +353,7 @@ def embed_query(
         if len(vector) != profile.vector_dimension:
             raise AppError("embedding_profile_mismatch", "Query embedding dimension does not match the retrieval profile", status_code=409)
     except AppError as exc:
-        not_dispatched = exc.code in {
-            "embedding_adapter_credential_required", "runtime_secret_unavailable",
-            "runtime_secret_reference_invalid", "runtime_secret_reference_denied",
-            "legacy_model_credential_forbidden", "legacy_vault_reference_requires_migration",
-        }
+        not_dispatched = exc.code == "embedding_adapter_credential_required" or exc.code in MODEL_CREDENTIAL_ERRORS
         record_query_embedding_usage(
             model=model, event_id=event_id,
             source_channel=source_channel, status="failed",
@@ -492,7 +576,7 @@ def _profile_for_vectors(session: Session, model: AIModel, version: DocumentVers
     return profile
 
 
-def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]) -> dict[str, Any]:
+def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str], *, before_dispatch=None) -> dict[str, Any]:
     config = model.config if isinstance(model.config, dict) else {}
     body: dict[str, Any] = {"model": model_name(model), "input": texts}
     dimensions = _int(config.get("dimensions") or config.get("embedding_dimension"), default=0)
@@ -504,8 +588,14 @@ def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]
         headers={"Content-Type": "application/json", **_embedding_auth_headers(model, settings)},
         method="POST",
     )
+    context = None
+    if before_dispatch is not None:
+        context = _ssl_context(config)
+        before_dispatch()
     try:
-        with urllib.request.urlopen(request, timeout=_timeout(config, default=60), context=_ssl_context(config)) as response:  # noqa: S310 - operator-configured model endpoint
+        if before_dispatch is None:
+            context = _ssl_context(config)
+        with urllib.request.urlopen(request, timeout=_timeout(config, default=60), context=context) as response:  # noqa: S310 - operator-configured model endpoint
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         raise AppError("embedding_adapter_provider_rejected", "Embedding adapter provider rejected the request", status_code=502, details={"status_code": exc.code}) from exc
@@ -533,22 +623,7 @@ def _embedding_auth_headers(model: AIModel, settings: Settings) -> dict[str, str
 
 
 def _resolve_model_api_key(model: AIModel, settings: Settings) -> str | None:
-    if model.api_key_secret_ref:
-        return resolve_runtime_secret(settings, model.api_key_secret_ref)
-    if model.api_key_encrypted:
-        if settings.app_env == "production":
-            raise AppError("legacy_model_credential_forbidden", "Legacy model credentials are not permitted in production", status_code=503)
-        cipher = EnvelopeCipher(settings.encryption_key_bytes)
-        contexts = [f"ai-model:{model.id}", f"ai-model:{model.name}"]
-        last_error: AppError | None = None
-        for context in contexts:
-            try:
-                return cipher.decrypt(model.api_key_encrypted, context=context)
-            except AppError as exc:
-                last_error = exc
-        if last_error:
-            raise last_error
-    return None
+    return resolve_model_credential(settings, model)
 
 
 def _openai_embedding_vectors(payload: dict[str, Any]) -> list[list[float]]:

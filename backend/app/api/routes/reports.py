@@ -26,29 +26,10 @@ from app.api.schemas import (
 )
 from app.core.errors import AppError
 from app.core.config import get_settings
-from app.db.models import (
-    AIModel,
-    AIModelUsageEvent,
-    ApprovalRequest,
-    ApprovalTask,
-    ChatRecord,
-    Document,
-    DocumentReference,
-    DocumentReferenceEvent,
-    DocumentVersion,
-    Notification,
-    PipelineRun,
-    PipelineRunStep,
-    Project,
-    ProjectMember,
-    ProjectOwner,
-    ValidationRun,
-    ValidationRunItem,
-)
+from app.db.models import AIModel, AIModelUsageEvent, ApprovalRequest, ChatRecord, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, Notification, PipelineRun, PipelineRunStep, Project, ValidationRun, ValidationRunItem
 from app.db.session import get_db
 from app.domain.report_policy import ReportScopePolicy
 from app.security.context import IdentityContext, get_identity_context
-from app.security.permissions import MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission
 from app.services.audit import add_audit
 
 
@@ -533,29 +514,6 @@ def _validate_date_range(date_from: datetime | None, date_to: datetime | None) -
         raise AppError("report_date_range_invalid", "date_from must be before date_to", status_code=422)
 
 
-def _available_scope_project_ids(session: Session, context: IdentityContext) -> dict[str, set[UUID] | None]:
-    owner_ids = set(
-        session.scalars(select(ProjectOwner.project_id).where(ProjectOwner.user_id == context.user_id))
-    )
-    owner_ids.update(
-        session.scalars(
-            select(ProjectMember.project_id).where(
-                ProjectMember.user_id == context.user_id,
-                func.lower(ProjectMember.project_role) == "owner",
-            )
-        )
-    )
-    reviewer_ids = set(
-        session.scalars(select(ApprovalTask.project_id).where(ApprovalTask.assignee_user_id == context.user_id))
-    )
-    scopes: dict[str, set[UUID] | None] = {
-        "owner_projects": owner_ids,
-        "accessible": set(context.visible_project_ids),
-        "reviewer": reviewer_ids,
-    }
-    if has_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW):
-        scopes["system"] = None
-    return scopes
 
 
 def _scope_project_count(session: Session, project_ids: set[UUID] | None) -> int:

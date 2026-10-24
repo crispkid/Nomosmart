@@ -17,6 +17,17 @@ class TLSClientError(RuntimeError):
     pass
 
 
+def _approved_origin(url: str) -> tuple[str, str, int]:
+    try:
+        parsed = urlparse(url)
+        port = parsed.port
+        if parsed.scheme != "https" or not parsed.hostname or parsed.username is not None or parsed.password is not None:
+            raise ValueError("unapproved URL")
+        return ("https", parsed.hostname, 443 if port is None else port)
+    except ValueError as exc:
+        raise TLSClientError("TLS client requires a valid HTTPS URL without user information") from exc
+
+
 @dataclass(frozen=True)
 class TLSResponse:
     status: int
@@ -27,9 +38,9 @@ class TLSResponse:
 
 
 class _RestrictedRedirect(HTTPRedirectHandler):
-    def __init__(self, origin_host: str, maximum: int) -> None:
+    def __init__(self, origin: tuple[str, str, int], maximum: int) -> None:
         super().__init__()
-        self.origin_host = origin_host
+        self.origin = origin
         self.maximum = maximum
         self.count = 0
 
@@ -42,11 +53,7 @@ class _RestrictedRedirect(HTTPRedirectHandler):
         headers,
         new_url,
     ):
-        target = urlparse(new_url)
-        if (
-            target.scheme != "https"
-            or target.hostname != self.origin_host
-        ):
+        if _approved_origin(new_url) != self.origin:
             raise TLSClientError(
                 "HTTPS redirect left the approved origin"
             )
@@ -97,18 +104,9 @@ class TLSClient:
         accepted_statuses: frozenset[int] = frozenset({200}),
         content_types: tuple[str, ...] = (),
     ) -> TLSResponse:
-        parsed = urlparse(url)
-        if (
-            parsed.scheme != "https"
-            or not parsed.hostname
-            or parsed.username
-            or parsed.password
-        ):
-            raise TLSClientError(
-                "TLS client requires an HTTPS URL without user information"
-            )
+        origin = _approved_origin(url)
         redirect = _RestrictedRedirect(
-            parsed.hostname, self.max_redirects
+            origin, self.max_redirects
         )
         opener = build_opener(HTTPSHandler(context=self.context), redirect)
         request = Request(
@@ -134,11 +132,7 @@ class TLSClient:
             status = int(response.status)
             content_type = response.headers.get_content_type()
             final_url = response.geturl()
-            final = urlparse(final_url)
-            if (
-                final.scheme != "https"
-                or final.hostname != parsed.hostname
-            ):
+            if _approved_origin(final_url) != origin:
                 raise TLSClientError(
                     "HTTPS final URL left the approved origin"
                 )

@@ -23,22 +23,21 @@ from sqlalchemy import delete, desc, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
-from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.security.secrets import resolve_runtime_secret
+from app.domain.model_credentials import MODEL_CREDENTIAL_ERRORS, resolve_model_credential
 from app.db.models import AIModel, AIModelUsageEvent, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingProfile, OutboxEvent, PipelineRun, PipelineRunStep, Project, Tag
 from app.domain.ai_provider import AIProviderResult, generate_knowledge_tags
-from app.domain.document_layout import build_document_layout, estimated_layout_block_height, paginate_layout_blocks, renderable_source_anchors
+from app.domain.document_layout import build_document_layout, renderable_source_anchors
 from app.domain.embeddings import embed_chunks, load_canonical_embeddings, model_name, resolve_index_retrieval_text
 from app.domain.model_usage import record_model_usage
 from app.domain.markdown_structure import MarkdownStructureParser, mark_repeated_boilerplate, repeated_page_boilerplate
-from app.domain.office_parser import parse_office_document
+from app.domain.uploads import require_extractable_source, is_http_data_strategy
 from app.domain.ocr_sandbox import run_ocr_sandbox as _run_ocr_sandbox
 from app.domain.ocr_timeout_policy import (PDFOCRDeadline, OCRRequestWindow,
     diagnostic_error, error_metadata as ocr_error_metadata, safe_diagnostics,
     safe_provider_error, snapshot_timeout_policy)
 from app.domain.retrieval_text import NORMALIZER_VERSION, RetrievalTextNormalizer, provisional_retrieval_hash
-from app.domain.structure_chunking import CHUNKER_VERSION, ChunkingConfig, StructureAwareChunker
+from app.domain.structure_chunking import CHUNKER_VERSION, ChunkingConfig
 from app.domain.system_prompts import resolve_system_prompt
 from app.domain.tokenization import UnicodeTokenCounter
 
@@ -119,6 +118,7 @@ class OCRAdapter(Protocol):
 
 class LiveOnlyOCRAdapter:
     def extract_text(self, *, model: AIModel | None, version: DocumentVersion, parsed_text: str, force_ocr: bool, reliable_text_layer: bool) -> OCRResult:
+        require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(version.chunk_strategy or {}))
         snapshot = _ocr_snapshot(model, version, force_ocr)
         if reliable_text_layer and not force_ocr:
             return OCRResult(text=parsed_text, adapter_source="reliable-text-layer", skipped=True, reason="reliable_text_layer", metadata=snapshot)
@@ -130,12 +130,13 @@ class GenericHTTPOCRAdapter:
         self.settings = settings or get_settings()
 
     def extract_text(self, *, model: AIModel | None, version: DocumentVersion, parsed_text: str, force_ocr: bool, reliable_text_layer: bool) -> OCRResult:
+        require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(version.chunk_strategy or {}))
         if model is None or not model.endpoint:
             raise AppError("ocr_adapter_not_configured", "OCR adapter endpoint is not configured", status_code=422)
         snapshot = _ocr_snapshot(model, version, force_ocr)
         timeout = int(snapshot["timeout_seconds"])
         retries = int(snapshot["retry_count"])
-        media_inputs = _docx_ocr_inputs(self.settings, version) if (version.canonical_extension or "").lower() == ".docx" else []
+        media_inputs = []
         body = json.dumps(
             {
                 "source_uri": None if media_inputs else version.original_snapshot_uri,
@@ -178,6 +179,7 @@ class OpenAIOCRAdapter:
         self.settings = settings or get_settings()
 
     def extract_text(self, *, model: AIModel | None, version: DocumentVersion, parsed_text: str, force_ocr: bool, reliable_text_layer: bool) -> OCRResult:
+        require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(version.chunk_strategy or {}))
         if model is None:
             raise AppError("ocr_adapter_not_configured", "OCR adapter endpoint is not configured", status_code=422)
         if reliable_text_layer and not force_ocr and parsed_text.strip():
@@ -185,11 +187,8 @@ class OpenAIOCRAdapter:
         snapshot = _ocr_snapshot(model, version, force_ocr)
         if (version.canonical_extension or "").lower() == ".pdf":
             return _openai_pdf_ocr(self.settings, model, version, snapshot)
-        if (version.canonical_extension or "").lower() == ".docx":
-            inputs = _docx_ocr_inputs(self.settings, version)
-        else:
-            source = _load_source_object(self.settings, version)
-            inputs = [(version.original_file_name or f"document{version.canonical_extension or ''}", source.content_type or version.mime_type or _mime_type_for(version), source.body)]
+        source = _load_source_object(self.settings, version)
+        inputs = [(version.original_file_name or f"document{version.canonical_extension or ''}", source.content_type or version.mime_type or _mime_type_for(version), source.body)]
         payload = _openai_ocr_payload(model, version, inputs, parsed_text)
         response = _post_openai_ocr(model, self.settings, payload, timeout_seconds=int(snapshot["timeout_seconds"]))
         markdown = _openai_ocr_markdown(response)
@@ -215,6 +214,7 @@ class TesseractOCRAdapter:
         self.settings = settings or get_settings()
 
     def extract_text(self, *, model: AIModel | None, version: DocumentVersion, parsed_text: str, force_ocr: bool, reliable_text_layer: bool) -> OCRResult:
+        require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(version.chunk_strategy or {}))
         snapshot = _ocr_snapshot(model, version, force_ocr)
         if reliable_text_layer and not force_ocr and parsed_text.strip():
             return OCRResult(
@@ -331,6 +331,7 @@ class TesseractOCRAdapter:
 
 class UnsupportedOCRAdapter:
     def extract_text(self, *, model: AIModel | None, version: DocumentVersion, parsed_text: str, force_ocr: bool, reliable_text_layer: bool) -> OCRResult:
+        require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(version.chunk_strategy or {}))
         provider = model.provider if model is not None else "unknown"
         raise AppError("ocr_provider_unsupported", "OCR Model provider is not supported by the OCR adapter", status_code=422, details={"provider": provider})
 
@@ -706,6 +707,21 @@ def execute_auto_extraction(
     execution_claim=None,
 ) -> PipelineRun:
     """Keep one claim-bound PDF session context across parse and OCR steps."""
+    try:
+        require_extractable_source(version.canonical_extension, http_response=document.source_type == "http_api_service")
+    except AppError as exc:
+        if execution_claim is not None:
+            from app.domain.file_processing_dispatch import require_claim
+            require_claim(session, execution_claim)
+        steps = _steps_for_run(session, pipeline.id)
+        step = next((steps[name] for name in AUTO_EXTRACTION_STEPS if steps[name].status != "completed"), steps["parse_document"])
+        _fail_step(step, exc.message)
+        step.artifact_payload = {**(step.artifact_payload or {}), "error_code": exc.code}
+        pipeline.status, pipeline.error_message, pipeline.current_step_name = "failed", exc.message, step.step_name
+        version.status, version.updated_at = "failed", datetime.now(UTC)
+        if durable:
+            session.commit()
+        return pipeline
     ocr = ocr_adapter or _default_ocr_adapter(session, version, settings=settings)
     arguments = dict(session=session, settings=settings, project=project, document=document,
         version=version, pipeline=pipeline, staging_adapter=staging_adapter, ocr_adapter=ocr,
@@ -847,6 +863,7 @@ def retry_failed_step(
     staging_adapter: StagingIndexAdapter | None = None,
     ocr_adapter: OCRAdapter | None = None,
 ) -> PipelineRun:
+    require_extractable_source(version.canonical_extension, http_response=document.source_type == "http_api_service")
     step = session.scalar(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline.id, PipelineRunStep.step_name == step_name))
     if step is None:
         raise AppError("pipeline_step_not_found", "Pipeline step was not found", status_code=404)
@@ -1006,7 +1023,7 @@ def _execute_step(
                     source_channel="pipeline",
                     status="failed",
                     error_code=exc.code,
-                    attempted=exc.code not in {"ocr_adapter_not_configured", "ocr_adapter_credential_required", "ocr_adapter_secret_ref_unresolved"}
+                    attempted=exc.code not in {"ocr_adapter_not_configured", "ocr_adapter_credential_required", "ocr_adapter_secret_ref_unresolved"} and exc.code not in MODEL_CREDENTIAL_ERRORS
                         and not (isinstance(ocr_adapter, OpenAIOCRAdapter) and (version.canonical_extension or "").lower() == ".pdf"),
                     latency_ms=max(0, int((perf_counter() - started) * 1000)),
                     project_id=project.id,
@@ -1431,7 +1448,7 @@ def _openai_pdf_ocr(settings: Settings, model: AIModel, version: DocumentVersion
 
 
 def _pdf_error_diagnostics(exc: AppError, *, default_attempted: bool = True) -> dict[str, object]:
-    not_dispatched = exc.code in {"ocr_adapter_not_configured", "ocr_adapter_credential_required", "ocr_adapter_secret_ref_unresolved"}
+    not_dispatched = exc.code in {"ocr_adapter_not_configured", "ocr_adapter_credential_required", "ocr_adapter_secret_ref_unresolved"} or exc.code in MODEL_CREDENTIAL_ERRORS
     kind = {"ocr_adapter_provider_rejected": "provider_rejected", "ocr_adapter_response_invalid": "invalid_response",
         "ocr_pdf_page_incomplete": "invalid_response", "ocr_adapter_invalid_markdown": "invalid_response",
         "ocr_pdf_usage_missing": "invalid_response", "ocr_adapter_empty_result": "invalid_response"}.get(exc.code, "unknown")
@@ -1465,8 +1482,6 @@ def _require_tesseract_runtime(settings: Settings) -> None:
 
 
 def _tesseract_inputs(settings: Settings, version: DocumentVersion) -> list[tuple[str, str, bytes]]:
-    if (version.canonical_extension or "").lower() == ".docx":
-        return _docx_ocr_inputs(settings, version)
     source = _load_source_object(settings, version)
     content_type = source.content_type or version.mime_type or _mime_type_for(version)
     return [
@@ -1561,34 +1576,6 @@ def _load_source_object(settings: Settings, version: DocumentVersion):
         raise AppError("ocr_source_file_missing", "OCR source file is not available", status_code=409)
     storage = S3ObjectStorage(settings)
     return storage.get_object(bucket=version.storage_bucket, key=version.storage_key, max_bytes=settings.max_upload_size_mb * 1024 * 1024)
-
-
-def _docx_ocr_inputs(settings: Settings, version: DocumentVersion) -> list[tuple[str, str, bytes]]:
-    from app.integrations.s3_storage import S3ObjectStorage
-
-    raw_manifest = (version.chunk_strategy or {}).get("office_media")
-    if not isinstance(raw_manifest, list) or not raw_manifest:
-        raise AppError("docx_ocr_media_missing", "DOCX does not contain validated image artifacts for OCR", status_code=422)
-    if len(raw_manifest) > 512:
-        raise AppError("docx_ocr_media_invalid", "DOCX OCR media manifest exceeds the safe limit", status_code=422)
-    expected_prefix = f"projects/{version.project_id}/documents/{version.document_id}/versions/{version.id}/artifacts/media/"
-    storage = S3ObjectStorage(settings)
-    inputs: list[tuple[str, str, bytes]] = []
-    total = 0
-    for item in raw_manifest:
-        if not isinstance(item, dict):
-            raise AppError("docx_ocr_media_invalid", "DOCX OCR media manifest is invalid", status_code=422)
-        bucket = item.get("storage_bucket")
-        key = item.get("storage_key")
-        content_type = item.get("content_type")
-        if bucket != settings.s3_bucket or not isinstance(key, str) or not key.startswith(expected_prefix) or not isinstance(content_type, str) or not content_type.startswith("image/"):
-            raise AppError("docx_ocr_media_invalid", "DOCX OCR media scope is invalid", status_code=422)
-        remote = storage.get_object(bucket=bucket, key=key, max_bytes=settings.max_upload_size_mb * 1024 * 1024)
-        total += len(remote.body)
-        if total > settings.max_upload_size_mb * 1024 * 1024 * 2:
-            raise AppError("docx_ocr_media_invalid", "DOCX OCR media exceeds the safe limit", status_code=422)
-        inputs.append((Path(key).name, content_type, remote.body))
-    return inputs
 
 
 def _openai_ocr_payload(model: AIModel, version: DocumentVersion, inputs: list[tuple[str, str, bytes]], parsed_text: str) -> dict[str, Any]:
@@ -1729,22 +1716,7 @@ def _ssl_context(config: dict[str, object]) -> ssl.SSLContext | None:
 
 
 def _resolve_model_api_key(model: AIModel, settings: Settings) -> str | None:
-    if model.api_key_secret_ref:
-        return resolve_runtime_secret(settings, model.api_key_secret_ref)
-    if model.api_key_encrypted:
-        if settings.app_env == "production":
-            raise AppError("legacy_model_credential_forbidden", "Legacy model credentials are not permitted in production", status_code=503)
-        cipher = EnvelopeCipher(settings.encryption_key_bytes)
-        contexts = [f"ai-model:{model.id}", f"ai-model:{model.name}"]
-        last_error: AppError | None = None
-        for context in contexts:
-            try:
-                return cipher.decrypt(model.api_key_encrypted, context=context)
-            except AppError as exc:
-                last_error = exc
-        if last_error:
-            raise last_error
-    return None
+    return resolve_model_credential(settings, model)
 
 
 def _openai_ocr_markdown(payload: dict[str, Any], *, allow_empty: bool = False) -> str:
@@ -1832,6 +1804,7 @@ def _verify_tls(config: dict[str, object]) -> bool:
 
 def _parse_document_payload(settings: Settings, version: DocumentVersion) -> dict[str, object]:
     strategy = version.chunk_strategy or {}
+    require_extractable_source(version.canonical_extension, http_response=is_http_data_strategy(strategy))
     extension = (version.canonical_extension or "").lower()
     if extension == ".pdf" and _has_reliable_text_layer(version) and not bool(strategy.get("force_ocr")) and not strategy.get("source_text_origin"):
         pages = physical_pdf_inputs(settings, _load_source_object(settings, version).body,
@@ -1845,7 +1818,7 @@ def _parse_document_payload(settings: Settings, version: DocumentVersion) -> dic
     if isinstance(source_text, str) and source_text.strip():
         return {"text": source_text.strip(), "canonical_markdown": source_text, "adapter_source": "configured-source-text"}
     marker = strategy.get("source_text_object")
-    if marker is not None and extension in {".txt", ".md"}:
+    if marker is not None and extension in {".txt", ".md", ".csv", ".json"}:
         if not isinstance(marker, dict) or marker.get("version") != 1 or marker.get("encoding") != "utf-8" or marker.get("sha256") != version.content_sha256:
             raise AppError("source_content_mismatch", "Stored text identity is invalid", status_code=409)
         original = _load_source_object(settings, version).body
@@ -1857,34 +1830,11 @@ def _parse_document_payload(settings: Settings, version: DocumentVersion) -> dic
             raise AppError("invalid_file_signature", "Text file must be UTF-8 compatible", status_code=422) from exc
         if text.strip():
             return {"text": text.strip(), "canonical_markdown": text, "adapter_source": "configured-source-text"}
-    extension = (version.canonical_extension or "").lower()
-    if extension == ".doc":
-        raise AppError("legacy_doc_reextraction_unsupported", "Legacy DOC files cannot be re-extracted; upload a DOCX replacement", status_code=422)
-    if extension == ".docx":
-        parsed = parse_office_document(settings, version)
-        parser_metadata = dict(parsed.metadata)
-        version.parser_version = str(parser_metadata.get("parser_version") or "pandoc:unknown")[:100]
-        version.chunk_strategy = {
-            **strategy,
-            "text_layer_status": "reliable" if parsed.reliable_text_layer else "none",
-            "office_parser": parser_metadata["adapter_source"],
-            "office_media": list(parsed.media),
-            "office_parser_metadata": parser_metadata,
-        }
-        return {
-            "text": parsed.markdown,
-            "canonical_markdown": parsed.markdown,
-            "media": list(parsed.media),
-            "parser_metadata": parser_metadata,
-            "adapter_source": parser_metadata["adapter_source"],
-        }
     if bool(strategy.get("force_ocr")) or ((version.canonical_extension or "").lower() == ".pdf" and not _has_reliable_text_layer(version)):
         return {"text": "", "adapter_source": "ocr-required-source"}
     raise AppError("parser_adapter_not_configured", "Parser adapter is not configured", status_code=503)
 
 
-def _parse_text(settings: Settings, version: DocumentVersion) -> str:
-    return str(_parse_document_payload(settings, version).get("text") or "")
 
 
 def _has_reliable_text_layer(version: DocumentVersion) -> bool:
@@ -1893,7 +1843,7 @@ def _has_reliable_text_layer(version: DocumentVersion) -> bool:
         return True
     if strategy.get("text_layer_status") == "none" or strategy.get("has_reliable_text_layer") is False:
         return False
-    return (version.canonical_extension or "").lower() in {".txt", ".md"}
+    return (version.canonical_extension or "").lower() in {".txt", ".md"} or (is_http_data_strategy(strategy) and (version.canonical_extension or "").lower() in {".csv", ".json"})
 
 
 def _split_paragraphs(text: str) -> list[str]:
@@ -1908,27 +1858,10 @@ def _document_layout_artifact(paragraphs) -> dict[str, object]:
     return build_document_layout(MarkdownStructureParser().parse(markdown))
 
 
-def _split_layout_text(text: str, *, max_chars: int = 820) -> list[str]:
-    parts: list[str] = []
-    remaining = text.strip()
-    while len(remaining) > max_chars:
-        window = remaining[:max_chars]
-        split_at = max(window.rfind("。"), window.rfind("."), window.rfind("\n"), window.rfind("；"), window.rfind(";"), window.rfind("，"), window.rfind(","))
-        if split_at < max_chars // 2:
-            split_at = max_chars
-        parts.append(remaining[: split_at + 1].strip())
-        remaining = remaining[split_at + 1 :].strip()
-    if remaining:
-        parts.append(remaining)
-    return parts
 
 
-def _paginate_layout_blocks(blocks: list[dict[str, object]]) -> list[dict[str, object]]:
-    return paginate_layout_blocks(blocks)
 
 
-def _estimated_layout_block_height(block: dict[str, object]) -> int:
-    return estimated_layout_block_height(block)
 
 
 def _canonical_markdown_source(artifacts: dict[str, PipelineArtifact]) -> tuple[str, str]:
@@ -2179,7 +2112,7 @@ def _create_structure_chunks(
             "table_count": structure_metadata.get("table_count", 0),
             "warning_count": structure_metadata.get("warning_count", 0),
             "parser_version": parser.version,
-            "chunker_version": CHUNKER_VERSION,
+            "chunker_version": chunker.version,
             "normalizer_version": normalizer.version,
             "tokenizer_version": token_counter.version,
             "processing_time_ms": max(0, int((perf_counter() - processing_started) * 1000)),

@@ -628,7 +628,7 @@ def run_project_archive_cleanup(run_id: str) -> None:
         execute_project_archive_cleanup(session, settings=settings, run_id=UUID(run_id))
 
 
-@celery_app.task(name="app.worker.run_chunk_artifact_reconciliation", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+@celery_app.task(name="app.worker.run_chunk_artifact_reconciliation", acks_late=True, reject_on_worker_lost=True)
 def run_chunk_artifact_reconciliation(version_id: str) -> None:
     factory = get_session_factory()
     with factory() as session:

@@ -13,13 +13,14 @@ from app.db.models import Chunk, Document, DocumentVersion, EmbeddingBuild, Outb
 from app.domain.embeddings import embed_chunks, load_staging_embeddings
 from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, _graph_preview_artifact
 from app.domain.graph_reconciliation import clear_zero_candidate_chunks
+from app.domain.embedding_attempts import require_no_pending_embedding_attempt, attempt_stop_code, attempt_block_reason
 
 
 ARTIFACT_METADATA_KEY = "chunk_artifacts"
 RECONCILIATION_TOPIC = "chunk.artifacts.reconcile"
 
 
-def lock_chunk_write_scope(session: Session, version: DocumentVersion) -> tuple[Project | None, Document | None, DocumentVersion | None]:
+def lock_chunk_write_scope(session: Session, version: DocumentVersion, *, allow_pending_attempt: bool = False) -> tuple[Project | None, Document | None, DocumentVersion | None]:
     """Enter before changing rows: governance parents precede the version fence.
 
     Do not autoflush a pending Version update ahead of its Project lock. Callers
@@ -35,10 +36,16 @@ def lock_chunk_write_scope(session: Session, version: DocumentVersion) -> tuple[
         current = session.scalar(select(DocumentVersion).where(DocumentVersion.id == version_id,
             DocumentVersion.project_id == project_id, DocumentVersion.document_id == document_id)
             .with_for_update().execution_options(populate_existing=True))
+    if current is not None and not allow_pending_attempt:
+        require_no_pending_embedding_attempt(current)
     return project, document, current
 
 
 def chunk_artifact_state(version: DocumentVersion, active_chunk_count: int, *, session: Session) -> tuple[str, bool, str | None]:
+    stop_code = attempt_stop_code(version)
+    if stop_code:
+        reason = attempt_block_reason(version)
+        return "running" if reason == "embedding_build_in_progress" else "failed", False, reason
     if active_chunk_count == 0:
         return "chunks_required", False, "chunks_required"
     if version.status in {"queued", "processing", "failed"}:
@@ -48,7 +55,7 @@ def chunk_artifact_state(version: DocumentVersion, active_chunk_count: int, *, s
     if status and status not in {"ready", "queued", "running", "failed", "invalidated", "chunks_required"}:
         return "failed", False, "chunk_artifacts_not_ready"
     if status in {"queued", "running", "failed", "invalidated", "chunks_required"}:
-        return "failed" if status == "invalidated" else status, False, "chunk_artifacts_not_ready"
+        return "failed" if status == "invalidated" else status, False, _metadata(version).get("error_code") or "chunk_artifacts_not_ready"
     if version.published_at is not None or version.status in {"active", "inactive", "publishing", "production_indexing", "graph_syncing"}:
         return "failed", False, "published_scope_required"
     project = session.get(Project, version.project_id)
@@ -76,6 +83,7 @@ def require_ready_chunk_artifacts(session: Session, version: DocumentVersion) ->
 
 
 def queue_chunk_artifact_reconciliation(session: Session, version: DocumentVersion, *, actor_user_id: UUID | None) -> OutboxEvent:
+    require_no_pending_embedding_attempt(version)
     chunks = _active_chunks(session, version.id)
     revision = version.lock_version
     current = _metadata(version)
@@ -119,10 +127,18 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
     version = session.get(DocumentVersion, version_id)
     if version is None:
         return
-    project, document, version = lock_chunk_write_scope(session, version)
+    project, document, version = lock_chunk_write_scope(session, version, allow_pending_attempt=True)
     if version is None:
         return
     initial_metadata = _metadata(version)
+    stop_code = attempt_stop_code(version)
+    if stop_code:
+        # A live dispatch and an interrupted dispatch are both non-replayable.
+        # Only the original worker may persist its matching result.
+        return
+    attempt = initial_metadata.get("embedding_attempt")
+    if isinstance(attempt, dict) and attempt.get("phase") == "failed":
+        return
     revision = int(initial_metadata.get("revision") or version.lock_version)
     if revision != version.lock_version:
         return
@@ -151,7 +167,7 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
             staging.delete_version(project_id=project.id, version_id=version.id)
             result = None
         else:
-            batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=settings)
+            batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=settings, durable_reconciliation=True)
             # A successful paid result must survive an external index failure.
             # A later retry loads this exact completed build without replaying
             # the Provider; current configuration compatibility still applies.
@@ -159,7 +175,7 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
             version.chunk_strategy = {**version.chunk_strategy, ARTIFACT_METADATA_KEY: {
                 **_metadata(version), "embedding_build_id": completed_build_id}}
             session.commit()
-            _project, _document, current = lock_chunk_write_scope(session, version)
+            _project, _document, current = lock_chunk_write_scope(session, version, allow_pending_attempt=True)
             session.refresh(project)
             if (current is None or current.lock_version != revision or project.status != "active"
                 or project.work_generation != expected_generation
@@ -175,7 +191,7 @@ def execute_chunk_artifact_reconciliation(session: Session, version_id: UUID, se
         # while an external write failed. Never stamp its revision as failed.
         current = session.get(DocumentVersion, version_id)
         if current is not None:
-            _project, _document, current = lock_chunk_write_scope(session, current)
+            _project, _document, current = lock_chunk_write_scope(session, current, allow_pending_attempt=True)
         if current is not None and current.lock_version == revision:
             _mark_failed(session, current, revision, getattr(exc, "code", "chunk_artifact_reconciliation_failed"))
             session.commit()

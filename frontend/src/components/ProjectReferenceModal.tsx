@@ -1,5 +1,7 @@
 "use client";
 
+import { useModalFocus } from "./useModalFocus";
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, FileText, FolderKanban, Layers3, LoaderCircle, RefreshCcw, Search, Trash2, X } from "lucide-react";
 import type { ReferenceSourceDocumentResponse, ReferenceSourceProjectResponse, ReferenceSourceVersionResponse } from "@/lib/api";
@@ -34,6 +36,7 @@ export function ProjectReferenceModal({
   onCreate: (mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) => Promise<ImportResult>;
 }) {
   const { t, format, localize } = useI18n();
+  const dialogRef = useModalFocus(true, onClose);
   const [mode, setMode] = useState<"reference" | "copy">("reference");
   const [projectId, setProjectId] = useState<string>(() => sources[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -95,7 +98,7 @@ export function ProjectReferenceModal({
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <section aria-labelledby="reference-project-title" aria-modal="true" className="modal-panel reference-picker-modal" role="dialog">
+      <section ref={dialogRef} tabIndex={-1} aria-labelledby="reference-project-title" aria-modal="true" className="modal-panel reference-picker-modal" role="dialog">
         <div className="modal-header">
           <div><p className="eyebrow">{t("referenceModalEyebrow")}</p><h2 id="reference-project-title">{t("referenceModalTitle")}</h2></div>
           <button aria-label={t("referenceModalClose")} className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
@@ -106,7 +109,7 @@ export function ProjectReferenceModal({
         </div>
         {resultCount !== null ? <div className="reference-result"><CheckCircle2 size={20} /><span><strong>{format("referenceResultTitle", { count: resultCount })}</strong><small>{t("referenceResultHelp")}</small></span></div> : null}
         {loading ? <div className="empty-state compact" role="status"><LoaderCircle size={22} /><p>{t("referenceLoadingSources")}</p></div> : null}
-        {error ? <div className="error-summary" role="alert"><strong>{localize(error)}</strong><button className="text-link" onClick={onRefresh} type="button"><RefreshCcw size={15} /> {t("retry")}</button></div> : null}
+        {error ? <FeedbackMessage tone="error"><strong>{localize(error)}</strong><button className="text-link" onClick={onRefresh} type="button"><RefreshCcw size={15} /> {t("retry")}</button></FeedbackMessage> : null}
         {!loading && !error && !sources.length ? <div className="empty-state compact"><FolderKanban size={24} /><p>{t("projectImportNoReferenceProjects")}</p></div> : null}
         {!loading && !error && sources.length ? (
           <div className="reference-picker-layout">
@@ -120,7 +123,7 @@ export function ProjectReferenceModal({
               ))}
             </aside>
             <div className="reference-documents">
-              <label className="reference-search"><Search size={15} /><input onChange={(event) => setQuery(event.target.value)} placeholder={t("referenceSearchPlaceholder")} value={query} /></label>
+              <label className="reference-search"><Search size={15} /><input aria-label={t("referenceSearchPlaceholder")} onChange={(event) => setQuery(event.target.value)} placeholder={t("referenceSearchPlaceholder")} value={query} /></label>
               <div className="reference-document-list">
                 {documents.map((document) => {
                   const key = selectionKey(activeProject.id, document.id);
@@ -161,8 +164,8 @@ export function ProjectReferenceModal({
             </aside>
           </div>
         ) : null}
-        {oldRiskOpen ? <div className="reference-old-warning"><AlertTriangle size={18} /><span><strong>{t("referenceOldWarningTitle")}</strong><small>{t("referenceOldWarningHelp")}</small></span></div> : null}
-        {submitErrors.length ? <div className="reference-old-warning error"><AlertTriangle size={18} /><span><strong>{t("referenceCreateFailed")}</strong><small>{submitErrors.map(localize).join(" · ")}</small></span></div> : null}
+        {oldRiskOpen ? <FeedbackMessage tone="warning"><span><strong>{t("referenceOldWarningTitle")}</strong><small>{t("referenceOldWarningHelp")}</small></span></FeedbackMessage> : null}
+        {submitErrors.length ? <FeedbackMessage tone="error"><span><strong>{t("referenceCreateFailed")}</strong><small>{submitErrors.map(localize).join(" · ")}</small></span></FeedbackMessage> : null}
         <div className="modal-actions">
           <button className="action-button secondary" disabled={submitting} onClick={onClose} type="button">{t("cancel")}</button>
           <button className="action-button" disabled={!selectedItems.length || submitting || (mode === "reference" && selectedItems.length !== 1)} onClick={() => { void execute(); }} type="button">

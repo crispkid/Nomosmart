@@ -38,6 +38,8 @@ Options:
   -c, --config PATH       Required non-secret installer configuration.
   -p, --profile PROFILE   Explicit bundled or external-services profile.
   --init-config           Create the matching config template, then stop.
+  --trusted-signer-fingerprint HEX
+                          Independently trusted signer for a v4 local release.
   --yes                   Explicitly accept the displayed plan.
   --confirm-digest HASH   Non-interactive confirmation matching plan config_digest.
   --plan-only             Run and print the read-only plan, then stop.
@@ -58,6 +60,7 @@ INIT_CONFIG=false
 ASSUME_YES=false
 PLAN_ONLY=false
 CONFIRM_DIGEST=
+TRUSTED_SIGNER_FINGERPRINT=
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
@@ -78,6 +81,14 @@ while [ "$#" -gt 0 ]; do
       fi
       PROFILE=$2
       PROFILE_EXPLICIT=true
+      shift 2
+      ;;
+    --trusted-signer-fingerprint)
+      if [ "$#" -lt 2 ]; then
+        echo "--trusted-signer-fingerprint requires a fingerprint" >&2
+        exit 20
+      fi
+      TRUSTED_SIGNER_FINGERPRINT=$2
       shift 2
       ;;
     --init-config)
@@ -166,7 +177,7 @@ if [ "$INIT_CONFIG" = true ]; then
     external-services) TEMPLATE="$SCRIPT_DIR/nomosmart-install.external-services.example.toml" ;;
   esac
 
-  if "$PYTHON" - "$TEMPLATE" "$CONFIG" "$PACKAGE_ROOT" "$PROFILE" <<'PY'
+  if "$PYTHON" - "$TEMPLATE" "$CONFIG" "$PACKAGE_ROOT" "$PROFILE" "$TRUSTED_SIGNER_FINGERPRINT" <<'PY'
 import json
 import os
 from pathlib import Path
@@ -176,7 +187,7 @@ import sys
 import tomllib
 
 
-source, requested_destination, package_root, expected_profile = sys.argv[1:]
+source, requested_destination, package_root, expected_profile, trusted_fingerprint = sys.argv[1:]
 sys.dont_write_bytecode = True
 
 
@@ -257,8 +268,12 @@ if os.path.lexists(os.path.join(real_package_root, "release-manifest.json")):
     except ImportError:
         stop("Release package verification tools are unavailable.")
     try:
+        with open(os.path.join(real_package_root, "release-manifest.json"), encoding="utf-8") as stream:
+            identity = json.load(stream)
+        release_purpose = "local-verified-release" if identity.get("schema_version") == 4 else "installation-validation"
         receipt = verify_release_package(
-            Path(real_package_root), purpose="installation-validation",
+            Path(real_package_root), purpose=release_purpose,
+            trusted_fingerprint=trusted_fingerprint,
         )
     except (ReleaseContractError, OSError, ValueError) as exc:
         stop(f"Release package integrity check failed: {exc}")
@@ -278,8 +293,9 @@ if os.path.lexists(os.path.join(real_package_root, "release-manifest.json")):
     generated_text += (
         "\n[release]\n"
         f"package_dir = {json.dumps(real_package_root)}\n"
-        'purpose = "installation-validation"\n'
-        "isolated_environment_acknowledged = false\n"
+        f"purpose = {json.dumps(release_purpose)}\n"
+        + (f"trusted_signer_fingerprint = {json.dumps(trusted_fingerprint)}\n" if release_purpose == "local-verified-release" else "")
+        + "isolated_environment_acknowledged = false\n"
     )
 generated_data = generated_text.encode("utf-8")
 try:

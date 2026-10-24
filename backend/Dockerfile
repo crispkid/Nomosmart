@@ -22,7 +22,7 @@ COPY pyproject.toml uv.lock ./
 COPY vendor/anyio/4.14.2+nomosmart.2 ./vendor/anyio/4.14.2+nomosmart.2
 COPY vendor/python-multipart/0.0.32+nomosmart.1 ./vendor/python-multipart/0.0.32+nomosmart.1
 COPY app ./app
-COPY main.py migrate.py models.py connection.py ./
+COPY main.py migrate.py models.py ./
 RUN python3 -m venv /opt/uv \
   && printf '%s\n' 'uv==0.11.33 --hash=sha256:36a98c68ba5c3bb59469414f54aaf00bd3134a647ca34509bc53d133ed8e0b5d --hash=sha256:71d00a28beb3924c593ba7ec248263679ae1f7c0f63a8cccc75e7d11ccb2adce --hash=sha256:9542178978b0b6f16a7ae99e55aca039f493a1edb373a15d7993eab80a28615a' \
     | /opt/uv/bin/pip install --no-cache-dir --require-hashes -r /dev/stdin \
@@ -31,7 +31,6 @@ RUN python3 -m venv /opt/uv \
 FROM ubuntu:24.04@sha256:69cecf4bbf72d2d44a9eef1b71fb98c7fb973d78af11399deccef19beb008ad9 AS runner
 WORKDIR /app
 
-ARG PANDOC_VERSION=3.1.3+ds-2
 ARG TESSERACT_VERSION=5.3.4-1build5
 ARG TESSDATA_VERSION=1:4.1.0-2
 ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
@@ -50,7 +49,6 @@ RUN apt-get update \
     openssl=${OPENSSL_VERSION} \
     libssl3t64=${OPENSSL_VERSION} \
     libpq5 \
-    pandoc=${PANDOC_VERSION} \
     poppler-utils \
     poppler-data \
     python3 \
@@ -64,7 +62,8 @@ RUN apt-get update \
 COPY --from=builder /opt/venv /opt/venv
 COPY --chown=nomosmart:nomosmart app ./app
 # PDF tools run in the existing Worker; app/domain/local_pdf is copied above.
-COPY --chown=nomosmart:nomosmart main.py migrate.py models.py connection.py ./
+COPY --chown=nomosmart:nomosmart main.py migrate.py models.py ./
+COPY --chown=nomosmart:nomosmart scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
 
 USER nomosmart
 EXPOSE 8000
