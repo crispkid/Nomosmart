@@ -858,9 +858,9 @@ def load_config(path: Path) -> InstallConfig:
     release_required = api_version == PRODUCTION_API_VERSION
     release_purpose = _optional_string(release_raw, "purpose", context="release") or "production"
     isolated_acknowledged = _boolean(release_raw, "isolated_environment_acknowledged", context="release")
-    if release_purpose not in {"production", "installation-validation", "local-verified-release"}:
-        raise ConfigError("release.purpose must be production, installation-validation or local-verified-release")
-    if release_purpose in {"installation-validation", "local-verified-release"} and (not release_required or not isolated_acknowledged):
+    if release_purpose not in {"production", "installation-validation", "local-verified-release", "local-coverage-exception-release"}:
+        raise ConfigError("release.purpose must be production, installation-validation, local-verified-release or local-coverage-exception-release")
+    if release_purpose in {"installation-validation", "local-verified-release", "local-coverage-exception-release"} and (not release_required or not isolated_acknowledged):
         raise ConfigError(
             "local/installation verification requires v1alpha2 and release.isolated_environment_acknowledged=true; "
             "target context, API server, cluster UID and namespace must identify an isolated environment"
@@ -879,7 +879,7 @@ def load_config(path: Path) -> InstallConfig:
     ).upper()
     if release_required and not release_package_value:
         raise ConfigError("v1alpha2 requires release.package_dir")
-    if release_required and release_purpose in {"production", "local-verified-release"} and not release_fingerprint:
+    if release_required and release_purpose in {"production", "local-verified-release", "local-coverage-exception-release"} and not release_fingerprint:
         raise ConfigError(
             "Production v1alpha2 requires release.package_dir and an "
             "independently trusted release.trusted_signer_fingerprint"
@@ -910,11 +910,11 @@ def load_config(path: Path) -> InstallConfig:
     if application.platform_profile not in {"production", "docker-desktop"}:
         raise ConfigError("application.platform_profile must be production or docker-desktop")
     if application.platform_profile == "docker-desktop" and (
-        release.purpose not in {"installation-validation", "local-verified-release"} or not release.isolated_environment_acknowledged
+        release.purpose not in {"installation-validation", "local-verified-release", "local-coverage-exception-release"} or not release.isolated_environment_acknowledged
     ):
-        raise ConfigError("docker-desktop requires isolated installation-validation or local-verified-release")
-    if release.purpose == "local-verified-release" and application.platform_profile != "docker-desktop":
-        raise ConfigError("local-verified-release only qualifies the docker-desktop platform profile")
+        raise ConfigError("docker-desktop requires an acknowledged isolated installation or local release purpose")
+    if release.purpose in {"local-verified-release", "local-coverage-exception-release"} and application.platform_profile != "docker-desktop":
+        raise ConfigError("local release purposes only qualify the docker-desktop platform profile")
     if application.storage_mode not in {"dynamic", "static-pv", "external"}:
         raise ConfigError("application.storage_mode must be dynamic, static-pv or external")
     if application.storage_mode == "external":

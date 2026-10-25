@@ -360,7 +360,7 @@ def verify_release_package(
     gpg_binary: str = "gpg",
     purpose: str = "production",
 ) -> dict[str, Any]:
-    if purpose not in {"production", "installation-validation", "local-verified-release"}:
+    if purpose not in {"production", "installation-validation", "local-verified-release", "local-coverage-exception-release"}:
         raise ReleaseContractError("release verification purpose is invalid")
     if package_root.is_symlink():
         raise ReleaseContractError("release package root must not be a symlink")
@@ -385,7 +385,10 @@ def verify_release_package(
             raise ReleaseContractError("signer trust configuration does not apply to this package type")
         control_files = INTEGRITY_CONTROL_FILES
     else:
-        if purpose == "local-verified-release":
+        if purpose == "local-coverage-exception-release":
+            from .contract_v5 import validate_manifest as validate_v5_manifest
+            validate_v5_manifest(manifest)
+        elif purpose == "local-verified-release":
             from .contract_v4 import validate_manifest as validate_v4_manifest
             validate_v4_manifest(manifest)
         else:
@@ -413,6 +416,9 @@ def verify_release_package(
     if purpose == "installation-validation":
         from .contract_v3 import verify_payload
         runtime_images, platform_images = verify_payload(root, manifest)
+    elif purpose == "local-coverage-exception-release":
+        from .contract_v5 import verify_payload as verify_exception_payload
+        runtime_images, platform_images = verify_exception_payload(root, manifest)
     elif purpose == "local-verified-release":
         from .contract_v4 import verify_payload as verify_local_payload
         runtime_images, platform_images = verify_local_payload(root, manifest)
@@ -436,8 +442,11 @@ def verify_release_package(
         "purpose": purpose,
         "production_ready": manifest["production_ready"],
     }
-    if purpose == "local-verified-release":
+    if purpose in {"local-verified-release", "local-coverage-exception-release"}:
         result["qualification"] = dict(manifest["qualification"])
+    if purpose == "local-coverage-exception-release":
+        from .contract_v5 import verify_acceptance
+        result["coverage_acceptance"] = verify_acceptance(root, manifest)
     if signer is not None:
         result["signer_fingerprint"] = signer
     else:

@@ -38,15 +38,25 @@ def qualification() -> dict[str, Any]:
 
 
 def validate_manifest(payload: dict[str, Any]) -> None:
+    _validate_manifest(payload)
+
+
+def _validate_manifest(payload: dict[str, Any], *, coverage_exception: bool = False) -> None:
+    """Shared structural validation; schema4 always calls the strict default."""
+    schema = 5 if coverage_exception else SCHEMA_VERSION
+    purpose = "local-coverage-exception-release" if coverage_exception else PURPOSE
+    package_type = "nomosmart-local-coverage-exception-release" if coverage_exception else PACKAGE_TYPE
     expected = {
         "schema_version", "package_type", "release_id", "purpose", "production_ready",
         "created_at", "source", "compatibility", "application_images", "gates",
         "qualification", "signing", "files", *FILE_REFERENCES,
     }
+    if coverage_exception:
+        expected.add("coverage_acceptance")
     if (
         set(payload) != expected or type(payload.get("schema_version")) is not int
-        or payload["schema_version"] != SCHEMA_VERSION or payload.get("package_type") != PACKAGE_TYPE
-        or payload.get("purpose") != PURPOSE or payload.get("production_ready") is not False
+        or payload["schema_version"] != schema or payload.get("package_type") != package_type
+        or payload.get("purpose") != purpose or payload.get("production_ready") is not False
         or not isinstance(payload.get("release_id"), str)
         or not re.fullmatch(r"\d+\.\d+\.\d+", payload["release_id"])
         or not isinstance(payload.get("created_at"), str)
@@ -87,7 +97,7 @@ def validate_manifest(payload: dict[str, Any]) -> None:
         if path in inventory or path in CONTROL_FILES or type(row["size"]) is not int or row["size"] < 0:
             raise ReleaseContractError("release file inventory is duplicate, reserved or invalid")
         inventory[path] = row["sha256"]
-    for name in FILE_REFERENCES:
+    for name in set(FILE_REFERENCES) | ({"coverage_acceptance"} if coverage_exception else set()):
         path = _reference(payload[name], label=name)
         if inventory.get(path) != payload[name]["sha256"]:
             raise ReleaseContractError(f"release reference is outside checksum inventory: {name}")
@@ -100,7 +110,7 @@ def validate_manifest(payload: dict[str, Any]) -> None:
     for name, row in gates.items():
         if (
             not isinstance(row, dict) or set(row) != {"status", "source_sha", "path", "evidence_sha256"}
-            or row["status"] != "passed" or row["source_sha"] != source["git_sha"]
+            or row["status"] != ("accepted_exception" if coverage_exception and name in {"frontend_coverage", "backend_coverage"} else "passed") or row["source_sha"] != source["git_sha"]
         ):
             raise ReleaseContractError(f"mandatory gate did not pass for this source: {name}")
         path = _reference({"path": row["path"], "sha256": row["evidence_sha256"]}, label=name)

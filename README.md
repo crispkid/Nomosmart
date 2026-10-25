@@ -4,7 +4,7 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart helps organizations turn documents and connected data into managed, searchable knowledge.
 
-For v4 `--init-config`, supply `--trusted-signer-fingerprint` from an independently trusted release identity; the package cannot grant itself trust. Select `platform_profile = "docker-desktop"` and explicitly acknowledge only your isolated local target.
+For signed v4/v5 `--init-config`, supply `--trusted-signer-fingerprint` from an independently trusted release identity; the package cannot grant itself trust. Select `platform_profile = "docker-desktop"` and explicitly acknowledge only your isolated local target.
 
 ## 1. Overview
 
@@ -12,7 +12,20 @@ NomoSmart reads files and connected data sources, runs OCR when needed, converts
 
 The platform is designed for knowledge owners, editors, reviewers, administrators, integration developers, and business users. PostgreSQL stores application data. Redis and Celery run background work. S3-compatible storage keeps source files and generated content. OpenSearch handles search, Neo4j stores graph relationships, and Keycloak provides login and directory integration.
 
-Release `0.2.2` adds document content editing after OCR, synchronized chunk/tag/vector/graph updates, configurable OCR output budgets, continuous document reading, structure-aware chunking, obsolete-data cleanup, and durable query model usage records. It uses the signed local-verified-release process: publication requires complete application tests, each frontend/backend coverage gate at 80%, application security and local installation acceptance. Production multi-host capacity, availability/fault domains and network-isolation qualification remain explicitly deferred; this software release does not certify a production platform. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json).
+Release `0.2.2` adds document content editing after OCR, synchronized chunk/tag/vector/graph updates, configurable OCR output budgets, continuous document reading, structure-aware chunking, obsolete-data cleanup, and durable query model usage records. It uses the signed local-coverage-exception-release process (schema 5). Required functional checks, application security, source integrity, trusted signatures and local installation acceptance remain mandatory. This version explicitly records the approved coverage-only exception: frontend line coverage is 22.71% and backend line coverage is 43.49%; neither is claimed to meet the default 80% target. Applicable successful tests are reused by exact source hashes, and historical full-suite failures remain documented. Production multi-host capacity, availability/fault domains and network-isolation qualification remain explicitly deferred; this software release does not certify a production platform. Frontend and Backend images are published by this project; Worker and Beat use the Backend image. Supporting services and plugins are downloaded from their official publishers using [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json).
+
+### Verify the 0.2.2 release package
+
+Obtain the signing fingerprint through an independently trusted channel. After extracting the downloaded package, run its verifier before initialization:
+
+```bash
+./deploy/release/nomosmart-release verify-package \
+  --package . \
+  --purpose local-coverage-exception-release \
+  --trusted-fingerprint "$NOMOSMART_TRUSTED_SIGNER_FINGERPRINT"
+```
+
+The release manifest and included acceptance receipt preserve actual coverage, reused test scopes, platform deferrals and the backup exclusion. A coverage exception cannot approve a failed functional check, an unresolved bug, a high/critical application security finding or an untrusted signature. The repaired CSV export rejects an interrupted stream instead of offering a partial download. Publishing this version does not upgrade an existing deployment automatically.
 
 ## 2. Key Features
 

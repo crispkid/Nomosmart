@@ -4,7 +4,7 @@
 
 NomoSmart 是企業知識管理平台，可將文件與外部資料整理成容易管理、搜尋及引用的知識內容。
 
-v4 執行 `--init-config` 時須以 `--trusted-signer-fingerprint` 提供獨立信任的發布身分，不能直接信任套件自稱的簽署者；本機請設定 `platform_profile = "docker-desktop"`，並親自確認專用隔離目標後才勾選 acknowledgement。
+簽署的 v4/v5 執行 `--init-config` 時須以 `--trusted-signer-fingerprint` 提供獨立信任的發布身分，不能直接信任套件自稱的簽署者；本機請設定 `platform_profile = "docker-desktop"`，並親自確認專用隔離目標後才勾選 acknowledgement。
 
 ## 1. 專案概述
 
@@ -12,7 +12,20 @@ NomoSmart 會讀取檔案與已連接的資料來源，必要時執行 OCR，再
 
 平台適合知識負責人、編輯者、審核者、系統管理員、整合開發者與一般使用者。PostgreSQL 保存應用程式資料；Redis 與 Celery 處理背景工作；S3 相容儲存空間保存原始檔與產出內容；OpenSearch 負責搜尋；Neo4j 保存知識關係；Keycloak 提供登入與企業目錄整合。
 
-`0.2.2` 新增 OCR 後全文內容調整，同步更新切片、貼標、向量與圖譜；並提供可調 OCR 輸出限制、連續文件閱讀、保留完整段落與表格的切片、舊衍生資料清理及查詢模型用量持久化。本版採簽署的本機驗收正式軟體發布契約：發布前必須通過完整應用測試、前後端各80%、應用安全與本機安裝驗收；正式多主機容量、高可用／故障域及網路隔離資格明列延期，本次軟體版本不代表正式平台資格認證。 本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。
+`0.2.2` 新增 OCR 後全文內容調整，同步更新切片、貼標、向量與圖譜；並提供可調 OCR 輸出限制、連續文件閱讀、保留完整段落與表格的切片、舊衍生資料清理及查詢模型用量持久化。本版採簽署的本機 coverage 數值例外發布契約（schema 5）：必要功能、應用安全、來源完整性、可信簽章與本機安裝驗收仍為必要條件。此版本明列已核准的純覆蓋率例外：前端行覆蓋率22.71%、後端43.49%，均未達預設80%目標；適用成功測試以精確來源hash沿用，原完整suite失敗仍保存；正式多主機容量、高可用／故障域及網路隔離資格明列延期，本次軟體版本不代表正式平台資格認證。 本專案發布 Frontend 與 Backend 映像，Worker 和 Beat 共用 Backend 映像；周邊服務與外掛依 [external-dependencies.lock.json](deploy/release/external-dependencies.lock.json) 向官方來源下載。
+
+### 驗證0.2.2發布包
+
+先透過獨立可信管道取得簽署者指紋。下載並解壓發布包後，在初始化前執行包內驗證器：
+
+```bash
+./deploy/release/nomosmart-release verify-package \
+  --package . \
+  --purpose local-coverage-exception-release \
+  --trusted-fingerprint "$NOMOSMART_TRUSTED_SIGNER_FINGERPRINT"
+```
+
+manifest與驗收收據保留真實覆蓋率、測試沿用範圍、平台資格延期及備份排除。數值例外不能豁免功能失敗、未解Bug、應用重大安全問題或不可信簽章。已修正CSV匯出在串流中斷時仍交付部分檔案的問題；發布新版本不會自動升級既有部署。
 
 ## 2. 核心功能
 

@@ -31,6 +31,7 @@ from .contract import (
     REQUIRED_IMAGES,
     ReleaseContractError,
     canonical_json,
+    _load_json,
     sha256_file,
     validate_manifest,
     verify_release_package,
@@ -92,6 +93,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
             "release-manifest.schema.json",
             "release-manifest-v3.schema.json",
             "release-manifest-v4.schema.json",
+            "release-manifest-v5.schema.json",
             "external-dependencies.lock.json",
             "nomosmart-release",
             "nomosmart_release",
@@ -1065,7 +1067,14 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("--package", required=True, type=Path)
     verify.add_argument("--trusted-fingerprint", default="", help="Required for production packages")
     verify.add_argument("--gpg-binary", default="gpg")
-    verify.add_argument("--purpose", choices=("production", "installation-validation", "local-verified-release"), default="production")
+    verify.add_argument("--purpose", choices=("production", "installation-validation", "local-verified-release", "local-coverage-exception-release"), default="production")
+
+    qualify = commands.add_parser("qualify-coverage", help="Record actual coverage-only acceptance; does not approve functional failures or publish")
+    qualify.add_argument("--root", required=True, type=Path)
+    qualify.add_argument("--release-id", required=True)
+    qualify.add_argument("--source-sha", required=True)
+    qualify.add_argument("--inputs", required=True, type=Path)
+    qualify.add_argument("--output", required=True, type=Path)
 
     validation = commands.add_parser("assemble-validation", help="Assemble from completed source-bound reports")
     validation.add_argument("--repo", required=True, type=Path)
@@ -1086,6 +1095,7 @@ def _parser() -> argparse.ArgumentParser:
     local.add_argument("--public-key", required=True, type=Path)
     local.add_argument("--gpg-binary", default="gpg")
     local.add_argument("--gpg-home", type=Path)
+    local.add_argument("--coverage-acceptance", type=Path, help="Explicit 0.2.2 coverage-only receipt, relative to evidence directory")
 
     create = commands.add_parser("create")
     create.add_argument("--repo", required=True, type=Path)
@@ -1110,6 +1120,27 @@ def _emit(payload: object, *, stream: Any = sys.stdout) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "qualify-coverage":
+            from .acceptance import create_receipt
+            root = args.root.resolve()
+            output = args.output
+            if output.is_absolute() or not output.as_posix().startswith("evidence/artifacts/") or any(part in {".", ".."} for part in output.parts):
+                raise ReleaseContractError("coverage receipt output must be under evidence/artifacts/")
+            parent = root
+            for part in output.parts[:-1]:
+                parent = parent / part
+                if parent.is_symlink() or not parent.is_dir():
+                    raise ReleaseContractError("coverage receipt parent must be a real existing directory")
+            target = root / output
+            if target.exists() or target.is_symlink():
+                raise ReleaseContractError("coverage receipt output must be new")
+            receipt = create_receipt(root, release_id=args.release_id, source_sha=args.source_sha,
+                inputs=_load_json(args.inputs, label="acceptance input inventory"))
+            _write_json(target, receipt)
+            _emit({"status": "receipt-created", "functional_pass": receipt["assessment"]["functional_pass"],
+                "coverage_exception_accepted": receipt["assessment"]["coverage_exception_accepted"],
+                "release_eligible": False, "receipt_sha256": sha256_file(target)})
+            return 0
         if args.command == "assemble-local":
             from .local import assemble_local_release
             _emit(assemble_local_release(
@@ -1117,6 +1148,7 @@ def main(argv: list[str] | None = None) -> int:
                 image_inventory=args.image_inventory, evidence_dir=args.evidence_dir,
                 output_dir=args.output_dir, signing_fingerprint=args.signing_fingerprint,
                 public_key=args.public_key, gpg_binary=args.gpg_binary, gpg_home=args.gpg_home,
+                coverage_acceptance=args.coverage_acceptance,
             ))
             return 0
         if args.command == "assemble-validation":

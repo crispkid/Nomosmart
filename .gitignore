@@ -551,3 +551,18 @@ local-data/
 /frontend/node_modules
 /frontend/.vitest-attachments/
 /backend/historical_tests/
+
+# CHG-363 local-only verification adapters.
+/backend/scripts/chg363_*.py
+/backend/scripts/chg363_*.mjs
+
+/backend/scripts/chg364_*.py
+/backend/scripts/chg364_*.mjs
+
+# CHG-365 private finite test operators
+/backend/scripts/chg365_*.py
+/backend/scripts/chg365_*.mjs
+
+# CHG-366 finite private release operators
+/backend/scripts/chg366_*.py
+/backend/scripts/chg366_*.mjs

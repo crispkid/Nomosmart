@@ -130,8 +130,10 @@ def validate_manifest(payload: dict[str, Any]) -> None:
         raise ReleaseContractError("deferred acceptance must remain explicit and cannot be marked passed")
 
 
-def verify_payload(root: Path, payload: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+def verify_payload(root: Path, payload: dict[str, Any], *, _coverage_exception: bool = False) -> tuple[dict[str, str], dict[str, str]]:
     """Validate inventoried content after shared checksum verification."""
+    if _coverage_exception and (payload.get("schema_version") != 5 or payload.get("purpose") != "local-coverage-exception-release"):
+        raise ReleaseContractError("coverage exception requires its explicit schema and purpose")
     inventory = {row["path"]: row["sha256"] for row in payload["files"]}
     inspect_publication_files(root, inventory)
 
@@ -148,7 +150,7 @@ def verify_payload(root: Path, payload: dict[str, Any]) -> tuple[dict[str, str],
     for name, row in payload["gates"].items():
         report = _load_json(_bounded_file(root, row["path"]), label=f"gate {name}")
         if (
-            report.get("name") != name or report.get("status") != "passed"
+            report.get("name") != name or report.get("status") != ("accepted_exception" if _coverage_exception and name in {"frontend_coverage", "backend_coverage"} else "passed")
             or report.get("source_sha") != payload["source"]["git_sha"]
             or type(report.get("exit_code")) is not int or report["exit_code"] != 0
             or not isinstance(report.get("command"), list) or not report["command"]

@@ -270,7 +270,7 @@ if os.path.lexists(os.path.join(real_package_root, "release-manifest.json")):
     try:
         with open(os.path.join(real_package_root, "release-manifest.json"), encoding="utf-8") as stream:
             identity = json.load(stream)
-        release_purpose = "local-verified-release" if identity.get("schema_version") == 4 else "installation-validation"
+        release_purpose = {4: "local-verified-release", 5: "local-coverage-exception-release"}.get(identity.get("schema_version"), "installation-validation")
         receipt = verify_release_package(
             Path(real_package_root), purpose=release_purpose,
             trusted_fingerprint=trusted_fingerprint,
@@ -294,7 +294,7 @@ if os.path.lexists(os.path.join(real_package_root, "release-manifest.json")):
         "\n[release]\n"
         f"package_dir = {json.dumps(real_package_root)}\n"
         f"purpose = {json.dumps(release_purpose)}\n"
-        + (f"trusted_signer_fingerprint = {json.dumps(trusted_fingerprint)}\n" if release_purpose == "local-verified-release" else "")
+        + (f"trusted_signer_fingerprint = {json.dumps(trusted_fingerprint)}\n" if release_purpose in {"local-verified-release", "local-coverage-exception-release"} else "")
         + "isolated_environment_acknowledged = false\n"
     )
 generated_data = generated_text.encode("utf-8")
