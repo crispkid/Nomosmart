@@ -122,6 +122,11 @@ Historical410/411 outcomes and original failures remain in repository acceptance
 records. A successful OCR receipt does not prove the full downstream pipeline,
 coverage, deployment matrix or release. Current412 scoped results must identify
 source hashes, actual provider usage, teardown and remaining gaps separately.
-The full current suite, each80% threshold and formal candidate/signature gates
-remain mandatory. Use the external-services bootstrap profile for existing stores;
+Current releases follow CHG-419 risk-based quality: all applicable critical
+normal/denial/error/data-preservation scenarios require valid source-bound evidence.
+Complete-source coverage measurement remains required; 80% is an advisory improvement
+target. Retain actual full-suite statistics and historical failures, and reuse
+qualified unaffected evidence. Signed candidate integrity and accepted security
+conditions remain mandatory; local acceptance does not qualify deferred production
+platforms. Use the external-services bootstrap profile for existing stores;
 never change shared identities or forge readiness evidence to make a test pass.
