@@ -1,0 +1,67 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://nomosmart.io/schemas/release-quality.json",
+  "title": "Risk Quality Assessment",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "policy_sha256",
+    "source_sha",
+    "scenarios",
+    "case_review_unresolved",
+    "risks",
+    "delivery",
+    "measurement_status"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "policy_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "source_sha": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "scenarios": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "enum": [
+              "verified",
+              "missing",
+              "failed",
+              "unreviewed"
+            ]
+          }
+        }
+      }
+    },
+    "case_review_unresolved": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "risks": {
+      "type": "array"
+    },
+    "delivery": {
+      "type": "object"
+    },
+    "measurement_status": {
+      "enum": [
+        "valid",
+        "missing",
+        "invalid"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

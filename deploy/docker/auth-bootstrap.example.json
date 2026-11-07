@@ -1,0 +1,23 @@
+{
+  "configuration": {
+    "auth_mode": "ldap",
+    "display_name": "Enterprise sign-in",
+    "directory": {
+      "source_id": "00000000-0000-4000-8000-000000000001",
+      "name": "Enterprise directory",
+      "schema_type": "ldap",
+      "endpoints": [
+        "ldaps://directory.example.invalid:636"
+      ],
+      "ca_reference": "enterprise-ca.pem",
+      "users_dn": "ou=users,dc=example,dc=invalid",
+      "groups_dn": "ou=groups,dc=example,dc=invalid",
+      "bind_dn": "cn=nomosmart-reader,ou=services,dc=example,dc=invalid"
+    },
+    "sync_enabled": true,
+    "sync_scope": "people_and_groups",
+    "sync_schedule": "0 2 * * *",
+    "timezone": "Asia/Taipei"
+  },
+  "admin_group_id": "00000000-0000-4000-8000-000000000002"
+}

@@ -1,0 +1,55 @@
+NomoSmart release {{ .Release.Name }} revision {{ .Release.Revision }} has been rendered.
+
+Inspect migration, bootstrap and application readiness:
+  helm status {{ .Release.Name }}
+  kubectl get jobs,pods -l app.kubernetes.io/instance={{ .Release.Name }}
+
+Frontend service:
+  {{ include "nomosmart.fullname" . }}-frontend:{{ .Values.frontend.service.port }}
+Backend service:
+  {{ include "nomosmart.fullname" . }}-backend:{{ .Values.backend.service.port }}
+Runtime Secret:
+  {{ include "nomosmart.secretName" . }}
+Deployment phase:
+  {{ .Values.bootstrap.deploymentPhase }}
+
+Configure authentication.bootstrapConfiguration and trusted auth CA/Secret inputs.
+Select LDAP or an external standards-compliant OIDC service. Users and groups
+are synchronized directly from the configured LDAP/Windows AD directory.
+No identity-provider software is included in this chart.
+
+Sign in as a synchronized normal administrator. OIDC administrators also
+complete fresh authentication before finalization. There is no fixed initial
+application password. Emergency access is disabled unless explicitly activated
+through the deployment CLI for its limited recovery window.
+
+{{- if .Values.bootstrap.finalize.enabled }}
+Finalization Job:
+  {{ include "nomosmart.fullname" . }}-finalize-{{ .Release.Revision }}
+After it succeeds, use bootstrap.deploymentPhase=operational and
+bootstrap.finalize.enabled=false, then verify readiness.
+{{- else if ne .Values.bootstrap.deploymentPhase "operational" }}
+The release is onboarding-only. Complete normal administrator sign-in before
+running finalization and changing the phase to operational.
+{{- end }}
+
+For production, use secrets.existingSecret managed by your platform or
+external secret controller. Keep connection encryption keys outside the database.
+
+Peripheral modes:
+  PostgreSQL: {{ .Values.postgresql.mode }}
+  Redis: {{ .Values.redis.mode }}
+  RustFS: {{ .Values.rustfs.mode }}
+  OpenSearch: {{ .Values.opensearch.mode }}
+  Neo4j: {{ .Values.neo4j.mode }}
+
+Neo4j Community accepted risk:
+  {{ .Values.acceptedRisks.changeId }} / neo4j_community_admin_equivalent
+The service credential supports rotation/audit, not role-level isolation.
+Keep the Service ClusterIP-only and retain its specific NetworkPolicy.
+
+Retained PVCs are not automatically deleted. Provide required datastore TLS/CA
+and Ingress TLS Secrets. Trust the configured CA; never bypass TLS warnings.
+A local Docker Desktop profile does not qualify production HA.
+
+See docs/AUTHENTICATION.en.md for protocol bootstrap, upgrade and recovery.

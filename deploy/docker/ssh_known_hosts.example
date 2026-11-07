@@ -1,0 +1,2 @@
+# Replace this file with ssh-keyscan output verified through a trusted channel.
+# Do not accept a host key solely because it was returned by the first connection.

@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-embedding-capabilities
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+data:
+  embedding-capabilities.json: {{ .Values.embeddingCapabilities.catalog | toJson | quote }}

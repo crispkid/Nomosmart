@@ -1,0 +1,59 @@
+{{- if .Values.productionCapacity.enabled }}
+{{- $beatResources := include "nomosmart.beatResources" . | fromYaml }}
+{{- $workloads := list
+  (dict "name" "frontend" "replicas" .Values.replicaCount.frontend "requests" .Values.frontend.resources.requests "limits" .Values.frontend.resources.limits)
+  (dict "name" "backend" "replicas" .Values.replicaCount.backend "requests" .Values.backend.resources.requests "limits" .Values.backend.resources.limits)
+  (dict "name" "worker" "replicas" .Values.replicaCount.worker "requests" .Values.worker.resources.requests "limits" .Values.worker.resources.limits)
+  (dict "name" "beat" "replicas" .Values.beat.replicas "requests" $beatResources.requests "limits" $beatResources.limits)
+}}
+{{- $pvcs := list }}
+{{- $fullname := include "nomosmart.fullname" . }}
+{{- range $name := list "postgresql" "redis" "rustfs" "opensearch" "neo4j" }}
+{{- $component := index $.Values $name }}
+{{- if eq $component.mode "bundled" }}
+{{- $replicas := 1 }}
+{{- if and (eq $name "postgresql") $component.operator.enabled }}
+{{- $replicas = int $component.cluster.instances }}
+{{- else if eq $name "opensearch" }}
+{{- $replicas = int $component.cluster.replicas }}
+{{- else if and (or (eq $name "redis") (eq $name "rustfs")) $component.cluster.enabled }}
+{{- $replicas = int $component.cluster.replicas }}
+{{- end }}
+{{- $workloads = append $workloads (dict "name" $name "replicas" $replicas "requests" $component.resources.requests "limits" $component.resources.limits) }}
+{{- if and (eq $name "redis") $component.cluster.enabled }}
+{{- $workloads = append $workloads (dict "name" "redis-sentinel" "replicas" $component.cluster.sentinelReplicas "requests" $component.resources.requests "limits" $component.resources.limits) }}
+{{- end }}
+{{- if $component.persistence.enabled }}
+{{- $claims := list }}
+{{- range $index := until $replicas }}
+{{- if and (eq $name "postgresql") $component.operator.enabled }}
+{{- $claims = append $claims (printf "%s-postgresql-%d" $fullname (add1 $index)) }}
+{{- else }}
+{{- $claims = append $claims (printf "data-%s-%s-%d" $fullname $name $index) }}
+{{- end }}
+{{- end }}
+{{- $pvcs = append $pvcs (dict "name" $name "count" $replicas "size" $component.persistence.size "claims" $claims) }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- $plan := dict
+  "apiVersion" "capacity.nomosmart.io/v1alpha1"
+  "minimumNodeAllocatable" .Values.productionCapacity.minimumNodeAllocatable
+  "reservePercent" .Values.productionCapacity.reservePercent
+  "storageMode" .Values.storageValidation.mode
+  "workloads" $workloads
+  "persistentVolumeClaims" $pvcs
+}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-capacity-plan
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: capacity-plan
+  annotations:
+    nomosmart.io/read-only-evidence: "true"
+# The capacity plan is updated with a staged Helm release.
+binaryData:
+  plan.json: {{ $plan | toJson | b64enc | quote }}
+{{- end }}

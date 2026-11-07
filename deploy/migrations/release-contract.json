@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "release_version": "0.2.3",
+  "required_version": "056",
+  "targets": {
+    "SQL": {
+      "file": "V056__native_pdf_cleanup.sql",
+      "checksum": 99561060,
+      "sha256": "afb5abdea95f9d11c981e07bcccb2fb5b724f20b3d67de63db4bc369526a7d68"
+    }
+  }
+}

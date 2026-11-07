@@ -1,0 +1,23 @@
+--- a/anyio/to_process.py
++++ b/anyio/to_process.py
+@@ -149,7 +149,7 @@
+         else:
+             command = [sys.executable, "-u", "-m", __name__]
+             process = await open_process(
+-                command, stdin=subprocess.PIPE, stdout=subprocess.PIPE
++                command, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+             )
+             try:
+                 stdin = cast(ByteSendStream, process.stdin)
+--- a/anyio/_backends/_asyncio.py
++++ b/anyio/_backends/_asyncio.py
+@@ -1207,7 +1207,8 @@
+ 
+         process._stdin._stream._transport.close()  # type: ignore[union-attr]
+         process._stdout._stream._transport.close()  # type: ignore[union-attr]
+-        process._stderr._stream._transport.close()  # type: ignore[union-attr]
++        if process._stderr is not None:
++            process._stderr._stream._transport.close()
+         process.kill()
+         if child_watcher:
+             child_watcher.remove_child_handler(process.pid)

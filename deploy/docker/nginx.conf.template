@@ -1,0 +1,84 @@
+log_format nomosmart_safe '$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent';
+access_log /var/log/nginx/access.log nomosmart_safe;
+
+server {
+    listen 80;
+    server_name ${NOMOSMART_PUBLIC_HOST};
+
+    location = /edge-health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ready\n";
+    }
+
+    location / {
+        return 301 ${NOMOSMART_PUBLIC_ORIGIN}$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl;
+    ${NOMOSMART_ONBOARDING_ACCESS_RULES}
+    server_name ${NOMOSMART_PUBLIC_HOST};
+
+    ssl_certificate /etc/nginx/tls/tls.crt;
+    ssl_certificate_key /etc/nginx/tls/tls.key;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    server_tokens off;
+
+    resolver 127.0.0.11 valid=10s ipv6=off;
+
+    location = /edge-health {
+        access_log off;
+        add_header Content-Type text/plain;
+        return 200 "ready\n";
+    }
+
+    # Only this namespace reaches Backend. No URI suffix means the original
+    # public path is preserved, including the version prefix.
+    location ^~ /api/public/v1/ {
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_http_version 1.1;
+        proxy_set_header Connection "";
+        proxy_buffering off;
+        proxy_cache off;
+        proxy_next_upstream off;
+        proxy_read_timeout ${PUBLIC_API_READ_TIMEOUT_SECONDS}s;
+        proxy_pass ${BACKEND_EDGE_UPSTREAM};
+    }
+
+    # Same authenticated Frontend proxy, not a new direct Backend entrypoint.
+    # Exact + slash-prefix preserves Kubernetes Prefix path-segment semantics.
+    location = /api/backend/projects {
+        include /etc/nginx/includes/document-upload-size.conf;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${FRONTEND_EDGE_UPSTREAM};
+    }
+
+    location ^~ /api/backend/projects/ {
+        include /etc/nginx/includes/document-upload-size.conf;
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${FRONTEND_EDGE_UPSTREAM};
+    }
+
+    location / {
+        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
+        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
+        proxy_set_header X-Forwarded-Proto https;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_pass ${FRONTEND_EDGE_UPSTREAM};
+    }
+}

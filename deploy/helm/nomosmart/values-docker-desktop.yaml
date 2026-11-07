@@ -1,0 +1,121 @@
+# Isolated Docker Desktop installation-validation profile.
+# Generate random credentials into an existing owner-only runtime Secret.
+# Static PV names, nodes and paths are operator-supplied.
+deploymentProfile: bundled
+
+localDevelopment:
+  dnsOverTcp: true
+  enabled: true
+  platform: docker-desktop
+  knownCredentialRiskAccepted: false
+  credentialMode: generated
+
+installer:
+  deploymentStage: foundation
+
+replicaCount:
+  frontend: 1
+  backend: 1
+  worker: 1
+
+highAvailability:
+  enabled: false
+
+storageValidation:
+  mode: static-pv
+
+productionCapacity:
+  enabled: true
+  minimumNodeAllocatable: {cpu: 1000m, memory: 4Gi}
+
+image:
+  frontend:
+    tag: "0.2.3"
+  backend:
+    tag: "0.2.3"
+
+backend:
+  env:
+    APP_ENV: development
+    REDIS_HA_MODE: sentinel
+    REDIS_SENTINEL_MASTER_NAME: nomosmart
+    REDIS_SENTINEL_USERNAME: nomosmart
+    REDIS_TLS_CA_CERT_PATH: /etc/nomosmart/tls/redis-ca.crt
+
+migration:
+  jdbcUrl: jdbc:postgresql://nomosmart-local-postgresql:5432/nomosmart
+
+bootstrap:
+  deploymentPhase: factory_acceptance
+  onboardingAdminAllowCidr: 127.0.0.1/32,10.244.0.0/16
+
+ingress:
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32,10.244.0.0/16
+
+secrets:
+  existingSecret: nomosmart-runtime-secrets
+  data: {}
+
+postgresql:
+  operator:
+    enabled: false
+  backup:
+    enabled: false
+    prepareBucket: false
+  persistence:
+    enabled: true
+    size: 5Gi
+
+redis:
+  cluster:
+    enabled: true
+    replicas: 3
+    sentinelReplicas: 3
+    sentinelQuorum: 2
+    masterName: nomosmart
+    topologyKey: kubernetes.io/hostname
+    podDisruptionBudget:
+      minAvailable: 2
+    sentinelPodDisruptionBudget:
+      minAvailable: 2
+  persistence:
+    enabled: true
+    size: 2Gi
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+
+rustfs:
+  cluster:
+    enabled: false
+    replicas: 1
+    dataShards: 1
+    parityShards: 0
+  persistence:
+    enabled: true
+    size: 10Gi
+
+opensearch:
+  resources:
+    requests: {memory: 2Gi}
+    limits: {memory: 4Gi}
+  cluster:
+    replicas: 1
+    bootstrapMode: single-node
+    podDisruptionBudget:
+      minAvailable: 1
+  persistence:
+    enabled: true
+    size: 10Gi
+
+neo4j:
+  persistence:
+    enabled: true
+    size: 5Gi
+
+beat:
+  haEnabled: false
+  replicas: 1

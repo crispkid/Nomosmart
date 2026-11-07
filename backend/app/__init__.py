@@ -1,0 +1,2 @@
+"""NomoSmart Backend application package."""
+

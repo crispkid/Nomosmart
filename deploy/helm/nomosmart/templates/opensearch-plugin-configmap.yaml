@@ -1,0 +1,12 @@
+{{- if eq .Values.opensearch.mode "bundled" }}
+{{- $script := .Files.Get "files/install-repository-s3.sh" }}
+{{- if not $script }}{{ fail "official OpenSearch plugin initialization script is required" }}{{ end }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-opensearch-plugin
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+data:
+  install-repository-s3.sh: {{ $script | quote }}
+{{- end }}

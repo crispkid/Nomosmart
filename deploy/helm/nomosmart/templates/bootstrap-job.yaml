@@ -1,0 +1,88 @@
+{{- if include "nomosmart.applicationJobsEnabled" . }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-bootstrap-{{ .Release.Revision }}
+  annotations:
+    helm.sh/resource-policy: keep
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+    app.kubernetes.io/component: deployment-bootstrap
+    nomosmart.io/installer-job: "true"
+    nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+spec:
+  backoffLimit: {{ .Values.bootstrap.backoffLimit }}
+  activeDeadlineSeconds: {{ .Values.bootstrap.activeDeadlineSeconds }}
+  template:
+    metadata:
+      labels:
+        {{- include "nomosmart.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: deployment-bootstrap
+        nomosmart.io/installer-job: "true"
+        nomosmart.io/installer-revision: {{ .Release.Revision | quote }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ include "nomosmart.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
+      {{- if .Values.authentication.previousKeysSecretName }}
+      initContainers:
+        {{- include "nomosmart.authKeyringInit" . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: bootstrap
+          image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
+          command: ["python", "-m", "app.deployment.bootstrap"]
+          args: ["--mode", "ensure", "--wait-seconds", {{ .Values.bootstrap.waitSeconds | quote }}]
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          envFrom:
+            - configMapRef:
+                name: {{ include "nomosmart.fullname" . }}-config
+          volumeMounts:
+            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+          env:
+            {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
+            - name: DEPLOYMENT_PHASE
+              value: {{ .Values.bootstrap.deploymentPhase | quote }}
+            - name: DIRECTORY_BIND_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: DIRECTORY_BIND_PASSWORD
+                  optional: true
+            - name: OIDC_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: OIDC_CLIENT_SECRET
+                  optional: true
+            {{- if ne .Values.deploymentProfile "external-services" }}
+            - name: OPENSEARCH_ADMIN_USERNAME
+              value: {{ .Values.opensearch.auth.adminUsername | quote }}
+            - name: OPENSEARCH_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.opensearch.auth.adminPasswordSecretKey }}
+            - name: NEO4J_ADMIN_USERNAME
+              value: {{ .Values.neo4j.auth.adminUsername | quote }}
+            - name: NEO4J_ADMIN_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "nomosmart.secretName" . }}
+                  key: {{ .Values.neo4j.auth.adminPasswordSecretKey }}
+            {{- end }}
+      volumes:
+        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+{{- end }}
