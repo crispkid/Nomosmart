@@ -219,31 +219,12 @@ def verify_assessment_references(root, assessment, *, inventory=None, source_roo
                 _reject("verified scenario test source differs from its individual review")
         if row.get("proof_format")=="recorded-observation-v1":
             verify_recorded_observations(root,row,scenario,inventory=inventory)
+            native_ids=[identity for identity in case_ids if catalog[identity].get("kind")!="recorded-live-acceptance"]
+            if native_ids:verify_native_case_support(root,row,native_ids,inventory=inventory)
         elif row.get("proof_format")not in {None,"native-qualified-map-v1"}:
             _reject("unknown scenario proof format")
         else:
-            reports=[read_reference(root,ref,inventory=inventory)for ref in row["evidence"]]
-            # Recognize actual native qualification maps. A status string by itself grants nothing.
-            maps=[v for v in reports if isinstance(v,dict)and (isinstance(v.get("per_node"),dict)or (v.get("case_id_encoding")=="sha256"and isinstance(v.get("per_case_sha256"),dict)))]
-            if not maps:_reject("verified scenario lacks an actual per-case qualification map")
-            evidence_hashes={r["sha256"]for r in row["evidence"]}
-            supported=set()
-            for value in maps:
-                hashed=value.get("case_id_encoding")=="sha256"
-                entries=value["per_case_sha256"]if hashed else value["per_node"]
-                if value.get("unique_qualified")!=len(entries):_reject("qualified case map counters differ")
-                for node,qualification in entries.items():
-                    if hashed and not SHA256.fullmatch(node):_reject("qualified hash identity is invalid")
-                    if not isinstance(node,str)or not isinstance(qualification,dict)or qualification.get("sha256")not in evidence_hashes:
-                        _reject("qualified case map lacks its original qualification bytes")
-                    q=next(v for v,r in zip(reports,row["evidence"])if r["sha256"]==qualification["sha256"])
-                    if (not isinstance(q,dict)or q.get("status")not in {"QUALIFIED_REUSE","FUNCTIONAL_NATIVE_QUALIFIED"}
-                            or q.get("outcome",{}).get("functional_pass")is not True
-                            or q.get("prior_failures_or_exit_rewritten")is not False
-                            or not q.get("native_execution_sha256")or not q.get("junit_sha256")):
-                        _reject("original native qualification does not prove functional success")
-                    supported.add(node if hashed else hashlib.sha256(node.encode()).hexdigest())
-            if not set(case_ids)<=supported:_reject("verified scenario cases are outside the actual qualified result")
+            verify_native_case_support(root,row,case_ids,inventory=inventory)
         for name,digest in row["source_files"].items():
             _reference({"path":name,"sha256":digest},label="scenario source")
             if source_root is not None:
@@ -367,3 +348,29 @@ def verify_recorded_observations(root,row,scenario,*,inventory=None):
     # All sources claimed by this observation must have actual captured hashes.
     if {b["source_path"]for b in bindings}!=set(row["source_files"]):
         _reject("recorded observation includes uncaptured source claims")
+
+
+def verify_native_case_support(root,row,case_ids,*,inventory=None):
+    reports=[read_reference(root,ref,inventory=inventory)for ref in row["evidence"]]
+    # Recognize actual native qualification maps. A status string by itself grants nothing.
+    maps=[v for v in reports if isinstance(v,dict)and (isinstance(v.get("per_node"),dict)or (v.get("case_id_encoding")=="sha256"and isinstance(v.get("per_case_sha256"),dict)))]
+    if not maps:_reject("verified scenario lacks an actual per-case qualification map")
+    evidence_hashes={r["sha256"]for r in row["evidence"]}
+    supported=set()
+    for value in maps:
+        hashed=value.get("case_id_encoding")=="sha256"
+        entries=value["per_case_sha256"]if hashed else value["per_node"]
+        if value.get("unique_qualified")!=len(entries):_reject("qualified case map counters differ")
+        for node,qualification in entries.items():
+            if hashed and not SHA256.fullmatch(node):_reject("qualified hash identity is invalid")
+            if not isinstance(node,str)or not isinstance(qualification,dict)or qualification.get("sha256")not in evidence_hashes:
+                _reject("qualified case map lacks its original qualification bytes")
+            q=next(v for v,r in zip(reports,row["evidence"])if r["sha256"]==qualification["sha256"])
+            if (not isinstance(q,dict)or q.get("status")not in {"QUALIFIED_REUSE","FUNCTIONAL_NATIVE_QUALIFIED"}
+                    or q.get("outcome",{}).get("functional_pass")is not True
+                    or q.get("prior_failures_or_exit_rewritten")is not False
+                    or not q.get("native_execution_sha256")or not q.get("junit_sha256")):
+                _reject("original native qualification does not prove functional success")
+            supported.add(node if hashed else hashlib.sha256(node.encode()).hexdigest())
+    if not set(case_ids)<=supported:_reject("verified scenario cases are outside the actual qualified result")
+

@@ -79,8 +79,9 @@ class RecordedEvidenceControls(unittest.TestCase):
 
     def verify(self,base,row,case,scenario):
         assessment={"scenarios":{scenario:row},"risks":[],"delivery":{}}
-        ledger={"cases":[] if case.get("kind")=="recorded-live-acceptance" else [case],
-                "recorded_cases":[case] if case.get("kind")=="recorded-live-acceptance" else []}
+        cases=case if isinstance(case,list) else [case]
+        ledger={"cases":[c for c in cases if c.get("kind")!="recorded-live-acceptance"],
+                "recorded_cases":[c for c in cases if c.get("kind")=="recorded-live-acceptance"]}
         verify_assessment_references(base,assessment,source_root=ROOT,case_review=ledger)
 
     def test_C420_T02_real_AD_observations_and_changed_source_refusal(self):
@@ -98,6 +99,14 @@ class RecordedEvidenceControls(unittest.TestCase):
         self.verify(base,row,case,"role_union")
         missing=copy.deepcopy(row);missing["evidence"]=missing["evidence"][:1]
         with self.assertRaises(ReleaseContractError):self.verify(base,missing,case,"role_union")
+
+
+    def test_C420_T02_mixed_actual_AD_and_native_LDAP_both_required(self):
+        base,row,cases=self.inputs("mixed")
+        self.verify(base,row,cases,"ldap_login")
+        missing=copy.deepcopy(row)
+        missing["evidence"]=[r for r in missing["evidence"] if "/native/qualification-" not in r["path"]]
+        with self.assertRaises(ReleaseContractError):self.verify(base,missing,cases,"ldap_login")
 
 
 if __name__=="__main__":unittest.main()
