@@ -109,4 +109,36 @@ class RecordedEvidenceControls(unittest.TestCase):
         with self.assertRaises(ReleaseContractError):self.verify(base,missing,cases,"ldap_login")
 
 
+    def test_C420_T02_actual_fresh_HTTP_and_missing_process_refusal(self):
+        base=Path(os.environ["NOMOSMART_RECORDED_EVIDENCE"]).resolve()
+        row=load(base/"scenarios/public_api.json");case=load(base/"cases/public_api.json")
+        self.verify(base,row,case,"public_api")
+        proof=load(base/row["observation_proof"]["path"])
+        missing=copy.deepcopy(row)
+        missing["evidence"]=[ref for ref in missing["evidence"]if ref!=proof["execution_outputs"][0]["execution"]]
+        with self.assertRaises(ReleaseContractError):self.verify(base,missing,case,"public_api")
+        wrong=copy.deepcopy(row)
+        producer=proof["execution_outputs"][0]["producer"]
+        wrong["evidence"]=[{**ref,"sha256":"0"*64}if ref==producer else ref for ref in wrong["evidence"]]
+        with self.assertRaises(ReleaseContractError):self.verify(base,wrong,case,"public_api")
+
+    def test_C420_T02_actual_medium_keeps_severity_and_high_still_blocks(self):
+        base=Path(os.environ["NOMOSMART_RECORDED_EVIDENCE"]).resolve()
+        original=load(base.parent/"security/application-static-restored.json")
+        issue=next(row for row in original["results"]if row["issue_severity"]=="MEDIUM")
+        old=artifact_root();assessment=load(old/"assessment.json")
+        policy=load(ROOT/"deploy/release/quality-policy.json")
+        risk={"id":issue["test_id"],"severity":issue["issue_severity"].lower(),
+              "reason":issue["issue_text"],"owner":"NomoSmart maintainers",
+              "follow_up":"Review exact dependency/tool boundary before next source change."}
+        assessment["risks"]=[risk]
+        assess_readiness(policy,assessment,policy_sha256=digest(ROOT/"deploy/release/quality-policy.json"),source_sha=assessment["source_sha"])
+        missing=copy.deepcopy(assessment);missing["risks"][0].pop("follow_up")
+        with self.assertRaises(ReleaseContractError):assess_readiness(policy,missing,policy_sha256=digest(ROOT/"deploy/release/quality-policy.json"),source_sha=assessment["source_sha"])
+        # Controlled negative changes severity only; no real scan finding is rewritten.
+        high=copy.deepcopy(assessment);high["risks"][0]["severity"]="high"
+        decision=assess_readiness(policy,high,policy_sha256=digest(ROOT/"deploy/release/quality-policy.json"),source_sha=assessment["source_sha"])
+        self.assertTrue(any(row["kind"]=="risk"for row in decision["blockers"]))
+
+
 if __name__=="__main__":unittest.main()

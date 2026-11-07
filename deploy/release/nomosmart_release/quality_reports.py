@@ -169,7 +169,7 @@ def assess_readiness(policy, assessment, *, policy_sha256, source_sha):
     risks=assessment.get("risks")
     if not isinstance(risks, list): _reject("risk review is missing")
     for risk in risks:
-        if not isinstance(risk, dict) or risk.get("severity") not in {"critical", "high", "low", "unknown"} or not risk.get("reason") or not risk.get("owner"):
+        if not isinstance(risk, dict) or risk.get("severity") not in {"critical", "high", "medium", "low", "unknown"} or not risk.get("reason") or not risk.get("owner"):
             _reject("invalid risk review")
         if risk["severity"] in {"unknown", "high", "critical"}:
             if risk.get("status") != "resolved":
@@ -181,7 +181,7 @@ def assess_readiness(policy, assessment, *, policy_sha256, source_sha):
                     except (KeyError, TypeError, ValueError): _reject("risk acceptance expiry is missing")
                     if expires.tzinfo is None or expires <= datetime.now(timezone.utc): blockers.append({"kind":"expired_risk_acceptance", "id":risk.get("id")})
         elif not risk.get("follow_up"):
-            _reject("low risk follow-up is missing")
+            _reject("known noncritical risk follow-up is missing")
     required = {"security", "compose", "helm", "migration_restore", "signature_source", "critical_e2e"}
     delivery=assessment.get("delivery")
     if not isinstance(delivery, dict) or set(delivery) != required: _reject("required delivery inventory differs")
@@ -198,7 +198,7 @@ def verify_assessment_references(root, assessment, *, inventory=None, source_roo
     """Bind every accepted fact to inventoried bytes and its reviewed source readset."""
     def refs(values):
         if not isinstance(values, list) or not values: _reject("qualified evidence reference list is empty")
-        for ref in values: read_reference(root,ref,inventory=inventory)
+        for ref in values: _verify_file_reference(root,ref,inventory=inventory)
     catalog={r["case_id_sha256"]:r for r in (case_review["cases"]+case_review.get("recorded_cases",[]))}if isinstance(case_review,dict)else {}
     for scenario,row in assessment["scenarios"].items():
         if row.get("status") != "verified": continue
@@ -316,10 +316,32 @@ def verify_recorded_observations(root,row,scenario,*,inventory=None):
             or proof.get("kind")!="recorded-scenario-observations"or proof.get("scenario")!=scenario
             or set(proof.get("case_ids_sha256",[]))!=set(row["case_ids_sha256"])
             or proof.get("original_results_relabelled")is not False
-            or proof.get("new_feature_execution")is not False
+            or type(proof.get("new_feature_execution"))is not bool
             or not proof.get("reviewed_scope")or not proof.get("scope_authority")):
         _reject("recorded scenario proof identity or scope is invalid")
     refs={r["path"]:r["sha256"]for r in row["evidence"]}
+    if proof["new_feature_execution"]:
+        # A fresh live observation is distinct from retained evidence. Its exact
+        # process result and original output bytes must both be present.
+        executions=proof.get("execution_outputs")
+        if not isinstance(executions,list)or not executions:
+            _reject("fresh live observations lack waited process/output evidence")
+        for pair in executions:
+            if not isinstance(pair,dict)or set(pair)!={"execution","stdout","producer"}:
+                _reject("fresh execution binding is invalid")
+            er,sr,pr=pair["execution"],pair["stdout"],pair["producer"]
+            if any(not isinstance(r,dict)or refs.get(r.get("path"))!=r.get("sha256")for r in [er,sr,pr]):
+                _reject("fresh execution is outside scenario evidence")
+            execution=read_reference(root,er,inventory=inventory)
+            _verify_file_reference(root,sr,inventory=inventory)
+            _verify_file_reference(root,pr,inventory=inventory)
+            if (not isinstance(execution,dict)or execution.get("exit")!=0
+                    or execution.get("wait_completed")is not True
+                    or type(execution.get("pid"))is not int or execution["pid"]<=0
+                    or not isinstance(execution.get("argv"),list)or not execution["argv"]
+                    or execution.get("stdout_sha256")!=sr["sha256"]
+                    or not SHA256.fullmatch(str(pr["sha256"]))):
+                _reject("fresh live process did not complete with its bound output")
     checks=proof.get("checks");bindings=proof.get("source_bindings")
     if not isinstance(checks,list)or len(checks)<2 or not isinstance(bindings,list)or not bindings:
         _reject("recorded scenario requires concrete observations and source captures")
@@ -351,7 +373,11 @@ def verify_recorded_observations(root,row,scenario,*,inventory=None):
 
 
 def verify_native_case_support(root,row,case_ids,*,inventory=None):
-    reports=[read_reference(root,ref,inventory=inventory)for ref in row["evidence"]]
+    report_pairs=[]
+    for ref in row["evidence"]:
+        actual=_verify_file_reference(root,ref,inventory=inventory)
+        if actual.suffix==".json":report_pairs.append((read_reference(root,ref,inventory=inventory),ref))
+    reports=[value for value,_ in report_pairs]
     # Recognize actual native qualification maps. A status string by itself grants nothing.
     maps=[v for v in reports if isinstance(v,dict)and (isinstance(v.get("per_node"),dict)or (v.get("case_id_encoding")=="sha256"and isinstance(v.get("per_case_sha256"),dict)))]
     if not maps:_reject("verified scenario lacks an actual per-case qualification map")
@@ -365,7 +391,7 @@ def verify_native_case_support(root,row,case_ids,*,inventory=None):
             if hashed and not SHA256.fullmatch(node):_reject("qualified hash identity is invalid")
             if not isinstance(node,str)or not isinstance(qualification,dict)or qualification.get("sha256")not in evidence_hashes:
                 _reject("qualified case map lacks its original qualification bytes")
-            q=next(v for v,r in zip(reports,row["evidence"])if r["sha256"]==qualification["sha256"])
+            q=next(v for v,r in report_pairs if r["sha256"]==qualification["sha256"])
             if (not isinstance(q,dict)or q.get("status")not in {"QUALIFIED_REUSE","FUNCTIONAL_NATIVE_QUALIFIED"}
                     or q.get("outcome",{}).get("functional_pass")is not True
                     or q.get("prior_failures_or_exit_rewritten")is not False
