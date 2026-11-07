@@ -4,13 +4,16 @@ FROM ubuntu:24.04@sha256:69cecf4bbf72d2d44a9eef1b71fb98c7fb973d78af11399deccef19
 WORKDIR /app
 
 ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
+ARG APT_VERSION=2.8.4ubuntu0.1
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=0 update \
+  && apt-get -o Acquire::Retries=0 install -y --no-install-recommends \
+    apt=${APT_VERSION} \
+    libapt-pkg6.0t64=${APT_VERSION} \
     ca-certificates \
     openssl=${OPENSSL_VERSION} \
     libssl3t64=${OPENSSL_VERSION} \
@@ -32,6 +35,7 @@ FROM ubuntu:24.04@sha256:69cecf4bbf72d2d44a9eef1b71fb98c7fb973d78af11399deccef19
 WORKDIR /app
 
 ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
+ARG APT_VERSION=2.8.4ubuntu0.1
 ARG BROTLI_VERSION=1.1.0-2ubuntu0.1
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -40,8 +44,10 @@ ENV PATH="/opt/venv/bin:$PATH"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-RUN apt-get update \
-  && apt-get install -y --no-install-recommends \
+RUN apt-get -o Acquire::Retries=0 update \
+  && apt-get -o Acquire::Retries=0 install -y --no-install-recommends \
+    apt=${APT_VERSION} \
+    libapt-pkg6.0t64=${APT_VERSION} \
     ca-certificates \
     curl \
     openssl=${OPENSSL_VERSION} \

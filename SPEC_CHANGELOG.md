@@ -6296,3 +6296,7 @@ REPORT-008/009/010/011/014、CLOSE414-003/004，沿既有§5.4/5.6。原四defin
 ### CHG-420 installer authority format correction
 
 The test-only installer scope accepts the current frozen-document Gate4 approval profile in addition to the historical flat profile. Both bind the exact approved plan/resource digests, operation, context, namespace, release and fixed lease; no target or security exception is added. Root cause: the legacy reader assumed old document field names. Approved by Peter under CHG-420; product authentication and runtime behavior unchanged.
+
+### CHG-420 security dependency correction (USN-8996-1)
+
+Security conformance, approved under CHG-420 by Peter: pin Ubuntu APT and libapt-pkg to 2.8.4ubuntu0.1 in both backend image stages and disable APT retries during the bootstrap package operation. This resolves CVE-2026-109518 while retaining repository signatures, the base digest and application behavior. Only backend image build/scan and final readiness are affected; no database migration or frontend change.
