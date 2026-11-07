@@ -1,3 +1,20 @@
+## CHG-421 — Development Plan：剩餘兩項合併收尾
+
+### Status and Gate / Specification Understanding / Human Confirmation
+Gate 1 COMPLETE；Gate 2 CONFIRMED，Peter「同意繼續完成剩餘的項目」，權威docs/CHG-421-GATE2-CONFIRMATION.json。Gate 3 WRITTEN。
+Gate 4 implementation approval: APPROVED。
+
+### Discussion and Confirmation Items / Scope / Approach / Task Breakdown
+具體docs/CHG-421-REMAINING-CLOSURE-PLAN.md與SOURCE／RESOURCE／CASE提案：先固定官方映像與掃描→真六拒絕→舊真Helm收據與新包同源／當次Docker inspection→材料來源簽名→真正新v5簽署／篡改查驗→最後readiness與精確收尾。兩個同映像真issuer僅為精確issuer負向；原420同Helm簽署後live inspect明示由原verify／來源＋當次Docker查驗取代，不能假稱原namespace還活著。
+
+### Test Strategy / Deployment and Configuration Impact / Risks / Verification Commands
+SIGNCLOSE-001..006、C421-T01..06。最高4.25CPU／4352MiB於原6CPU／8GiB內，最多5個本輪容器、每階段120分鐘末10分鐘清理。0新DB／namespace／Helm／模型／8443／Keycloak／發布；兩DB及8筆付費／原資料回復保留。先規格／追溯／計畫／test:plan，plan:approved應因421 PENDING拒絕；核准後只真缺口與直接控制。
+
+### Plan Approval / Verification Results
+Human implementation may begin only after this specific development plan is approved. 方向已確認；目前沒有程式實作、功能測試、image pull／scan、服務或簽署。這次只需一份合併具體核准；普通工具問題直接修與受影響續驗，不重問原方向。
+
+Peter approved Gate 4 on 2026-11-07 with「同意」，回覆本份CHG-421具體合併計畫核准問題。權威docs/CHG-421-APPROVAL.json；凍結計畫／三提案／Gate2原文與SHA保持，PENDING為規劃歷史。按六組控制集中執行，原420scope不重開；0模型／8443／Keycloak／對外發布。
+
 ## CHG-420 — Development Plan：發布前三項集中完成
 
 ### Status and Gate / Specification Understanding / Human Confirmation

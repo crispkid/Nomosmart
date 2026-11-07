@@ -1,13 +1,28 @@
+## CHG-421 — Traceability：剩餘OIDC與最終包（Gate 4 approved 2026-11-07）
+
+| Requirement ID | Specification Section | Implementation Area | Tests | Harness Command | Status |
+| --- | --- | --- | --- | --- | --- |
+| SIGNCLOSE-001 | CHG-421 Exact source and safe fixture | fixed registry metadata/current scan/preflight | C421-T01 | spec:trace;plan:approved;test:plan;421 selected-image preflight | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| SIGNCLOSE-002 | CHG-421 Genuine OIDC refusal branches | current_oidc_acceptance live HTTP/IdP driver | C421-T02 | approved421 live OIDC controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| SIGNCLOSE-003 | CHG-421 Time-bound installation provenance | installation_evidence read-only source comparison | C421-T03 | approved421 real material/mismatch controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| SIGNCLOSE-004 | CHG-421 Material signature is not release qualification | material_attestation purpose and actual GPG verification | C421-T04 | approved421 real signature/tamper controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| SIGNCLOSE-005 | CHG-421 Final v5 independent verification | existing strict reviewed builder/installer plus finalizer | C421-T05 | assemble-reviewed-local;actual final bundle verify | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| SIGNCLOSE-006 | CHG-421 Minimal continuation and preservation | current readiness/own resource cleanup/accounting | C421-T06 | coverage:check;release:readiness;owned cleanup | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+
+29合格情境與原420原件／資源封閉紀錄保持；本表不產生PASS。Gate4待本份具體合併計畫核准。
+
+Peter approved Gate 4 on 2026-11-07 with「同意」，回覆本份CHG-421具體合併計畫核准問題。權威docs/CHG-421-APPROVAL.json；凍結計畫／三提案／Gate2原文與SHA保持，PENDING為規劃歷史。按六組控制集中執行，原420scope不重開；0模型／8443／Keycloak／對外發布。
+
 ## CHG-420 — Traceability：發布前三項續行（Gate 4 approved 2026-11-07）
 
 | Requirement ID | Specification Section | Implementation Area | Tests | Harness Command | Status |
 | --- | --- | --- | --- | --- | --- |
-| RELREADY-001 | CHG-420 Existing evidence applicability | common proof readers/current evidence and v5 delivery | C420-T01 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
-| RELREADY-002 | CHG-420 Common proof-reader compatibility | common proof readers/current evidence and v5 delivery | C420-T02 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
-| RELREADY-003 | CHG-420 Only genuine critical deltas | common proof readers/current evidence and v5 delivery | C420-T03 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
-| RELREADY-004 | CHG-420 Clean local v5 candidate and security | common proof readers/current evidence and v5 delivery | C420-T04 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
-| RELREADY-005 | CHG-420 Actual delivery and trusted signature | common proof readers/current evidence and v5 delivery | C420-T05/C420-T06 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
-| RELREADY-006 | CHG-420 Bounded scope and final truth | common proof readers/current evidence and v5 delivery | C420-T07 | spec:trace;plan:approved;test:plan;approved420 delta controls | APPROVED_IMPLEMENTATION_IN_PROGRESS |
+| RELREADY-001 | CHG-420 Existing evidence applicability | qualified scenario references and individual original-failure scope review | C420-T01 | spec:trace;plan:approved;test:plan;approved420 delta controls | 29_OF_31_QUALIFIED;OIDC_AND_SIGNED_PACKAGE_PENDING |
+| RELREADY-002 | CHG-420 Common proof-reader compatibility | common proof readers/current evidence and v5 delivery | C420-T02 | spec:trace;plan:approved;test:plan;approved420 delta controls | IMPLEMENTED_AND_DELTA_CHECKED;FINAL_DELIVERY_PENDING |
+| RELREADY-003 | CHG-420 Only genuine critical deltas | common proof readers/current evidence and v5 delivery | C420-T03 | spec:trace;plan:approved;test:plan;approved420 delta controls | IMPLEMENTED_AND_DELTA_CHECKED;FINAL_DELIVERY_PENDING |
+| RELREADY-004 | CHG-420 Clean local v5 candidate and security | common proof readers/current evidence and v5 delivery | C420-T04 | spec:trace;plan:approved;test:plan;approved420 delta controls | IMPLEMENTED_AND_DELTA_CHECKED;FINAL_DELIVERY_PENDING |
+| RELREADY-005 | CHG-420 Actual delivery and trusted signature | common proof readers/current evidence and v5 delivery | C420-T05/C420-T06 | spec:trace;plan:approved;test:plan;approved420 delta controls | IMPLEMENTED_AND_DELTA_CHECKED;FINAL_DELIVERY_PENDING |
+| RELREADY-006 | CHG-420 Bounded scope and final truth | common proof readers/current evidence and v5 delivery | C420-T07 | spec:trace;plan:approved;test:plan;approved420 delta controls | IMPLEMENTED_AND_DELTA_CHECKED;FINAL_DELIVERY_PENDING |
 
 具體計畫及三份提案待核准；舊原件／669快照／Owner資格保持，未新增PASS。
 
@@ -7156,3 +7171,5 @@ CHG-414 final source-impact qualification wiring: preserve the entire original11
 CHG-420 C420-T05: `test_candidate_scope.py` reads both actual approved authority document formats without changing namespace ownership, expiry, artifact integrity or mutation guards. Verify with genuine CHG-420 approval/resources and wrong target/hash refusals before the sole installation lifecycle.
 
 CHG-420 C420-T04 / security_findings: actual 2026-11-07 Trivy DB detected CVE-2026-109518 in apt and libapt-pkg 2.8.3. `backend/Dockerfile` pins the official fixed version; preserve both first raw reports, rebuild/scan only backend amd64 and arm64, and bind final digests to the installer candidate.
+
+CHG-420 C420-T03/C420-T07 continuation: one coherent real native-PDF upload through Worker/finalization, two actual approvals, publish and query/history completed. Eight genuine usage rows and receipt/source/output retained; original parent/restore78 tables and prior app rows unchanged. Temporary runtimes/ACL/node image references cleaned; LDAP returned stopped. 29/31 source-bound scenarios; OIDC six refusal controls and final trusted v5 package remain pending. Evidence: `.artifacts/chg420-7c990b47/e2e-continuation/` and current quality readiness; no full-suite or80% PASS claim.

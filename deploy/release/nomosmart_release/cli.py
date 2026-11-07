@@ -1107,6 +1107,22 @@ def _parser() -> argparse.ArgumentParser:
     local.add_argument("--gpg-binary", default="gpg")
     local.add_argument("--gpg-home", type=Path)
 
+    material = commands.add_parser("attest-material-source", help="Sign explicit real public material provenance; never qualify a release")
+    for option in ("repo", "material-root", "inventory", "output-dir", "public-key"):
+        material.add_argument("--" + option, required=True, type=Path)
+    for option in ("commit", "signing-fingerprint"):
+        material.add_argument("--" + option, required=True)
+    material.add_argument("--gpg-binary", default="gpg")
+    material.add_argument("--gpg-home", type=Path)
+    material_verify = commands.add_parser("verify-material-source", help="Verify provenance using an independent trusted signer")
+    for option in ("material-root", "attestation-dir"):
+        material_verify.add_argument("--" + option, required=True, type=Path)
+    material_verify.add_argument("--trusted-fingerprint", required=True)
+    material_verify.add_argument("--gpg-binary", default="gpg")
+    material_verify.add_argument("--repo", type=Path)
+    bridge = commands.add_parser("compare-installation-source", help="Compare a closed real installation to final public source without reinstalling")
+    bridge.add_argument("--config", required=True, type=Path)
+
     reviewed = commands.add_parser("assemble-reviewed-local", help="Assemble explicit signed v5 risk-reviewed evidence; never promote a test candidate")
     for option in ("repo", "image-inventory", "evidence-dir", "output-dir", "public-key"):
         reviewed.add_argument("--"+option, required=True, type=Path)
@@ -1138,6 +1154,29 @@ def _emit(payload: object, *, stream: Any = sys.stdout) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "attest-material-source":
+            from .material_attestation import create_material_attestation
+            _emit(create_material_attestation(material_root=args.material_root, source_root=args.repo,
+                commit=args.commit, materials=json.loads(args.inventory.read_text()), output_dir=args.output_dir,
+                public_key=args.public_key, trusted_fingerprint=args.signing_fingerprint,
+                gpg_binary=args.gpg_binary, gpg_home=args.gpg_home))
+            return 0
+        if args.command == "verify-material-source":
+            from .material_attestation import verify_material_attestation
+            _emit(verify_material_attestation(material_root=args.material_root, attestation_dir=args.attestation_dir,
+                trusted_fingerprint=args.trusted_fingerprint, gpg_binary=args.gpg_binary, source_root=args.repo))
+            return 0
+        if args.command == "compare-installation-source":
+            from .installation_evidence import compare_installed_payload
+            configured = json.loads(args.config.read_text())
+            expected = {"installed_package", "source_root", "capture_root", "capture_references",
+                        "expected_namespace_uid", "expected_operation_uuid", "application_images"}
+            if not isinstance(configured, dict) or set(configured) != expected:
+                raise ReleaseBuildError("installation source comparison input is invalid")
+            for field in ("installed_package", "source_root", "capture_root"):
+                configured[field] = Path(configured[field])
+            _emit(compare_installed_payload(**configured))
+            return 0
         if args.command == "verify-test-candidate":
             from .contract_test_candidate import verify_test_candidate
             _emit(verify_test_candidate(args.package.absolute()))

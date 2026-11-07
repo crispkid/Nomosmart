@@ -1,0 +1,33 @@
+{
+  "change_id": "CHG-421",
+  "Gate4": "APPROVED",
+  "approver": "Peter",
+  "approved_date": "2026-11-07",
+  "recorded_at_utc": "2026-11-07T09:30:30.037638+00:00",
+  "quote": "同意",
+  "approval_context": "Explicit answer to the concrete CHG-421 merged plan approval request, after Gate2 confirmation and all planning checks.",
+  "frozen_documents": [
+    {
+      "path": "docs/CHG-421-REMAINING-CLOSURE-PLAN.md",
+      "sha256": "c22a2e2427645d62d88a5c7cf9fac6ccddefba51182970d6dcf1e6c74de6856d"
+    },
+    {
+      "path": "docs/CHG-421-RESOURCE-PROPOSAL.json",
+      "sha256": "92456486a801b30c39b5990e63bd56e6dae834dece077871dafc5a49709779f1"
+    },
+    {
+      "path": "docs/CHG-421-SOURCE-PROPOSAL.json",
+      "sha256": "ea12b7900f7b576fecc67f9d23c3037e55ac8fd52c733b634ab8a77761d64294"
+    },
+    {
+      "path": "docs/CHG-421-CASE-PROPOSAL.json",
+      "sha256": "94bbe4e1a9627c2a7f43f935a5bc3bb6d201a809b811507fb1f8ee0a0fcb4433"
+    },
+    {
+      "path": "docs/CHG-421-GATE2-CONFIRMATION.json",
+      "sha256": "c2fd612eb8ff286439acb6e5713b223a6d212938c114b36a8769b4fc9a1781e3"
+    }
+  ],
+  "original420_scopes_stay_closed": true,
+  "no8443_change_or_external_publication": true
+}

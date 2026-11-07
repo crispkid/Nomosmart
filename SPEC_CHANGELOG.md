@@ -1,3 +1,13 @@
+## CHG-421 — Specification change record：OIDC與簽署包的最後差異（待具體核准）
+
+| Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-07 | CHG-421 | SIGNCLOSE-001..006; current authentication/delivery | Peter同意接續420剩餘兩項 | 新增真IdP六拒絕前提、材料簽名／最終簽名及封閉安裝環境來源銜接 | 無產品API／DDL變動；31政策及v4／未驗包保持；原Helm簽署後live inspect改為真舊verify＋逐檔對照／當次Docker查驗，待Gate4生效 | 已過29沿用，僅六拒絕與必要簽名／來源控制；不重跑矩陣或coverage | Peter confirmed Gate2; Gate 4 approved 2026-11-07 |
+
+本紀錄先於實作。規劃期僅唯讀登錄metadata與文件，具體計畫及三提案尚待Gate4。
+
+Peter approved Gate 4 on 2026-11-07 with「同意」，回覆本份CHG-421具體合併計畫核准問題。權威docs/CHG-421-APPROVAL.json；凍結計畫／三提案／Gate2原文與SHA保持，PENDING為規劃歷史。按六組控制集中執行，原420scope不重開；0模型／8443／Keycloak／對外發布。
+
 ## CHG-420 — Specification change record：發布前三項執行契約（待具體核准）
 
 | Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |
@@ -6300,3 +6310,7 @@ The test-only installer scope accepts the current frozen-document Gate4 approval
 ### CHG-420 security dependency correction (USN-8996-1)
 
 Security conformance, approved under CHG-420 by Peter: pin Ubuntu APT and libapt-pkg to 2.8.4ubuntu0.1 in both backend image stages and disable APT retries during the bootstrap package operation. This resolves CVE-2026-109518 while retaining repository signatures, the base digest and application behavior. Only backend image build/scan and final readiness are affected; no database migration or frontend change.
+
+CHG-420 RELREADY-002 tool-format note (2026-11-07, approved Peter CHG-420): distinguish fresh real-service observations from retained original observations. Fresh records additionally require exact waited PID/exit/output-byte bindings; old format controls unchanged. No product behavior or coverage counter changes. C420-T02 one actual-output positive and one missing-process refusal.
+
+CHG-420 RELREADY-002 severity-format correction (2026-11-07, Peter approved420): preserve actual MEDIUM scan severity instead of rejecting it or relabeling LOW. Known medium requires reason, owner and follow-up; HIGH/CRITICAL/UNKNOWN blocking and risk acceptance rules unchanged. Direct actual-scan control only, no rescans.

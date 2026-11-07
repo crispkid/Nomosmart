@@ -1,3 +1,27 @@
+## CHG-421 — Specification：剩餘OIDC與可信包收尾（Gate2 CONFIRMED；Gate 4 approved 2026-11-07）
+
+Peter於2026-11-07「同意繼續完成剩餘的項目」確認新增隔離OIDC方向與剩餘簽署查驗，權威docs/CHG-421-GATE2-CONFIRMATION.json。具體計畫docs/CHG-421-REMAINING-CLOSURE-PLAN.md與SOURCE／RESOURCE／CASE提案待Gate4；本節只細化既有認證與交付驗收，不新增產品認證行為或降低原31情境。
+
+### SIGNCLOSE-001 — Exact source and safe fixture
+Given固定官方IdP及既有29情境，When核准後準備，Then先驗來源／native平台／新掃描，不啟動未處置HIGH／CRITICAL／unknown映像；原資料、四交付映像與舊原件保持。驗收C421-T01。
+
+### SIGNCLOSE-002 — Genuine OIDC refusal branches
+Given真主要及外來issuer／LDAP與產品flow，When只送必要state／issuer／audience／nonce／PKCE／replay負向輸入，Then在精確分支拒絕、不建session，正常前提共用且真token由IdP簽出；不fake／不降低CA／不猜身分。驗收C421-T02。
+
+### SIGNCLOSE-003 — Time-bound installation provenance
+Given420原真安裝／UID／image／runtime與封閉紀錄，When對照最終包，Then逐檔及摘要符合、錯UID／image／capture拒絕，明示不是重新live查原Helm；以原真verify＋來源對照及當次Docker唯讀inspection取代原420簽署後同Helm live inspect，不第二次install。此差異僅本輪具體核准後生效。驗收C421-T03。
+
+### SIGNCLOSE-004 — Material signature is not release qualification
+Given公開真材料與既有可信key，When先簽來源清單，Thenpurpose=local-material-source-attestation且release_qualified=false，真驗簽及篡改拒絕；原未驗測試包不改，不宣稱它成為已簽署合格發布包。驗收C421-T04。
+
+### SIGNCLOSE-005 — Final v5 independent verification
+Given31真情境／19gate及材料簽名，When重新組裝並簽署真正v5，Then原嚴格來源／簽章／purpose／inventory／移轉／資料與風險條件不變，真最終包／篡改與安裝器來源查驗成功後另存最終摘要收尾；preassembly品質合格不能冒稱包已完成。驗收C421-T05。
+
+### SIGNCLOSE-006 — Minimal continuation and preservation
+Given本輪具體資源與核准，When完成，Then沿用29情境與完整原counter／2576帳，0模型／8443／Keycloak／新namespace，精確收尾、保留原8用量與兩DB／回復，缺證仍NOT_READY；只交本機最後審查，不發布。驗收C421-T06。
+
+Peter approved Gate 4 on 2026-11-07 with「同意」，回覆本份CHG-421具體合併計畫核准問題。權威docs/CHG-421-APPROVAL.json；凍結計畫／三提案／Gate2原文與SHA保持，PENDING為規劃歷史。按六組控制集中執行，原420scope不重開；0模型／8443／Keycloak／對外發布。
+
 ## CHG-420 — Specification：發布前三項整合續行（Gate2 CONFIRMED；Gate 4 approved 2026-11-07）
 
 Peter「同意進行發布前的工作」確認CHG-419三項待辦。伴隨計畫docs/CHG-420-PREPUBLICATION-PLAN.md與EVIDENCE／SOURCE／RESOURCE提案；只細化RISKREL與既有產品／交付需求，不新增產品行為、不把80%恢復成門檻。

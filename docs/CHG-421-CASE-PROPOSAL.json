@@ -1,0 +1,53 @@
+{
+  "change_id": "CHG-421",
+  "Gate4": "PENDING",
+  "reuse_qualified_scenarios": 29,
+  "only_missing_scenarios": [
+    "oidc_login",
+    "package_integrity"
+  ],
+  "groups": [
+    {
+      "id": "C421-T01",
+      "area": "source_and_preflight",
+      "observations": "official descriptor/pull+fresh actual scan, current source/approval and retained29 cases; input-only schema and exact ownership guards",
+      "guard": "no IdP execution until scan eligible; no fabricated success"
+    },
+    {
+      "id": "C421-T02",
+      "area": "oidc_live_refusals",
+      "observations": "one necessary successful real code flow plus six targeted refusals; real LDAP user, real signed tokens, own DB/cookies/audit",
+      "guard": "invalid state; alternate real issuer; real cross-client audience; changed public nonce; changed public PKCE challenge; replay consumed real flow"
+    },
+    {
+      "id": "C421-T03",
+      "area": "installed_payload_bridge",
+      "observations": "one real retained420 installation/inventory/current final-source match plus one image mismatch and one namespace-UID/capture mismatch controlled copy",
+      "guard": "retained real install success does not imply live namespace now; no second install"
+    },
+    {
+      "id": "C421-T04",
+      "area": "material_source_attestation",
+      "observations": "actual trusted GPG signature on finite public material source inventory and its readback; one altered public attestation copy refused",
+      "guard": "purpose=local-material-source-attestation; release_qualified=false; never convert test package identity"
+    },
+    {
+      "id": "C421-T05",
+      "area": "final_v5_and_minimal_inspection",
+      "observations": "fresh explicit signed reviewed v5, genuine signature/inventory/source/tamper refusal and actual inspector on final bytes; one real Docker application auth/source readback",
+      "guard": "existing unsigned test candidate remains rejected for release; no Helm reinstall"
+    },
+    {
+      "id": "C421-T06",
+      "area": "final_truth_and_cleanup",
+      "observations": "reuse complete coverage measurements/current31 references; actual full finalization result plus exact resources/DB/usage preservation and cleanup",
+      "guard": "local review only; production_ready=false; no publish/8443/Keycloak/model"
+    }
+  ],
+  "original_catalog": 2576,
+  "frozen_qualified_snapshot": 669,
+  "prior_unqualified": 1850,
+  "noncurrent_old": 68,
+  "no_new_PASS_from_case_classification": true,
+  "no_full_suite_or_coverage_replay": true
+}

@@ -1,3 +1,11 @@
+## CHG-421 — Test Strategy：六拒絕與最終可信包（Gate 4 approved 2026-11-07）
+
+SIGNCLOSE-001..006對應C421-T01..06，具體docs/CHG-421-REMAINING-CLOSURE-PLAN.md及CASE-PROPOSAL。真IdP／LDAP／HTTP／產品session，錯issuer／audience需驗到id_token_validation與對應cause；nonce／PKCE只改公開授權輸入，replay用真正已消耗flow；不fake Token、不seed成功。必要正常flow一次供replay／最後inspection共用，29既有合格沿用。
+
+真原安裝檔案比對一正兩錯配；材料簽名一正一篡改；新v5真包及必要錯purpose／篡改拒絕。兩種purpose不可互換，最終包外結果才算組包完成；原119失敗／669／1850／2576與完整source counter不變。0模型或部署矩陣重跑。Gate4前僅文件檢查，尚未功能測試或啟動資源。
+
+Peter approved Gate 4 on 2026-11-07 with「同意」，回覆本份CHG-421具體合併計畫核准問題。權威docs/CHG-421-APPROVAL.json；凍結計畫／三提案／Gate2原文與SHA保持，PENDING為規劃歷史。按六組控制集中執行，原420scope不重開；0模型／8443／Keycloak／對外發布。
+
 ## CHG-420 — Test Strategy：現行情境／候選交付最少補驗（Gate 4 approved 2026-11-07）
 
 RISKREL沿用：80%僅改善目標，維持完整source／counter／原omit。RELREADY-001..006與具體計畫docs/CHG-420-PREPUBLICATION-PLAN.md。C420-T01真來源與差異；T02共同reader真格式接受與錯來源拒絕；T03只缺失／受影響子情境；T04真候選／映像／掃描；T05唯一安裝／upgrade／回復；T06真簽章／v5與篡改拒絕；T07最終判定／對帳清理。31情境不是31次重測、2576不是必跑數量；原Owner9與有效矩陣不重跑。不用mock／成功狀態seed／假Provider／假clock／假PASS收據。
@@ -23064,3 +23072,14 @@ CHG-414 restore-only33 decision: real readonly baseline9532 and supplemental fin
 CHG-414 final narrow collection decision: after the two actual collection-only mode edits, run exactly one fresh collection of the original nine affected modules through the existing native-pytest-collection414 entry. This is a necessary change check and avoids adding a new151-module AST admission framework. Only --collect-only/--no-cov, explicit zero-provider guard, readonly PG URL and existing source/config/PID/wait/monitor capture;0fixtures/bodies/models/newservices. Preserve original201/2291, old275, wrongflag13, trueV49_API10 and all failures. V49 and original201 are not recollected. The new nine raw result must qualify from its own actual before-source evidence; no historical source repair is invented.
 
 CHG-414 final source-impact qualification wiring: preserve the entire original1137-entry map for native7544/8502. Add only exact certificate1fe95094 validator (55-line existing-import-helper integration) to recompute old/current97 local import closures and six finite dynamic sites, three actual before/current source SHA pairs and unchanged selected24 policy entries. The three test-helper edits have no import/call path from these24. Unknown delta/callee/reflection still refuses; no new275 AST framework. Full25 gate, case outcomes, secret deny, source denominator/counter admission and80 unchanged. This is metadata-only requalification; no24 case replay.
+
+CHG-420 C420-T03 network_transport delta: use only current existing18521 service for native pinned TLS, wrong CA, private endpoint and actual307 refusal; test bounded output with real public-source archive bytes and safe return paths. No new service/port, provider or session; retain original URL/input contracts. Single bounded batch, actual process/output captured.
+
+CHG-420 C420-T03 project_isolation delta: one real API-created empty project, four cross-scope HTTP read/edit/export/delete refusals and one genuine existing published manager-task non-assignee403. Optional missing ProjectMember tuple is a new metadata-only input in owned app clone and exactly removed; no successful task/version is seeded. Archive own empty project; normal sessions logged out;0providers/shared-parent changes. Existing foreign-document UI and published-lock inputs reused.
+
+
+### CHG-420 coherent native-PDF continuation inputs
+
+C420-T03 only: reuse28 qualified scenarios and add one real public PDF chain through actual upload, native provider, extraction, manager/Owner decisions, publish and query/citations. Existing410 confirmed receipt content was already removed by the real412 archive, so it cannot prove the same-document chain. Use the approved sequential Docker slot and two existing420 DBs; one new encrypted test model setting copies the existing approved physical OpenAI model/capability and uses product credential functions entirely in memory. No original model or directory change; no success/provider/approval rows seeded. A temporary real uploader view/create role is removed by birth ID. Only exact new outbox events may dispatch, Beat stays off; unknown paid outcomes forbid automatic retry or database deletion. Keep original failures and stop/wait/cleanup under the fixed phase deadline.
+
+CHG-420 continuation result (2026-11-07): only the missing same-document native-PDF review/query chain executed. Real upload, one OCR generation, extraction, actual manager/Owner approval, publication and one cited query/history all completed; eight actual usage rows preserved. No repeated successful PDF/deployment matrix. Retain raw tool/prerequisite failures and their corrected continuations. OIDC refusal controls and final signed-v5 verification remain pending; see current readiness, exact source-qualified scenario proofs and runtime closure receipts.

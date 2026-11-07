@@ -1,0 +1,11 @@
+{
+  "change_id": "CHG-421",
+  "Gate2": "CONFIRMED",
+  "Gate4": "PENDING",
+  "approver": "Peter",
+  "date": "2026-11-07",
+  "quote": "同意繼續完成剩餘的項目",
+  "context": "Confirmed remaining OIDC test-service direction and final signed package/checks after CHG-420 result. This is Gate2, not approval of the concrete plan which is being written now.",
+  "prior_approved_change": "CHG-420",
+  "no_general_reapproval_required_for_original_approved_scope": true
+}
