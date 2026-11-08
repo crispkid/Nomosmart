@@ -1,5 +1,7 @@
 ## CHG-422 — 已發布NativeOCR及SYSUX整合測試
 
+SYSUX-022封存回歸量測說明：Worker既有max_retries=5，因此初始真失敗可能已有6次嘗試；重試不可硬編碼attempt=2。以真實重試稽核的next_attempt／request_id／actor／時間綁定完成紀錄；原重試已完成時僅核對真實既存觀察和保護資料，不再製造失敗或重送，也不把舊工具斷言失敗改成PASS。
+
 SYSUX-022封存回歸：真API退回／封存已產生具體失敗原件，補原失敗專案的官方重試，經正常Beat／Outbox／Worker完成；比對已發布內容狀態、原始PDF、索引／chunks／manifest、OCR收據與付費帳務，確定只刪未完成內容狀態且取消期限工作沒有執行。
 
 SYSUX-021修正回歸：真HTTP known-length超限在完整下載前拒絕、chunked逐塊上限並中止、小檔內容和metadata不變、404原碼；檢查FTP函式AST不變，另補真正常Outbox遠端同步。

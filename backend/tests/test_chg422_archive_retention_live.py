@@ -50,10 +50,11 @@ class ArchiveRetentionRecoveryLive(unittest.TestCase):
             with engine.connect() as conn:
                 conn.exec_driver_sql('SET TRANSACTION READ ONLY')
                 self.assertEqual(conn.scalar(text('select current_database()')), config['database_name'])
-                run = conn.execute(text('select status from project_archive_runs where id=:id'), {'id': config['archive_run_id']}).scalar_one()
-                self.assertEqual(run, 'failed')
-                job = conn.execute(text('select status,attempt from staging_retention_jobs where id=:id'), {'id': original['actual_future_job']['id']}).mappings().one()
-                self.assertEqual(dict(job), {'status': 'cancelled', 'attempt': 0})
+                initial_run = dict(conn.execute(text('select status,attempt from project_archive_runs where id=:id'), {'id': config['archive_run_id']}).mappings().one())
+                self.assertIn(initial_run['status'], ('failed', 'completed'))
+                if initial_run['status'] == 'failed':
+                    job = conn.execute(text('select status,attempt from staging_retention_jobs where id=:id'), {'id': original['actual_future_job']['id']}).mappings().one()
+                    self.assertEqual(dict(job), {'status': 'cancelled', 'attempt': 0})
             before = protected(settings, engine, config['project_id'], config['published_version_id'])
             expected = {**original['before'], 'document_content_states': config['published_content_state_before']}
             self.assertEqual(before, expected)
@@ -65,23 +66,32 @@ class ArchiveRetentionRecoveryLive(unittest.TestCase):
                 self.assertTrue(state.json()['authenticated'])
                 client.headers['X-CSRF-Token'] = state.json()['csrf_token']
                 try:
-                    response = client.post('projects/'+config['project_id']+'/archive-cleanup/retry')
-                    self.assertEqual(response.status_code, 200)
-                    self.assertEqual(response.json()['status'], 'archived')
+                    if initial_run['status'] == 'failed':
+                        response = client.post('projects/'+config['project_id']+'/archive-cleanup/retry')
+                        self.assertEqual(response.status_code, 200)
+                        self.assertEqual(response.json()['status'], 'archived')
                 finally:
                     self.assertEqual(client.post('auth/logout').status_code, 204)
             deadline = time.monotonic() + 120
             while time.monotonic() < deadline:
                 with engine.connect() as conn:
                     conn.exec_driver_sql('SET TRANSACTION READ ONLY')
-                    run = dict(conn.execute(text('select id,status,attempt,error_code,deleted_version_count,deleted_document_count from project_archive_runs where id=:id'), {'id': config['archive_run_id']}).mappings().one())
+                    run = dict(conn.execute(text('select id,status,attempt,error_code,completed_at,deleted_version_count,deleted_document_count from project_archive_runs where id=:id'), {'id': config['archive_run_id']}).mappings().one())
                 if run['status'] == 'completed':
                     break
                 self.assertNotEqual(run['status'], 'failed', 'Genuine retry failed')
                 time.sleep(2)
             else:
                 self.fail('Normal Beat/Outbox/Worker retry did not complete')
-            self.assertEqual(run['attempt'], 2)
+            with engine.connect() as conn:
+                conn.exec_driver_sql('SET TRANSACTION READ ONLY')
+                audits = [dict(row) for row in conn.execute(text("select actor_user_id,request_id,result,summary,created_at from audit_logs where resource_id=:p and action='project.archive.cleanup.retried' order by created_at"), {'p': config['project_id']}).mappings()]
+            matching = [row for row in audits if row['result']=='success' and row['request_id'] and row['summary'].get('archive_run_id')==config['archive_run_id'] and row['summary'].get('next_attempt')==run['attempt']]
+            self.assertEqual(len(matching), 1, 'Actual normal retry audit must bind the observed attempt')
+            self.assertLessEqual(matching[0]['created_at'], run['completed_at'])
+            self.assertEqual(str(matching[0]['actor_user_id']), config['owner_user_id'])
+            if initial_run['status']=='failed':
+                self.assertEqual(run['attempt'], initial_run['attempt']+1)
             self.assertGreater(run['deleted_version_count'], 0)
             self.assertEqual(protected(settings, engine, config['project_id'], config['published_version_id']), before)
             with engine.connect() as conn:
@@ -90,6 +100,6 @@ class ArchiveRetentionRecoveryLive(unittest.TestCase):
                 self.assertEqual(conn.scalar(text('select count(*) from document_content_states where project_id=:p and document_version_id<>:v'), {'p': config['project_id'], 'v': config['published_version_id']}), 0)
                 cancelled = conn.scalar(text("select count(*) from audit_logs where resource_id=:p and action='staging.retention.cancelled' and result='success'"), {'p': config['project_id']})
                 self.assertGreaterEqual(cancelled, 1)
-            output.write_text(json.dumps({'status':'PASS_REAL_NORMAL_ARCHIVE_RETRY','run_uuid':config['run_uuid'],'actual_cleanup':run,'protected_before_and_after':before,'unpublished_content_states_removed':True,'future_retention_cancelled_without_execution':True,'manual_task_dispatches':0,'clock_or_expiry_changes':0,'model_calls_added':0},default=str,indent=2))
+            output.write_text(json.dumps({'status':'PASS_REAL_NORMAL_ARCHIVE_RETRY_OBSERVATION','retry_requested_during_this_check':initial_run['status']=='failed','actual_retry_audit':matching[0],'run_uuid':config['run_uuid'],'actual_cleanup':run,'protected_before_and_after':before,'unpublished_content_states_removed':True,'future_retention_cancelled_without_execution':True,'manual_task_dispatches':0,'clock_or_expiry_changes':0,'model_calls_added':0},default=str,indent=2))
         finally:
             engine.dispose()
