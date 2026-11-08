@@ -35,6 +35,8 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       duplex: "half",
       signal: transfer?.signal ?? request.signal,
       cache: "no-store",
+      // Forward explicit session headers without Fetch retrying streamed 401 bodies.
+      credentials: "omit",
       redirect: "manual"
     };
     const upstream = await fetch(upstreamUrl, options);

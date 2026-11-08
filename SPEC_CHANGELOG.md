@@ -6,6 +6,8 @@
 
 範圍REL422-001..008／SYSUX／已發布NativeOCR與v5。原因：實際0.2.3比目前工作區多NativeOCR與056，舊設定055有號碼衝突。Peter「採用建議：保留 v0.2.3 功能，整合設定改版後續驗」核准整合續驗。影響：單次請求budget欄與分區CAS整合、V057新表、版本metadata及真升級；既有055/056與已發布v5保持。測試：必要真功能／source-qualified沿用／移轉部署／自然到期；80非硬門檻、無備份。詳細及既有授權依422計畫。
 
+CHG-422實作中相容修正：真實401錯密碼被Next串流轉送誤變502。依既有PROTAUTH／SYSUX-018／REL422-003保留上游401與錯誤碼、錯誤重新驗證不登出有效session，維持CSRF及權限拒絕；只設定伺服器fetch不使用ambient credentials，明確Cookie/CSRF轉送保持，串流限額不變。先記錄決策再實作，補真HTTPS正負回歸及受影響UI驗證；無API／DDL／權限語意變更，沿用Peter已核准六項必要修補範圍。
+
 ## CHG-421 — Specification change record：OIDC與簽署包的最後差異（待具體核准）
 
 | Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |
