@@ -316,6 +316,31 @@ Frozen historical v4 package contracts retain their strict full-suite/80% meanin
 
 ## Security and Operations Target
 
+### Standing security assessment scope
+
+Peter confirmed on 2026-11-09 that **all future security checks cover NomoSmart
+itself only**, excluding OpenSearch, PostgreSQL, Redis and other independently
+deployed peripheral software. Apply this as the default scope for future work.
+
+- In scope: NomoSmart frontend/backend source, direct and transitive application
+  dependencies (including custom packages), application build inputs, and owned
+  application images with their bundled OS/runtime/native tools. Worker, Beat
+  and bootstrap that share the backend artifact share its exact-image evidence.
+- In scope: NomoSmart's own authorization, secret handling, TLS verification and
+  connection configuration when interacting with peripheral services.
+- Out of scope: independent peripheral products, their own images, upstream
+  vulnerabilities, security audits, upgrades and remediation. Do not add these
+  scans or treat their CVEs as NomoSmart application security acceptance blockers.
+- If a broad tool also reports peripheral findings, preserve its raw output but
+  classify those assets as `OUT_OF_SCOPE_BY_USER`, separate from application
+  findings. Exclusion does not mean fixed, safe, accepted risk or a passing test.
+- Functional integration, interoperability, readiness and availability checks
+  against real peripheral services remain required where applicable. Preserve
+  TEST-002 and the existing severity rules for in-scope application assets.
+- Apply this prospectively. Preserve historical reports and signed evidence;
+  do not reopen old execution windows or expand operations authorization.
+
+
 Production-oriented milestones must include explicit security and operations
 coverage:
 
