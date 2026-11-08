@@ -1,5 +1,7 @@
 ## CHG-422 — 已發布NativeOCR及SYSUX整合測試
 
+SYSUX-022封存回歸：真API退回／封存已產生具體失敗原件，補原失敗專案的官方重試，經正常Beat／Outbox／Worker完成；比對已發布內容狀態、原始PDF、索引／chunks／manifest、OCR收據與付費帳務，確定只刪未完成內容狀態且取消期限工作沒有執行。
+
 SYSUX-021修正回歸：真HTTP known-length超限在完整下載前拒絕、chunked逐塊上限並中止、小檔內容和metadata不變、404原碼；檢查FTP函式AST不變，另補真正常Outbox遠端同步。
 
 依[422計畫](docs/CHG-422-BASELINE-INTEGRATION-PLAN.md) REL422-001..008；TEST-002 live only，功能與完整分母量測分開，沿用已發布419政策的80%改善目標，不把低分或metadata當全案PASS。保留原紀錄，只補新分區契約、NativeOCR預算整合、V057 fresh/056升級、UI與真部署及等待中的自然到期。原393量測／隔離證據限其來源；既有v4/v5簽署包真相容要保持。無備份，周邊CVE排除，原389到期不動。

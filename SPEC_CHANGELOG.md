@@ -10,6 +10,8 @@ CHG-422實作中相容修正：真實401錯密碼被Next串流轉送誤變502。
 
 CHG-422限額相容修正（先於實作）：真實2MiB HTTP來源在1MiB限額下仍完整讀取後才拒絕，違反SYSUX-021。只將既有HTTP get_object改為同一快照限額的串流讀取：收到有效Content-Length超限立即413，未知長度逐塊累計至限額即拒絕並關閉；成功時維持body／etag／content_type／content_length、SSRF pinning、TLS、禁止redirect與既有錯誤碼。不改FTP／FTPS函式、API、DDL或限額政策。既有Peter核准必要Bug修補範圍；真已知長度／chunked／小檔與遠端同步回歸，無mock。FTP全檔來源範圍變更須按最終來源另核對既有風險例外，不能沿用舊hash。
 
+CHG-422封存相容修正（先於實作）：正常退回／封存真流程因document_content_states_document_version_id_fkey失敗；根因是刪除未完成版本前未刪同版本的內容狀態。依既有封存只清未完成、保留已發布來源與收據／帳務及SYSUX-022規則，於原父範圍安全檢查之後、DocumentVersion刪除之前，明確刪除同project且同未完成version_ids的DocumentContentState。禁止通用移除未知FK、關閉約束、碰已發布狀態或更動原389／正常自然到期案例；不變API、DDL、權限及已發布資料政策。沿用Peter核准必要Bug修補範圍，補真正常API重試／Beat／Outbox／Worker及已發布內容狀態、原始PDF、索引、原生收據與全部付費帳務前後比對；保留原失敗。
+
 ## CHG-421 — Specification change record：OIDC與簽署包的最後差異（待具體核准）
 
 | Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |

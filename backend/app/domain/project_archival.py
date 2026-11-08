@@ -20,6 +20,7 @@ from app.db.models import (
     DataConnection,
     DataSyncRun,
     Document,
+    DocumentContentState,
     DocumentReference,
     DocumentReferenceEvent,
     DocumentVersion,
@@ -496,6 +497,9 @@ def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions
         session.execute(delete(EmbeddingBuildVector).where(EmbeddingBuildVector.embedding_build_id.in_(build_ids)))
     session.execute(delete(EmbeddingBuild).where(EmbeddingBuild.document_version_id.in_(version_ids)))
     session.execute(delete(Chunk).where(Chunk.document_version_id.in_(version_ids)))
+    session.execute(delete(DocumentContentState).where(
+        DocumentContentState.project_id == project_id,
+        DocumentContentState.document_version_id.in_(version_ids)))
     session.execute(update(DocumentVersion).where(DocumentVersion.source_version_id.in_(version_ids)).values(source_version_id=None))
     session.execute(delete(DocumentVersion).where(DocumentVersion.id.in_(version_ids)))
 
