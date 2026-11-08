@@ -8,6 +8,8 @@
 
 CHG-422實作中相容修正：真實401錯密碼被Next串流轉送誤變502。依既有PROTAUTH／SYSUX-018／REL422-003保留上游401與錯誤碼、錯誤重新驗證不登出有效session，維持CSRF及權限拒絕；只設定伺服器fetch不使用ambient credentials，明確Cookie/CSRF轉送保持，串流限額不變。先記錄決策再實作，補真HTTPS正負回歸及受影響UI驗證；無API／DDL／權限語意變更，沿用Peter已核准六項必要修補範圍。
 
+CHG-422限額相容修正（先於實作）：真實2MiB HTTP來源在1MiB限額下仍完整讀取後才拒絕，違反SYSUX-021。只將既有HTTP get_object改為同一快照限額的串流讀取：收到有效Content-Length超限立即413，未知長度逐塊累計至限額即拒絕並關閉；成功時維持body／etag／content_type／content_length、SSRF pinning、TLS、禁止redirect與既有錯誤碼。不改FTP／FTPS函式、API、DDL或限額政策。既有Peter核准必要Bug修補範圍；真已知長度／chunked／小檔與遠端同步回歸，無mock。FTP全檔來源範圍變更須按最終來源另核對既有風險例外，不能沿用舊hash。
+
 ## CHG-421 — Specification change record：OIDC與簽署包的最後差異（待具體核准）
 
 | Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |

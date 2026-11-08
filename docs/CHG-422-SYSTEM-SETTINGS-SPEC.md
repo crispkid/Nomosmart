@@ -388,6 +388,8 @@ Peter確認D1=A、D2a=A、D2b=A、D3=A、D4a=B、D4b=B，選B同時修正實際�
 
 資料庫max_upload_size_mb控制新上傳、替換檔案及每次遠端擷取；部署Settings保留request、scratch、inflight及單檔硬上限。取得授權後、讀取body前讀取不可變限額快照，同次streaming及最終驗證共用；GET upload-config回有效值及deployment_max_upload_size_mb。高於部署能力的寫入422，既有DB不合法／缺失或超能力回503，不clamp、不假預設。既有文件下載、來源重讀與處理中工作保持原安全限制。Given限額改變，When開始新intake，Then新限額生效，原請求快照和舊文件保持。
 
+實作決策422：HTTP遠端擷取必須使用串流，同一次快照的max_bytes在讀取前檢查有效Content-Length並在逐塊讀取時累計，超限回既有sync_file_too_large 413並關閉回應，禁止完整讀取後才拒絕。成功回傳的內容與metadata、TLS／SSRF／redirect和其他錯誤契約不變。測試使用真HTTP服務的已知長度與chunked同一合成檔，以及正常小檔。
+
 ### SYSUX-022 退回暫存搜尋到期
 
 新退回在同一交易保存UTC rejected_at、ttl_days、expires_at及持久工作，1天=24小時；Outbox available_at=expires_at。變更TTL只影響後續退回；升級前退回資料不補到期工作，先保留另盤點。到期後新暫存檢索拒絕並顯示staging_retention_expired，既存內容／歷史可讀。Worker僅精確刪project/document/version所屬OpenSearch staging文件，支援共用index，禁止整個共用index刪除。PG原文、切片、向量、S3原檔、審核歷史、Neo4j與published保持。重新檢查版本、scope、Active Manifest及活動工作／其他版本引用，受保護則延後並記安全原因。刪後count=0才完成；失敗／未知可冪等重試，租約防舊工作覆寫。Given新退回自然到期，When清理，Then只有精確staging scope消失，其他資料完整；舊資料不受新TTL影響。
