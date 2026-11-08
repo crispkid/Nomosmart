@@ -37,6 +37,9 @@ WORKDIR /app
 ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
 ARG APT_VERSION=2.8.4ubuntu0.1
 ARG BROTLI_VERSION=1.1.0-2ubuntu0.1
+ARG PCRE2_VERSION=10.42-4ubuntu2.2
+ARG PERL_VERSION=5.38.2-3.2ubuntu0.6
+ARG ZLIB_VERSION=1:1.3.dfsg-3.1ubuntu2.3
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV HOME="/home/nomosmart"
@@ -54,6 +57,9 @@ RUN apt-get -o Acquire::Retries=0 update \
     libssl3t64=${OPENSSL_VERSION} \
     libpq5 \
     libbrotli1=${BROTLI_VERSION} \
+    libpcre2-8-0=${PCRE2_VERSION} \
+    perl-base=${PERL_VERSION} \
+    zlib1g=${ZLIB_VERSION} \
     python3 \
   && rm -rf /var/lib/apt/lists/* \
   && groupadd --gid 10001 nomosmart \
