@@ -2,6 +2,10 @@
 
 import { DropdownSelect } from "@/components/DropdownSelect";
 import ProtocolIdentityPanel from "./ProtocolIdentityPanel";
+import SystemParameterSettings from "./SystemParameterSettings";
+import { SettingsCard } from "./SettingsCard";
+import { useModalFocus } from "./useModalFocus";
+import { apiBaseUrl } from "@/lib/oidc";
 import { identitySourceLabel } from "@/lib/identitySource";
 
 import { IntegrationClientDateError, integrationClientDateInput, integrationClientDateUpdate, integrationClientDateValue } from "@/lib/integrationClientDates";
@@ -16,34 +20,34 @@ import type { FeedbackTone } from "@/lib/feedback";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Activity, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DatabaseZap, Ellipsis, Eye, Globe2, Info, KeyRound, Link2, LoaderCircle, LockKeyhole, MessageSquareText, Layers3, Plus, Pencil, RefreshCw, RotateCcw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Unlink, UserRoundCog, UsersRound, X } from "lucide-react";
-import { getIdentitySyncRun, getBreakGlassStatus, getPermissions, getRoleUsers, getSystemParameters, getSystemStatus, activateIntegrationClient, createIntegrationClient, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, getProject, deactivateIntegrationClient, replaceIntegrationClientProjectScopes, replacePermissions, replaceRoleUsers, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, updateSystemParameters, addSystemPromptVersion, activateSystemPrompt, createSystemPrompt, deactivateSystemPrompt, type AIModelResponse, type AIModelPayload, type ApiError, type BreakGlassStatusResponse, type ExternalGroupResponse, type IdentitySyncRunResponse, type IntegrationClientResponse, type OperationComponentStatus, type OperationsStatusResponse, type PermissionMatrixResponse, type ProjectResponse, type RoleResponse, type RoleUsersResponse, type SystemPromptResponse, type UserSummary, createModel, createRole, deleteRole, deleteModel, listIdentitySyncRuns, queueIdentitySync, setDefaultModel, setRoleExternalGroupMapping, testModel, updateModel, updateRole, updateUser, updateUserStatus } from "@/lib/api";
+import { getIdentitySyncRun, getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, activateIntegrationClient, createIntegrationClient, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, getProject, deactivateIntegrationClient, replaceIntegrationClientProjectScopes, replacePermissions, replaceRoleUsers, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, addSystemPromptVersion, activateSystemPrompt, createSystemPrompt, deactivateSystemPrompt, type AIModelResponse, type AIModelPayload, type ApiError, type BreakGlassStatusResponse, type ExternalGroupResponse, type IdentitySyncRunResponse, type IntegrationClientResponse, type OperationComponentStatus, type OperationsStatusResponse, type PermissionMatrixResponse, type ProjectResponse, type RoleResponse, type RoleUsersResponse, type SystemPromptResponse, type UserSummary, createModel, createRole, deleteRole, deleteModel, listIdentitySyncRuns, queueIdentitySync, setDefaultModel, setRoleExternalGroupMapping, testModel, updateModel, updateRole, updateUser, updateUserStatus } from "@/lib/api";
 import { AIModelCredentialClearControl, OpenAiApiModeField } from "@/components/AIModelCompatibilityFields";
 import { aiModelProviderName } from "@/components/AIModelInventoryFields";
 import { ForbiddenState } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { userRow, roleRow, roleMemberCounts, type UserRow, type RoleRow, defaultSystemParameters, hasParameterErrors, validateSystemParameters, type SystemParameterValues } from "@/lib/systemManagement";
+import { userRow, roleRow, roleMemberCounts, type UserRow, type RoleRow } from "@/lib/systemManagement";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { formatPersonName } from "@/lib/personName";
-import { systemRouteUrl, type IdentityReauthResult, type SystemTabId } from "@/lib/systemRouteState";
+import { settingsSections, settingsPositionUrl, legacySettingsPositions, type SettingsPosition, type SystemTabId } from "@/lib/systemRouteState";
 
-const tabs = [
-  { id: "users", labelKey: "systemUsers", icon: UsersRound },
-  { id: "roles", labelKey: "systemRoles", icon: UserRoundCog },
-  { id: "permissions", labelKey: "systemPermissions", icon: ShieldCheck },
-  { id: "models", labelKey: "systemModels", icon: Bot },
-  { id: "prompts", labelKey: "systemPrompts", icon: MessageSquareText },
-  { id: "apiKeys", labelKey: "systemApiKeys", icon: KeyRound },
-  { id: "identity", labelKey: "systemIdentity", icon: KeyRound },
-  { id: "status", labelKey: "systemStatus", icon: Activity },
-  { id: "parameters", labelKey: "systemParameters", icon: SlidersHorizontal }
-] as const;
+const settingsPanelLabels: Record<string, TranslationKey> = {
+  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
+};
+const settingsPanelHelp: Record<string, TranslationKey> = {
+  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription"
+};
 
-
-
-
-
-
+const settingsSearchFields: Record<string, TranslationKey[]> = {
+  models: ["labelProvider", "labelModelName", "labelEndpoint", "systemChatEmbeddingPairs", "systemModelPricingTitle"],
+  prompts: ["systemPromptGlobalMissing", "systemVersion"],
+  login: ["labelIssuer", "protocolClientId", "protocolScopes", "protocolMappingClaim"],
+  directory: ["protocolUsersDN", "protocolGroupsDN", "protocolBindDN", "protocolUserFilter", "protocolGroupFilter", "protocolEndpoints"],
+  credentials: ["protocolBindPassword", "protocolClientSecret"],
+  sync: ["protocolDailyTime", "protocolTimezone", "protocolSyncScope"],
+  clients: ["systemApiKeyRequestsPerMinute", "systemApiKeyExpiresAt", "systemApiKeyProjectScopes", "systemApiKeyContactName"],
+  ocr: ["ocrRequestTokenSettingLabel", "ocrDocumentTokenSettingLabel", "ocrDocumentTokenSettingHelp"]
+};
 
 const permissionMenuRows = [
   { key: "Menu.KnowledgeProjects", moduleName: "Menu", functionName: "KnowledgeProjects", labelKey: "systemMenuKnowledgeProjects", descriptionKey: "systemMenuKnowledgeProjectsHelp", actions: ["view", "create"] },
@@ -268,22 +272,32 @@ function containsSecretConfigKey(value: unknown): boolean {
   });
 }
 
-type SystemManagementWorkspaceProps = {
-  initialTab?: SystemTabId;
-};
-
-function replaceSystemRoute(tab: SystemTabId, reauth: IdentityReauthResult | null | undefined = undefined) {
-  const nextUrl = systemRouteUrl(window.location.href, tab, reauth);
-  const currentUrl = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-  if (nextUrl !== currentUrl) window.history.replaceState(window.history.state, "", nextUrl);
-}
+type SystemManagementWorkspaceProps = { initialTab?: SystemTabId; initialPosition?: SettingsPosition };
 
 export default function SystemManagementWorkspace({
-  initialTab = "users"
+  initialTab = "users", initialPosition = legacySettingsPositions[initialTab]
 }: SystemManagementWorkspaceProps) {
   const { locale, t, format, localize } = useI18n();
   const { apiFetch, can, currentUser, operationGuards } = useAuth();
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  const [position, setPosition] = useState<SettingsPosition>(initialPosition);
+  const activeSection = position.section;
+  const activeTab: TabId = activeSection === "people" ? "users" : activeSection === "ai" ? "models" : activeSection === "general" || activeSection === "documents" ? "parameters" : activeSection;
+  const [parameterDirty, setParameterDirty] = useState(false);
+  const [identityDirty, setIdentityDirty] = useState(false);
+  const [settingsLeave, setSettingsLeave] = useState<(() => void) | null>(null);
+  const leaveFocus = useRef<HTMLElement | null>(null);
+  const [navOpen, setNavOpen] = useState(false);
+  const [narrow, setNarrow] = useState(false);
+  const [settingsSearch, setSettingsSearch] = useState("");
+  const searchText = (section: (typeof settingsSections)[number], panel: string) => [section.labelKey, settingsPanelLabels[panel], settingsPanelHelp[panel] || settingsPanelLabels[panel], ...(settingsSearchFields[panel] || [])].map(key => t(key)).join(" ").toLocaleLowerCase();
+  const navigationRef = useModalFocus(narrow && navOpen && !settingsLeave, () => setNavOpen(false));
+  const leaveDialogRef = useModalFocus(Boolean(settingsLeave), () => setSettingsLeave(null));
+  useEffect(() => {
+    const query = window.matchMedia("(max-width: 767px)");
+    const update = () => setNarrow(query.matches); update();
+    query.addEventListener("change", update); return () => query.removeEventListener("change", update);
+  }, []);
+
   const [selectedRole, setSelectedRole] = useState("");
   const [permissions, setPermissions] = useState<Record<string, PermissionState>>({});
   const [permissionSaved, setPermissionSaved] = useState(true);
@@ -293,6 +307,7 @@ export default function SystemManagementWorkspace({
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
   const [modelTableRows, setModelTableRows] = useState<ModelRow[]>([]);
   const [modelTableTotal, setModelTableTotal] = useState(0);
+  const [modelTableReceived, setModelTableReceived] = useState(false);
   const [modelTablePage, setModelTablePage] = useState(1);
   const [modelTablePageSize, setModelTablePageSize] = useState(20);
   const [modelTableType, setModelTableType] = useState("all");
@@ -325,12 +340,12 @@ export default function SystemManagementWorkspace({
   const promptIntent = useRef<{ kind: "save" | "active" | "create"; id?: string; active?: boolean; content?: string } | null>(null);
   const [externalGroups, setExternalGroups] = useState<ExternalGroupResponse[]>([]);
   const [syncRuns, setSyncRuns] = useState<IdentitySyncRunResponse[]>([]);
-  
-  
-  
-  
-  
-  
+
+
+
+
+
+
   const [identitySyncing, setIdentitySyncing] = useState(false);
   const [breakGlassStatus, setBreakGlassStatus] = useState<BreakGlassStatusResponse | null>(null);
   const [systemStatus, setSystemStatus] = useState<OperationsStatusResponse | null>(null);
@@ -363,22 +378,22 @@ export default function SystemManagementWorkspace({
   useEffect(() => {
     if (!apiKeyOneTime || modal) return;
     const trigger = systemDialogTriggerRef.current;
-    const fallback = tabRefs.current.find(button => button?.getAttribute("aria-selected") === "true") ?? tabRefs.current[0];
+    const fallback = navigationRef.current?.querySelector<HTMLButtonElement>("nav button[aria-current]");
     apiKeyDialogRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
     return () => {
       if (trigger?.isConnected) trigger.focus();
       else if (fallback?.isConnected) fallback.focus();
     };
-  }, [apiKeyOneTime, modal, activeTab]);
+  }, [apiKeyOneTime, modal, activeTab, navigationRef]);
   useEffect(() => {
     if (!promptEditorOpen) return;
     const trigger = systemDialogTriggerRef.current;
-    const fallback = tabRefs.current.find(button => button?.getAttribute("aria-selected") === "true") ?? tabRefs.current[0];
+    const fallback = navigationRef.current?.querySelector<HTMLButtonElement>("nav button[aria-current]");
     return () => {
       if (trigger?.isConnected) trigger.focus();
       else if (fallback?.isConnected) fallback.focus();
     };
-  }, [promptEditorOpen]);
+  }, [promptEditorOpen, navigationRef]);
   const [modalError, setModalError] = useState("");
   const { guard: modalGuard, state: modalOperation, blocked: modalBlocked } = useOperationGuard(`${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}:${modalScope(modal)}:${can("Menu", "SystemManagement", "view")}`, operationGuards);
   const { guard: promptGuard, state: promptOperation, blocked: promptBlocked } = useOperationGuard(`${currentUser?.user_id}:prompts:${selectedPromptId}:${can("Menu", "SystemManagement", "edit")}`, operationGuards);
@@ -437,7 +452,7 @@ export default function SystemManagementWorkspace({
   const canEditSystemManagement = can("Menu", "SystemManagement", "edit");
   const canDeleteSystemManagement = can("Menu", "SystemManagement", "delete");
   const canEditPermissions = canEditSystemManagement;
-  const canEditParameters = canEditSystemManagement;
+
   const canEditUsers = canEditSystemManagement;
   const canEditRoles = canEditSystemManagement;
   const canCreateRoles = canCreateSystemManagement;
@@ -447,35 +462,17 @@ export default function SystemManagementWorkspace({
   const canDeleteModels = canDeleteSystemManagement;
   const errorMessage = useCallback((error: ApiError | Error | null) => operationalErrorMessage(error, t, format), [format, t]);
 
-  const [parameters, setParameters] = useState(defaultSystemParameters);
-  const [ocrSettingsHash, setOcrSettingsHash] = useState<string | null>(null);
-  const [ocrDefaults, setOcrDefaults] = useState<{ ocr_request_max_output_tokens: number; ocr_document_max_tokens: number } | null>(null);
-  const [savedParameters, setSavedParameters] = useState(defaultSystemParameters);
-  const [parameterErrors, setParameterErrors] = useState(validateSystemParameters(defaultSystemParameters));
-  const [parameterNotice, setParameterNotice] = useState<{ message: string; tone: FeedbackTone } | null>(null);
-  const parameterMessage = parameterNotice?.message ?? "";
-  const setParameterMessage = useCallback((message: string, tone: FeedbackTone = "error") => setParameterNotice(message ? { message, tone } : null), []);
-  
-  
-  
-  
-  
-  
-  
-  
-  
   const [identityMessage, setIdentityMessage] = useState("");
-  
-  
-  
+
+
+
   const roleMenuTriggerRef = useRef<HTMLElement | null>(null);
-  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
   const modelTableRequestRef = useRef(0);
   const selectedRoleRecord = liveRoles.find((role) => role.id === selectedRole);
   const selectedRoleLockVersion = selectedRoleRecord?.lockVersion;
   const selectedRoleReadOnly = selectedRoleRecord?.isActive === false;
   const selectedRoleReady = selectedRoleLockVersion !== undefined;
-  const localizedTabs = tabs.map((tab) => ({ ...tab, label: t(tab.labelKey as TranslationKey) }));
+
   const localizedStatus = (status: string) => {
     if (status === "active") return t("systemEnabled");
     if (status === "inactive") return t("systemDisabled");
@@ -527,7 +524,7 @@ export default function SystemManagementWorkspace({
   const mappingRows = useRef<Awaited<ReturnType<typeof listExternalGroupMappings>>>([]);
   const groupRows = useRef<ExternalGroupResponse[]>([]);
   const roleNames = useRef(new Map<string, string>());
-  const draftStates = useRef({ prompts: false, parameters: false });
+  const draftStates = useRef({ prompts: false });
   useLayoutEffect(() => {
     const epoch = systemReadEpoch.current;
     systemReadScopeRef.current = systemReadScope; epoch.version++;
@@ -536,8 +533,8 @@ export default function SystemManagementWorkspace({
     return () => { systemReadScopeRef.current = null; epoch.version++; };
   }, [systemReadScope]);
   useLayoutEffect(() => {
-    draftStates.current = { prompts: promptEditorOpen || promptDraft !== promptBaseline, parameters: JSON.stringify(parameters) !== JSON.stringify(savedParameters) };
-  }, [promptEditorOpen, promptDraft, promptBaseline, parameters, savedParameters]);
+    draftStates.current = { prompts: promptEditorOpen || promptDraft !== promptBaseline };
+  }, [promptEditorOpen, promptDraft, promptBaseline]);
 
   function sectionReady(section: string) { return sectionReads[section]?.scope === systemReadScope && sectionReads[section]?.phase === "ready"; }
   function setReadState(section: string, state: SystemReadState) {
@@ -633,14 +630,6 @@ export default function SystemManagementWorkspace({
       case "memberCandidates": return readSystemSection(section, () => listUsersPage(apiFetch, { q: roleUserSearch, isActive: true, offset: memberOffset, limit: 20 }), page => { cacheUsers(page.items); setMemberTotal(page.total); setMemberCandidateIds(ids => memberOffset === 0 ? page.items.map(row => row.id) : [...new Set([...ids, ...page.items.map(row => row.id)])]); }, current);
       case "clients": return readSystemSection(section, () => listIntegrationClientsPage(apiFetch, { name: clientQuery, cursor: clientCursors.at(-1), limit: clientPageSize }), page => { setIntegrationClients(page.items); setClientNextCursor(page.has_more ? page.next_cursor : null); }, current);
       case "syncRuns": return readSystemSection(section, () => listIdentitySyncRuns(apiFetch), setSyncRuns, current);
-      case "parameters": return readSystemSection(section, () => getSystemParameters(apiFetch), payload => {
-        if (draftStates.current.parameters) return;
-        const values = { uploadLimitMb: payload.max_upload_size_mb, timezone: payload.default_timezone, stagingTtlDays: payload.staging_index_ttl_days, sessionDraftTtlMinutes: payload.session_expired_form_draft_ttl_minutes, ocrRequestOutputTokens: payload.ocr_request_max_output_tokens, ocrDocumentOutputTokens: payload.ocr_document_max_tokens };
-        setOcrSettingsHash(payload.ocr_token_settings_hash); setOcrDefaults(payload.ocr_token_defaults);
-        setParameters(values); setSavedParameters(values); setParameterErrors(validateSystemParameters(values));
-      }, current);
-      
-      
       case "groups": { const success = await readSystemSection(section, () => listExternalGroups(apiFetch), rows => { groupRows.current = rows; setExternalGroups(rows); }, current); if (success && current()) updateMappingProjection(); return success; }
       case "mappings": { const success = await readSystemSection(section, () => listExternalGroupMappings(apiFetch), rows => { mappingRows.current = rows; }, current); if (success && current()) updateMappingProjection(); return success; }
       case "breakGlass": return readSystemSection(section, () => getBreakGlassStatus(apiFetch), setBreakGlassStatus, current);
@@ -653,12 +642,15 @@ export default function SystemManagementWorkspace({
     const scope = systemReadScope;
     if (loadedSystemScope !== scope) {
     setLiveUsers([]); setLiveRoles([]); setLiveProjects([]); setIntegrationClients([]);
+    setLiveModels([]); setModelTableRows([]); setModelTableReceived(false); modelTableRequestRef.current++;
+    setSystemPrompts([]); setLiveGroupMappings([]); setExternalGroups([]); setSyncRuns([]); setSystemStatus(null); setBreakGlassStatus(null);
     setUserTableIds([]); setRoleTableIds([]); setProjectCandidateIds([]); setMemberCandidateIds([]);
     setUserOverallTotal(null); setRoleOverallTotal(null); setSelectedRole("");
     setUserPage(1); setRolePage(1); setClientCursors([undefined]); setProjectOffset(0); setMemberOffset(0);
     }
     setSystemLoading(true); setSystemError(null);
-    await Promise.all(["users", "roles", "models", "prompts", "projects", "clients", "syncRuns", "parameters", "groups", "mappings", "breakGlass", "status"].map(section => reloadSystemSection(section)));
+    const resources: Record<SettingsPosition["section"], string[]> = { people: ["users", "roles", "groups", "mappings"], identity: ["breakGlass"], ai: ["models", "prompts"], apiKeys: ["projects", "clients"], status: ["status"], general: [], documents: [] };
+    await Promise.all(resources[activeSection].map(section => reloadSystemSection(section)));
     if (systemReadScopeRef.current !== scope) return;
     setLoadedSystemScope(scope); setLiveReady(true); setSystemLoading(false);
   }
@@ -688,7 +680,7 @@ export default function SystemManagementWorkspace({
         return;
       }
       setModelTableRows(page.rows.map(modelRow));
-      setModelTableTotal(page.total);
+      setModelTableTotal(page.total); setModelTableReceived(true);
     } catch (caught) {
       if (requestId === modelTableRequestRef.current) {
         setModelTableError(errorMessage(caught as ApiError | Error));
@@ -701,11 +693,25 @@ export default function SystemManagementWorkspace({
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadSystem(); }, 0);
     return () => window.clearTimeout(timer);
-  }, [canViewSystemManagement, systemReadScope]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canViewSystemManagement, systemReadScope, activeSection]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    replaceSystemRoute(initialTab);
-  }, [initialTab]);
+    if (activeSection === "identity" && new URL(window.location.href).searchParams.has("reauth")) return;
+    window.history.replaceState(window.history.state, "", settingsPositionUrl(window.location.href, position));
+  }, [position, activeSection]);
+  useEffect(() => {
+    if (!liveReady) return;
+    const timer = window.setTimeout(() => {
+      const target = document.getElementById(`settings-panel-${position.panel}`);
+      target?.scrollIntoView({ block: "start", behavior: "instant" });
+      target?.focus({ preventScroll: true });
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [position, liveReady, loadedSystemScope]);
+  useEffect(() => {
+    const beforeUnload = (event: BeforeUnloadEvent) => { if (!permissionSaved || identityDirty || parameterDirty) { event.preventDefault(); event.returnValue = ""; } };
+    window.addEventListener("beforeunload", beforeUnload); return () => window.removeEventListener("beforeunload", beforeUnload);
+  }, [permissionSaved, identityDirty, parameterDirty]);
 
   useEffect(() => {
     if (activeTab !== "models" || !liveReady) return;
@@ -714,57 +720,47 @@ export default function SystemManagementWorkspace({
   }, [activeTab, liveReady, refreshModelTable]);
 
   useEffect(() => {
-    if (!liveReady || !selectedRole || !selectedRoleReady) return;
+    if (activeSection !== "people" || !liveReady || !selectedRole || !selectedRoleReady || !permissionSaved) return;
+    let current = true;
     getPermissions(apiFetch, selectedRole).then((response) => {
+      if (!current) return;
       setPermissions((current) => ({ ...current, [selectedRole]: permissionStateFromResponse(response) }));
       setLiveRoles((current) => current.map((role) => role.id === selectedRole ? { ...role, lockVersion: response.lock_version } : role));
       setPermissionSaved(true);
-    }).catch((caught) => setSystemError(caught as ApiError | Error));
-  }, [apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion]);
+    }).catch((caught) => { if (current) setSystemError(caught as ApiError | Error); });
+    return () => { current = false; };
+  }, [activeSection, apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion, permissionSaved]);
 
-  
 
-  useEffect(() => {
-    const restore = (event: Event) => {
-      const detail = (event as CustomEvent<{ formKey: string; payload: Partial<SystemParameterValues> }>).detail;
-      if (detail?.formKey !== "system.parameters") return;
-      const next = { ...parameters, ...detail.payload };
-      setParameters(next);
-      setParameterErrors(validateSystemParameters(next));
-      setParameterMessage(t("systemParametersDraftRestored"), "info");
-    };
-    window.addEventListener("nomosmart:restore-session-draft", restore);
-    return () => window.removeEventListener("nomosmart:restore-session-draft", restore);
-  }, [parameters, t, setParameterMessage]);
 
   useEffect(() => {
-    if (!canViewSystemManagement) return;
+    if (!canViewSystemManagement || activeSection !== "people") return;
     const versions = systemReadVersions.current;
     const timer = setTimeout(() => { void reloadSystemSection("users"); }, 300);
     return () => { clearTimeout(timer); versions.users = (versions.users ?? 0) + 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFetch, systemReadScope, canViewSystemManagement, userQuery, userSourceFilter, userPage, userPageSize]);
+  }, [activeSection, apiFetch, systemReadScope, canViewSystemManagement, userQuery, userSourceFilter, userPage, userPageSize]);
   useEffect(() => {
-    if (!canViewSystemManagement) return;
+    if (!canViewSystemManagement || activeSection !== "people") return;
     const versions = systemReadVersions.current;
     const timer = setTimeout(() => { void reloadSystemSection("roles"); }, 300);
     return () => { clearTimeout(timer); versions.roles = (versions.roles ?? 0) + 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFetch, systemReadScope, canViewSystemManagement, roleQuery, roleStatusFilter, rolePage, rolePageSize]);
+  }, [activeSection, apiFetch, systemReadScope, canViewSystemManagement, roleQuery, roleStatusFilter, rolePage, rolePageSize]);
   useEffect(() => {
-    if (!canViewSystemManagement) return;
+    if (!canViewSystemManagement || activeSection !== "apiKeys") return;
     const versions = systemReadVersions.current;
     const timer = setTimeout(() => { void reloadSystemSection("clients"); }, 300);
     return () => { clearTimeout(timer); versions.clients = (versions.clients ?? 0) + 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFetch, systemReadScope, canViewSystemManagement, clientQuery, clientCursors, clientPageSize]);
+  }, [activeSection, apiFetch, systemReadScope, canViewSystemManagement, clientQuery, clientCursors, clientPageSize]);
   useEffect(() => {
-    if (!canViewSystemManagement) return;
+    if (!canViewSystemManagement || activeSection !== "apiKeys") return;
     const versions = systemReadVersions.current;
     const timer = setTimeout(() => { void reloadSystemSection("projects"); }, 300);
     return () => { clearTimeout(timer); versions.projects = (versions.projects ?? 0) + 1; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFetch, systemReadScope, canViewSystemManagement, projectQuery, projectOffset]);
+  }, [activeSection, apiFetch, systemReadScope, canViewSystemManagement, projectQuery, projectOffset]);
   useEffect(() => {
     if (!canViewSystemManagement || modal?.type !== "role-users") return;
     const versions = systemReadVersions.current;
@@ -778,9 +774,9 @@ export default function SystemManagementWorkspace({
   }
   function renderProjectSearch() { return <><label className="system-toolbar"><Search size={16} /><input aria-label={t("adminSearchProjects")} maxLength={100} onChange={event => { setProjectQuery(event.target.value); setProjectOffset(0); }} placeholder={t("adminSearchProjects")} value={projectQuery} /></label><span>{format("adminSelectedCount", { count: formatCount(modal?.type === "api-key-manage" ? (apiKeyScopeDrafts[modal.client.id] ?? modal.client.project_ids).length : apiKeyProjectDraft.length, locale) })}</span>{projectCandidateIds.length < projectTotal ? <button className="action-button secondary" disabled={!sectionReady("projects")} onClick={() => setProjectOffset(offset => offset + 20)} type="button">{t("adminLoadMore")}</button> : null}</>; }
 
-  
-  
-  
+
+
+
   const userRowName = (user: UserRow) => formatPersonName(user.raw ?? { display_name: user.name }, locale) || user.name;
   const filteredUsers = userTableIds.flatMap(id => liveUsers.find(row => row.id === id) ?? []);
   const filteredLocalRoles = roleTableIds.flatMap(id => liveRoles.find(row => row.id === id) ?? []);
@@ -802,25 +798,25 @@ export default function SystemManagementWorkspace({
   const modelTableFirst = modelTableTotal ? (modelTablePage - 1) * modelTablePageSize + 1 : 0;
   const modelTableLast = Math.min(modelTablePage * modelTablePageSize, modelTableTotal);
 
-  function activateTab(tab: TabId, focusIndex?: number) {
-    if (tab !== "apiKeys") setApiKeyOneTime(null);
-    setActiveTab(tab);
-    replaceSystemRoute(tab, null);
-    if (focusIndex !== undefined) tabRefs.current[focusIndex]?.focus();
+  function requestSettingsLeave(action: () => void) {
+    if (!permissionSaved || parameterDirty || identityDirty || apiKeyOneTime) {
+      leaveFocus.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+      setSettingsLeave(() => action);
+    } else action();
+  }
+  function navigateSettings(next: SettingsPosition) {
+    if (next.section === activeSection) { setPosition(next); setNavOpen(false); setSettingsSearch(""); return; }
+    requestSettingsLeave(() => {
+      const commit = () => { setApiKeyOneTime(null); setParameterDirty(false); setIdentityDirty(false); setPermissionSaved(true); setPosition(next); setNavOpen(false); setSettingsSearch(""); };
+      if (activeSection === "identity") {
+        void apiFetch(`${apiBaseUrl()}/system/identity-settings/lock`, { method: "POST" }).then(response => {
+          if (!response.ok) throw new Error("identity_settings_locked");
+          commit();
+        }).catch(error => setSystemError(error));
+      } else commit();
+    });
   }
 
-  function selectTab(index: number) {
-    const normalizedIndex = (index + localizedTabs.length) % localizedTabs.length;
-    const next = localizedTabs[(index + localizedTabs.length) % localizedTabs.length];
-    activateTab(next.id, normalizedIndex);
-  }
-
-  function handleTabKey(event: React.KeyboardEvent<HTMLButtonElement>, index: number) {
-    if (event.key === "ArrowRight") { event.preventDefault(); selectTab(index + 1); }
-    if (event.key === "ArrowLeft") { event.preventDefault(); selectTab(index - 1); }
-    if (event.key === "Home") { event.preventDefault(); selectTab(0); }
-    if (event.key === "End") { event.preventDefault(); selectTab(localizedTabs.length - 1); }
-  }
 
   function togglePermission(key: string, action: PermissionAction) {
     if (!canEditPermissions || selectedRoleReadOnly) return;
@@ -832,37 +828,6 @@ export default function SystemManagementWorkspace({
       }
     }));
     setPermissionSaved(false);
-  }
-
-  function updateParameter<K extends keyof SystemParameterValues>(key: K, value: SystemParameterValues[K]) {
-    const next = { ...parameters, [key]: value };
-    setParameters(next);
-    setParameterErrors(validateSystemParameters(next));
-    setParameterMessage("");
-  }
-
-  async function saveParameters() {
-    if (!liveReady || !ocrSettingsHash || !canEditParameters) return;
-    const errors = validateSystemParameters(parameters);
-    setParameterErrors(errors);
-    if (hasParameterErrors(errors)) return;
-    try {
-      const saved = await updateSystemParameters(apiFetch, { max_upload_size_mb: parameters.uploadLimitMb, default_timezone: parameters.timezone, staging_index_ttl_days: parameters.stagingTtlDays, session_expired_form_draft_ttl_minutes: parameters.sessionDraftTtlMinutes, ocr_request_max_output_tokens: parameters.ocrRequestOutputTokens!, ocr_document_max_tokens: parameters.ocrDocumentOutputTokens!, expected_ocr_token_settings_hash: ocrSettingsHash });
-      const next = { uploadLimitMb: saved.max_upload_size_mb, timezone: saved.default_timezone, stagingTtlDays: saved.staging_index_ttl_days, sessionDraftTtlMinutes: saved.session_expired_form_draft_ttl_minutes, ocrRequestOutputTokens: saved.ocr_request_max_output_tokens, ocrDocumentOutputTokens: saved.ocr_document_max_tokens };
-      setOcrSettingsHash(saved.ocr_token_settings_hash); setOcrDefaults(saved.ocr_token_defaults);
-      setSavedParameters(next);
-      setParameters(next);
-      setParameterMessage(t("systemParametersSaved"), "success");
-    } catch (caught) {
-      setParameterMessage(errorMessage(caught as ApiError | Error));
-    }
-  }
-
-  function restoreParameters() {
-    if (!liveReady || !ocrDefaults || !canEditParameters) return;
-    setParameters({ ...defaultSystemParameters, ocrRequestOutputTokens: ocrDefaults.ocr_request_max_output_tokens, ocrDocumentOutputTokens: ocrDefaults.ocr_document_max_tokens });
-    setParameterErrors({});
-    setParameterMessage(t("systemParametersDefaultsRestored"), "success");
   }
 
   async function savePermissions() {
@@ -930,8 +895,7 @@ export default function SystemManagementWorkspace({
       setDirtyModal(null);
       await apply(result, () => modalGuard.current(token));
       if (!modalGuard.current(token)) return;
-      modalGuard.complete(token);
-      setSubmitting(false); setDirtyModal(null); setModal(null);
+      setSubmitting(false); setDirtyModal(null); modalGuard.complete(token); setModal(null);
       notify({ id: modalEventId.current, scope: "system", tone: "success", title });
     } catch (caught) {
       if (!modalGuard.current(token)) return;
@@ -1202,6 +1166,27 @@ export default function SystemManagementWorkspace({
       setPromptLeave(() => action);
     } else action();
   }
+
+  useEffect(() => {
+    const followLink = (event: MouseEvent) => {
+      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
+      if (!link || link.target || link.hasAttribute("download")) return;
+      const url = new URL(link.href, window.location.href);
+      if (url.origin !== window.location.origin || url.pathname === window.location.pathname && url.search === window.location.search) return;
+      if (permissionSaved && !parameterDirty && !identityDirty && !promptEditorOpen && activeSection !== "identity") return;
+      event.preventDefault(); event.stopPropagation();
+      const go = () => {
+        if (activeSection === "identity") void apiFetch(`${apiBaseUrl()}/system/identity-settings/lock`, { method: "POST" }).then(response => {
+          if (!response.ok) throw new Error("identity_settings_locked"); window.location.assign(url.href);
+        }).catch(error => setSystemError(error));
+        else window.location.assign(url.href);
+      };
+      if (promptEditorOpen) requestPromptLeave(go); else requestSettingsLeave(go);
+    };
+    document.addEventListener("click", followLink, true);
+    return () => document.removeEventListener("click", followLink, true);
+  });
 
   async function runPromptMutation(write: () => Promise<PromptRow>, intent: NonNullable<typeof promptIntent.current>, title: TranslationKey) {
     const token = promptGuard.begin(); if (token === null) return;
@@ -1510,29 +1495,29 @@ export default function SystemManagementWorkspace({
     }, (_result, current) => refreshModels(current), "systemModelSettingsUpdated");
   }
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
 
-  
+
+
+
+
+
+
+
+
+
+
+
+
 
   async function runIdentitySync() {
     if (identitySyncing || syncRuns.some((run) => run.status === "queued" || run.status === "running")) return;
@@ -1566,11 +1551,11 @@ export default function SystemManagementWorkspace({
     }
   }
 
-  
 
-  
-  
-  
+
+
+
+
 
   const selectedPrompt = systemPrompts.find((prompt) => prompt.id === selectedPromptId);
   const activePromptEditor = promptEditorOpen ? (selectedPrompt ?? promptEditorPrompt) : null;
@@ -1701,8 +1686,8 @@ export default function SystemManagementWorkspace({
     return <ForbiddenState />;
   }
 
-  
-  
+
+
 
   if (loadedSystemScope !== systemReadScope) return <FeedbackMessage tone="info">{t("loadingData")}</FeedbackMessage>;
 
@@ -1711,29 +1696,32 @@ export default function SystemManagementWorkspace({
       {systemLoading ? <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("loadingData")}</strong><span>{t("systemLoadingBackend")}</span></div></div> : null}
       {quickError ? <FeedbackMessage tone={quickOperation.phase === "unknown" || quickOperation.phase === "read_failed" ? "warning" : "error"} actions={quickOperation.phase === "unknown" || quickOperation.phase === "read_failed" ? <button type="button" className="action-button secondary" disabled={quickOperation.checking} onClick={() => void queryQuickOutcome()}>{t("feedbackQueryOutcome")}</button> : undefined}><strong>{quickOperation.checking ? t("feedbackCheckingOutcome") : quickOperation.phase === "read_failed" ? t("feedbackAcceptedReadFailed") : quickOperation.phase === "unknown" ? t("feedbackResultUnknown") : errorMessage(quickError)}</strong>{quickQueryFailed ? <p>{t("feedbackOutcomeQueryFailed")}</p> : null}{quickOperation.phase === "unknown" && quickOperation.checked ? <p>{t("feedbackSystemOutcomeChecked")}</p> : null}</FeedbackMessage> : null}
       {systemError ? <FeedbackMessage tone="error"><strong>{errorMessage(systemError)}</strong><button className="text-link" onClick={loadSystem} type="button">{t("retry")}</button></FeedbackMessage> : null}
-      <div className="system-overview" aria-label={t("systemOverviewAria")}>
-        <div><span className="overview-icon"><UsersRound size={18} /></span><div><small>{t("systemSyncedUsers")}</small><strong>{userOverallTotal === null ? t("systemReadCountUnknown") : formatCount(userOverallTotal, locale)}</strong></div><StateBadge>{t("liveData")}</StateBadge></div>
-        <div><span className="overview-icon"><ShieldCheck size={18} /></span><div><small>{t("systemRoleCount")}</small><strong>{roleOverallTotal === null ? t("systemReadCountUnknown") : formatCount(roleOverallTotal, locale)}</strong></div><span className="overview-helper">{format("systemExternalGroupMappings", { count: sectionReady("mappings") ? liveGroupMappings.length : t("systemReadCountUnknown") })}</span></div>
-        <div><span className="overview-icon"><Bot size={18} /></span><div><small>{t("systemActiveModels")}</small><strong>{sectionReady("models") ? liveModels.filter((model) => model.status === "active").length : t("systemReadCountUnknown")}</strong></div><span className="overview-helper">{format("systemDefaultModels", { count: sectionReady("models") ? liveModels.filter((model) => model.default).length : t("systemReadCountUnknown") })}</span></div>
-        <div><span className="overview-icon"><Activity size={18} /></span><div><small>{t("systemIdentitySync")}</small><strong>{sectionReady("syncRuns") ? syncRuns[0]?.status ?? "—" : t("systemReadCountUnknown")}</strong></div><span className="overview-helper">{sectionReady("syncRuns") ? syncRuns[0]?.started_at?.slice(0, 16).replace("T", " ") ?? t("systemNoLiveDataShort") : t("systemReadUnknown")}</span></div>
-      </div>
-
-      <div className="system-tab-shell">
-        <div aria-label={t("systemTabsAria")} className="system-tabs" role="tablist">
-          {localizedTabs.map((tab, index) => { const Icon = tab.icon; return <button aria-controls={`system-panel-${tab.id}`} aria-selected={activeTab === tab.id} className={activeTab === tab.id ? "active" : ""} id={`system-tab-${tab.id}`} key={tab.id} onClick={() => activateTab(tab.id)} onKeyDown={(event) => handleTabKey(event, index)} ref={(node) => { tabRefs.current[index] = node; }} role="tab" tabIndex={activeTab === tab.id ? 0 : -1} type="button"><Icon size={17} />{tab.label}</button>; })}
-        </div>
-
-        <div aria-labelledby={`system-tab-${activeTab}`} className="system-tab-panel" id={`system-panel-${activeTab}`} role="tabpanel">
-          {(activeTab === "users" ? ["users", "syncRuns"] : activeTab === "roles" || activeTab === "permissions" ? ["roles", "groups", "mappings"] : activeTab === "models" ? ["models"] : activeTab === "prompts" ? ["prompts", "models"] : activeTab === "apiKeys" ? ["clients", "projects"] : activeTab === "identity" ? [] : activeTab === "parameters" ? ["parameters"] : ["status"]).map(section => <div key={section}>{renderSectionReadNotice(section)}</div>)}
-          {activeTab === "users" ? <>
+      {settingsLeave ? <div className="system-modal-backdrop"><section ref={leaveDialogRef} role="alertdialog" aria-modal="true" aria-labelledby="settings-leave-title" className="system-reauth-modal"><h2 id="settings-leave-title">{t("contentEditUnsaved")}</h2><FeedbackConfirm title={t("settingsLeaveHelp")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => { setSettingsLeave(null); leaveFocus.current?.focus(); }} onConfirm={() => { const action = settingsLeave; setSettingsLeave(null); if (!permissionSaved) setPermissions(previous => { const next = { ...previous }; delete next[selectedRole]; return next; }); action(); }} /></section></div> : null}
+      <button className="action-button secondary settings-menu-trigger" aria-expanded={navOpen} aria-controls="settings-navigation" onClick={() => setNavOpen(true)} type="button"><Settings2 size={18} />{t("settingsCategories")}</button>
+      <div className="system-settings-layout">
+        {narrow && navOpen ? <div className="settings-nav-backdrop" onClick={() => setNavOpen(false)} /> : null}
+        <aside id="settings-navigation" ref={navigationRef} inert={Boolean(settingsLeave)} role={narrow && navOpen && !settingsLeave ? "dialog" : undefined} aria-modal={narrow && navOpen && !settingsLeave ? true : undefined} aria-label={t("settingsCategories")} className={`settings-navigation${navOpen ? " is-open" : ""}`}>
+          <div className="settings-nav-heading"><strong>{t("settingsCategories")}</strong><button className="icon-button settings-menu-close" aria-label={t("close")} onClick={() => setNavOpen(false)} type="button"><X size={18} /></button></div>
+          <label className="settings-search"><Search size={16} /><input type="search" value={settingsSearch} aria-label={t("settingsSearch")} placeholder={t("settingsSearch")} onChange={event => setSettingsSearch(event.target.value)} /></label>
+          <nav aria-label={t("settingsCategories")}>{settingsSections.map((section, index) => {
+            const Icon = [UsersRound, ShieldCheck, Bot, Layers3, KeyRound, SlidersHorizontal, Activity][index];
+            return <button type="button" key={section.id} aria-current={activeSection === section.id ? "page" : undefined} onClick={() => navigateSettings({ section: section.id, panel: section.panels[0] })}><Icon size={18} /><span>{t(section.labelKey)}</span><ChevronRight size={15} /></button>;
+          })}</nav>
+          {settingsSearch.trim() ? <div className="settings-search-results" aria-live="polite">{settingsSections.flatMap(section => section.panels.map(panel => ({ section, panel, label: t(settingsPanelLabels[panel]) }))).filter(item => searchText(item.section, item.panel).includes(settingsSearch.trim().toLocaleLowerCase())).map(item => <button type="button" key={item.panel} onClick={() => { navigateSettings({ section: item.section.id, panel: item.panel }); }}><span>{t(item.section.labelKey)}</span><strong>{item.label}</strong></button>)}{!settingsSections.some(section => section.panels.some(panel => searchText(section, panel).includes(settingsSearch.trim().toLocaleLowerCase()))) ? <p>{t("settingsSearchEmpty")}</p> : null}</div> : null}
+        </aside>
+        <div className="settings-main" inert={Boolean(settingsLeave) || narrow && navOpen}>
+          <header className="settings-page-heading"><p>{t("labelSystemManagement")}</p><h1>{t(settingsSections.find(section => section.id === activeSection)!.labelKey)}</h1><span>{t("settingsWorkspaceHelp")}</span></header>
+          {activeSection === "general" ? <button type="button" className="text-link" onClick={() => navigateSettings({ section: "documents", panel: "upload" })}>{t("settingsGoDocuments")}<ChevronRight size={16} /></button> : null}
+          {(activeSection === "people" ? ["users", "roles", "groups", "mappings"] : activeSection === "ai" ? ["models", "prompts"] : activeSection === "apiKeys" ? ["clients", "projects"] : activeSection === "status" ? ["status"] : []).map(section => <div key={section}>{renderSectionReadNotice(section)}</div>)}
+          {activeSection === "people" ? <SettingsCard panel="users">
             <SectionHeader action={<button className="action-button secondary" disabled={!canEditUsers} onClick={runIdentitySync} type="button"><RefreshCw size={16} />{t("systemSyncNow")}</button>} description={t("systemUserManagementDescription")} title={t("systemUserManagementTitle")} />
-            <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("systemSearchUsers")} maxLength={100} onChange={(event) => { setUserQuery(event.target.value); setUserPage(1); }} placeholder={t("systemSearchUsersPlaceholder")} value={userQuery} /></label><DropdownSelect aria-label={t("systemFilterIdentitySource")} onChange={(event) => { setUserSourceFilter(event.target.value); setUserPage(1); }} value={userSourceFilter}><option value="all">{t("systemAllIdentitySources")}</option>{Array.from(new Set(["ldap", "ad", "local", ...liveUsers.map(user => user.source), ...(userSourceFilter === "all" ? [] : [userSourceFilter])])).map((source) => <option key={source} value={source}>{identitySourceLabel(source, t)}</option>)}</DropdownSelect><span>{format("systemUserCount", { filtered: formatCount(filteredUsers.length, locale), total: formatCount(userTotal, locale) })}</span></div>
+            <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("systemSearchUsers")} maxLength={100} onChange={(event) => { setUserQuery(event.target.value); setUserPage(1); }} placeholder={t("systemSearchUsersPlaceholder")} value={userQuery} /></label><DropdownSelect aria-label={t("systemFilterIdentitySource")} onChange={(event) => { setUserSourceFilter(event.target.value); setUserPage(1); }} value={userSourceFilter}><option value="all">{t("systemAllIdentitySources")}</option>{Array.from(new Set(["ldap", "ad", "local", ...liveUsers.map(user => user.source), ...(userSourceFilter === "all" ? [] : [userSourceFilter])])).map((source) => <option key={source} value={source}>{identitySourceLabel(source, t)}</option>)}</DropdownSelect><span>{format("systemUserCount", { filtered: sectionReads.users?.received ? formatCount(filteredUsers.length, locale) : t("systemReadCountUnknown"), total: sectionReads.users?.received ? formatCount(userTotal, locale) : t("systemReadCountUnknown") })}</span></div>
             {filteredUsers.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemUser")}</th><th>{t("systemDepartment")}</th><th>{t("systemIdentitySourceColumn")}</th><th>{t("systemRoleColumn")}</th><th>{t("systemStatusColumn")}</th><th aria-label={t("systemActionsColumn")} /></tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.id}><td><strong>{userRowName(user)}</strong><small>{user.email}</small></td><td>{user.department}</td><td>{identitySourceLabel(user.source, t)}</td><td>{user.roles}</td><td><StateBadge tone={user.status === "active" ? "green" : "gray"}>{localizedStatus(user.status)}</StateBadge></td><td><div className="system-row-actions"><button aria-label={format("systemViewUser", { name: userRowName(user) })} className="icon-text-button" onClick={() => setModal({ type: "user", user })} type="button">{t("systemView")} <ChevronRight size={15} /></button><button className="icon-text-button" disabled={!canEditUsers} onClick={() => setModal({ type: "confirm", title: `${user.status === "active" ? t("systemDisable") : t("systemEnable")}${t("systemUser")}`, message: format("systemConfirmToggleUser", { action: user.status === "active" ? t("systemDisable") : t("systemEnable"), name: userRowName(user) }), actionLabel: user.status === "active" ? t("systemDisable") : t("systemEnable"), target: { kind: "user", id: user.id, expected: { field: "is_active", value: user.status !== "active" } }, run: accepted => toggleUser(user, accepted) })} type="button">{user.status === "active" ? t("systemDisable") : t("systemEnable")}</button></div></td></tr>)}</tbody></table></div> : sectionReady("users") ? <EmptyInlineState /> : null}
             {renderListPager("users", userPage, userPageSize, userTotal, () => setUserPage(page => page - 1), userPage * userPageSize < userTotal ? () => setUserPage(page => page + 1) : null, size => { setUserPageSize(size); setUserPage(1); })}
-          </> : null}
+          </SettingsCard> : null}
 
-          {activeTab === "roles" ? <>
-            <SectionHeader action={rolesView === "local" ? <button className="action-button" disabled={!canCreateRoles} onClick={() => setModal({ type: "role" })} type="button"><UserRoundCog size={16} />{t("systemAddRole")}</button> : undefined} description={t("systemRolesDescription")} title={t("systemRolesTitle")} />
+          {activeSection === "people" ? <SettingsCard panel="roles">
+            <SectionHeader action={rolesView === "local" ? <button className="action-button" disabled={!canCreateRoles || !sectionReady("roles")} onClick={() => setModal({ type: "role" })} type="button"><UserRoundCog size={16} />{t("systemAddRole")}</button> : undefined} description={t("systemRolesDescription")} title={t("systemRolesTitle")} />
             <div aria-label={t("systemRoleTypeViews")} className="system-role-type-tabs" role="tablist">
               <button aria-selected={rolesView === "local"} className={rolesView === "local" ? "active" : ""} onClick={() => setRolesView("local")} role="tab" type="button"><ShieldCheck size={16} />{t("systemLocalRoles")}<span>{roleOverallTotal === null ? t("systemReadCountUnknown") : formatCount(roleOverallTotal, locale)}</span></button>
               <button aria-selected={rolesView === "ldap"} className={rolesView === "ldap" ? "active" : ""} onClick={() => setRolesView("ldap")} role="tab" type="button"><DatabaseZap size={16} />{t("systemLdapGroups")}<span>{ldapGroups.length}</span></button>
@@ -1750,28 +1738,28 @@ export default function SystemManagementWorkspace({
               {filteredLocalRoles.length ? <div className="system-role-grid">{filteredLocalRoles.map(renderLocalRoleCard)}</div> : sectionReady("roles") ? <EmptyInlineState>{liveRoles.length ? t("systemNoMatchingRoles") : t("systemNoLocalRoles")}</EmptyInlineState> : null}
             </> : null}
             {rolesView === "ldap" ? <div className="system-ldap-groups"><div className="system-subsection-title"><div><h3><DatabaseZap size={18} />{t("systemLdapGroups")}</h3><p>{t("systemExternalGroupMappingsDescription")}</p></div></div>{ldapGroups.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemLdapGroup")}</th><th>{t("systemLdapPath")}</th><th>{t("systemMembersColumn")}</th><th>{t("systemNomoSmartRole")}</th><th>{t("systemStatusColumn")}</th></tr></thead><tbody>{ldapGroups.map((group) => { const mapping = liveGroupMappings.find((item) => item.groupId === group.id); return <tr key={group.id}><td><strong>{group.group_name}</strong><small>{t("systemLdapReadOnly")}</small></td><td>{group.path}</td><td>{group.member_count}</td><td>{mapping?.role ?? t("systemNoMapping")}</td><td><StateBadge tone={group.is_active ? "green" : "gray"}>{group.is_active ? t("systemSynced") : t("systemDisabled")}</StateBadge></td></tr>; })}</tbody></table></div> : <EmptyInlineState />}</div> : null}
-          </> : null}
+          </SettingsCard> : null}
 
-          {activeTab === "permissions" ? <>
-            <SectionHeader action={<div className="system-save-state"><span>{permissionSaved ? <><Check size={15} />{t("systemSaved")}</> : t("systemUnsavedChanges")}</span><button className="action-button" disabled={!canEditPermissions || selectedRoleReadOnly} onClick={savePermissions} title={!canEditPermissions ? t("apiForbidden") : selectedRoleReadOnly ? t("systemRoleReadOnly") : undefined} type="button"><Save size={16} />{t("systemSavePermissions")}</button></div>} description={t("systemPermissionsDescription")} title={t("systemPermissions")} />
+          {activeSection === "people" ? <SettingsCard panel="permissions">
+            <SectionHeader action={<div className="system-save-state"><span>{permissionSaved ? <><Check size={15} />{t("systemSaved")}</> : t("systemUnsavedChanges")}</span><button className="action-button" disabled={!canEditPermissions || selectedRoleReadOnly || !sectionReady("roles") || !permissions[selectedRole]} onClick={savePermissions} title={!canEditPermissions ? t("apiForbidden") : selectedRoleReadOnly ? t("systemRoleReadOnly") : undefined} type="button"><Save size={16} />{t("systemSavePermissions")}</button></div>} description={t("systemPermissionsDescription")} title={t("systemPermissions")} />
             <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("systemSearchRoles")} maxLength={100} onChange={event => { setRoleQuery(event.target.value); setRolePage(1); }} value={roleQuery} /></label></div>
             {renderListPager("roles", rolePage, rolePageSize, roleTotal, () => setRolePage(page => page - 1), rolePage * rolePageSize < roleTotal ? () => setRolePage(page => page + 1) : null, size => { setRolePageSize(size); setRolePage(1); })}
-            <div className="role-selector" aria-label={t("systemSelectRole")}>{filteredLocalRoles.map((role) => <button aria-pressed={selectedRole === role.id} className={`${selectedRole === role.id ? "active" : ""}${role.isActive === false ? " inactive" : ""}`} key={role.id} onClick={() => { setSelectedRole(role.id); setPermissionSaved(true); }} type="button"><span>{role.name}</span><small>{format("systemRoleSelectorSummary", { members: role.members ?? t("systemReadCountUnknown"), groups: role.groups ?? t("systemReadCountUnknown") })} · {role.isActive === false ? t("systemDisabled") : t("systemEnabled")}</small></button>)}</div>
+            <div className="role-selector" aria-label={t("systemSelectRole")}>{filteredLocalRoles.map((role) => <button aria-pressed={selectedRole === role.id} className={`${selectedRole === role.id ? "active" : ""}${role.isActive === false ? " inactive" : ""}`} key={role.id} onClick={() => requestSettingsLeave(() => { setSelectedRole(role.id); setPermissionSaved(true); })} type="button"><span>{role.name}</span><small>{format("systemRoleSelectorSummary", { members: role.members ?? t("systemReadCountUnknown"), groups: role.groups ?? t("systemReadCountUnknown") })} · {role.isActive === false ? t("systemDisabled") : t("systemEnabled")}</small></button>)}</div>
             {selectedRoleReadOnly ? <FeedbackMessage tone="info"><div><strong>{t("systemRoleReadOnly")}</strong><p>{t("systemRolePermissionsReadOnlyHelp")}</p></div></FeedbackMessage> : null}
-            {liveRoles.length ? <div className="permission-matrix-wrap"><table className="permission-matrix-table"><thead><tr><th>{t("systemMenuPermission")}</th><th>{t("permissionActionView")}</th><th>{t("permissionActionCreate")}</th><th>{t("permissionActionEdit")}</th><th>{t("permissionActionDelete")}</th><th>{t("permissionActionExecute")}</th></tr></thead><tbody>{permissionMenuRows.map((row) => { const state = permissions[selectedRole]?.[row.key] ?? emptyPermissionState()[row.key]; return <tr key={row.key}><td><strong>{t(row.labelKey as TranslationKey)}</strong><small>{t(row.descriptionKey as TranslationKey)}</small></td>{(["view", "create", "edit", "delete", "execute"] as PermissionAction[]).map((action) => { const enabled = permissionActionEnabled(row, action); return <td key={action}><input aria-label={`${liveRoles.find((role) => role.id === selectedRole)?.name ?? t("systemRoleColumn")} ${t(row.labelKey as TranslationKey)} ${t(`permissionAction${action.charAt(0).toUpperCase()}${action.slice(1)}` as TranslationKey)}`} checked={enabled && state[action]} disabled={!canEditPermissions || selectedRoleReadOnly || !enabled || !sectionReady("roles")} onChange={() => togglePermission(row.key, action)} type="checkbox" /></td>; })}</tr>; })}</tbody></table></div> : <EmptyInlineState />}
-          </> : null}
+            {liveRoles.length ? <div className="permission-matrix-wrap"><table className="permission-matrix-table"><thead><tr><th>{t("systemMenuPermission")}</th><th>{t("permissionActionView")}</th><th>{t("permissionActionCreate")}</th><th>{t("permissionActionEdit")}</th><th>{t("permissionActionDelete")}</th><th>{t("permissionActionExecute")}</th></tr></thead><tbody>{permissionMenuRows.map((row) => { const state = permissions[selectedRole]?.[row.key] ?? emptyPermissionState()[row.key]; return <tr key={row.key}><td><strong>{t(row.labelKey as TranslationKey)}</strong><small>{t(row.descriptionKey as TranslationKey)}</small></td>{(["view", "create", "edit", "delete", "execute"] as PermissionAction[]).map((action) => { const enabled = permissionActionEnabled(row, action); return <td key={action}>{!enabled ? <span aria-label={t("settingsNotApplicable")}>—</span> : <input aria-label={`${liveRoles.find((role) => role.id === selectedRole)?.name ?? t("systemRoleColumn")} ${t(row.labelKey as TranslationKey)} ${t(`permissionAction${action.charAt(0).toUpperCase()}${action.slice(1)}` as TranslationKey)}`} checked={enabled && state[action]} disabled={!canEditPermissions || selectedRoleReadOnly || !enabled || !sectionReady("roles") || !permissions[selectedRole]} onChange={() => togglePermission(row.key, action)} type="checkbox" />}</td>; })}</tr>; })}</tbody></table></div> : <EmptyInlineState />}
+          </SettingsCard> : null}
 
-          {activeTab === "models" ? <>
-            <SectionHeader action={<button className="action-button" disabled={!canCreateModels} onClick={() => openModelModal()} type="button"><Bot size={16} />{t("systemAddModel")}</button>} description={t("systemModelsDescription")} title={t("systemModels")} />
+          {activeSection === "ai" ? <SettingsCard panel="models">
+            <SectionHeader action={<button className="action-button" disabled={!canCreateModels || !sectionReady("models")} onClick={() => openModelModal()} type="button"><Bot size={16} />{t("systemAddModel")}</button>} description={t("systemModelsDescription")} title={t("systemModels")} />
             <div className="model-list-toolbar">
-              <label><span>{t("systemModelTypeFilter")}</span><DropdownSelect aria-label={t("systemModelTypeFilter")} onChange={(event) => { setModelTableType(event.target.value); setModelTablePage(1); }} value={modelTableType}><option value="all">{t("systemAllModelTypes")}</option><option value="Chat">{t("labelChat")}</option><option value="Embedding">Embedding</option><option value="OCR">{t("labelPdfRecognition")}</option><option value="Judge">Judge</option></DropdownSelect></label>
-              <span aria-live="polite">{format("systemModelResultRange", { first: modelTableFirst, last: modelTableLast, total: modelTableTotal })}</span>
+              <label><span>{t("systemModelTypeFilter")}</span><DropdownSelect aria-label={t("systemModelTypeFilter")} onChange={(event) => { setModelTableType(event.target.value); setModelTablePage(1); }} value={modelTableType}><option value="all">{t("systemAllModelTypes")}</option><option value="Chat">{t("labelChat")}</option><option value="Embedding">Embedding</option><option value="OCR">OCR</option><option value="Judge">Judge</option></DropdownSelect></label>
+              <span aria-live="polite">{format("systemModelResultRange", { first: modelTableReceived ? modelTableFirst : t("systemReadCountUnknown"), last: modelTableReceived ? modelTableLast : t("systemReadCountUnknown"), total: modelTableReceived ? modelTableTotal : t("systemReadCountUnknown") })}</span>
             </div>
             {modelTableError ? <FeedbackMessage tone="error"><strong>{localize(modelTableError)}</strong><button className="icon-text-button" onClick={() => { void refreshModelTable(); }} type="button"><RefreshCw size={14} />{t("retry")}</button></FeedbackMessage> : null}
             {modelTableLoading ? <div className="system-table-loading" role="status"><LoaderCircle className="spin" size={20} /><span>{t("systemLoadingModels")}</span></div> : null}
             {!modelTableLoading && modelTableRows.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemName")}</th><th>{t("systemModelType")}</th><th>{t("labelProvider")}</th><th>{t("systemModel")}</th><th>{t("systemSecret")}</th><th>{t("systemStatusColumn")}</th><th aria-label={t("systemActionsColumn")} /></tr></thead><tbody>{modelTableRows.map((model) => {
               const modelIsActive = model.status === "active";
-              return <tr key={model.id}><td><strong>{model.name}</strong>{model.default ? <small>{format("systemDefaultModelLabel", { type: model.type === "OCR" ? t("labelPdfRecognition") : model.type })}</small> : null}</td><td>{model.type === "OCR" ? t("labelPdfRecognition") : model.type}</td><td>{model.provider}</td><td>{aiModelProviderName(model.raw?.config)}</td><td><span className="secret-state"><LockKeyhole size={14} />{model.raw?.api_key_configured || model.raw?.api_key_secret_ref ? t("systemConfigured") : t("systemNotConfigured")}</span></td><td><div className="model-status-stack"><StateBadge tone={modelIsActive ? "green" : "gold"}>{localizedStatus(model.status)}</StateBadge>{model.raw?.last_test_status ? <><StateBadge tone={model.raw.last_test_status === "success" ? "green" : model.raw.last_test_status === "failed" ? "coral" : "gold"}>{localizedOperationStatus(model.raw.last_test_status)}</StateBadge><small>{model.raw.last_tested_at ? new Date(model.raw.last_tested_at).toLocaleString() : null}{model.raw.last_test_latency_ms !== null ? ` · ${model.raw.last_test_latency_ms} ms` : ""}</small></> : <small>{t("systemConnectionNotTested")}</small>}</div></td><td><div className="system-row-actions"><button className="icon-text-button" disabled={!canEditModels} onClick={() => openModelModal(model)} type="button">{t("systemEdit")}</button><button className="icon-text-button" disabled={!canEditModels || quickBlocked || model.default || !modelIsActive} onClick={() => { void runQuickMutation({ kind: "model", id: model.id, field: "is_default", value: true }, () => setDefaultModel(apiFetch, model.id), refreshModels); }} type="button">{t("systemSetDefault")}</button><button className="icon-text-button" disabled={!canEditModels} onClick={() => { void runModelConnectionTest(model); }} type="button">{t("systemTest")}</button>{modelIsActive ? <button className="icon-text-button" disabled={!canEditModels} onClick={() => setModal({ type: "confirm", title: t("systemDisableModel"), message: t("systemDisableModelHelp"), actionLabel: t("systemDisable"), successTitle: "systemModelDeactivated", target: { kind: "model", id: model.id, expected: { field: "is_active", value: false } }, run: accepted => deactivateModelRow(model, accepted) })} type="button">{t("systemDisable")}</button> : <button className="icon-text-button" disabled={!canEditModels || quickBlocked} onClick={() => { void activateModel(model); }} type="button">{t("systemEnable")}</button>}<button aria-label={format("systemDeleteModelAria", { name: model.name })} className="icon-text-button destructive" disabled={!canDeleteModels} onClick={() => openModelDeleteModal(model)} type="button"><Trash2 size={14} />{t("systemDelete")}</button></div></td></tr>;
+              return <tr key={model.id}><td><strong>{model.name}</strong>{model.default ? <small>{format("systemDefaultModelLabel", { type: model.type })}</small> : null}</td><td>{model.type}</td><td>{model.provider}</td><td>{aiModelProviderName(model.raw?.config)}</td><td><span className="secret-state"><LockKeyhole size={14} />{model.raw?.api_key_configured || model.raw?.api_key_secret_ref ? t("systemConfigured") : t("systemNotConfigured")}</span></td><td><div className="model-status-stack"><StateBadge tone={modelIsActive ? "green" : "gold"}>{localizedStatus(model.status)}</StateBadge>{model.raw?.last_test_status ? <><StateBadge tone={model.raw.last_test_status === "success" ? "green" : model.raw.last_test_status === "failed" ? "coral" : "gold"}>{localizedOperationStatus(model.raw.last_test_status)}</StateBadge><small>{model.raw.last_tested_at ? new Date(model.raw.last_tested_at).toLocaleString() : null}{model.raw.last_test_latency_ms !== null ? ` · ${model.raw.last_test_latency_ms} ms` : ""}</small></> : <small>{t("systemConnectionNotTested")}</small>}</div></td><td><div className="system-row-actions"><button className="icon-text-button" disabled={!canEditModels} onClick={() => openModelModal(model)} type="button">{t("systemEdit")}</button><button className="icon-text-button" disabled={!canEditModels || quickBlocked || model.default || !modelIsActive} onClick={() => { void runQuickMutation({ kind: "model", id: model.id, field: "is_default", value: true }, () => setDefaultModel(apiFetch, model.id), refreshModels); }} type="button">{t("systemSetDefault")}</button><button className="icon-text-button" disabled={!canEditModels} onClick={() => { void runModelConnectionTest(model); }} type="button">{t("systemTest")}</button>{modelIsActive ? <button className="icon-text-button" disabled={!canEditModels} onClick={() => setModal({ type: "confirm", title: t("systemDisableModel"), message: t("systemDisableModelHelp"), actionLabel: t("systemDisable"), successTitle: "systemModelDeactivated", target: { kind: "model", id: model.id, expected: { field: "is_active", value: false } }, run: accepted => deactivateModelRow(model, accepted) })} type="button">{t("systemDisable")}</button> : <button className="icon-text-button" disabled={!canEditModels || quickBlocked} onClick={() => { void activateModel(model); }} type="button">{t("systemEnable")}</button>}<button aria-label={format("systemDeleteModelAria", { name: model.name })} className="icon-text-button destructive" disabled={!canDeleteModels} onClick={() => openModelDeleteModal(model)} type="button"><Trash2 size={14} />{t("systemDelete")}</button></div></td></tr>;
             })}</tbody></table></div> : null}
             {!modelTableLoading && !modelTableRows.length && !modelTableError ? <EmptyInlineState>{t("systemNoModelsMatchFilter")}</EmptyInlineState> : null}
             <div className="model-list-pagination">
@@ -1779,9 +1767,9 @@ export default function SystemManagementWorkspace({
               <span>{format("systemPageOf", { page: modelTablePage, total: modelTableTotalPages })}</span>
               <div><button aria-label={t("systemPreviousPage")} className="icon-button" disabled={modelTableLoading || modelTablePage <= 1} onClick={() => setModelTablePage((page) => Math.max(1, page - 1))} type="button"><ChevronLeft size={17} /></button><button aria-label={t("systemNextPage")} className="icon-button" disabled={modelTableLoading || modelTablePage >= modelTableTotalPages} onClick={() => setModelTablePage((page) => Math.min(modelTableTotalPages, page + 1))} type="button"><ChevronRight size={17} /></button></div>
             </div>
-          </> : null}
+          </SettingsCard> : null}
 
-          {activeTab === "prompts" ? <>
+          {activeSection === "ai" ? <SettingsCard panel="prompts">
             <SectionHeader description={t("systemPromptsDescription")} title={t("systemPrompts")} />
             {!promptEditorOpen ? renderPromptFeedback() : null}
 
@@ -1797,9 +1785,9 @@ export default function SystemManagementWorkspace({
               <div className="system-subsection-title"><div><h3><Bot size={18} />{t("systemPromptModelSection")}</h3><p>{t("systemPromptModelSectionHelp")}</p></div><div className="system-toolbar compact"><DropdownSelect aria-label={t("systemPromptSelectModel")} onChange={(event) => setPromptModelDraft(event.target.value)} value={promptModelDraft}>{promptModelOptions.length ? promptModelOptions.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.type}</option>) : <option value="">{t("systemPromptNoModelsAvailable")}</option>}</DropdownSelect><button className="action-button secondary" disabled={!canCreateModels || !promptModelDraft || promptSaving || !sectionReady("prompts") || !sectionReady("models")} onClick={() => { void createModelPrompt(); }} type="button"><Plus size={16} />{t("systemPromptAddModel")}</button></div></div>
               {modelSpecificPrompts.length ? <div className="system-table-wrap system-prompt-model-table"><table className="system-table"><thead><tr><th>{t("systemModel")}</th><th>{t("systemModelType")}</th><th>{t("systemVersion")}</th><th>{t("systemStatusColumn")}</th></tr></thead><tbody>{modelSpecificPrompts.map((prompt) => <tr className={selectedPromptId === prompt.id ? "selected-row" : ""} key={prompt.id} onClick={() => selectPrompt(prompt)}><td><button className="text-link system-prompt-open" type="button" onClick={(event) => { event.stopPropagation(); selectPrompt(prompt); }} aria-label={format("systemPromptOpenForModel", { name: liveModels.find(model => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—" })}><MessageSquareText size={16} aria-hidden="true" /><strong>{liveModels.find((model) => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—"}</strong></button><small>{prompt.content_hash ?? t("systemPromptBlankHash")}</small></td><td>{prompt.model_type}</td><td>{prompt.current_version_number ?? "—"}</td><td><StateBadge tone={prompt.is_active ? "green" : "gray"}>{prompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></td></tr>)}</tbody></table></div> : sectionReady("prompts") ? <EmptyInlineState>{t("systemPromptNoModelPrompts")}</EmptyInlineState> : null}
             </section>
-          </> : null}
+          </SettingsCard> : null}
 
-          {activeTab === "apiKeys" ? <>
+          {activeSection === "apiKeys" ? <SettingsCard panel="clients">
             <SectionHeader
               action={<div className="system-section-actions"><button className="action-button secondary" onClick={() => { void refreshIntegrationClients(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button><button className="action-button" disabled={!canCreateSystemManagement || !sectionReady("projects") || !sectionReady("clients")} onClick={openApiKeyCreateModal} type="button"><Plus size={16} />{t("systemApiKeyCreateTitle")}</button></div>}
               description={t("systemApiKeysDescription")}
@@ -1821,11 +1809,11 @@ export default function SystemManagementWorkspace({
                 </article>;
               })}</div> : sectionReady("clients") ? <EmptyInlineState>{t("systemApiKeyEmpty")}</EmptyInlineState> : null}
             </section>
-          </> : null}
+          </SettingsCard> : null}
 
           {activeTab === "identity" ? <>
-            <ProtocolIdentityPanel canEdit={canEditSystemManagement} />
-            <section className="identity-settings-section" aria-labelledby="identity-emergency-title">
+            <ProtocolIdentityPanel key={systemReadScope} canEdit={canEditSystemManagement} onDirtyChange={setIdentityDirty} />
+            <section className="identity-settings-section settings-card" id="settings-panel-emergency" tabIndex={-1} aria-labelledby="identity-emergency-title">
               {renderSectionReadNotice("breakGlass")}
               <div className="system-subsection-title"><h3 id="identity-emergency-title">{t("identityEmergencyAccess")}</h3><StateBadge tone={breakGlassTone(breakGlassStatus?.status)}>{localizedBreakGlassStatus(breakGlassStatus?.status)}</StateBadge></div>
               <p>{t("identityBreakGlassHelp")}</p>
@@ -1847,45 +1835,30 @@ export default function SystemManagementWorkspace({
             <SectionHeader action={<button className="action-button secondary" onClick={() => { void refreshSystemStatus(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button>} description={t("systemStatusDescription")} title={t("systemStatus")} />
             <div className="fixture-banner"><Activity size={17} /><div><strong>{t("liveData")}</strong><span>{t("systemStatusLiveHelp")}</span></div></div>
             {systemStatus ? <>
-              <div className="system-status-grid">
+              <SettingsCard panel="runtime" title={t("settingsRuntime")}><div className="system-status-grid">
               {[
                 systemStatus.worker,
                 systemStatus.queue,
                 systemStatus.retrieval
               ].map((component) => <article className="system-status-card" key={component.name}><header><div><small>{component.name}</small><h3>{component.detail_code}</h3></div><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></header><dl>{metricPairs(component.metrics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>)}</dl><small>{format("systemCheckedAt", { time: component.checked_at.slice(0, 16).replace("T", " ") })}</small></article>)}
               </div>
-              <div className="system-status-columns">
-              <section>
-                <h3>{t("systemDependencies")}</h3>
+              </SettingsCard><div className="system-status-columns">
+              <SettingsCard panel="dependencies" title={t("systemDependencies")}>
                 <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemComponent")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemChecked")}</th></tr></thead><tbody>{systemStatus.dependencies.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></td><td>{component.detail_code}</td><td>{component.checked_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div>
-              </section>
-              <section>
-                <h3>{t("systemAiProviders")}</h3>
+              </SettingsCard>
+              <SettingsCard panel="providers" title={t("systemAiProviders")}>
                 <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemProviderRole")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemMetrics")}</th></tr></thead><tbody>{systemStatus.providers.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></td><td>{component.detail_code}</td><td>{metricPairs(component.metrics).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "—"}</td></tr>)}</tbody></table></div>
-              </section>
+              </SettingsCard>
               </div>
-              <section className="system-status-errors">
-              <h3>{t("systemRecentErrors")}</h3>
+              <SettingsCard panel="errors" title={t("systemRecentErrors")}>
               {systemStatus.recent_errors.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemSourceColumn")}</th><th>{t("systemAction")}</th><th>{t("systemResult")}</th><th>{t("systemCode")}</th><th>{t("systemTime")}</th></tr></thead><tbody>{systemStatus.recent_errors.map((error) => <tr key={`${error.source}-${error.action}-${error.created_at}`}><td>{error.source}</td><td>{error.action}</td><td><StateBadge tone={statusTone(error.result === "success" ? "healthy" : "degraded")}>{localizedOperationStatus(error.result)}</StateBadge></td><td>{error.detail_code}</td><td>{error.created_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div> : <div className="empty-inline-state"><Check size={18} />{t("systemNoRecentErrors")}</div>}
-              </section>
+              </SettingsCard>
             </> : sectionReady("status") ? <EmptyInlineState>{t("systemStatusUnavailable")}</EmptyInlineState> : null}
             <div className="system-security-note"><LockKeyhole size={17} /><div><strong>{t("systemSecurityMasking")}</strong><p>{t("systemSecurityMaskingHelp")}</p></div></div>
           </> : null}
 
-          {activeTab === "parameters" ? <>
-            <SectionHeader action={<div className="system-save-state"><button className="action-button secondary" disabled={!canEditParameters || !sectionReady("parameters") || !ocrDefaults} onClick={restoreParameters} type="button"><RotateCcw size={16} />{t("systemRestoreDefaults")}</button><button className="action-button" disabled={!canEditParameters || !sectionReady("parameters") || !ocrSettingsHash} onClick={saveParameters} title={!canEditParameters ? t("apiForbidden") : undefined} type="button"><Save size={16} />{t("systemSaveParameters")}</button></div>} description={t("systemParametersDescription")} title={t("systemParameters")} />
-            <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("liveData")}</strong><span>{t("systemParametersLiveHelp")}</span></div></div>
-            <div className="parameter-grid" data-session-draft-key="system.parameters">
-              <label className={parameterErrors.uploadLimitMb ? "has-error" : ""}><span>{t("systemUploadLimitLabel")} <em>MB</em></span><input aria-describedby="upload-limit-help" data-session-draft-field="uploadLimitMb" max={1024} min={1} onChange={(event) => updateParameter("uploadLimitMb", Number(event.target.value))} type="number" value={parameters.uploadLimitMb} /><small id="upload-limit-help">{t("systemUploadLimitHelp")}</small>{parameterErrors.uploadLimitMb ? <strong>{parameterErrors.uploadLimitMb}</strong> : null}</label>
-              <label className={parameterErrors.timezone ? "has-error" : ""}><span>{t("systemDefaultTimezoneLabel")} <em>{t("systemIdentityTimezone")}</em></span><input aria-describedby="timezone-help" data-session-draft-field="timezone" onChange={(event) => updateParameter("timezone", event.target.value)} value={parameters.timezone} /><small id="timezone-help">{t("systemDefaultTimezoneHelp")}</small>{parameterErrors.timezone ? <strong>{parameterErrors.timezone}</strong> : null}</label>
-              <label className={parameterErrors.stagingTtlDays ? "has-error" : ""}><span>{t("systemStagingTtlLabel")} <em>{t("systemDaysUnit")}</em></span><input aria-describedby="ttl-help" data-session-draft-field="stagingTtlDays" max={90} min={1} onChange={(event) => updateParameter("stagingTtlDays", Number(event.target.value))} type="number" value={parameters.stagingTtlDays} /><small id="ttl-help">{t("systemStagingTtlHelp")}</small>{parameterErrors.stagingTtlDays ? <strong>{parameterErrors.stagingTtlDays}</strong> : null}</label>
-              <label className={parameterErrors.sessionDraftTtlMinutes ? "has-error" : ""}><span>{t("systemSessionDraftTtlLabel")} <em>{t("systemMinutesUnit")}</em></span><input aria-describedby="draft-ttl-help" data-session-draft-field="sessionDraftTtlMinutes" max={120} min={0} onChange={(event) => updateParameter("sessionDraftTtlMinutes", Number(event.target.value))} type="number" value={parameters.sessionDraftTtlMinutes} /><small id="draft-ttl-help">{t("systemSessionDraftTtlHelp")}</small>{parameterErrors.sessionDraftTtlMinutes ? <strong>{parameterErrors.sessionDraftTtlMinutes}</strong> : null}</label>
-              <label className={parameterErrors.ocrRequestOutputTokens ? "has-error" : ""}><span>{t("ocrRequestTokenSettingLabel")} <em>{t("ocrTokenUnit")}</em></span><input disabled={!canEditParameters || !sectionReady("parameters")} aria-describedby="ocr-request-help" data-session-draft-field="ocrRequestOutputTokens" min={1} max={2147483647} type="number" value={parameters.ocrRequestOutputTokens ?? ""} onChange={(event) => updateParameter("ocrRequestOutputTokens", Number(event.target.value))} /><small id="ocr-request-help">{t("ocrRequestTokenSettingHelp")} {parameters.ocrRequestOutputTokens != null ? format("ocrTokenReadableValue", { value: formatCount(parameters.ocrRequestOutputTokens, locale) }) : null}</small>{parameterErrors.ocrRequestOutputTokens ? <strong>{t("ocrTokenPositiveInteger")}</strong> : null}</label>
-              <label className={parameterErrors.ocrDocumentOutputTokens ? "has-error" : ""}><span>{t("ocrDocumentTokenSettingLabel")} <em>{t("ocrTokenUnit")}</em></span><input disabled={!canEditParameters || !sectionReady("parameters")} aria-describedby="ocr-document-help" data-session-draft-field="ocrDocumentOutputTokens" min={1} max={2147483647} type="number" value={parameters.ocrDocumentOutputTokens ?? ""} onChange={(event) => updateParameter("ocrDocumentOutputTokens", Number(event.target.value))} /><small id="ocr-document-help">{t("ocrDocumentTokenSettingHelp")} {parameters.ocrDocumentOutputTokens != null ? format("ocrTokenReadableValue", { value: formatCount(parameters.ocrDocumentOutputTokens, locale) }) : null}</small>{parameterErrors.ocrDocumentOutputTokens ? <strong>{t(parameterErrors.ocrDocumentOutputTokens === "ocrTokenDocumentTooSmall" ? "ocrTokenDocumentTooSmall" : "ocrTokenPositiveInteger")}</strong> : null}</label>
-            </div>
-            <div aria-live="polite" className="parameter-footer"><div><Clock3 size={16} /><span>{t("systemParametersLiveValues")}</span></div>{parameterMessage ? <FeedbackMessage tone={parameterNotice?.tone ?? "error"}>{localize(parameterMessage)}</FeedbackMessage> : null}<small>{format("systemParametersSavedSummary", { uploadLimitMb: savedParameters.uploadLimitMb, timezone: savedParameters.timezone, stagingTtlDays: savedParameters.stagingTtlDays, sessionDraftTtlMinutes: savedParameters.sessionDraftTtlMinutes })}</small></div>
-            <div className="system-security-note"><LockKeyhole size={17} /><div><strong>{t("systemDeploymentSettingsExcluded")}</strong><p>{t("systemDeploymentSettingsExcludedHelp")}</p></div></div>
-          </> : null}
+          {activeSection === "general" || activeSection === "documents" ? <SystemParameterSettings key={`${systemReadScope}:${activeSection}`} section={activeSection} onDirtyChange={setParameterDirty} /> : null}
+
         </div>
       </div>
       {activePromptEditor ? <div className="system-modal-backdrop" onKeyDown={handlePromptDialogKey} onMouseDown={(event) => { if (event.target === event.currentTarget) requestPromptLeave(() => setPromptEditorOpen(false)); }} role="presentation">
@@ -2012,23 +1985,23 @@ export default function SystemManagementWorkspace({
               <label><span>{t("labelProvider")}</span><DropdownSelect name="provider" onChange={(event) => setModelProviderDraft(event.target.value)} value={modelProviderDraft}>{aiProviders.filter((provider) => modelTypeDraft !== "OCR" || provider.id === "OpenAI" || provider.id === modal.model?.provider).map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</DropdownSelect></label>
               <label><span>{t("labelModelName")}</span><input defaultValue={modelConfigValue(modal.model, "model_name")} name="model_name" placeholder={modelProviderDraft === "Ollama" ? "llama3.1" : modelProviderDraft === "Gemini" ? "gemini-1.5-pro" : modelProviderDraft === "Claude" ? "claude-3-5-sonnet-latest" : t("systemModelNamePlaceholder")} required={modelProviderDraft !== "Custom"} /></label>
             </div>
-            {modelProviderDraft === "OpenAI" ? <div className="identity-form-grid">
+            {modelProviderDraft === "OpenAI" ? <div className="identity-form-grid settings-child-fields">
               <label><span>{t("labelBaseUrl")}</span><input defaultValue={modelConfigValue(modal.model, "base_url", modal.model?.endpoint || "https://api.openai.com/v1")} name="base_url" /></label>
               <label><span>{t("systemOrganizationIdOptional")}</span><input defaultValue={modelConfigValue(modal.model, "organization_id")} name="organization_id" /></label>
               <label><span>{t("systemProjectIdOptional")}</span><input defaultValue={modelConfigValue(modal.model, "project_id")} name="project_id" /></label>
               <OpenAiApiModeField existingMode={modelConfigValue(modal.model, "api_mode")} isExisting={Boolean(modal.model)} modelType={modelTypeDraft} />
               {modelTypeDraft === "Embedding" ? <label><span>{t("systemEmbeddingDimensionOptional")}</span><input defaultValue={modelConfigValue(modal.model, "embedding_dimension")} min={1} name="embedding_dimension" type="number" /></label> : null}
             </div> : null}
-            {modelProviderDraft === "Gemini" ? <div className="identity-form-grid"><label><span>{t("labelApiVersion")}</span><input defaultValue={modelConfigValue(modal.model, "api_version", "v1beta")} name="api_version" /></label></div> : null}
-            {modelProviderDraft === "Claude" ? <div className="identity-form-grid">
+            {modelProviderDraft === "Gemini" ? <div className="identity-form-grid settings-child-fields"><label><span>{t("labelApiVersion")}</span><input defaultValue={modelConfigValue(modal.model, "api_version", "v1beta")} name="api_version" /></label></div> : null}
+            {modelProviderDraft === "Claude" ? <div className="identity-form-grid settings-child-fields">
               <label><span>{t("systemBaseUrlOptional")}</span><input defaultValue={modelConfigValue(modal.model, "base_url", modal.model?.endpoint || "")} name="base_url" placeholder="https://api.anthropic.com" /></label>
               <label><span>Anthropic-Version</span><input defaultValue={modelConfigValue(modal.model, "anthropic_version", "2023-06-01")} name="anthropic_version" /></label>
             </div> : null}
-            {modelProviderDraft === "Ollama" ? <div className="identity-form-grid">
+            {modelProviderDraft === "Ollama" ? <div className="identity-form-grid settings-child-fields">
               <label><span>{t("labelBaseUrl")}</span><input defaultValue={modelConfigValue(modal.model, "base_url", modal.model?.endpoint || "http://127.0.0.1:11434")} name="base_url" required /></label>
               <label><span>{t("labelTimeoutSeconds")}</span><input defaultValue={modelConfigValue(modal.model, "timeout_seconds", "120")} min={1} name="timeout_seconds" type="number" /></label>
             </div> : null}
-            {modelProviderDraft === "vLLM" ? <div className="identity-form-grid">
+            {modelProviderDraft === "vLLM" ? <div className="identity-form-grid settings-child-fields">
               <label><span>{t("labelOpenAiCompatibleBaseUrl")}</span><input defaultValue={modelConfigValue(modal.model, "base_url", modal.model?.endpoint || "")} name="base_url" placeholder="http://127.0.0.1:8000/v1" required /></label>
               <label><span>{t("labelTimeoutSeconds")}</span><input defaultValue={modelConfigValue(modal.model, "timeout_seconds", "120")} min={1} name="timeout_seconds" type="number" /></label>
             </div> : null}
@@ -2072,7 +2045,7 @@ export default function SystemManagementWorkspace({
           </FeedbackForm> : null}
           {modal.type === "model-delete" ? <div className="system-crud-form model-delete-content">
             <FeedbackMessage tone="warning"><div><strong>{t("systemDeleteModelWarningTitle")}</strong><p>{t("systemDeleteModelWarningHelp")}</p></div></FeedbackMessage>
-            <div className="system-detail-grid"><div><small>{t("systemModel")}</small><strong>{modal.model.name}</strong></div><div><small>{t("systemModelType")}</small><strong>{modal.model.type === "OCR" ? t("labelPdfRecognition") : modal.model.type}</strong></div><div><small>{t("labelProvider")}</small><strong>{modal.model.provider}</strong></div><div><small>{t("systemStatusColumn")}</small><strong>{localizedStatus(modal.model.status)}</strong></div></div>
+            <div className="system-detail-grid"><div><small>{t("systemModel")}</small><strong>{modal.model.name}</strong></div><div><small>{t("systemModelType")}</small><strong>{modal.model.type}</strong></div><div><small>{t("labelProvider")}</small><strong>{modal.model.provider}</strong></div><div><small>{t("systemStatusColumn")}</small><strong>{localizedStatus(modal.model.status)}</strong></div></div>
             {modelDeleteDependencies.length ? <section className="model-delete-dependencies"><strong>{t("systemDeleteModelBlockedTitle")}</strong><p>{t("systemDeleteModelBlockedHelp")}</p><ul>{modelDeleteDependencies.map((dependency) => <li key={dependency.type}><span>{modelDeleteDependencyLabel(dependency.type)}</span><strong>{dependency.count}</strong></li>)}</ul></section> : null}
             <label><span>{format("systemDeleteModelConfirmationLabel", { name: modal.model.name })}</span><input autoComplete="off" autoFocus onChange={(event) => setModelDeleteConfirmation(event.target.value)} placeholder={modal.model.name} value={modelDeleteConfirmation} /><small>{t("systemDeleteModelConfirmationHelp")}</small></label>
             <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button danger" disabled={submitting || modalBlocked || modelDeleteConfirmation !== modal.model.name} onClick={() => { void submitModelDelete(modal.model); }} type="button"><Trash2 size={16} />{t("systemDeleteModelPermanently")}</button></footer>

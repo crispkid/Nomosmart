@@ -304,24 +304,27 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
         .map((item) => {
           const version = fixedVersionId === undefined ? item.latest_version : item.versions?.find((candidate) => candidate.id === fixedVersionId)
             ?? (item.latest_version?.id === fixedVersionId ? item.latest_version : undefined);
-          const versionId = version?.id ?? item.id;
-          const servingDocument = status.documents.find((document) => document.document_version_id === versionId);
+          const servingDocument = status.documents.find((document) => document.document_id === item.id
+            && (fixedVersionId === undefined || document.document_version_id === fixedVersionId));
+          // The serving manifest identifies Active even when latest_version
+          // points at an unpublished candidate.
+          const versionId = servingDocument?.document_version_id ?? version?.id ?? item.id;
           return {
             id: versionId,
             documentId: item.id,
             title: item.title,
-            version: version?.version_label ?? unavailableVersionLabel,
+            version: servingDocument?.version_label ?? version?.version_label ?? unavailableVersionLabel,
             source: item.source_type,
             chunks: servingDocument?.chunk_count ?? 0,
             documentStatus: item.status,
-            versionStatus: version?.status ?? "missing"
+            versionStatus: servingDocument ? "active" : version?.status ?? "missing"
           };
         });
       const eligibleDocuments = chatDocuments.filter((document) => document.documentStatus === "active" && document.versionStatus === "active" && status.documents.some((servingDocument) => servingDocument.document_version_id === document.id && servingDocument.index_ready));
       if (chatDocuments.length) {
         setDocuments(chatDocuments);
         setSelectedIds((current) => fixedVersionId !== undefined ? (eligibleDocuments.some((item) => item.id === fixedVersionId) ? [fixedVersionId] : [])
-          : current.length ? current : eligibleDocuments.map((item) => item.id));
+          : current.length ? current.filter((id) => eligibleDocuments.some((item) => item.id === id)) : eligibleDocuments.map((item) => item.id));
         setDocumentSource(eligibleDocuments.length ? "live" : "empty");
       } else {
         setDocuments([]);

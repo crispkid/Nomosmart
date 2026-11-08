@@ -25,6 +25,7 @@ from app.domain.graph_sync_jobs import GRAPH_SYNC_TOPIC, execute_graph_sync_job
 from app.domain.notifications import NOTIFICATION_TOPIC, execute_notification_event
 from app.domain.project_archival import ARCHIVE_CLEANUP_TOPIC, execute_project_archive_cleanup, recover_stale_project_archive_runs
 from app.domain.public_api_retention import enforce_public_api_retention
+from app.domain.staging_retention import TOPIC as STAGING_RETENTION_TOPIC, execute_retention, recover_due_jobs
 from app.domain.validation_runner import execute_validation_run
 from app.services.audit import add_audit
 from app.services.identity_sync_jobs import (
@@ -85,6 +86,7 @@ celery_app.conf.beat_schedule = {
     "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": 10.0},
     "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": 60.0},
     "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": 86400.0},
+    "recover-staging-retention": {"task": "app.worker.recover_staging_retention", "schedule": float(settings.staging_retention_recovery_seconds)},
     "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": 86400.0},
 }
 
@@ -219,7 +221,7 @@ def dispatch_outbox() -> None:
     with factory.begin() as session:
         now = datetime.now(UTC)
         events = list(session.scalars(select(OutboxEvent).where(
-            OutboxEvent.topic.in_(("identity.directory-sync.v2.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, CONTENT_UPDATE_TOPIC, ARCHIVE_CLEANUP_TOPIC)),
+            OutboxEvent.topic.in_(("identity.directory-sync.v2.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, CONTENT_UPDATE_TOPIC, ARCHIVE_CLEANUP_TOPIC, STAGING_RETENTION_TOPIC)),
             OutboxEvent.available_at <= now,
             or_(OutboxEvent.status == "pending", (OutboxEvent.status == "dispatching") & (OutboxEvent.lease_expires_at < now)),
         ).with_for_update(skip_locked=True).limit(20)))
@@ -352,6 +354,7 @@ def _outbox_task(topic: str):
         RECONCILIATION_TOPIC: run_chunk_artifact_reconciliation,
         CONTENT_UPDATE_TOPIC: run_document_content_update,
         ARCHIVE_CLEANUP_TOPIC: run_project_archive_cleanup,
+        STAGING_RETENTION_TOPIC: run_staging_retention,
     }
     return tasks[topic]
 
@@ -544,3 +547,15 @@ def cleanup_authentication_retention() -> None:
     from app.services.auth_retention import cleanup_authentication
     with get_session_factory().begin() as session:
         cleanup_authentication(session)
+
+
+@celery_app.task(name="app.worker.run_staging_retention", acks_late=True, reject_on_worker_lost=True)
+def run_staging_retention(job_id: str) -> None:
+    with get_session_factory()() as session:
+        execute_retention(session, settings, UUID(job_id))
+
+
+@celery_app.task(name="app.worker.recover_staging_retention")
+def recover_staging_retention() -> None:
+    with get_session_factory().begin() as session:
+        recover_due_jobs(session, settings)

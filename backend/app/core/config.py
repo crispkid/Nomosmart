@@ -219,6 +219,17 @@ class Settings(MigrationProbeSettings):
     )
     content_edit_max_utf8_bytes: int = Field(default=10485760, ge=1024, le=1073741824, validation_alias="NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES")
     staging_index_ttl_days: int = Field(default=7, ge=1, le=3650)
+    staging_retention_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    staging_retention_retry_seconds: int = Field(default=300, ge=30, le=86400)
+    staging_retention_batch_size: int = Field(default=100, ge=1, le=1000)
+    staging_retention_recovery_seconds: int = Field(default=60, ge=10, le=3600)
+    @field_validator("staging_retention_lease_seconds", "staging_retention_retry_seconds", "staging_retention_batch_size", "staging_retention_recovery_seconds", mode="before")
+    @classmethod
+    def validate_retention_integer(cls, value: Any) -> Any:
+        if isinstance(value, bool) or not (isinstance(value, int) or isinstance(value, str) and value.isascii() and value.isdecimal()):
+            raise ValueError("Retention operation limits must be finite integers")
+        return value
+
     upload_request_max_size_mb: int | None = Field(default=None, ge=2, le=10241, validation_alias="DOCUMENT_UPLOAD_REQUEST_MAX_SIZE_MB")
     upload_max_inflight: int = Field(default=2, ge=1, le=16, validation_alias="NOMOSMART_UPLOAD_MAX_INFLIGHT")
     upload_io_chunk_kib: int = Field(default=64, ge=4, le=1024, validation_alias="NOMOSMART_UPLOAD_IO_CHUNK_KIB")

@@ -1,3 +1,11 @@
+## CHG-422 — 2026-11-09 發布基底整合（先於實作）
+
+| Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-11-09 | CHG-422 | REL422-001..008; SYSUX; published NativeOCR/v5 | 確認發布基底分岔 | 整合設定改版，保留已發布功能 | V057新增，V001..V056及既有v5保持 | 僅受影響真驗收及既有證據資格核對 | Peter Gate 4 approved；明確選擇建議整合後續驗，原六項授權保持 |
+
+範圍REL422-001..008／SYSUX／已發布NativeOCR與v5。原因：實際0.2.3比目前工作區多NativeOCR與056，舊設定055有號碼衝突。Peter「採用建議：保留 v0.2.3 功能，整合設定改版後續驗」核准整合續驗。影響：單次請求budget欄與分區CAS整合、V057新表、版本metadata及真升級；既有055/056與已發布v5保持。測試：必要真功能／source-qualified沿用／移轉部署／自然到期；80非硬門檻、無備份。詳細及既有授權依422計畫。
+
 ## CHG-421 — Specification change record：OIDC與簽署包的最後差異（待具體核准）
 
 | Date | Change ID | Spec Section | Reason | Impact | Compatibility / Migration | Test Impact | Approver |

@@ -1,0 +1,16 @@
+{
+  "change_id": "CHG-422",
+  "run_uuid": "c3074f88-f75d-49cb-90e9-0cece4464e12",
+  "plan": "docs/CHG-422-BASELINE-INTEGRATION-PLAN.md",
+  "approved_plan_sha256": "b89c3b9f61853abab6edc7c075aac8d6fb8a346852bd9bc29d2cd81495a27bb0",
+  "gate_1": "COMPLETE",
+  "gate_2": "CONFIRMED",
+  "gate_3": "WRITTEN",
+  "gate_4": "APPROVED",
+  "approver": "Peter",
+  "approval_text": "採用建議：保留 v0.2.3 功能，整合設定改版後續驗",
+  "approval_basis": "Latest explicit selection authorizes the concrete recommended baseline integration and continuing the already authorized six release tasks; no repeated approval of same scope. Source discussion recorded before execution.",
+  "private_root": "/private/tmp/nomosmart-chg393-c3074f88/integration422",
+  "execution_closed": false,
+  "recorded_at": "2026-11-08T20:25:39.791555+00:00"
+}

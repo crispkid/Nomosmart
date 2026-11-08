@@ -401,6 +401,7 @@ class DocumentReextractResponse(BaseModel):
 
 class DataSourceConnectionOptions(BaseModel):
     credential_modes: list[Literal["secret_reference", "inline"]]
+    default_timezone: str
 
 
 class DataSourceConnectionPayload(BaseModel):
@@ -946,6 +947,7 @@ class DocumentChatAccess(BaseModel):
 
 
 class KnowledgeDetailResponse(BaseModel):
+    staging_retention: dict[str, Any] | None = None
     document: DocumentSummary
     version: DocumentVersionSummary
     pipeline: PipelineRunDetail | None = None
@@ -1598,10 +1600,10 @@ class NotificationCountResponse(BaseModel):
 
 
 class SystemParametersCorePayload(BaseModel):
-    max_upload_size_mb: int
-    default_timezone: str
-    staging_index_ttl_days: int
-    session_expired_form_draft_ttl_minutes: int = 30
+    max_upload_size_mb: int = Field(strict=True, ge=1, le=10240)
+    default_timezone: str = Field(strict=True, min_length=1)
+    staging_index_ttl_days: int = Field(strict=True, ge=1, le=3650)
+    session_expired_form_draft_ttl_minutes: int = Field(default=30, strict=True)
 
 
 class SystemParametersPayload(SystemParametersCorePayload):
@@ -1611,9 +1613,15 @@ class SystemParametersPayload(SystemParametersCorePayload):
     ocr_document_max_tokens: int
     ocr_token_defaults: dict[str, int]
     ocr_token_settings_hash: str
+    section_revisions: dict[str, str]
+    parameter_defaults: dict[str, Any]
+    parameter_metadata: dict[str, Any]
+    deployment_max_upload_size_mb: int
 
 
 class SystemParametersUpdatePayload(SystemParametersCorePayload):
+    model_config = ConfigDict(extra="forbid")
+    expected_section_revisions: dict[str, str] | None = None
     ocr_page_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     ocr_request_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     ocr_document_max_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
@@ -1630,6 +1638,7 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
 
 class UploadConfigResponse(BaseModel):
     max_upload_size_mb: int
+    deployment_max_upload_size_mb: int
 
 
 class OperationComponentStatus(BaseModel):

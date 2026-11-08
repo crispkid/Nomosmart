@@ -515,7 +515,7 @@ export function DataServiceModal({
   const [minute, setMinute] = useState("00");
   const [weekday, setWeekday] = useState("1");
   const [advancedCron, setAdvancedCron] = useState("0 2 * * *");
-  const [timezone, setTimezone] = useState("Asia/Taipei");
+  const [timezone, setTimezone] = useState("");
   const [verifyTls, setVerifyTls] = useState(true);
   const testGeneration = useRef(0);
   useEffect(() => () => { testGeneration.current++; }, []);
@@ -564,7 +564,9 @@ export function DataServiceModal({
       const result = await onLoadConnectionOptions();
       if (generation !== credentialGeneration.current.version) return;
       if (!result.credential_modes.includes("secret_reference") || result.credential_modes.some(mode => !["secret_reference", "inline"].includes(mode))) throw new Error("serviceCredentialOptionsFailed");
-      setCredentialModes(result.credential_modes); setCredentialOptionsState("ready");
+      if (typeof result.default_timezone !== "string" || !result.default_timezone) throw new Error("serviceCredentialOptionsFailed");
+      new Intl.DateTimeFormat("en", { timeZone: result.default_timezone });
+      setCredentialModes(result.credential_modes); setTimezone(value => value || result.default_timezone); setCredentialOptionsState("ready");
       if (!result.credential_modes.includes(credentialMode)) { setCredentialMode("secret_reference"); setCredential(""); }
     } catch { if (generation === credentialGeneration.current.version) setCredentialOptionsState("error"); }
   }

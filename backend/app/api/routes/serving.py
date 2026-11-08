@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.domain.staging_retention import require_unexpired
+
 import csv
 import hashlib
 import io
@@ -1384,6 +1386,7 @@ def _resolve_document_staging_scope(session: Session, project_id: UUID, document
     if {document.id for document in documents} != {version.document_id for version in versions} or any(document.project_id != project_id or document.is_deleted or document.status == "deleted" for document in documents):
         raise AppError("retrieval_scope_denied", "Retrieval scope must be non-deleted documents in this project", status_code=403)
     for version in versions:
+        require_unexpired(session, version.id)
         require_ready_chunk_artifacts(session, version)
     return requested_ids
 
@@ -2050,6 +2053,8 @@ def _read_neo4j_project_graph(project: Project, active_version_ids: set[UUID], n
 
 
 def _search_document_staging_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:
+    for version_id in version_ids:
+        require_unexpired(session, version_id)
     return _search_hybrid_chunks(session, project_id, version_ids, question, top_k, scope="staging", source_channel=source_channel, actor_user_id=actor_user_id)
 
 

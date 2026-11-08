@@ -7173,3 +7173,40 @@ CHG-420 C420-T05: `test_candidate_scope.py` reads both actual approved authority
 CHG-420 C420-T04 / security_findings: actual 2026-11-07 Trivy DB detected CVE-2026-109518 in apt and libapt-pkg 2.8.3. `backend/Dockerfile` pins the official fixed version; preserve both first raw reports, rebuild/scan only backend amd64 and arm64, and bind final digests to the installer candidate.
 
 CHG-420 C420-T03/C420-T07 continuation: one coherent real native-PDF upload through Worker/finalization, two actual approvals, publish and query/history completed. Eight genuine usage rows and receipt/source/output retained; original parent/restore78 tables and prior app rows unchanged. Temporary runtimes/ACL/node image references cleaned; LDAP returned stopped. 29/31 source-bound scenarios; OIDC six refusal controls and final trusted v5 package remain pending. Evidence: `.artifacts/chg420-7c990b47/e2e-continuation/` and current quality readiness; no full-suite or80% PASS claim.
+
+
+## CHG-422 已核准整合追溯（待本次真驗）
+
+| Requirement | Specification | Implementation | Tests | Harness | Status |
+| --- | --- | --- | --- | --- | --- |
+| SYSUX-001 | CHG-422伴隨設定規格§1 | SystemManagementWorkspace及既有後端permissions | S389-T01/T07 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-002 | CHG-422伴隨設定規格§2 | SystemManagementWorkspace、systemRouteState及雙語文案 | S389-T01 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-003 | CHG-422伴隨設定規格§2 | 分類卡片與憑證入口歸屬 | S389-T01 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-004 | CHG-422伴隨設定規格§3 | AppShell保持；system樣式與卡片 | S389-T03/T12 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-005 | CHG-422伴隨設定規格§3 | 表單row與一致兩層縮排 | S389-T03/T12 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-006 | CHG-422伴隨設定規格§3 | systemRouteState、system/page與認證返回協調 | S389-T02 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-007 | CHG-422伴隨設定規格§3 | 設定描述索引與既有清單搜尋分離 | S389-T01 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-008 | CHG-422伴隨設定規格§4 | Users/Roles/Permissions既有流程與操作保護 | S389-T07 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-009 | CHG-422伴隨設定規格§4 | ProtocolIdentityPanel及既有PROTAUTH流程 | S389-T02/T08 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-010 | CHG-422伴隨設定規格§4 | 模型與提示詞清單、視窗及既有API | S389-T09 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-011 | CHG-422伴隨設定規格§4 | API Key獨立分類、Integration Client Modal | S389-T10 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-012 | CHG-422伴隨設定規格§4 | Operations唯讀畫面與安全讀取狀態 | S389-T11 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-013 | CHG-422伴隨設定規格§5 | 參數型別、驗證、預設與consumer一致性 | S389-T04/T13 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-014 | CHG-422伴隨設定規格§5 | schemas、system參數GET/PATCH與frontend api型別 | S389-T04/T05 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-015 | CHG-422伴隨設定規格§5 | PG交易、分類revision、舊PUT前提及相容發布契約 | S389-T05/T13 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-016 | CHG-422伴隨設定規格§6 | 分類草稿、Modal、operation guard及非同步scope | S389-T06/T08/T11 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-017 | CHG-422伴隨設定規格§6 | zh/en、可及性與既有responsive斷點 | S389-T12 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-018 | CHG-422伴隨設定規格§6 | 權限、CSRF、去敏稽核與協調升級約束 | S389-T07/T08/T10/T13 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-019 | CHG-422伴隨設定規格§7 | 真服務驗收與完整資訊量測（80非硬門檻） | S389-T01至T13 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-020 | CHG-422伴隨設定規格§7 | D1至D4人類確認與後續本變更獨立核准 | D1/D2/D3/D4及S389-T01至T13 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | CONFIRMED / Gate4 APPROVED |
+| SYSUX-021 | CHG-389 上傳有效限額 | backend domain/routes、frontend | S389-T14 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-022 | CHG-389 退回暫存期限及安全清理 | staging_retention、review_publish、project_archival、Worker及serving | S389-T15/S389-T16；真PG期限／封存外鍵及真OS刪除原語 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 原生層通過，自然到期及完整驗收OPEN；見CHG-422後續結果 |
+| SYSUX-023 | CHG-389 新排程預設時區 | backend domain/routes、frontend | S389-T17 | spec:trace;plan:approved;frontend:build;test:backend (CHG-389);test:frontend;test:e2e | PARTIAL / 程式已接線，完整驗收OPEN；見CHG-422後續結果 |
+| REL422-001 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | published NativeOCR/v5 baseline; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-002 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | SYSUX interface integration; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-003 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | native parameter CAS; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-004 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | V057 migration compatibility; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-005 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | unchanged natural expiry and normal dispatch; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-006 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | genuine initialization and lifecycle; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-007 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | source-qualified critical checks and app security; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |
+| REL422-008 | docs/CHG-422-BASELINE-INTEGRATION-PLAN.md | clean candidate and trusted final package; owned candidate worktree | narrow genuine checks; immutable prior evidence retained | spec:trace; plan:approved; relevant live/deploy/release checks | PENDING |

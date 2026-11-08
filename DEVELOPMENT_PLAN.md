@@ -1,3 +1,9 @@
+## CHG-422 — 已發布基底整合與六項續驗
+
+Peter approved Gate 4 on 2026-11-09 through the explicit integration-and-continuation selection and the existing six-item execution authorization. Gate 4 implementation approval: APPROVED.
+
+Gate 1 COMPLETE；Gate 2 CONFIRMED by Peter；Gate 3 WRITTEN；Gate 4 APPROVED by Peter，原執行六項與最新明確整合後續驗指示。權威[422計畫](docs/CHG-422-BASELINE-INTEGRATION-PLAN.md)及[核准紀錄](docs/CHG-422-PLAN-STATUS.json)。只在同一worktree／owned stack整合，不覆寫主工作區／已簽原件／舊393期限；範圍、資源、測試與風險見計畫。
+
 ## CHG-421 — Development Plan：剩餘兩項合併收尾
 
 ### Status and Gate / Specification Understanding / Human Confirmation

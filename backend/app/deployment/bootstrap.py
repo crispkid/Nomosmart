@@ -32,6 +32,8 @@ REQUIRED_TABLES = {
     "users",
     "roles",
     "system_parameters",
+    "system_parameter_section_revisions",
+    "staging_retention_jobs",
     "projects",
     "documents",
     "document_versions",
@@ -59,6 +61,9 @@ REQUIRED_SYSTEM_PARAMETERS = {
     "default_timezone",
     "staging_index_ttl_days",
     "session_expired_form_draft_ttl_minutes",
+    "ocr_page_max_output_tokens",
+    "ocr_request_max_output_tokens",
+    "ocr_document_max_tokens",
 }
 
 
@@ -173,6 +178,8 @@ def _database_check(settings: Settings) -> BootstrapCheck:
             )
             if parameters != REQUIRED_SYSTEM_PARAMETERS:
                 raise BootstrapFailure("system_parameters_incomplete")
+            if connection.scalar(text("SELECT count(*) FROM system_parameter_section_revisions WHERE section IN ('general','documents') AND revision > 0")) != 2:
+                raise BootstrapFailure("system_parameter_revisions_incomplete")
             legacy_secret_refs = int(
                 connection.scalar(
                     text(

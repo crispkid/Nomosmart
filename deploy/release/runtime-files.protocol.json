@@ -247,6 +247,7 @@
     "sql/migrations/V053__ocr_output_token_settings.sql",
     "sql/migrations/V054__protocol_authentication_and_sessions.sql",
     "sql/migrations/V055__native_llm_ocr.sql",
-    "sql/migrations/V056__native_pdf_cleanup.sql"
+    "sql/migrations/V056__native_pdf_cleanup.sql",
+    "sql/migrations/V057__system_settings_sections_and_retention.sql"
   ]
 }

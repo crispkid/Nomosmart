@@ -251,6 +251,34 @@ class SystemParameter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     updated_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
 
 
+class SystemParameterSectionRevision(Base):
+    __tablename__ = "system_parameter_section_revisions"
+    __table_args__ = (CheckConstraint("section IN ('general','documents')", name="section_allowed"), CheckConstraint("revision > 0", name="revision_positive"))
+    section: Mapped[str] = mapped_column(String(16), primary_key=True)
+    revision: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class StagingRetentionJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "staging_retention_jobs"
+    __table_args__ = (UniqueConstraint("document_version_id"), CheckConstraint("ttl_days BETWEEN 1 AND 3650", name="ttl_days_range"),
+                     Index("ix_staging_retention_due", "status", "expires_at"))
+    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    document_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"), nullable=False)
+    approval_request_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("approval_requests.id"), nullable=False)
+    rejected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ttl_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="scheduled")
+    lease_token: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    checkpoint: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class IdentitySetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "identity_settings"
     revision: Mapped[int] = mapped_column(Integer, nullable=False)

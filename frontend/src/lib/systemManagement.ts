@@ -41,14 +41,15 @@ export const defaultSystemParameters: SystemParameterValues = {
 export function validateSystemParameters(values: SystemParameterValues) {
   const errors: Partial<Record<keyof SystemParameterValues, string>> = {};
 
-  if (!Number.isInteger(values.uploadLimitMb) || values.uploadLimitMb < 1 || values.uploadLimitMb > 1024) {
-    errors.uploadLimitMb = "請輸入 1–1024 MB 的整數";
+  if (!Number.isInteger(values.uploadLimitMb) || values.uploadLimitMb < 1 || values.uploadLimitMb > 10240) {
+    errors.uploadLimitMb = "請輸入 1–10240 MB 的整數";
   }
-  if (!/^[A-Za-z_]+\/[A-Za-z0-9_+\-]+$/.test(values.timezone)) {
-    errors.timezone = "請輸入有效的 IANA 時區，例如 Asia/Taipei";
-  }
-  if (!Number.isInteger(values.stagingTtlDays) || values.stagingTtlDays < 1 || values.stagingTtlDays > 90) {
-    errors.stagingTtlDays = "請輸入 1–90 天的整數";
+  try {
+    if (!values.timezone.trim()) throw new Error();
+    new Intl.DateTimeFormat("en", { timeZone: values.timezone });
+  } catch { errors.timezone = "請輸入有效的 IANA 時區，例如 Asia/Taipei"; }
+  if (!Number.isInteger(values.stagingTtlDays) || values.stagingTtlDays < 1 || values.stagingTtlDays > 3650) {
+    errors.stagingTtlDays = "請輸入 1–3650 天的整數";
   }
   if (!Number.isInteger(values.sessionDraftTtlMinutes) || (values.sessionDraftTtlMinutes !== 0 && (values.sessionDraftTtlMinutes < 5 || values.sessionDraftTtlMinutes > 120))) {
     errors.sessionDraftTtlMinutes = "請輸入 0 或 5–120 分鐘的整數";
@@ -65,4 +66,3 @@ export function hasParameterErrors(errors: ReturnType<typeof validateSystemParam
 }
 
 export type DirectorySyncScope = "people" | "groups" | "people_and_groups";
-

@@ -19,6 +19,7 @@ from app.core.errors import AppError
 from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, OutboxEvent, Project
 from app.db.session import get_db
 from app.domain.data_sync import compute_next_run_at, has_active_sync_run
+from app.domain.system_parameter_store import read_values
 from app.domain.connection_evidence import data_connection_fingerprint
 from app.domain.connection_probes import probe_data_source_candidate, probe_stored_data_connection
 from app.domain.document_imports import _title_from_filename
@@ -57,7 +58,7 @@ def data_source_connection_options(project_id: UUID, request: Request, context: 
     modes = ["secret_reference"]
     if request.app.state.settings.app_env != "production":
         modes.append("inline")
-    return DataSourceConnectionOptions(credential_modes=modes)
+    return DataSourceConnectionOptions(credential_modes=modes, default_timezone=read_values(session, ("default_timezone",))["default_timezone"])
 
 
 @router.post("/validate-connection", response_model=DataSourceConnectionTestResponse)
@@ -84,6 +85,8 @@ def test_data_source_connection(
 ) -> DataSourceConnectionTestResponse:
     project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required for data source configuration")
+    if "timezone" not in payload.model_fields_set:
+        payload = payload.model_copy(update={"timezone": read_values(session, ("default_timezone",))["default_timezone"]})
     _validate_data_source_payload(payload, settings=request.app.state.settings)
     try:
         probe = probe_data_source_candidate(request.app.state.settings, payload)
@@ -146,6 +149,8 @@ def create_data_source(
 ) -> DataSourceCreateResponse:
     project = _get_scoped_project(session, project_id, context)
     require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required for data source creation")
+    if "timezone" not in payload.model_fields_set:
+        payload = payload.model_copy(update={"timezone": read_values(session, ("default_timezone",))["default_timezone"]})
     _validate_data_source_payload(payload, settings=request.app.state.settings)
     project = _lock_enqueue_project(session, project.id)
     now = datetime.now(UTC)

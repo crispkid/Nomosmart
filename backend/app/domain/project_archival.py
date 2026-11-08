@@ -38,6 +38,7 @@ from app.db.models import (
     Project,
     ProjectArchiveRun,
     ReviewRecord,
+    StagingRetentionJob,
     Tag,
     ValidationRun,
     ValidationRunItem,
@@ -152,6 +153,9 @@ def begin_project_archive(
     project.archived_by = actor_user_id
     project.lock_version += 1
     project.updated_at = now
+
+    from app.domain.staging_retention import cancel_project_jobs
+    cancel_project_jobs(session, project.id)
 
     session.execute(
         update(DataConnection)
@@ -473,6 +477,10 @@ def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions
         session.execute(delete(DocumentReferenceEvent).where(DocumentReferenceEvent.reference_id.in_(source_reference_ids)))
         session.execute(delete(DocumentReference).where(DocumentReference.id.in_(source_reference_ids)))
     session.execute(delete(ReviewRecord).where(ReviewRecord.document_version_id.in_(version_ids)))
+    retention_job_ids = select(StagingRetentionJob.id).where(StagingRetentionJob.document_version_id.in_(version_ids))
+    session.execute(delete(OutboxEvent).where(OutboxEvent.aggregate_type == "staging_retention_job",
+        OutboxEvent.aggregate_id.in_(retention_job_ids)))
+    session.execute(delete(StagingRetentionJob).where(StagingRetentionJob.document_version_id.in_(version_ids)))
     session.execute(update(ApprovalRequest).where(ApprovalRequest.document_version_id.in_(version_ids)).values(current_task_id=None))
     session.execute(delete(ValidationRun).where(ValidationRun.approval_task_id.in_(select(ApprovalTask.id).where(ApprovalTask.document_version_id.in_(version_ids)))))
     session.execute(delete(ApprovalTask).where(ApprovalTask.document_version_id.in_(version_ids)))

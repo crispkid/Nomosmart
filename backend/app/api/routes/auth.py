@@ -13,6 +13,7 @@ from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import SessionExpiredFormDraft, SystemParameter
 from app.db.session import get_db
+from app.domain.system_parameter_store import read_values
 from app.security.context import IdentityContext, get_identity_context
 
 
@@ -96,8 +97,7 @@ SENSITIVE_DRAFT_KEY_PARTS = ("password", "otp", "token", "secret", "credential",
 
 
 def _draft_ttl_minutes(session: Session) -> int:
-    row = session.scalar(select(SystemParameter).where(SystemParameter.key == "session_expired_form_draft_ttl_minutes"))
-    return int(row.value if row is not None else 30)
+    return read_values(session, ("session_expired_form_draft_ttl_minutes",))["session_expired_form_draft_ttl_minutes"]
 
 
 def _safe_return_path(value: str) -> str:

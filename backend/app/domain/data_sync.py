@@ -14,6 +14,7 @@ from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, OutboxEvent, Project
 from app.domain.document_imports import ObjectStorage, UploadedFilePayload, validate_file_payload
+from app.domain.system_parameter_store import intake_settings
 from app.domain.reference_events import create_source_reference_events
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension
 from app.integrations.remote_sources import FTPRemoteSourceClient, FTPSRemoteSourceClient, HTTPRemoteSourceClient, SFTPRemoteSourceClient
@@ -120,6 +121,7 @@ def _execute_data_source_sync_attempt(
     session.refresh(project)
     if project.status != "active":
         raise AppError("project_archived", "Archived projects cannot synchronize data sources", status_code=409)
+    settings = intake_settings(session, settings)
     remote = _fetch_remote_object(settings=settings, connection=connection, remote_storage=remote_storage)
     original_name = _remote_file_name(connection)
     validate_file_payload(UploadedFilePayload(filename=original_name, content_type=remote.content_type, content=remote.body), settings, http_response=connection.service_type == "HTTP_API")
@@ -316,7 +318,7 @@ def _fetch_remote_object(*, settings: Settings, connection: DataConnection, remo
             headers=_http_headers(settings, connection),
             timeout_seconds=int(metadata.get("timeout_seconds") or 30),
             verify_tls=bool(metadata.get("verify_tls", True)),
-            max_bytes=int(metadata.get("max_bytes") or max_bytes),
+            max_bytes=min(int(metadata.get("max_bytes") or max_bytes), max_bytes),
             allowed_hosts=settings.http_source_allowed_hostnames,
             allowed_networks=settings.http_source_allowed_networks,
         )

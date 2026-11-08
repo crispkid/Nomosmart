@@ -38,6 +38,8 @@ from app.domain.markdown_artifacts import normalize_source_mappings, resolve_man
 from app.domain.markdown_structure import MarkdownStructureParser
 from app.domain.multipart_upload import MultipartPayload, parse_multipart as _parse_multipart
 from app.domain.upload_stream import receive_upload
+from app.domain.system_parameter_store import intake_settings
+from app.domain.staging_retention import retention_state
 from app.domain.upload_content import UploadContent
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation, require_idempotency_key
 from app.domain.model_usage import record_model_usage
@@ -317,7 +319,8 @@ async def upload_documents(
 ) -> DocumentUploadResponse:
     project = await run_in_threadpool(_authorize_upload, session, project_id, context)
     raw_key = require_idempotency_key(idempotency_key)
-    async with receive_upload(request) as payload:
+    request.state.upload_settings = await run_in_threadpool(intake_settings, session, request.app.state.settings)
+    async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_upload_documents, project, request, raw_key, context, session, payload)
 
 
@@ -359,7 +362,7 @@ def _complete_upload_documents(project: Project, request: Request, raw_key: str,
         results.append(
             _process_upload_item(
                 session_factory=session_factory,
-                settings=request.app.state.settings,
+                settings=request.state.upload_settings,
                 project_id=project.id,
                 actor_user_id=context.user_id,
                 visible_project_ids=set(context.visible_project_ids),
@@ -397,7 +400,8 @@ async def update_uploaded_document_file(
     session: Session = Depends(get_db),
 ) -> DocumentUpdateResponse:
     project, document = await run_in_threadpool(_authorize_update_file, session, project_id, document_id, context)
-    async with receive_upload(request) as payload:
+    request.state.upload_settings = await run_in_threadpool(intake_settings, session, request.app.state.settings)
+    async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_update_file, project, document, request, context, session, payload)
 
 
@@ -420,7 +424,7 @@ def _complete_update_file(project: Project, document: Document, request: Request
     try:
         version, pipeline, no_change = create_updated_file_version(
             session=session,
-            settings=request.app.state.settings,
+            settings=request.state.upload_settings,
             storage=storage,
             project=project,
             document=document,
@@ -494,7 +498,7 @@ def reextract_document(
         return DocumentReextractResponse.model_validate(replay.body)
     document, version, pipeline = create_reextraction_revision(
         session=session,
-        settings=request.app.state.settings,
+        settings=intake_settings(session, request.app.state.settings),
         project=project,
         document_id=document_id,
         source_version_id=payload.source_version_id,
@@ -544,7 +548,7 @@ def start_extraction(
     if document is None or version is None or document.project_id != project.id or version.document_id != document.id:
         raise AppError("document_not_found", "Document was not found", status_code=404)
     _ensure_not_review_locked(version, "document.extraction.start")
-    pipeline = start_document_extraction(session=session, settings=request.app.state.settings, project=project, document=document, version=version, actor_user_id=context.user_id, requested_ocr_model_id=payload.ocr_model_id, force_ocr=payload.force_ocr)
+    pipeline = start_document_extraction(session=session, settings=intake_settings(session, request.app.state.settings), project=project, document=document, version=version, actor_user_id=context.user_id, requested_ocr_model_id=payload.ocr_model_id, force_ocr=payload.force_ocr)
     add_audit(session, actor_user_id=context.user_id, action="document.extraction.start", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"version_id": str(version.id), "force_ocr": payload.force_ocr})
     session.commit()
     session.refresh(document)
@@ -1498,12 +1502,17 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
     chat_access = {"mode": "published" if published_ready else "staging" if next_stage_allowed else "history_only" if has_history else "unavailable",
         "document_version_id": version.id, "query_enabled": published_ready or next_stage_allowed,
         "reason_code": None if published_ready or next_stage_allowed else next_stage_block_reason}
+    retention = retention_state(session, version.id)
+    if retention and retention["expired"] and not published_ready:
+        chat_access.update(mode="history_only" if has_history else "unavailable", query_enabled=False,
+                           reason_code="staging_retention_expired")
     edit_mode, edit_reason = content_edit_mode(session, project, version, can_edit_content(session, project.id, context.user_id))
     if pipeline_detail:
         for step in pipeline_detail.steps:
             if step.chunking_issue:
                 step.chunking_issue.can_edit_content = edit_mode != "readonly"
     return KnowledgeDetailResponse(
+        staging_retention=retention,
         document=_project_document(session, document, version, pipeline, expose_storage=False, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))),
         version=_version_summary(version, expose_storage=False),
         pipeline=pipeline_detail,

@@ -170,6 +170,12 @@ export function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n();
   const labels: Record<string, ReturnType<typeof t>> = {
     queued: t("statusQueued"),
+    pending: t("statusPending"),
+    passed: t("statusPassed"),
+    needs_review: t("statusNeedsReview"),
+    error: t("statusError"),
+    partial_failed: t("statusPartialFailed"),
+    cancelled: t("statusCancelled"),
     running: t("statusRunning"),
     processing: t("statusProcessing"),
     submission_ready: t("statusSubmissionReady"),

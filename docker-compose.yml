@@ -230,7 +230,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.3}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.4}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -266,7 +266,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.3}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -316,7 +316,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.3}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -345,7 +345,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.3}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -401,7 +401,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.3}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -442,7 +442,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.3}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile

@@ -28,10 +28,12 @@ function hasCompletedGovernanceWait(detail: KnowledgeDetailResponse): boolean {
     || !pipeline.current_step_name || governanceWaitingVersions[pipeline.current_step_name] !== detail.version.status
     || pipeline.project_id !== detail.document.project_id || pipeline.document_id !== detail.document.id
     || pipeline.document_version_id !== detail.version.id || pipeline.steps.some(step => step.status === "failed")) return false;
-  return automaticExtractionSteps.every(name => {
+  const required = pipeline.run_type === "document_extraction" ? automaticExtractionSteps
+    : pipeline.run_type === "document_content_update" ? ["generate_markdown", "parse_structure", "auto_tag", "embedding", "staging_index", "build_graph_preview", "cleanup_superseded"] : null;
+  return Boolean(required && required.every(name => {
     const steps = pipeline.steps.filter(step => step.step_name === name);
     return steps.length === 1 && steps[0].status === "completed";
-  });
+  }));
 }
 
 export function completionGateBlocksKnowledgeDetail(detail: KnowledgeDetailResponse | null): boolean {

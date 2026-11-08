@@ -120,7 +120,7 @@ export type PermissionMatrixResponse = { lock_version: number; permissions: Perm
 export type RoleUsersResponse = { lock_version: number; users: { user_id: string; source: string }[] };
 export type CountedPage<T> = { items: T[]; total: number };
 export type SystemListOptions = { q?: string; offset?: number; limit?: number; isActive?: boolean; signal?: AbortSignal };
-export type DataSourceConnectionOptions = { credential_modes: ("secret_reference" | "inline")[] };
+export type DataSourceConnectionOptions = { credential_modes: ("secret_reference" | "inline")[]; default_timezone: string };
 export type ExternalGroupResponse = { id: string; source: string; external_group_id: string; group_dn: string | null; group_name: string; path: string | null; identity_origin: "ldap" | "ad" | "keycloak_local"; is_active: boolean; last_synced_at: string | null; member_count: number; mapped_role_id: string | null };
 export type ExternalGroupRoleMapping = { external_group_id: string; role_id: string };
 export type RoleExternalGroupMappingResponse = { role_id: string; external_group_id: string | null; lock_version: number; derived_member_count: number };
@@ -764,6 +764,7 @@ export type ApprovalTaskDetail = {
 };
 
 export type KnowledgeDetailResponse = {
+  staging_retention?: { expires_at: string; ttl_days: number; cleanup_status: string; expired: boolean } | null;
   chat_access?: { mode: "staging" | "published" | "history_only" | "unavailable"; document_version_id: string; query_enabled: boolean; reason_code: string | null } | null;
   document: DocumentSummary;
   version: DocumentVersionSummary;
@@ -1212,17 +1213,26 @@ export type SystemParametersPayload = {
   ocr_document_max_tokens: number;
   ocr_token_defaults: { ocr_page_max_output_tokens: number; ocr_request_max_output_tokens: number; ocr_document_max_tokens: number };
   ocr_token_settings_hash: string;
+  section_revisions: Record<"general" | "documents", string>;
+  parameter_defaults: SystemParameterApiValues;
+  parameter_metadata: Record<string, { updated_at: string | null; updated_by: string | null }>;
+  deployment_max_upload_size_mb: number;
 };
+
+export type SystemParameterApiValues = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes" | "ocr_request_max_output_tokens" | "ocr_document_max_tokens">;
+export type SystemParameterSectionResponse = { section: "general" | "documents"; revision: string; changed: boolean; values: Partial<SystemParameterApiValues>; defaults: Partial<SystemParameterApiValues>; parameter_metadata: SystemParametersPayload["parameter_metadata"] };
 
 export type SystemParametersUpdatePayload = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes"> & {
   ocr_page_max_output_tokens?: number;
   ocr_request_max_output_tokens?: number;
   ocr_document_max_tokens?: number;
   expected_ocr_token_settings_hash?: string;
+  expected_section_revisions: Record<"general" | "documents", string>;
 };
 
 export type UploadConfigResponse = {
   max_upload_size_mb: number;
+  deployment_max_upload_size_mb: number;
 };
 
 export type SessionDraftRestoreResponse = {
@@ -1687,7 +1697,16 @@ export async function replaceRoleUsers(apiFetch: ApiFetch, roleId: string, paylo
 export async function listExternalGroups(apiFetch: ApiFetch) { return apiJson<ExternalGroupResponse[]>(apiFetch, "/external-groups"); }
 export async function listExternalGroupMappings(apiFetch: ApiFetch) { return apiJson<ExternalGroupRoleMapping[]>(apiFetch, "/external-group-role-mappings"); }
 export async function setRoleExternalGroupMapping(apiFetch: ApiFetch, roleId: string, payload: { external_group_id: string | null; lock_version: number }) { return apiJson<RoleExternalGroupMappingResponse>(apiFetch, `/roles/${roleId}/external-group-mapping`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function getSystemParameters(apiFetch: ApiFetch) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters"); }
+export async function getSystemParameters(apiFetch: ApiFetch) {
+  const value = await apiJson<SystemParametersPayload>(apiFetch, "/system/parameters");
+  const keys: (keyof SystemParameterApiValues)[] = ["default_timezone", "session_expired_form_draft_ttl_minutes", "max_upload_size_mb", "staging_index_ttl_days", "ocr_request_max_output_tokens", "ocr_document_max_tokens"];
+  if (!value.section_revisions || !["general", "documents"].every(section => /^[a-f0-9]{64}$/.test(value.section_revisions[section as "general" | "documents"]))
+    || !value.parameter_defaults || !value.parameter_metadata || !Number.isInteger(value.deployment_max_upload_size_mb)
+    || !keys.every(key => key === "default_timezone" ? typeof value[key] === "string" && typeof value.parameter_defaults[key] === "string" : Number.isInteger(value[key]) && Number.isInteger(value.parameter_defaults[key]))) {
+    throw new Error("system_parameters_unavailable");
+  }
+  return value;
+}
 export async function getUploadConfig(apiFetch: ApiFetch) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config"); }
 export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersUpdatePayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemStatus(apiFetch: ApiFetch) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status"); }
@@ -1703,3 +1722,7 @@ export async function getBreakGlassStatus(apiFetch: ApiFetch) { return apiJson<B
 export async function queueIdentitySync(apiFetch: ApiFetch) { return apiJson<IdentitySyncRunResponse>(apiFetch, "/identity-sync/run", { method: "POST" }); }
 export async function listIdentitySyncRuns(apiFetch: ApiFetch) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs")).items; }
 export async function getIdentitySyncRun(apiFetch: ApiFetch, runId: string) { return apiJson<IdentitySyncRunResponse>(apiFetch, `/identity-sync/runs/${runId}`); }
+
+export async function patchSystemParameters(apiFetch: ApiFetch, section: "general" | "documents", expected_revision: string, values: Partial<SystemParameterApiValues>) {
+  return apiJson<SystemParameterSectionResponse>(apiFetch, "/system/parameters", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ section, expected_revision, values }) });
+}

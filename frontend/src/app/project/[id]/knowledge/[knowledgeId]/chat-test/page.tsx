@@ -6,7 +6,7 @@ import { scrollChatToEnd } from "@/lib/scrollChatToEnd";
 
 import { UiValidationError } from "@/lib/transportError";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
-import { type ChangeEvent, type FormEvent, type KeyboardEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type ChangeEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, Wrench, X } from "lucide-react";
@@ -14,7 +14,7 @@ import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
-import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatConversationResponse } from "@/lib/api";
+import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked, mergeChatHistory } from "@/lib/chatConversationAccess";
 import { t as translate } from "@/lib/i18n";
@@ -28,6 +28,7 @@ type Format = (key: TranslationKey, params: Record<string, string | number>) => 
 type ConversationEntry = {
   id: string;
   recordId?: string;
+  validationStatus?: string;
   question: string;
   answer?: string;
   askedAt: string;
@@ -37,6 +38,23 @@ type ConversationEntry = {
   error?: string;
   status?: "answered" | "no_answer";
 };
+
+function validationEntries(run: ValidationRunResponse, t: Translate, format: Format): ConversationEntry[] {
+  const running = ["queued", "running"].includes(run.status);
+  return run.items.map((item, index) => ({
+    id: item.id,
+    recordId: item.chat_record_id ?? undefined,
+    validationStatus: item.status,
+    question: item.question,
+    answer: item.answer ?? undefined,
+    askedAt: new Date(Date.parse(run.created_at) + index).toISOString(),
+    answeredAt: item.answer ? run.completed_at : null,
+    citations: item.citations,
+    loading: running && ["pending", "running"].includes(item.status),
+    error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "documentChatQueryFailed") : undefined,
+    status: item.answer ? "answered" : undefined
+  }));
+}
 
 function parseCsv(text: string) {
   const rows: string[][] = [];
@@ -120,6 +138,9 @@ export default function ChatTestPage() {
   const [historyBusy, setHistoryBusy] = useState(false);
   const [historyReady, setHistoryReady] = useState(false);
   const [batchDisplay, setBatchDisplay] = useState(false);
+  const [activeValidationRun, setActiveValidationRun] = useState<ValidationRunResponse | null>(null);
+  const [batchCreating, setBatchCreating] = useState(false);
+  const batchCreateInFlight = useRef(false);
   const scopeEpoch = useRef(new ChatRequestEpoch());
   const selectionEpoch = useRef(new ChatRequestEpoch());
   const [evaluations, setEvaluations] = useState<Record<string, AnswerEvaluation>>({});
@@ -140,8 +161,9 @@ export default function ChatTestPage() {
   const otherConversation = Boolean(activeConversationId && !access.isMine);
   const authorName = (activeConversationId ? activeHistory?.created_by_display_name : currentUser?.display_name)?.trim() || t("chatAuthorNameMissing");
 
-  function selectConversation(item: ProjectChatConversationResponse | null) {
+  const selectConversation = useCallback((item: ProjectChatConversationResponse | null) => {
     setBatchDisplay(false);
+    setActiveValidationRun(null);
     selectionEpoch.current.invalidate();
     setActiveConversationId(item?.id ?? null);
     setConversationEntries((item?.records ?? []).map((record) => ({ id: record.id, recordId: record.id,
@@ -154,7 +176,7 @@ export default function ChatTestPage() {
     setUploadOpen(false);
     setUploadError("");
     setBatchCompletedCount(null);
-  }
+  }, []);
 
   useEffect(() => {
     const scopeGuard = scopeEpoch.current;
@@ -162,6 +184,8 @@ export default function ChatTestPage() {
     scopeGuard.invalidate();
     selectionGuard.invalidate();
     setBatchDisplay(false);
+    setActiveValidationRun(null);
+    setBatchCreating(false);
     setHistoryReady(false);
     setHistoryBusy(false);
     setHistories([]);
@@ -200,7 +224,7 @@ export default function ChatTestPage() {
       scopeGuard.invalidate();
       selectionGuard.invalidate();
     };
-  }, [apiFetch, authReady, currentUser?.user_id, format, params.id, params.knowledgeId, t]);
+  }, [apiFetch, authReady, currentUser?.user_id, format, params.id, params.knowledgeId, selectConversation, t]);
 
   async function loadMoreHistory() {
     if (!versionId || !historyCursor || historyBusy) return;
@@ -219,7 +243,7 @@ export default function ChatTestPage() {
     }
   }
 
-  function discardRevokedScope(error: unknown) {
+  const discardRevokedScope = useCallback((error: unknown) => {
     if (!chatScopeRevoked(error)) return false;
     scopeEpoch.current.invalidate();
     selectConversation(null);
@@ -230,7 +254,7 @@ export default function ChatTestPage() {
     setHistoryReady(false);
     setLoadError(operationalErrorMessage(error, t, format));
     return true;
-  }
+  }, [format, selectConversation, t]);
 
   useEffect(() => {
     if (!chatThreadRef.current || !conversationEntries.length) return;
@@ -242,6 +266,36 @@ export default function ChatTestPage() {
     latestConversationEntry?.error,
     latestConversationEntry?.loading
   ]);
+
+  const validationRunId = activeValidationRun?.id;
+  const validationRunning = Boolean(activeValidationRun && ["queued", "running"].includes(activeValidationRun.status));
+  useEffect(() => {
+    if (!authReady || !versionId || !validationRunId || !validationRunning) return;
+    const scope = scopeEpoch.current.capture();
+    const selection = selectionEpoch.current.capture();
+    let cancelled = false;
+    let timer: number;
+    const current = () => !cancelled && scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection);
+    async function poll() {
+      try {
+        const run = await getProjectChatValidationRun(apiFetch, params.id, validationRunId!);
+        if (!current()) return;
+        if (run.id !== validationRunId || run.project_id !== params.id || run.run_scope !== "document_staging"
+          || run.selected_document_ids.length !== 1 || run.selected_document_ids[0] !== versionId) throw new Error("validation_scope_mismatch");
+        setActiveValidationRun(run);
+        setConversationEntries(validationEntries(run, t, format));
+        setBatchCompletedCount(run.completed_count + run.failed_count);
+        if (["queued", "running"].includes(run.status)) timer = window.setTimeout(() => void poll(), 2500);
+      } catch (error) {
+        if (!current() || discardRevokedScope(error)) return;
+        const message = retrievalErrorMessage(error, t, format);
+        setLoadError(message);
+        setConversationEntries((entries) => entries.map((entry) => ({ ...entry, loading: false, error: message })));
+      }
+    }
+    timer = window.setTimeout(() => void poll(), 0);
+    return () => { cancelled = true; window.clearTimeout(timer); };
+  }, [apiFetch, authReady, discardRevokedScope, format, params.id, t, validationRunId, validationRunning, versionId]);
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -353,14 +407,16 @@ export default function ChatTestPage() {
       setUploadQuestions(questions);
     } catch (error) {
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
-      setUploadError(error instanceof Error ? localizeKnown(error.message) ?? t("projectChatCsvParseFailed") : t("projectChatCsvParseFailed"));
+      setUploadError(error instanceof UiValidationError ? t(error.key) : error instanceof Error ? localizeKnown(error.message) ?? t("projectChatCsvParseFailed") : t("projectChatCsvParseFailed"));
     }
   }
 
   async function confirmBatchUpload() {
-    if (!versionId || uploadQuestions.length === 0 || uploadError || queryBusy || !canContinue) return;
+    if (!versionId || uploadQuestions.length === 0 || uploadError || queryBusy || !canContinue || batchCreateInFlight.current) return;
     const scope = scopeEpoch.current.capture();
     const selection = selectionEpoch.current.capture();
+    batchCreateInFlight.current = true;
+    setBatchCreating(true);
     try {
       const run = await createProjectChatValidationRun(apiFetch, params.id, {
         uploaded_file_name: uploadFileName || null,
@@ -369,30 +425,22 @@ export default function ChatTestPage() {
         questions: uploadQuestions.map((value) => ({ question: value, selected_document_ids: [versionId] }))
       });
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
-      const startedAt = Date.now();
       // Validation items have independent Backend conversation IDs, not turns
       // belonging to the currently selected interactive conversation.
       setActiveConversationId(null);
       setBatchDisplay(true);
       setEvaluations({});
-      setConversationEntries(run.items.map((item, index) => ({
-        id: item.chat_record_id ?? item.id,
-        recordId: item.chat_record_id ?? undefined,
-        question: item.question,
-        answer: item.answer ?? undefined,
-        askedAt: new Date(startedAt + index).toISOString(),
-        answeredAt: item.status === "completed" ? new Date().toISOString() : null,
-        citations: item.citations,
-        loading: ["pending", "running"].includes(item.status),
-        error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "documentChatQueryFailed") : undefined,
-        status: item.answer ? "answered" as const : undefined
-      })));
-      setBatchCompletedCount(run.items.length);
+      setActiveValidationRun(run);
+      setConversationEntries(validationEntries(run, t, format));
+      setBatchCompletedCount(run.completed_count + run.failed_count);
       requestAnimationFrame(() => scrollChatToEnd(chatThreadRef.current));
     } catch (error) {
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       if (discardRevokedScope(error)) return;
       setUploadError(operationalErrorMessage(error, t, format, "documentChatValidationCreateFailed"));
+    } finally {
+      batchCreateInFlight.current = false;
+      if (scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection)) setBatchCreating(false);
     }
   }
 
@@ -464,10 +512,12 @@ export default function ChatTestPage() {
           </header>
           <div className="chat-thread" aria-live="polite" ref={chatThreadRef}>
             {(activeConversationId || batchDisplay) && !canContinue ? <FeedbackMessage tone="info">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</FeedbackMessage> : null}
+            {activeValidationRun ? <p role="status"><StatusBadge status={activeValidationRun.status} /> {format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count })}</p> : null}
             {conversationEntries.length === 0 ? <div className="chat-empty-state"><MessageSquarePlus size={22} /><span>{t("emptyConversation")}</span></div> : null}
             {conversationEntries.map((entry) => (
               <div className="chat-response-pair" key={entry.id}>
                 <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
+                {entry.validationStatus ? <StatusBadge status={entry.validationStatus} /> : null}
                 <AssistantMessage key={`${activeConversationId}-${entry.id}`} entry={entry} canEvaluate={access.canEvaluate} evaluation={evaluations[entry.id]} extractionHref={extractionHref} onEvaluate={recordEvaluation} />
               </div>
             ))}
@@ -484,7 +534,7 @@ export default function ChatTestPage() {
         <div className="modal-backdrop" role="presentation">
           <section aria-labelledby="batch-chat-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
             <div className="modal-header"><div><p className="eyebrow">{t("batchValidation")}</p><h2 id="batch-chat-upload-title">{t("uploadTestConversations")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button></div>
-            {batchCompletedCount !== null ? <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t("batchCompleted")}</strong><span>{format("documentChatBatchCreated", { count: batchCompletedCount })}</span></div></div> : (
+            {batchCompletedCount !== null ? <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t(validationRunning ? "documentChatBatchQueued" : "documentChatBatchFinished")}</strong><span>{activeValidationRun ? format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count }) : format("documentChatBatchCreated", { count: batchCompletedCount })}</span></div></div> : (
               <div className="batch-upload-body">
                 <div className="batch-template-row"><div><strong>{t("csvTemplate")}</strong><small>question、expected_answer、expected_keywords、selected_document_ids、category、priority</small></div><button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button></div>
                 <label className="csv-upload-field"><Upload size={22} /><span><strong>{t("selectCsvFile")}</strong><small>.csv · UTF-8</small></span><input accept=".csv,text/csv" onChange={selectCsvFile} type="file" /></label>
@@ -493,7 +543,7 @@ export default function ChatTestPage() {
                 {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
               </div>
             )}
-            <div className="modal-actions"><button className="action-button secondary" onClick={() => setUploadOpen(false)} type="button">{batchCompletedCount !== null ? t("closeDialog") : t("cancel")}</button>{batchCompletedCount === null ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError)} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}</div>
+            <div className="modal-actions"><button className="action-button secondary" onClick={() => setUploadOpen(false)} type="button">{batchCompletedCount !== null ? t("closeDialog") : t("cancel")}</button>{batchCompletedCount === null ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError) || batchCreating} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}</div>
           </section>
         </div>
       ) : null}

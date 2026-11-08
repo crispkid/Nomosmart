@@ -1,3 +1,7 @@
+## CHG-422 — 保留已發布0.2.3並整合SYSUX及六項收尾
+
+Peter已確認並要求依建議整合後續驗；[伴隨規格／計畫](docs/CHG-422-BASELINE-INTEGRATION-PLAN.md) REL422-001、REL422-002、REL422-003、REL422-004、REL422-005、REL422-006、REL422-007、REL422-008 生效。以已發布NativeOCR／OCRSIM／CHG-419 v5為底，加入已核准SYSUX，使用V057且V001..V056原bytes不變；Native request budget不回復每頁parser。80%改善目標、應用本身資安、無備份、無發布／8443動作。舊393本輪及已發布同號歷史保持，422避免編號碰撞。
+
 ## CHG-421 — Specification：剩餘OIDC與可信包收尾（Gate2 CONFIRMED；Gate 4 approved 2026-11-07）
 
 Peter於2026-11-07「同意繼續完成剩餘的項目」確認新增隔離OIDC方向與剩餘簽署查驗，權威docs/CHG-421-GATE2-CONFIRMATION.json。具體計畫docs/CHG-421-REMAINING-CLOSURE-PLAN.md與SOURCE／RESOURCE／CASE提案待Gate4；本節只細化既有認證與交付驗收，不新增產品認證行為或降低原31情境。

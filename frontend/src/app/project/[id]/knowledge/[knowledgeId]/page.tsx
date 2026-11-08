@@ -815,7 +815,7 @@ export default function KnowledgePage() {
         <span>{liveDetail?.pipeline?.status ?? t("knowledgeDetailNoPipeline")}</span>
         <StatusBadge status={liveDetail?.version.status ?? "loading"} />
         <div className="project-context-actions">
-          {liveDetail?.chat_access?.query_enabled || (liveDetail && !knowledgeGateBlocked && liveDetail.next_stage_allowed) ? <Link className="text-link next-stage-link" href={liveDetail?.chat_access?.mode === "published"
+          {(liveDetail?.chat_access ? liveDetail.chat_access.query_enabled : liveDetail && !knowledgeGateBlocked && liveDetail.next_stage_allowed) ? <Link className="text-link next-stage-link" href={liveDetail?.chat_access?.mode === "published"
             ? `/project/${params.id}/import?chat_version_id=${encodeURIComponent(liveDetail.chat_access.document_version_id)}` : `/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
             {t(liveDetail?.chat_access?.mode === "published" ? "knowledgePublishedChat" : "chatTest")} <ArrowRight size={16} />
           </Link> : liveDetail?.chat_access?.mode === "history_only" ? <Link className="text-link" href={`/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>

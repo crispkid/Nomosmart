@@ -16,6 +16,7 @@ from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize
 from app.domain.document_codes import allocate_document_code
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension, require_extractable_source
 from app.domain.upload_content import UploadContent, as_content
+from app.domain.system_parameter_store import intake_settings
 
 
 MAX_TITLE_LENGTH = 500
@@ -172,6 +173,8 @@ def create_uploaded_document(
     force_ocr: bool,
     start_extraction: bool,
 ) -> tuple[Document, DocumentVersion, PipelineRun | None]:
+    if not getattr(settings, "_intake_snapshot", False):
+        settings = intake_settings(session, settings)
     original_name, _ = validate_file_payload(file, settings)
     identity = build_storage_identity(file.content, original_name)
     force_ocr = identity.canonical_extension == ".pdf"
@@ -263,6 +266,8 @@ def create_updated_file_version(
 ) -> tuple[DocumentVersion, PipelineRun | None, bool]:
     if document.project_id != project.id or document.source_type != "file_upload":
         raise AppError("document_update_not_supported", "Only uploaded files can be updated with a replacement file", status_code=409)
+    if not getattr(settings, "_intake_snapshot", False):
+        settings = intake_settings(session, settings)
     original_name, _ = validate_file_payload(file, settings)
     identity = build_storage_identity(file.content, original_name)
     latest = _latest_document_version(session, document.id)

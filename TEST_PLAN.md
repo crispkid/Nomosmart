@@ -1,3 +1,7 @@
+## CHG-422 — 已發布NativeOCR及SYSUX整合測試
+
+依[422計畫](docs/CHG-422-BASELINE-INTEGRATION-PLAN.md) REL422-001..008；TEST-002 live only，功能與完整分母量測分開，沿用已發布419政策的80%改善目標，不把低分或metadata當全案PASS。保留原紀錄，只補新分區契約、NativeOCR預算整合、V057 fresh/056升級、UI與真部署及等待中的自然到期。原393量測／隔離證據限其來源；既有v4/v5簽署包真相容要保持。無備份，周邊CVE排除，原389到期不動。
+
 ## CHG-421 — Test Strategy：六拒絕與最終可信包（Gate 4 approved 2026-11-07）
 
 SIGNCLOSE-001..006對應C421-T01..06，具體docs/CHG-421-REMAINING-CLOSURE-PLAN.md及CASE-PROPOSAL。真IdP／LDAP／HTTP／產品session，錯issuer／audience需驗到id_token_validation與對應cause；nonce／PKCE只改公開授權輸入，replay用真正已消耗flow；不fake Token、不seed成功。必要正常flow一次供replay／最後inspection共用，29既有合格沿用。

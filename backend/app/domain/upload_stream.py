@@ -116,11 +116,11 @@ class UploadLease:
 
 
 @asynccontextmanager
-async def receive_upload(request: Request):
+async def receive_upload(request: Request, *, settings: Settings | None = None):
     """Caller MUST authorize and validate required keys before entering."""
     from app.domain.multipart_upload import StreamingMultipart
 
-    settings = request.app.state.settings
+    settings = settings or request.app.state.settings
     lease = UploadLease(settings)
     try:
         await run_in_threadpool(lease.open)

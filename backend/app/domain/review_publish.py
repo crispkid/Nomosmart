@@ -467,6 +467,8 @@ def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lo
     session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=_delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
     _notify(session, task.submitter_id, task.project_id, "review.rejected", "審核已退回", f"文件版本 {version.version_label} 已退回，請建立新 revision 修正後重新送審", {"document_version_id": str(version.id), "reason": comment})
     add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment})
+    from app.domain.staging_retention import schedule_retention
+    schedule_retention(session, version, request.id, now)
     return task
 
 
