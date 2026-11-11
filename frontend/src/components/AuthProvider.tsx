@@ -125,7 +125,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally { setChecking(false); }
   }, [apiFetch, login, t]);
 
-  useEffect(() => { (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true; }, []);
+  useEffect(() => {
+    (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true;
+    document.getElementById("nomosmart-hydration-stalled")?.remove();
+  }, []);
   useEffect(() => { const timer = window.setTimeout(() => { void probe(); }, 0); return () => window.clearTimeout(timer); }, [probe]);
   useEffect(() => {
     const broadcast = new BroadcastChannel("nomosmart-session-v2");
