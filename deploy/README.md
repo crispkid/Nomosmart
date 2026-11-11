@@ -2,9 +2,9 @@
 
 Current source uses authentication contract2. Start with [English README](../README.md), [繁中README](../README.zh-TW.md), and the [authentication guide](../docs/AUTHENTICATION.en.md). There is no bundled or optional identity-provider component in Compose/Helm. The directory and optional external OIDC service remain operator-managed.
 
-This is an operating guide, not a statement of production readiness. [Current gaps](../docs/AUTHENTICATION-STATUS.md), [configuration verification](../docs/AUTHENTICATION-STATUS.md#deployment-file-checks) and [historical instructions](../docs/archive/authentication-contract-1/README.md) are separate records.
+This is an operating guide, not a statement of production readiness. Current gaps, configuration verification and historical instructions are separate records.
 
-Latest AD qualification: [Windows Server 2025 / strict LDAPS results](../docs/CHG-368-RESULT.md) cover sign-in, user/group changes and actual 1500+1 member ranges. This used an isolated authentication runtime; Compose/Helm deployment results were reused within their recorded source limits. The AD VM remains available; media/snapshot cleanup is complete after Peter approved option A, with strict LDAPS availability confirmed after restart.
+Latest AD qualification: Windows Server 2025 / strict LDAPS results cover sign-in, user/group changes and actual 1500+1 member ranges. This used an isolated authentication runtime; Compose/Helm deployment results were reused within their recorded source limits. The AD VM remains available; media/snapshot cleanup is complete after Peter approved option A, with strict LDAPS availability confirmed after restart.
 
 ## Docker Compose
 
@@ -432,7 +432,7 @@ The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Bea
 
 The current source adds the `local-verified-release` v4 format and the separate [protocol dependency lock](release/external-dependencies.protocol.lock.json); historical v2/v3 validation retains its own lock and contract. The current lock has no mandatory Keycloak image. This source is not a qualified or signed package.
 
-Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See [current verification and remaining work](../docs/CHG-369-RESULT.md).
+Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See current verification and remaining work.
 
 既有部署相容性：Compose 啟動準備仍可為已掛載的舊版 IdP 憑證參照建立私有 tmpfs 檔案，供尚未升級的容器安全讀取。此相容處理不建立 Keycloak 服務，也不變更登入協定。既有容器更換憑證時應沿用其已核對的映像與掛載，先確認啟動腳本相容，再依維護計畫重啟；認證架構切換與資料庫升級仍走各自的升級程序。
 
@@ -440,7 +440,7 @@ Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart
 
 Use `installer/nomosmart-one-click --protocol-config /operator/private/target.toml --init-config` to create new owner-only target and values files in an existing mode700 directory. It never overwrites files or changes directory permissions. Edit actual service/CA/Secret/directory references, then use `--plan-only`; apply only with the returned `--confirm-digest` or explicit `--yes`. The wrapper invokes the real protocol installer, stops at the administrator sign-in checkpoint (exit10), and does not finalize on the operator's behalf. Legacy `--config` and bundled-wrapper input fail before operations; direct Helm retains bundled support.
 
-The protocol payload contains only the current installer import closure and examples. Original wrapper/CLI/templates are preserved with hashes in [the archival inventory](../docs/CHG-375-ARCHIVE-INVENTORY.json); explicitly marked old templates and inactive source remain for historical tests, outside current entry points and payloads. The local tunnel example forwards only datastore traffic. Configure any external OIDC service explicitly using the actual issuer and trusted TLS.
+The protocol payload contains only the current installer import closure and examples. Original wrapper/CLI/templates are preserved with hashes in the archival inventory; explicitly marked old templates and inactive source remain for historical tests, outside current entry points and payloads. The local tunnel example forwards only datastore traffic. Configure any external OIDC service explicitly using the actual issuer and trusted TLS.
 
 Legacy `nomosmart-release create` and `assemble-validation` reject the current protocol chart before reading keys, building or creating output. Historical `verify-package` remains available. `assemble-local` retains its actual full-suite, 80% coverage, security and signing requirements; this cleanup does not produce a signed package or qualify production publication.
 

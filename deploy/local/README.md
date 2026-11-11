@@ -31,7 +31,7 @@ For cleanup, use exact ownership/UID/resource inventories. Preserve external ser
 
 ## Evidence and history
 
-- [Current authentication/runtime evidence and open gaps](../../docs/AUTHENTICATION-STATUS.md)
-- [Current configuration checks](../../docs/AUTHENTICATION-STATUS.md#deployment-file-checks)
-- [Archived local instructions](../../docs/archive/authentication-contract-1/local.en.before-doc-sync.md)
-- [2026-10-01 historical validation](VALIDATION.md): original results only, not acceptance of current source
+- Current authentication/runtime evidence and open gaps
+- Current configuration checks
+- Archived local instructions
+- 2026-10-01 historical validation: original results only, not acceptance of current source
