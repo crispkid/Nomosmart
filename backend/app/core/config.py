@@ -292,6 +292,10 @@ class Settings(MigrationProbeSettings):
     ocr_document_timeout_seconds: int = Field(default=120, ge=1, le=1800, validation_alias="NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS")
     celery_global_keyprefix: str = ""
     celery_visibility_timeout_seconds: int = Field(default=3600, ge=300, le=172800, validation_alias="NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS")
+    # Scheduling/maintenance tasks finish in seconds; long work tasks (OCR,
+    # directory sync, validation, graph sync...) are unlimited unless set (0).
+    celery_short_task_soft_time_limit_seconds: int = Field(default=300, ge=0, le=86400, validation_alias="NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS")
+    celery_long_task_soft_time_limit_seconds: int = Field(default=0, ge=0, le=172800, validation_alias="NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""

@@ -117,6 +117,20 @@ The Frontend forwards bounded chunks and the Backend uses bounded disk scratch
 space. Watch memory, disk capacity, and restarts during boundary checks;
 do not increase memory limits or remove the cap just to make validation pass.
 
+### Database and worker limits
+
+All values below are optional; defaults keep the PostgreSQL and Celery behavior
+of 0.2.4. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
+
+| Setting | Default | Recommended production value |
+| --- | --- | --- |
+| `NOMOSMART_DB_POOL_SIZE` / `NOMOSMART_DB_MAX_OVERFLOW` | 10 / 20 | Keep unless PostgreSQL `max_connections` requires less |
+| `NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 0 (no limit) | `3900000` (65 min). Must exceed the longest upload and Chat Model timeout, because a chat turn holds its transaction-scoped conversation lock across the provider call |
+| `NOMOSMART_DB_STATEMENT_TIMEOUT_MS` | 0 (no limit) | `0`; report exports and graph reconciliation can run long single statements |
+| `NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS` | 300 | 300 for heartbeat, scheduling, outbox dispatch, notification and recovery tasks (hard limit +30 s) |
+| `NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS` | 0 (no limit) | Set only after measuring the longest OCR, directory sync, validation and graph sync runs |
+| `NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS` | 3600 | Larger than the longest late-acknowledged task, or Redis redelivers it |
+
 ### Public API edge routing
 
 The external contract remains `POST /api/public/v1/projects/{project_id}/chat`,

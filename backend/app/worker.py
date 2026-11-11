@@ -75,6 +75,41 @@ if settings.redis_ha_mode != "sentinel":
     # Late-acked tasks running longer than this are redelivered by Redis.
     celery_app.conf.broker_transport_options = {**celery_app.conf.broker_transport_options,
         "visibility_timeout": settings.celery_visibility_timeout_seconds}
+SHORT_TASKS = (
+    "app.worker.record_runtime_heartbeat",
+    "app.worker.queue_scheduled_directory_sync_v2",
+    "app.worker.queue_scheduled_data_source_sync",
+    "app.worker.recover_stale_project_archives",
+    "app.worker.dispatch_outbox",
+    "app.worker.run_notification_event",
+    "app.worker.recover_staging_retention",
+)
+LONG_TASKS = (
+    "app.worker.run_directory_sync_v2",
+    "app.worker.run_graph_sync",
+    "app.worker.run_project_archive_cleanup",
+    "app.worker.run_chunk_artifact_reconciliation",
+    "app.worker.run_document_content_update",
+    "app.worker.run_project_chat_validation",
+    "app.worker.run_data_source_sync",
+    "app.worker.cleanup_public_api_retention",
+    "app.worker.run_document_extraction",
+    "app.worker.cleanup_authentication_retention",
+    "app.worker.run_staging_retention",
+)
+
+
+def task_time_limits(short_soft_seconds: int, long_soft_seconds: int) -> dict[str, dict[str, int]]:
+    """Soft limit raises SoftTimeLimitExceeded; the hard limit follows 30 s later."""
+    annotations = {}
+    for names, soft in ((SHORT_TASKS, short_soft_seconds), (LONG_TASKS, long_soft_seconds)):
+        if soft:
+            annotations.update({name: {"soft_time_limit": soft, "time_limit": soft + 30} for name in names})
+    return annotations
+
+
+celery_app.conf.task_annotations = task_time_limits(settings.celery_short_task_soft_time_limit_seconds,
+    settings.celery_long_task_soft_time_limit_seconds)
 celery_app.conf.task_queues = (Queue("celery"), Queue("nomosmart-auth-v2"))
 celery_app.conf.task_routes = {
     "app.worker.run_directory_sync_v2": {"queue": "nomosmart-auth-v2"},
