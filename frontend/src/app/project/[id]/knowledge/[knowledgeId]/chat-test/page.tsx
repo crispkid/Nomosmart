@@ -11,6 +11,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, Wrench, X } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
+import { useModalFocus } from "@/components/useModalFocus";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
@@ -145,6 +146,7 @@ export default function ChatTestPage() {
   const selectionEpoch = useRef(new ChatRequestEpoch());
   const [evaluations, setEvaluations] = useState<Record<string, AnswerEvaluation>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
+  const uploadDialogRef = useModalFocus(uploadOpen, () => setUploadOpen(false));
   const [uploadFileName, setUploadFileName] = useState("");
   const [uploadQuestions, setUploadQuestions] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState("");
@@ -532,7 +534,7 @@ export default function ChatTestPage() {
 
       {uploadOpen ? (
         <div className="modal-backdrop" role="presentation">
-          <section aria-labelledby="batch-chat-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
+          <section ref={uploadDialogRef} aria-labelledby="batch-chat-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
             <div className="modal-header"><div><p className="eyebrow">{t("batchValidation")}</p><h2 id="batch-chat-upload-title">{t("uploadTestConversations")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button></div>
             {batchCompletedCount !== null ? <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t(validationRunning ? "documentChatBatchQueued" : "documentChatBatchFinished")}</strong><span>{activeValidationRun ? format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count }) : format("documentChatBatchCreated", { count: batchCompletedCount })}</span></div></div> : (
               <div className="batch-upload-body">
@@ -555,6 +557,7 @@ function AssistantMessage({ entry, canEvaluate, evaluation, extractionHref, onEv
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [revisionOpen, setRevisionOpen] = useState(false);
+  const revisionDialogRef = useModalFocus(revisionOpen, () => setRevisionOpen(false));
   const [revisionSuggestion, setRevisionSuggestion] = useState("");
 
   function openRevisionModal() {
@@ -596,7 +599,7 @@ function AssistantMessage({ entry, canEvaluate, evaluation, extractionHref, onEv
 
       {revisionOpen ? (
         <div className="modal-backdrop" role="presentation">
-          <section aria-labelledby={`${entry.id}-revision-title`} aria-modal="true" className="modal-panel chat-small-modal" role="dialog">
+          <section ref={revisionDialogRef} aria-labelledby={`${entry.id}-revision-title`} aria-modal="true" className="modal-panel chat-small-modal" role="dialog">
             <div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2 id={`${entry.id}-revision-title`}>{t("revisionSuggestion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setRevisionOpen(false)} type="button"><X size={18} /></button></div>
             <form className="revision-suggestion-form" onSubmit={submitRevision}><label htmlFor={`${entry.id}-revision`}>{t("revisionSuggestion")}</label><textarea autoFocus id={`${entry.id}-revision`} onChange={(event) => setRevisionSuggestion(event.target.value)} placeholder={t("revisionPlaceholder")} required rows={5} value={revisionSuggestion} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionOpen(false)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionSuggestion.trim()} type="submit">{t("saveSuggestion")}</button></div></form>
           </section>

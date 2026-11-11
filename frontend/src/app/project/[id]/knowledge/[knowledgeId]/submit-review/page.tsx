@@ -7,6 +7,7 @@ import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { useModalFocus } from "@/components/useModalFocus";
 import { ArrowLeft, BarChart3, Check, CheckCircle2, ChevronDown, CircleUserRound, Clock3, Download, FileText, Image as ImageIcon, MessageSquareText, Network, Send, ShieldCheck, Table2, Tags, UsersRound } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -57,6 +58,8 @@ export default function SubmitReviewPage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const { notify } = useFeedback();
   const [submissionResult, setSubmissionResult] = useState<ApprovalRequestResponse | null>(null);
+  // The submission is already saved; Escape takes the same single exit as the dialog action.
+  const successDialogRef = useModalFocus(Boolean(submissionResult), () => router.push("/approve"));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(() => new Set());
@@ -286,7 +289,7 @@ export default function SubmitReviewPage() {
 
       {submissionResult ? (
         <div className="modal-backdrop" role="presentation">
-          <section aria-labelledby="submission-success-title" aria-modal="true" className="modal-panel submission-success-modal" role="dialog">
+          <section ref={successDialogRef} aria-labelledby="submission-success-title" aria-modal="true" className="modal-panel submission-success-modal" role="dialog">
             <div className="modal-header">
               <div className="submission-success-title">
                 <span><CheckCircle2 size={22} /></span>
