@@ -264,19 +264,21 @@ runtime checks remain in place.
 
 ### Migration contract
 
-Current source targets [V056](../sql/migrations/V056__native_pdf_cleanup.sql).
+Current source targets [V058](../sql/migrations/V058__performance_indexes.sql).
 For an empty database, official Flyway applies the unchanged
 [B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 and V056. Existing databases retain their published migration chain and continue
-through V056. No B056 or rewritten historical SQL is introduced. The source-bound
+then V055 through V058. Existing databases retain their published migration chain and
+continue through V058. V058 only adds indexes; writes to the indexed tables wait while
+each index is built, so run it in the normal upgrade window. No B058 or rewritten
+historical SQL is introduced. The source-bound
 [migration contract](migrations/release-contract.json) defines the current SQL
 target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=056`, `MIGRATION_REQUIRED_CHECKSUM=99561060`, and
+`MIGRATION_REQUIRED_VERSION=058`, `MIGRATION_REQUIRED_CHECKSUM=480069758`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
-`migration.requiredChecksum`, and `migration.baselineChecksum`. The current056
+`migration.requiredChecksum`, and `migration.baselineChecksum`. The current058
 contract validates the additive SQL target, rather than inventing a same-version
 baseline. Flyway still validates the installed migration history. Keep the version
 as a string. Flyway's signed32-bit checksum and the SQL file's SHA256 hash serve

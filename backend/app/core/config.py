@@ -135,6 +135,14 @@ class Settings(MigrationProbeSettings):
 
     database_url: SecretStr = SecretStr("postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/nomosmart")
     model_usage_write_timeout_seconds: int = Field(default=10, ge=1, le=60, validation_alias="NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS")
+    db_pool_size: int = Field(default=10, ge=1, le=200, validation_alias="NOMOSMART_DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, ge=0, le=400, validation_alias="NOMOSMART_DB_MAX_OVERFLOW")
+    db_pool_timeout_seconds: int = Field(default=30, ge=1, le=600, validation_alias="NOMOSMART_DB_POOL_TIMEOUT_SECONDS")
+    # 0 keeps the PostgreSQL server default (no limit). Chat turns intentionally
+    # hold a transaction-scoped advisory lock across the provider call, so an
+    # idle-in-transaction limit must exceed the longest provider timeout.
+    db_statement_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_STATEMENT_TIMEOUT_MS")
+    db_idle_in_transaction_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS")
     redis_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_broker_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_result_backend: SecretStr = SecretStr("redis://127.0.0.1:6379/1")
@@ -281,6 +289,7 @@ class Settings(MigrationProbeSettings):
     ocr_max_response_bytes: int = Field(default=8388608, ge=1, le=2**31-1, validation_alias="NOMOSMART_OCR_MAX_RESPONSE_BYTES")
     ocr_document_timeout_seconds: int = Field(default=120, ge=1, le=1800, validation_alias="NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS")
     celery_global_keyprefix: str = ""
+    celery_visibility_timeout_seconds: int = Field(default=3600, ge=300, le=172800, validation_alias="NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""

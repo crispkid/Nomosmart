@@ -71,9 +71,7 @@ async def save_document_content(project_id: UUID, document_id: UUID, version_id:
     context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
     # Bound before JSON decoding; escaped Unicode can expand UTF-8 text sixfold.
     settings = request.app.state.settings
-    project,_,_ = scoped_content(session,project_id,document_id,version_id,context)
-    if not can_edit_content(session,project.id,context.user_id):
-        raise AppError("project_editor_required","Editor permission is required",status_code=403)
+    await run_in_threadpool(_authorize_content_edit,session,project_id,document_id,version_id,context)
     body = bytearray()
     async for part in request.stream():
         if len(body) + len(part) > settings.content_edit_max_utf8_bytes * 6 + 65536:
@@ -83,16 +81,31 @@ async def save_document_content(project_id: UUID, document_id: UUID, version_id:
         payload = ContentUpdatePayload.model_validate_json(bytes(body))
     except ValueError as exc:
         raise AppError("content_edit_invalid","Content request is invalid",status_code=422) from exc
+    body_json,code = await run_in_threadpool(_queue_content_edit,session,settings,request.state.request_id,project_id,document_id,version_id,
+        idempotency_key,payload,context)
+    return JSONResponse(body_json,status_code=code)
+
+
+def _authorize_content_edit(session: Session,project_id: UUID,document_id: UUID,version_id: UUID,context: IdentityContext) -> None:
+    project,_,_ = scoped_content(session,project_id,document_id,version_id,context)
+    if not can_edit_content(session,project.id,context.user_id):
+        raise AppError("project_editor_required","Editor permission is required",status_code=403)
+    # Release the connection while the client streams the request body.
+    session.commit()
+
+
+def _queue_content_edit(session: Session,settings,request_id: str,project_id: UUID,document_id: UUID,version_id: UUID,
+    idempotency_key: str | None,payload: ContentUpdatePayload,context: IdentityContext):
     project,document,version = scoped_content(session,project_id,document_id,version_id,context,write=True)
     replay,record = begin_idempotent_operation(session,settings,scope=f"content-edit:{project.id}:{document.id}:{context.user_id}",
         raw_key=idempotency_key,request_payload={"version_id":str(version.id),"payload":payload.model_dump(mode="json")})
     if replay:
-        return JSONResponse(replay.body,status_code=replay.status_code)
-    result = queue_content_update(session,project,document,version,payload,context.user_id,settings,request.state.request_id)
+        return replay.body,replay.status_code
+    result = queue_content_update(session,project,document,version,payload,context.user_id,settings,request_id)
     code = 202 if result["changed"] else 200
     complete_idempotent_operation(record,result,status_code=code)
     session.commit()
-    return JSONResponse(result,status_code=code)
+    return result,code
 
 
 @router.get("/{document_id}/versions/{version_id}/content-updates/{update_id}")
@@ -319,9 +332,16 @@ async def upload_documents(
 ) -> DocumentUploadResponse:
     project = await run_in_threadpool(_authorize_upload, session, project_id, context)
     raw_key = require_idempotency_key(idempotency_key)
-    request.state.upload_settings = await run_in_threadpool(intake_settings, session, request.app.state.settings)
+    request.state.upload_settings = await run_in_threadpool(_upload_settings_before_stream, session, request.app.state.settings)
     async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_upload_documents, project, request, raw_key, context, session, payload)
+
+
+def _upload_settings_before_stream(session: Session, settings):
+    upload_settings = intake_settings(session, settings)
+    # Streaming may take minutes; do not hold a connection or transaction open.
+    session.commit()
+    return upload_settings
 
 
 def _authorize_upload(session: Session, project_id: UUID, context: IdentityContext) -> Project:
@@ -400,7 +420,7 @@ async def update_uploaded_document_file(
     session: Session = Depends(get_db),
 ) -> DocumentUpdateResponse:
     project, document = await run_in_threadpool(_authorize_update_file, session, project_id, document_id, context)
-    request.state.upload_settings = await run_in_threadpool(intake_settings, session, request.app.state.settings)
+    request.state.upload_settings = await run_in_threadpool(_upload_settings_before_stream, session, request.app.state.settings)
     async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_update_file, project, document, request, context, session, payload)
 

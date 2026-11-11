@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.2.4",
-  "required_version": "057",
+  "required_version": "058",
   "targets": {
     "SQL": {
-      "file": "V057__system_settings_sections_and_retention.sql",
-      "checksum": -398616135,
-      "sha256": "869b5edea494380493c6a870de8f926521b9d465e515c4c2ff741070d6f711e4"
+      "file": "V058__performance_indexes.sql",
+      "checksum": 480069758,
+      "sha256": "2af6a0c1f92d30877b41e893468968515a067b7d5e70711c9fd0a5249fe1cd9b"
     }
   }
 }

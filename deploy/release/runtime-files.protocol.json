@@ -85,6 +85,8 @@
     "deploy/helm/nomosmart/files/sql/V054__protocol_authentication_and_sessions.sql",
     "deploy/helm/nomosmart/files/sql/V055__native_llm_ocr.sql",
     "deploy/helm/nomosmart/files/sql/V056__native_pdf_cleanup.sql",
+    "deploy/helm/nomosmart/files/sql/V057__system_settings_sections_and_retention.sql",
+    "deploy/helm/nomosmart/files/sql/V058__performance_indexes.sql",
     "deploy/helm/nomosmart/templates/_auth-keyring.tpl",
     "deploy/helm/nomosmart/templates/_bootstrap-init.tpl",
     "deploy/helm/nomosmart/templates/_helpers.tpl",
@@ -248,6 +250,7 @@
     "sql/migrations/V054__protocol_authentication_and_sessions.sql",
     "sql/migrations/V055__native_llm_ocr.sql",
     "sql/migrations/V056__native_pdf_cleanup.sql",
-    "sql/migrations/V057__system_settings_sections_and_retention.sql"
+    "sql/migrations/V057__system_settings_sections_and_retention.sql",
+    "sql/migrations/V058__performance_indexes.sql"
   ]
 }
