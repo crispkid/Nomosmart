@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import hashlib
 import json
 from ipaddress import IPv4Network, IPv6Network, ip_network
 import os
 from pathlib import Path
 import ssl
 import stat
+import threading
 from typing import Annotated, Any
 from typing import Literal, Self
 from urllib.parse import urlparse
@@ -562,6 +564,26 @@ def create_neo4j_driver(settings: Settings, *, auth=None, **options):
     if auth is None:
         auth = (settings.neo4j_username.get_secret_value(), settings.neo4j_password.get_secret_value())
     return GraphDatabase.driver(uri, auth=auth, **neo4j_driver_options(settings), **options)
+
+
+_SHARED_NEO4J_DRIVERS: dict[tuple, Any] = {}
+_SHARED_NEO4J_LOCK = threading.Lock()
+
+
+def shared_neo4j_driver(settings: Settings):
+    """Process-wide application driver; a driver owns a connection pool.
+
+    Keyed by process id so forked workers never reuse a parent's sockets, and by
+    the credential digest so a settings change gets a new driver.
+    """
+    credential = hashlib.sha256(settings.neo4j_password.get_secret_value().encode("utf-8")).hexdigest()
+    key = (os.getpid(), settings.neo4j_uri, settings.neo4j_username.get_secret_value(), credential, settings.neo4j_ca_cert_path)
+    with _SHARED_NEO4J_LOCK:
+        driver = _SHARED_NEO4J_DRIVERS.get(key)
+        if driver is None:
+            driver = create_neo4j_driver(settings)
+            _SHARED_NEO4J_DRIVERS[key] = driver
+        return driver
 
 
 @lru_cache(maxsize=1)

@@ -544,17 +544,23 @@ def _title_from_filename(filename: str) -> str:
 
 def latest_versions(session: Session, project_id: UUID) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
     documents = list(session.scalars(select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False)).order_by(desc(Document.updated_at), Document.title)))
+    if not documents:
+        return []
+    # One DISTINCT ON query per relation instead of two queries per document.
+    versions = {version.document_id: version for version in session.scalars(
+        select(DocumentVersion).where(DocumentVersion.document_id.in_([document.id for document in documents]),
+            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
+        .distinct(DocumentVersion.document_id)
+        .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)))}
+    pipelines = {pipeline.document_version_id: pipeline for pipeline in session.scalars(
+        select(PipelineRun).where(PipelineRun.document_version_id.in_([version.id for version in versions.values()]),
+            ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+        .distinct(PipelineRun.document_version_id)
+        .order_by(PipelineRun.document_version_id, desc(PipelineRun.created_at)))} if versions else {}
     rows: list[tuple[Document, DocumentVersion | None, PipelineRun | None]] = []
     for document in documents:
-        version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id,
-            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
-            .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)).limit(1))
-        pipeline = None
-        if version is not None:
-            pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id,
-                ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
-                .order_by(desc(PipelineRun.created_at)).limit(1))
-        rows.append((document, version, pipeline))
+        version = versions.get(document.id)
+        rows.append((document, version, pipelines.get(version.id) if version is not None else None))
     return rows
 
 

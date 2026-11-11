@@ -9,7 +9,7 @@ from neo4j.exceptions import Neo4jError, ServiceUnavailable, SessionExpired
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.config import Settings, create_neo4j_driver
+from app.core.config import Settings, shared_neo4j_driver
 from app.core.errors import AppError
 from app.db.models import ActiveVersionManifest, ApprovalRequest, Chunk, Document, DocumentVersion, Project
 from app.domain.graph_projection import (GraphProjection, LABELS, PROJECTION_VERSION, RELATIONS, TAG_RELATIONS,
@@ -60,14 +60,12 @@ class Neo4jProjectionStore:
 
     @contextmanager
     def connection(self) -> Iterator:
-        driver = create_neo4j_driver(self.settings)
+        driver = shared_neo4j_driver(self.settings)
         try:
             with driver.session(database=self.settings.neo4j_database) as session:
                 yield session
         except (Neo4jError, ServiceUnavailable, SessionExpired, OSError) as exc:
             raise AppError("graph_projection_not_ready", "Graph projection is not ready", status_code=503) from exc
-        finally:
-            driver.close()
 
     @contextmanager
     def references(self, projection, source_session=None, *, write=False):

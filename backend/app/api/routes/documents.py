@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import hashlib
 import json
 import re
@@ -318,8 +320,39 @@ def list_project_documents(project_id: UUID, context: IdentityContext = Depends(
     project = _get_scoped_project(session, project_id, context)
     capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
     rows = latest_versions(session, project.id)
-    metadata = document_summary_metadata(session, project.id, [document.id for document, _version, _pipeline in rows])
-    return [_project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=capabilities, summary_metadata=metadata) for document, version, pipeline in rows]
+    document_ids = [document.id for document, _version, _pipeline in rows]
+    metadata = document_summary_metadata(session, project.id, document_ids)
+    prefetched = _prefetch_document_list(session, project.id, document_ids)
+    visible = set(context.visible_project_ids)
+    return [_project_document(session, document, version, pipeline, visible_project_ids=visible, capabilities=capabilities, summary_metadata=metadata, prefetched=prefetched) for document, version, pipeline in rows]
+
+
+@dataclass(frozen=True)
+class _DocumentListPrefetch:
+    versions: dict[UUID, list[DocumentVersion]]
+    connections: list[DataConnection]
+    references: dict[UUID, DocumentReference]
+
+
+def _prefetch_document_list(session: Session, project_id: UUID, document_ids: list[UUID]) -> _DocumentListPrefetch:
+    """Load per-document relations once for the whole list (OPT424-016)."""
+    versions: dict[UUID, list[DocumentVersion]] = {}
+    references: dict[UUID, DocumentReference] = {}
+    if document_ids:
+        for version in session.scalars(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id.in_(document_ids), DocumentVersion.project_id == project_id)
+            .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision), desc(DocumentVersion.created_at))
+        ):
+            versions.setdefault(version.document_id, []).append(version)
+        references = {reference.target_document_id: reference for reference in session.scalars(
+            select(DocumentReference)
+            .where(DocumentReference.target_document_id.in_(document_ids), DocumentReference.status != "detached")
+            .distinct(DocumentReference.target_document_id)
+            .order_by(DocumentReference.target_document_id, desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
+        )}
+    connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == project_id)))
+    return _DocumentListPrefetch(versions=versions, connections=connections, references=references)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=200)
@@ -2056,9 +2089,10 @@ def _project_document(
     visible_project_ids: set[UUID] | None = None,
     capabilities: dict[str, bool] | None = None,
     summary_metadata: dict | None = None,
+    prefetched: "_DocumentListPrefetch | None" = None,
 ) -> DocumentSummary:
     metadata = summary_metadata if summary_metadata is not None else document_summary_metadata(session, document.project_id, [document.id])
-    versions = list(
+    versions = prefetched.versions.get(document.id, []) if prefetched is not None else list(
         session.scalars(
             select(DocumentVersion)
             .where(DocumentVersion.document_id == document.id, DocumentVersion.project_id == document.project_id)
@@ -2087,14 +2121,16 @@ def _project_document(
         latest_version=_version_summary(version, expose_storage=expose_storage, metadata=metadata["versions"].get(version.id)) if version else None,
         versions=[_version_summary(row, expose_storage=expose_storage, metadata=metadata["versions"].get(row.id)) for row in versions],
         latest_pipeline=_pipeline_summary(pipeline) if pipeline else None,
-        service_source=_service_source_summary(session, document),
-        reference_source=_reference_source_summary(session, document, version, visible_project_ids),
+        service_source=_service_source_summary(session, document, prefetched.connections if prefetched is not None else None),
+        reference_source=_reference_source_summary(session, document, version, visible_project_ids,
+            prefetched.references if prefetched is not None else None),
         capabilities=effective_capabilities,
     )
 
 
-def _service_source_summary(session: Session, document: Document) -> DocumentServiceSourceSummary | None:
-    connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == document.project_id)))
+def _service_source_summary(session: Session, document: Document, connections: list[DataConnection] | None = None) -> DocumentServiceSourceSummary | None:
+    if connections is None:
+        connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == document.project_id)))
     for connection in connections:
         source_identity = connection.source_identity or {}
         if str(source_identity.get("document_id") or "") != str(document.id):
@@ -2114,8 +2150,9 @@ def _service_source_summary(session: Session, document: Document) -> DocumentSer
     return None
 
 
-def _reference_source_summary(session: Session, document: Document, version: DocumentVersion | None, visible_project_ids: set[UUID] | None) -> DocumentReferenceSourceSummary | None:
-    reference = session.scalar(
+def _reference_source_summary(session: Session, document: Document, version: DocumentVersion | None, visible_project_ids: set[UUID] | None,
+    references: dict[UUID, DocumentReference] | None = None) -> DocumentReferenceSourceSummary | None:
+    reference = references.get(document.id) if references is not None else session.scalar(
         select(DocumentReference)
         .where(DocumentReference.target_document_id == document.id, DocumentReference.status != "detached")
         .order_by(desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
