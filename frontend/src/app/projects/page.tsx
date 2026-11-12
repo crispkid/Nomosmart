@@ -7,11 +7,12 @@ import { FeedbackField, FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useModalFocus } from "@/components/useModalFocus";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, ChevronLeft, ChevronRight, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
+import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
 import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { archiveProject, createProject, getProjectArchiveImpact, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectResponse } from "@/lib/api";
 import { formatDateTime } from "@/lib/dateFormat";
+import { Pagination } from "@/components/Pagination";
 import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -423,7 +424,7 @@ export default function ProjectsPage() {
               </article>
             ))}
           </div>
-          {totalPages > 1 ? <nav aria-label={t("projectsPagination")} className="project-pagination"><span>{format("projectsPageSummary", { page, total: totalPages })}</span><div><button aria-label={t("systemPreviousPage")} className="icon-button" disabled={loading || page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} type="button"><ChevronLeft size={17} /></button><button aria-label={t("systemNextPage")} className="icon-button" disabled={loading || page >= totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} type="button"><ChevronRight size={17} /></button></div></nav> : null}
+          {totalPages > 1 ? <Pagination buttonClassName="icon-button" canNext={!loading && page < totalPages} canPrevious={!loading && page > 1} className="project-pagination" iconSize={17} label={t("projectsPagination")} nextLabel={t("systemNextPage")} onNext={() => setPage((current) => Math.min(totalPages, current + 1))} onPrevious={() => setPage((current) => Math.max(1, current - 1))} previousLabel={t("systemPreviousPage")} summary={format("projectsPageSummary", { page, total: totalPages })} /> : null}
         </Panel>
 
         {isCreateOpen ? (

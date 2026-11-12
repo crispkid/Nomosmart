@@ -4,10 +4,11 @@ import { DropdownSelect } from "@/components/DropdownSelect";
 
 import { FeedbackMessage, FeedbackSeverityBadge } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, ChevronLeft, ChevronRight, Download, FileText, Gauge, GitBranch, LoaderCircle, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { AlertTriangle, BarChart3, CalendarDays, Download, FileText, Gauge, GitBranch, LoaderCircle, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
 import { AppShell, ForbiddenState, Panel } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { downloadReportCsv, getReportFilterOptions, getReportSummary, type ReportFilterOptionsResponse, type ReportSummaryResponse } from "@/lib/api";
+import { Pagination } from "@/components/Pagination";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { reportCountValue } from "@/lib/reportExport";
@@ -336,7 +337,7 @@ function ReportPanel({ title, table, columns, badge }: { title: string; table: T
 function ReportPagination({ response, loading, onPage }: { response: ReportSummaryResponse; loading: boolean; onPage: (page: number) => void }) {
   const { t } = useI18n();
   if (response.total_rows === 0) return null;
-  return <div className="report-pagination"><span>{t("reportPage")} {response.page} / {response.total_pages} · {t("reportRowsTotal")} {response.total_rows}</span><div><button aria-label={t("reportPreviousPage")} disabled={loading || response.page <= 1} onClick={() => onPage(response.page - 1)} type="button"><ChevronLeft size={16} /></button><button aria-label={t("reportNextPage")} disabled={loading || response.page >= response.total_pages} onClick={() => onPage(response.page + 1)} type="button"><ChevronRight size={16} /></button></div></div>;
+  return <Pagination canNext={!loading && response.page < response.total_pages} canPrevious={!loading && response.page > 1} className="report-pagination" nextLabel={t("reportNextPage")} onNext={() => onPage(response.page + 1)} onPrevious={() => onPage(response.page - 1)} previousLabel={t("reportPreviousPage")} summary={<>{t("reportPage")} {response.page} / {response.total_pages} · {t("reportRowsTotal")} {response.total_rows}</>} />;
 }
 
 function ModelFilterBar({ filters, loading, onChange, onQuery }: { filters: ReportFilters; loading: boolean; onChange: (filters: ReportFilters) => void; onQuery: () => Promise<void> }) {
