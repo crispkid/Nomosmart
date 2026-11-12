@@ -4,6 +4,8 @@ import { DropdownSelect } from "@/components/DropdownSelect";
 import ProtocolIdentityPanel from "./ProtocolIdentityPanel";
 import SystemParameterSettings from "./SystemParameterSettings";
 import { SettingsCard } from "./SettingsCard";
+import { EmptyInlineState, SectionHeader, StateBadge, metricPairs, operationStatusLabel, statusTone } from "./system/SystemUi";
+import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
 import { identitySourceLabel } from "@/lib/identitySource";
@@ -118,20 +120,7 @@ function permissionActionEnabled(row: (typeof permissionMenuRows)[number], actio
   return (row.actions as readonly PermissionAction[]).includes(action);
 }
 
-const stateBadgeIcons = { green: CheckCircle2, gold: AlertTriangle, gray: MinusCircle, coral: XCircle } as const;
 
-/** Tone is always paired with text and an icon, never color alone. */
-function StateBadge({ children, tone = "green" }: { children: React.ReactNode; tone?: "green" | "gold" | "gray" | "coral" }) {
-  const Icon = stateBadgeIcons[tone];
-  return <span className={`system-state system-state-${tone}`}><Icon aria-hidden="true" size={12} />{children}</span>;
-}
-
-function statusTone(status: string): "green" | "gold" | "gray" | "coral" {
-  if (status === "healthy") return "green";
-  if (status === "degraded") return "gold";
-  if (status === "unavailable") return "coral";
-  return "gray";
-}
 
 function breakGlassTone(status?: BreakGlassStatusResponse["status"]): "green" | "gold" | "gray" | "coral" {
   if (status === "configured_disabled") return "green";
@@ -176,20 +165,10 @@ function identitySyncErrorKey(errorCode: string | null): TranslationKey {
   return "identitySyncFailed";
 }
 
-function metricPairs(metrics: OperationComponentStatus["metrics"]) {
-  return Object.entries(metrics).filter(([, value]) => value !== null && value !== undefined).slice(0, 4);
-}
 
 
 
-function SectionHeader({ title, description, action }: { title: string; description: string; action?: React.ReactNode }) {
-  return <div className="system-section-header"><div><h2>{title}</h2><p>{description}</p></div>{action}</div>;
-}
 
-function EmptyInlineState({ children }: { children?: React.ReactNode }) {
-  const { t } = useI18n();
-  return <div className="empty-inline-state"><Info size={18} />{children ?? t("systemNoLiveData")}</div>;
-}
 
 function modelRow(model: AIModelResponse): ModelRow {
   return { id: model.id, name: model.name, type: model.model_type, provider: model.provider, endpoint: model.endpoint, default: model.is_default, status: model.is_active ? "active" : "inactive", raw: model };
@@ -484,15 +463,7 @@ export default function SystemManagementWorkspace({
     if (status === "inactive") return t("systemDisabled");
     return status;
   };
-  const localizedOperationStatus = (status: string) => {
-    if (status === "healthy") return t("systemOpHealthy");
-    if (status === "degraded") return t("systemOpDegraded");
-    if (status === "unavailable") return t("systemOpUnavailable");
-    if (status === "success") return t("systemSuccess");
-    if (status === "failed") return t("systemFailed");
-    if (status === "stale") return t("systemConnectionStale");
-    return status;
-  };
+  const localizedOperationStatus = (status: string) => operationStatusLabel(status, t);
   const modelDeleteDependencyLabel = (type: string) => {
     if (type === "system_default") return t("systemModelDependencyDefault");
     if (type === "current_project_assignment") return t("systemModelDependencyProject");
@@ -1840,26 +1811,7 @@ export default function SystemManagementWorkspace({
           {activeTab === "status" ? <>
             <SectionHeader action={<button className="action-button secondary" onClick={() => { void refreshSystemStatus(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button>} description={t("systemStatusDescription")} title={t("systemStatus")} />
             <div className="fixture-banner"><Activity size={17} /><div><strong>{t("liveData")}</strong><span>{t("systemStatusLiveHelp")}</span></div></div>
-            {systemStatus ? <>
-              <SettingsCard panel="runtime" title={t("settingsRuntime")}><div className="system-status-grid">
-              {[
-                systemStatus.worker,
-                systemStatus.queue,
-                systemStatus.retrieval
-              ].map((component) => <article className="system-status-card" key={component.name}><header><div><small>{component.name}</small><h3>{component.detail_code}</h3></div><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></header><dl>{metricPairs(component.metrics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>)}</dl><small>{format("systemCheckedAt", { time: component.checked_at.slice(0, 16).replace("T", " ") })}</small></article>)}
-              </div>
-              </SettingsCard><div className="system-status-columns">
-              <SettingsCard panel="dependencies" title={t("systemDependencies")}>
-                <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemComponent")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemChecked")}</th></tr></thead><tbody>{systemStatus.dependencies.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></td><td>{component.detail_code}</td><td>{component.checked_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div>
-              </SettingsCard>
-              <SettingsCard panel="providers" title={t("systemAiProviders")}>
-                <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemProviderRole")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemMetrics")}</th></tr></thead><tbody>{systemStatus.providers.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{localizedOperationStatus(component.status)}</StateBadge></td><td>{component.detail_code}</td><td>{metricPairs(component.metrics).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "—"}</td></tr>)}</tbody></table></div>
-              </SettingsCard>
-              </div>
-              <SettingsCard panel="errors" title={t("systemRecentErrors")}>
-              {systemStatus.recent_errors.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemSourceColumn")}</th><th>{t("systemAction")}</th><th>{t("systemResult")}</th><th>{t("systemCode")}</th><th>{t("systemTime")}</th></tr></thead><tbody>{systemStatus.recent_errors.map((error) => <tr key={`${error.source}-${error.action}-${error.created_at}`}><td>{error.source}</td><td>{error.action}</td><td><StateBadge tone={statusTone(error.result === "success" ? "healthy" : "degraded")}>{localizedOperationStatus(error.result)}</StateBadge></td><td>{error.detail_code}</td><td>{error.created_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div> : <div className="empty-inline-state"><Check size={18} />{t("systemNoRecentErrors")}</div>}
-              </SettingsCard>
-            </> : sectionReady("status") ? <EmptyInlineState>{t("systemStatusUnavailable")}</EmptyInlineState> : null}
+            <SystemStatusPanel ready={sectionReady("status")} status={systemStatus} />
             <div className="system-security-note"><LockKeyhole size={17} /><div><strong>{t("systemSecurityMasking")}</strong><p>{t("systemSecurityMaskingHelp")}</p></div></div>
           </> : null}
 
