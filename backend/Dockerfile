@@ -66,10 +66,11 @@ RUN apt-get -o Acquire::Retries=0 update \
   && useradd --uid 10001 --gid nomosmart --home-dir /home/nomosmart --create-home --shell /usr/sbin/nologin nomosmart
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --chown=nomosmart:nomosmart app ./app
+# OPT424-042: application code stays root-owned and read-only for the runtime user.
+COPY app ./app
 # PDF recognition uses the configured native document model; no local OCR tools.
-COPY --chown=nomosmart:nomosmart main.py migrate.py models.py ./
-COPY --chown=nomosmart:nomosmart scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
+COPY main.py migrate.py models.py ./
+COPY scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
 
 USER nomosmart
 EXPOSE 8000
