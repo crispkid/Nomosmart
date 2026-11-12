@@ -130,6 +130,18 @@ of 0.2.4. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
 | `NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS` | 300 | 300 for heartbeat, scheduling, outbox dispatch, notification and recovery tasks (hard limit +30 s) |
 | `NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS` | 0 (no limit) | Set only after measuring the longest OCR, directory sync, validation and graph sync runs |
 | `NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS` | 3600 | Larger than the longest late-acknowledged task, or Redis redelivers it |
+| `FRONTEND_MEM_LIMIT` / `BACKEND_MEM_LIMIT` / `WORKER_MEM_LIMIT` / `BEAT_MEM_LIMIT` (Compose) | 1g / 2g / 4g / 512m | Raise the worker limit for large OCR documents |
+
+Compose application services drop all Linux capabilities and set
+`no-new-privileges`; the backend-image services keep only CHOWN, FOWNER, SETUID,
+SETGID and DAC_OVERRIDE for the root entrypoint that copies secrets and then runs
+the application as UID 10001 with no effective capabilities. In Helm, every
+application Deployment and Job has a container `securityContext` and resources,
+`frontend.readOnlyRootFilesystem: true` runs the frontend on a read-only root
+filesystem with writable `emptyDir` for `.next/cache` and `/tmp`, and
+`autoscaling.frontend|backend.enabled` adds an HPA with `replicaCount` as the
+minimum. Pods already roll on every Helm upgrade through the release-revision
+annotation. Pin images by digest with `tag: "<version>@sha256:<digest>"`.
 
 ### Public API edge routing
 

@@ -44,6 +44,11 @@ spec:
         - name: frontend
           image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
           imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- if .Values.frontend.readOnlyRootFilesystem }}
+            readOnlyRootFilesystem: true
+            {{- end }}
           ports:
             - name: http
               containerPort: 3000
@@ -52,6 +57,12 @@ spec:
                 name: {{ include "nomosmart.fullname" . }}-config
           volumeMounts:
             {{- include "nomosmart.internalCaVolumeMount" (merge (dict "omitAuthKeys" true) .) | nindent 12 }}
+            {{- if .Values.frontend.readOnlyRootFilesystem }}
+            - name: next-cache
+              mountPath: /app/.next/cache
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /
@@ -72,6 +83,14 @@ spec:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
       volumes:
         {{- include "nomosmart.internalCaVolume" (merge (dict "omitAuthKeys" true) .) | nindent 8 }}
+        {{- if .Values.frontend.readOnlyRootFilesystem }}
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- end }}
       {{- if .Values.highAvailability.enabled }}
       affinity:
         {{- include "nomosmart.haAffinity" (dict "root" . "component" "frontend") | nindent 8 }}

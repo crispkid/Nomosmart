@@ -69,6 +69,8 @@ compatibility:
   publicApiContract: v1-scoped-graph-idempotent
   securityContract: chg260-mounted-secrets-password-only
 
+# Pin application images by digest with tag: "0.2.4@sha256:<digest>",
+# the same form used for the migration image below.
 image:
   frontend:
     repository: nomosmart/frontend
@@ -110,6 +112,24 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
+# OPT424-040: bounded resources for migration, bootstrap, finalize and
+# backup-bucket Jobs.
+jobs:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+# Optional HorizontalPodAutoscalers; replicaCount stays the floor.
+autoscaling:
+  frontend:
+    enabled: false
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  backend:
+    enabled: false
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
 sftpKnownHosts:
   configMapName: ""
   key: ssh_known_hosts
@@ -120,6 +140,8 @@ ftpsCa:
   key: ca.crt
 
 frontend:
+  # Read-only root filesystem with writable emptyDir for .next/cache and /tmp.
+  readOnlyRootFilesystem: false
   service:
     type: ClusterIP
     port: 3000

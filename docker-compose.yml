@@ -27,6 +27,11 @@ x-nonroot-runtime: &nonroot_runtime
   user: "0:0"
   entrypoint: ["/opt/nomosmart/compose-secret-entrypoint.sh", "backend"]
   tmpfs: ["/run/nomosmart:rw,noexec,nosuid,nodev,size=16m,mode=0700"]
+  # OPT424-041: the root entrypoint only copies secrets and drops to 10001;
+  # the application process keeps no capabilities.
+  cap_drop: ["ALL"]
+  cap_add: ["CHOWN", "FOWNER", "SETUID", "SETGID", "DAC_OVERRIDE"]
+  security_opt: ["no-new-privileges:true"]
 
 x-backend-secrets: &backend_secrets
   - auth_previous_keys
@@ -231,6 +236,9 @@ services:
 
   frontend:
     image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.4}
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${FRONTEND_MEM_LIMIT:-1g}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -267,6 +275,7 @@ services:
   backend:
     <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${BACKEND_MEM_LIMIT:-2g}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -317,6 +326,7 @@ services:
   celery-worker:
     <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${WORKER_MEM_LIMIT:-4g}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -346,6 +356,7 @@ services:
   celery-beat:
     <<: *nonroot_runtime
     image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${BEAT_MEM_LIMIT:-512m}
     build:
       context: ./backend
       dockerfile: Dockerfile
