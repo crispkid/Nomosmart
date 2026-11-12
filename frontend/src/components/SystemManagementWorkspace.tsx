@@ -6,9 +6,10 @@ import SystemParameterSettings from "./SystemParameterSettings";
 import { SettingsCard } from "./SettingsCard";
 import { EmptyInlineState, SectionHeader, StateBadge, metricPairs, operationStatusLabel, statusTone } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
-import { modalScope, type ModalState, type ModelRow } from "./system/modalState";
+import { modalScope, type ModalState, type ModelRow, type PromptRow, type SystemReadState } from "./system/modalState";
 import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, useModelState } from "./system/useModelSection";
+import { createPromptActions, usePromptState } from "./system/usePromptSection";
 import { type ModelDeleteDependency, aiProviders, containsSecretConfigKey, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, secretConfigKeys } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
@@ -68,10 +69,8 @@ const permissionMenuRows = [
 type TabId = SystemTabId;
 type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";
 type PermissionState = Record<string, Record<PermissionAction, boolean>>;
-type SystemReadState = { scope: string; phase: "loading" | "ready" | "error" | "forbidden"; received: boolean; error?: ApiError | Error };
 type RoleStatusFilter = "all" | "enabled" | "disabled";
 type GroupMappingRow = { groupId: string; roleId: string; group: string; source: string; role: string; members: number | null };
-type PromptRow = SystemPromptResponse;
 
 
 function emptyPermissionState(): PermissionState {
@@ -210,29 +209,12 @@ export default function SystemManagementWorkspace({
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
   const modelState = useModelState();
   const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = modelState;
-  const [systemPrompts, setSystemPrompts] = useState<PromptRow[]>([]);
+  const promptState = usePromptState();
+  const { systemPrompts, setSystemPrompts, selectedPromptId, setSelectedPromptId, promptDraft, setPromptDraft, promptDraftSourceVersion, setPromptDraftSourceVersion, promptModelDraft, setPromptModelDraft, promptNotice, setPromptNotice, promptError, setPromptError, promptSaving, setPromptSaving, promptEditorOpen, setPromptEditorOpen, promptEditorPrompt, setPromptEditorPrompt, promptBaseline, setPromptBaseline, promptLeave, setPromptLeave, promptMessage, setPromptMessage, promptDialogRef, promptFocusRef, promptReceipt, promptMutationScope, promptIntent } = promptState;
   const [liveProjects, setLiveProjects] = useState<ProjectResponse[]>([]);
   const apiKeyState = useApiKeyState();
   const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = apiKeyState;
   const apiKeyDialogRef = useRef<HTMLElement>(null);
-  const [selectedPromptId, setSelectedPromptId] = useState("");
-  const [promptDraft, setPromptDraft] = useState("");
-  const [promptDraftSourceVersion, setPromptDraftSourceVersion] = useState<number | null>(null);
-  const [promptModelDraft, setPromptModelDraft] = useState("");
-  const [promptNotice, setPromptNotice] = useState<{ message: string; tone: FeedbackTone } | null>(null);
-  const promptMessage = promptNotice?.message ?? "";
-  const setPromptMessage = useCallback((message: string, tone: FeedbackTone = "info") => setPromptNotice(message ? { message, tone } : null), []);
-  const [promptError, setPromptError] = useState("");
-  const [promptSaving, setPromptSaving] = useState(false);
-  const [promptEditorOpen, setPromptEditorOpen] = useState(false);
-  const [promptEditorPrompt, setPromptEditorPrompt] = useState<PromptRow | null>(null);
-  const [promptBaseline, setPromptBaseline] = useState("");
-  const [promptLeave, setPromptLeave] = useState<(() => void) | null>(null);
-  const promptDialogRef = useRef<HTMLElement>(null);
-  const promptFocusRef = useRef<HTMLElement | null>(null);
-  const promptReceipt = useRef<PromptRow | null>(null);
-  const promptMutationScope = useRef<string | null>(null);
-  const promptIntent = useRef<{ kind: "save" | "active" | "create"; id?: string; active?: boolean; content?: string } | null>(null);
   const [externalGroups, setExternalGroups] = useState<ExternalGroupResponse[]>([]);
   const [syncRuns, setSyncRuns] = useState<IdentitySyncRunResponse[]>([]);
 
@@ -380,6 +362,9 @@ export default function SystemManagementWorkspace({
   const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = createApiKeyActions(apiKeyState, { apiFetch, t, format, modal, setModal, setModalError, setModalQueryMessage, systemReadScope, readScopeNow: () => systemReadScopeRef.current, cacheProjects, readSystemSection, reloadSystemSection, runModalMutation, sectionReady });
   const systemReadEpoch = useRef({ version: 0 });
   const systemReadVersions = useRef<Record<string, number>>({});
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor } = createPromptActions(promptState, { apiFetch, canEditModels, errorMessage, format, liveModels, localize, promptBlocked, promptGuard, promptOperation, reloadSystemSection, setReadState, systemReadScope, systemReadVersions, t });
   const systemReadStates = useRef<Record<string, SystemReadState>>({});
   const mappingRows = useRef<Awaited<ReturnType<typeof listExternalGroupMappings>>>([]);
   const groupRows = useRef<ExternalGroupResponse[]>([]);
@@ -718,11 +703,6 @@ export default function SystemManagementWorkspace({
     if (!success) throw new Error("System read could not be confirmed");
   }
 
-  async function refreshPrompts(current: () => boolean = () => true) {
-    const success = await reloadSystemSection("prompts", current);
-    if (current() && !success) throw new Error("System read could not be confirmed");
-  }
-
   async function refreshSystemStatus() { await reloadSystemSection("status"); }
 
   function setModal(next: React.SetStateAction<ModalState | null>) {
@@ -859,14 +839,6 @@ export default function SystemManagementWorkspace({
     return client.status === "active" ? "green" : "gray";
   }
 
-  function requestPromptLeave(action: () => void) {
-    if (promptSaving || promptOperation.checking) return;
-    if (promptEditorOpen && promptDraft !== promptBaseline) {
-      promptFocusRef.current = document.activeElement as HTMLElement | null;
-      setPromptLeave(() => action);
-    } else action();
-  }
-
   useEffect(() => {
     const followLink = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -887,105 +859,6 @@ export default function SystemManagementWorkspace({
     document.addEventListener("click", followLink, true);
     return () => document.removeEventListener("click", followLink, true);
   });
-
-  async function runPromptMutation(write: () => Promise<PromptRow>, intent: NonNullable<typeof promptIntent.current>, title: TranslationKey) {
-    const token = promptGuard.begin(); if (token === null) return;
-    promptIntent.current = intent; promptReceipt.current = null;
-    promptMutationScope.current = promptGuard.scope;
-    setPromptSaving(true); setPromptError(""); setPromptMessage("");
-    try {
-      const prompt = await write();
-      if (!promptGuard.current(token)) return;
-      promptReceipt.current = prompt; promptGuard.accepted(token);
-      // Update the acknowledged baseline now; refreshing the list is a separate read.
-      setPromptEditorPrompt(prompt); setPromptBaseline(prompt.content);
-      if (intent.kind !== "active") setPromptDraft(prompt.content);
-      await refreshPrompts(() => promptGuard.current(token));
-      if (!promptGuard.current(token)) return;
-      promptGuard.complete(token); setPromptSaving(false); setSelectedPromptId(prompt.id);
-      setPromptDraftSourceVersion(null); setPromptEditorOpen(true); setPromptMessage(t(title), "success");
-    } catch (caught) {
-      if (!promptGuard.current(token)) return;
-      promptGuard.failed(token, caught);
-      setPromptError(promptGuard.snapshot().phase === "read_failed" ? t("feedbackAcceptedReadFailed") : errorMessage(caught as ApiError | Error));
-    } finally { if (promptGuard.current(token)) setPromptSaving(false); }
-  }
-
-  async function queryPromptOutcome() {
-    const token = promptGuard.beginCheck(); if (token === null) return;
-    try {
-      const rows = await listSystemPrompts(apiFetch);
-      if (!promptGuard.current(token)) return;
-      setSystemPrompts(rows);
-      systemReadVersions.current.prompts = (systemReadVersions.current.prompts ?? 0) + 1;
-      setReadState("prompts", { scope: systemReadScope, phase: "ready", received: true });
-      const sameMutation = promptMutationScope.current === promptGuard.scope;
-      const candidateIntent = sameMutation ? promptIntent.current : null;
-      const candidateReceipt = sameMutation ? promptReceipt.current : null;
-      const targetId = candidateIntent?.kind === "create" ? candidateReceipt?.id : selectedPromptId ?? candidateReceipt?.id ?? candidateIntent?.id;
-      const intent = candidateIntent?.kind === "create" || candidateIntent?.id === targetId ? candidateIntent : null;
-      const receipt = candidateReceipt?.id === targetId ? candidateReceipt : null;
-      const current = rows.find(row => row.id === targetId);
-      const confirmed = Boolean(current && (receipt || (intent?.kind === "save" && current.content === intent.content) || (intent?.kind === "active" && current.is_active === intent.active)));
-      promptGuard.checked(token, confirmed);
-      if (confirmed && current) {
-        if (intent?.kind === "create") { setSelectedPromptId(current.id); setPromptEditorOpen(true); }
-        if (intent?.kind === "create" || intent?.kind === "save") setPromptDraft(current.content);
-        if (intent?.kind === "create" || intent?.kind === "save" || promptDraft === current.content) setPromptLeave(null);
-        // Confirm only the current state, not who caused an unacknowledged request.
-        setPromptEditorPrompt(current); setPromptBaseline(current.content); setPromptError("");
-        setPromptMessage(t("feedbackCurrentStateChecked"));
-      } else {
-        if (current) { setPromptEditorPrompt(current); setPromptBaseline(current.content); }
-        setPromptError(t("feedbackSystemOutcomeChecked"));
-        setPromptMessage(t("feedbackCurrentStateChecked"));
-      }
-    } catch {
-      if (!promptGuard.current(token)) return;
-      promptGuard.checkFailed(token); setPromptError(t("feedbackOutcomeQueryFailed"));
-    }
-  }
-
-  async function createGlobalPrompt(modelType: "Chat" | "Judge") {
-    await runPromptMutation(() => createSystemPrompt(apiFetch, { prompt_scope: "global", model_type: modelType, content: "", is_active: false }), { kind: "create" }, "systemPromptCreated");
-  }
-
-  async function createModelPrompt() {
-    const model = liveModels.find(item => item.id === promptModelDraft);
-    if (!model || (model.type !== "Chat" && model.type !== "Judge")) return;
-    const modelType = model.type;
-    await runPromptMutation(() => createSystemPrompt(apiFetch, { prompt_scope: "model", model_type: modelType, model_id: model.id, content: "", is_active: false }), { kind: "create" }, "systemPromptCreated");
-  }
-
-  async function savePromptVersion() {
-    const selected = systemPrompts.find(prompt => prompt.id === selectedPromptId) ?? promptEditorPrompt;
-    if (!selected || promptDraft.length > 8000 || promptDraft === promptBaseline) return;
-    if (!promptDraft.trim()) { setPromptError(t("systemPromptBlankContentError")); return; }
-    await runPromptMutation(() => addSystemPromptVersion(apiFetch, selected.id, { content: promptDraft, is_active: selected.is_active, change_reason: null }), { kind: "save", id: selected.id, content: promptDraft }, "systemPromptSaved");
-  }
-
-  async function togglePromptActive(active: boolean) {
-    const selected = systemPrompts.find(prompt => prompt.id === selectedPromptId) ?? promptEditorPrompt;
-    if (!selected) return;
-    if (active && !selected.content.trim()) { setPromptError(t("systemPromptBlankContentError")); return; }
-    await runPromptMutation(() => active ? activateSystemPrompt(apiFetch, selected.id, selected.current_version_id) : deactivateSystemPrompt(apiFetch, selected.id), { kind: "active", id: selected.id, active }, active ? "systemPromptActivated" : "systemPromptDeactivated");
-  }
-
-  function selectPrompt(prompt: PromptRow) {
-    requestPromptLeave(() => {
-      setSelectedPromptId(prompt.id); setPromptDraft(prompt.content); setPromptBaseline(prompt.content);
-      setPromptDraftSourceVersion(null);
-      setPromptError(selectedPromptId === prompt.id && promptGuard.snapshot().phase === "unknown" ? t("feedbackResultUnknown") : selectedPromptId === prompt.id && promptGuard.snapshot().phase === "read_failed" ? t("feedbackAcceptedReadFailed") : ""); setPromptMessage("");
-      setPromptEditorPrompt(prompt); setPromptEditorOpen(true);
-    });
-  }
-
-  function loadPromptVersionDraft(version: PromptRow["versions"][number]) {
-    requestPromptLeave(() => {
-      setPromptDraft(version.content); setPromptDraftSourceVersion(version.version_number);
-      setPromptMessage(format("systemPromptLoadedVersionDraft", { version: version.version_number }));
-    });
-  }
 
   async function submitRole(formData: FormData) {
     const name = modal?.type === "role" && modal.role?.isSystem ? modal.role.name : String(formData.get("name") || "").trim();
@@ -1164,43 +1037,6 @@ export default function SystemManagementWorkspace({
   const globalJudgePrompt = systemPrompts.find((prompt) => prompt.prompt_scope === "global" && prompt.model_type === "Judge");
   const modelSpecificPrompts = systemPrompts.filter((prompt) => prompt.prompt_scope === "model");
   const promptScopeLabel = (prompt: PromptRow) => prompt.prompt_scope === "global" ? t("systemPromptScopeGlobal") : t("systemPromptScopeModel");
-
-  function renderPromptFeedback() {
-    const needsQuery = promptOperation.phase === "unknown" || promptOperation.phase === "read_failed";
-    const reason = promptError || (promptOperation.phase === "unknown" ? t("feedbackResultUnknown") : promptOperation.phase === "read_failed" ? t("feedbackAcceptedReadFailed") : "");
-    return <>
-      {reason ? <FeedbackMessage tone={needsQuery ? "warning" : "error"} actions={needsQuery ? <button type="button" className="action-button secondary" disabled={promptOperation.checking} onClick={() => void queryPromptOutcome()}>{t(promptOperation.phase === "read_failed" ? "feedbackReloadResult" : "feedbackQueryOutcome")}</button> : undefined}>{promptOperation.checking ? t("feedbackCheckingOutcome") : localize(reason)}</FeedbackMessage> : null}
-      {promptMessage ? <FeedbackMessage tone={promptNotice?.tone ?? "info"}>{localize(promptMessage)}</FeedbackMessage> : null}
-    </>;
-  }
-
-  function handlePromptDialogKey(event: React.KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape") { event.stopPropagation(); if (promptLeave) { setPromptLeave(null); promptFocusRef.current?.focus(); } else requestPromptLeave(() => setPromptEditorOpen(false)); }
-    if (event.key === "Tab") {
-      const controls = Array.from(promptDialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled),textarea:not(:disabled),a[href]") ?? []).filter(item => item.getClientRects().length && !item.closest("[inert]"));
-      const first = controls[0], last = controls.at(-1);
-      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
-      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
-    }
-  }
-
-  function renderPromptEditor(prompt: PromptRow) {
-    const model = prompt.model_id ? liveModels.find((item) => item.id === prompt.model_id) : null;
-    const promptDraftBlank = promptDraft.trim().length === 0;
-    const currentPromptBlank = prompt.content.trim().length === 0;
-    return (
-      <div className="system-prompt-editor system-crud-form">
-        {model ? <div className="system-prompt-target"><Bot size={16} /><span>{t("systemPromptTargetModel")}</span><strong>{model.name}</strong><small>{model.provider}</small></div> : null}
-        {promptDraftSourceVersion ? <div className="system-prompt-layer-note"><Info size={17} /><div><strong>{format("systemPromptLoadedVersionDraft", { version: promptDraftSourceVersion })}</strong><p>{t("systemPromptVersionAppendOnlyHelp")}</p></div></div> : null}
-        <div className="identity-form-grid">
-          <label className="identity-wide-field"><span>{t("systemPromptContent")}</span><textarea readOnly={promptBlocked} maxLength={8000} onChange={(event) => setPromptDraft(event.target.value)} rows={12} value={promptDraft} /><small>{format("systemPromptLength", { count: promptDraft.length, max: 8000 })}{promptDraftBlank ? ` · ${t("systemPromptBlankContentError")}` : ""}</small></label>
-        </div>
-        <div className="system-prompt-history-heading"><div><h3>{t("systemPromptVersionHistory")}</h3><p>{t("systemPromptVersionAppendOnlyHelp")}</p></div></div>
-        <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemVersion")}</th><th>{t("systemLength")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemTime")}</th><th>{t("systemAction")}</th></tr></thead><tbody>{prompt.versions.map((version) => <tr className={promptDraftSourceVersion === version.version_number ? "selected-row" : ""} key={version.id}><td><button className="system-version-load-button" onClick={() => loadPromptVersionDraft(version)} type="button">{format("systemVersionValue", { version: version.version_number })}</button></td><td>{version.content.length}</td><td><StateBadge tone={version.is_active ? "green" : "gray"}>{version.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></td><td>{version.created_at.slice(0, 16).replace("T", " ")}</td><td><button className="icon-text-button" onClick={() => loadPromptVersionDraft(version)} type="button">{t("systemPromptLoadVersionDraft")}</button></td></tr>)}</tbody></table></div>
-        <footer><button className="action-button secondary" disabled={!canEditModels || promptSaving || promptBlocked || prompt.is_active || currentPromptBlank} onClick={() => { void togglePromptActive(true); }} type="button"><Check size={16} />{t("systemEnable")}</button><button className="action-button secondary" disabled={!canEditModels || promptSaving || promptBlocked || !prompt.is_active} onClick={() => { void togglePromptActive(false); }} type="button"><X size={16} />{t("systemDisable")}</button><button className="action-button" disabled={!canEditModels || promptSaving || promptBlocked || promptDraftBlank || promptDraft.length > 8000 || promptDraft === promptBaseline} onClick={() => { void savePromptVersion(); }} type="button"><Save size={16} />{t("systemPromptSaveVersion")}</button></footer>
-      </div>
-    );
-  }
 
   function renderLocalRoleCard(role: RoleRow) {
     const isActive = role.isActive !== false;

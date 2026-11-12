@@ -1,8 +1,10 @@
-import type { AIModelResponse, IntegrationClientResponse } from "@/lib/api";
+import type { AIModelResponse, ApiError, IntegrationClientResponse, SystemPromptResponse } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18nClient";
 import type { RoleRow, UserRow } from "@/lib/systemManagement";
 
 /** Shared system-management modal model (split from SystemManagementWorkspace, OPT424-038). */
+export type PromptRow = SystemPromptResponse;
+export type SystemReadState = { scope: string; phase: "loading" | "ready" | "error" | "forbidden"; received: boolean; error?: ApiError | Error };
 export type ModelRow = { id: string; name: string; type: string; provider: string; endpoint: string | null; default: boolean; status: string; raw?: AIModelResponse };
 export type ModalState =
   | { type: "user"; user: UserRow }
