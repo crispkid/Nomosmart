@@ -11,6 +11,7 @@ import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCir
 import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { archiveProject, createProject, getProjectArchiveImpact, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectResponse } from "@/lib/api";
+import { formatDateTime } from "@/lib/dateFormat";
 import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -363,7 +364,7 @@ export default function ProjectsPage() {
 
   function projectActivity(project: ProjectResponse) {
     const value = project.last_activity_at ?? project.archived_at;
-    return value ? new Date(value).toLocaleString() : "—";
+    return formatDateTime(value, locale, "—");
   }
 
   return (

@@ -36,7 +36,9 @@ import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
 import { createDataSource, getDataSourceConnectionOptions, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, searchProjectMemberCandidates, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSourceCreateResponse, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberCandidate, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
+import { formatShortDateTime } from "@/lib/dateFormat";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
+import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 import { formatPersonName } from "@/lib/personName";
 import { extractionOutcome, pipelineIsExecuting, versionPipelineState, type ExtractionOutcome } from "@/lib/reviewPresentation";
@@ -140,31 +142,6 @@ function publishStageCurrentStep(status: CreatedKnowledgeDocument["pipeline"]["s
     skipped: t("projectImportStageSkipped")
   };
   return labels[status];
-}
-
-function pipelineStepLabel(stepName: string | null | undefined, t: Translate) {
-  if (!stepName) return t("knowledgeDetailPipelineStepUnknown");
-  const labels: Record<string, TranslationKey> = {
-    upload_received: "knowledgeDetailStepUploadReceived",
-    file_scan: "knowledgeDetailStepFileScan",
-    parse_document: "knowledgeDetailStepParseDocument",
-    ocr_extract: "knowledgeDetailStepOcrExtract",
-    split_paragraphs: "knowledgeDetailStepSplitParagraphs",
-    chunk_knowledge: "knowledgeDetailStepChunkKnowledge",
-    generate_markdown: "knowledgeDetailStepGenerateMarkdown",
-    auto_tag: "knowledgeDetailStepAutoTag",
-    build_embeddings: "knowledgeDetailStepBuildEmbeddings",
-    build_staging_index: "knowledgeDetailStepBuildStagingIndex",
-    build_graph_preview: "knowledgeDetailStepBuildGraphPreview",
-    prepare_submission: "knowledgeDetailStepPrepareSubmission",
-    manager_review: "knowledgeDetailStepManagerReview",
-    owner_review: "knowledgeDetailStepOwnerReview",
-    publish: "knowledgeDetailStepPublish",
-    production_index: "knowledgeDetailStepProductionIndex",
-    graph_sync: "knowledgeDetailStepGraphSync"
-  };
-  const key = labels[stepName];
-  return key ? t(key) : stepName.replaceAll("_", " ");
 }
 
 function publishStageWaitingRole(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
@@ -365,10 +342,7 @@ function isServiceDocument(document: DocumentItem) {
 }
 
 function formatSyncDate(value: string | null | undefined, locale: "en" | "zh") {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale === "en" ? "en-US" : "zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
+  return formatShortDateTime(value, locale, "—");
 }
 
 function syncRunLabel(status: string, t: Translate) {

@@ -14,6 +14,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { getDocumentVersionSubmissionEvidence, getKnowledgeDetail, submitDocumentVersionReview, type ApprovalRequestResponse, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatRecordResponse, type SubmissionEvidenceResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
+import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -32,13 +33,6 @@ function downloadTextFile(content: string, filename: string) {
   anchor.download = filename;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function formatDateTime(value: string | null | undefined, locale: "en" | "zh") {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale === "en" ? "en-US" : "zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 function citationSummary(record: ProjectChatRecordResponse) {

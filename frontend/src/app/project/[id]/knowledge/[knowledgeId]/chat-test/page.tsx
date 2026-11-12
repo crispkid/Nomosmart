@@ -19,6 +19,7 @@ import { createProjectChatValidationRun, downloadProjectChatConversationCsv, get
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked, mergeChatHistory } from "@/lib/chatConversationAccess";
 import { t as translate } from "@/lib/i18n";
+import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -112,13 +113,6 @@ function retrievalErrorMessage(error: unknown, t: Translate, format: Format) {
   if (code === "retrieval_scope_inconsistent") return t("projectChatRetrievalScopeInconsistent");
   if (code === "provider_response_contract_invalid") return t("chatCitationProviderMismatch");
   return operationalErrorMessage(error, t, format, "documentChatQueryFailed");
-}
-
-function formatDateTime(value: string | null | undefined, locale: "en" | "zh") {
-  if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString(locale === "en" ? "en-US" : "zh-TW", { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
 export default function ChatTestPage() {

@@ -32,6 +32,7 @@ import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { mappedSelectionRange } from "@/lib/manualSourceSelection";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
+import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
 import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi";
 
@@ -169,30 +170,6 @@ function shouldPollKnowledgeCompletionGate(detail: KnowledgeDetailResponse | nul
   if (!pipeline || !completionGateBlocksKnowledgeDetail(detail)) return false;
   if (pipeline.status === "failed" || failedPipelineStep(pipeline)) return false;
   return isPipelineActive(pipeline);
-}
-
-function pipelineStepLabel(stepName: string | null | undefined, t: Translate) {
-  if (!stepName) return t("knowledgeDetailPipelineStepUnknown");
-  const labels: Record<string, TranslationKey> = {
-    upload_received: "knowledgeDetailStepUploadReceived",
-    file_scan: "knowledgeDetailStepFileScan",
-    parse_document: "knowledgeDetailStepParseDocument",
-    ocr_extract: "knowledgeDetailStepOcrExtract",
-    split_paragraphs: "knowledgeDetailStepSplitParagraphs",
-    parse_structure: "knowledgeDetailStepChunkKnowledge",
-    embedding: "knowledgeDetailStepBuildEmbeddings",
-    staging_index: "knowledgeDetailStepBuildStagingIndex",
-    chunk_knowledge: "knowledgeDetailStepChunkKnowledge",
-    generate_markdown: "knowledgeDetailStepGenerateMarkdown",
-    auto_tag: "knowledgeDetailStepAutoTag",
-    build_embeddings: "knowledgeDetailStepBuildEmbeddings",
-    build_staging_index: "knowledgeDetailStepBuildStagingIndex",
-    build_graph_preview: "knowledgeDetailStepBuildGraphPreview",
-    cleanup_superseded: "pipelineStepCleanupSuperseded",
-    prepare_submission: "knowledgeDetailStepPrepareSubmission"
-  };
-  const key = labels[stepName];
-  return key ? t(key) : stepName.replace(/_/g, " ");
 }
 
 function pipelineFailureKey(step: PipelineRunDetail["steps"][number] | null | undefined, message?: string | null): TranslationKey {
