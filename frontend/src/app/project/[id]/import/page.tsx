@@ -13,6 +13,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { ocrFailureKey, ocrFailureTone, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/ocrPresentation";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -21,7 +22,6 @@ import { AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/A
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
 import { ProjectChatTest } from "@/components/ProjectChatTest";
-import { ProjectGraphPreview } from "@/components/ProjectGraphPreview";
 import { ProjectMemberAutocomplete } from "@/components/ProjectMemberAutocomplete";
 import { ProjectMemberRoleSelector } from "@/components/ProjectMemberRoleSelector";
 import { FileProcessingStatus } from "@/components/FileProcessingStatus";
@@ -49,6 +49,9 @@ import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { cleanupIsUnconfirmed, extractionRunKey, fileObservationMode, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
+
+// OPT424-036: the graph engine loads only when a graph dialog opens.
+const ProjectGraphPreview = dynamic(() => import("@/components/ProjectGraphPreview").then(module => module.ProjectGraphPreview), { ssr: false });
 
 type Translate = (key: TranslationKey) => string;
 

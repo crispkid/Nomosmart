@@ -26,11 +26,11 @@ import { ocrFailureKey, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/oc
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
 import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, completionGateBlocksKnowledgeDetail, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
-import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type PipelineRunDetail } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { mappedSelectionRange } from "@/lib/manualSourceSelection";
+import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
@@ -386,7 +386,8 @@ export default function KnowledgePage() {
   const documentTags = visibleTagDetails(liveDetail?.document_tags ?? []);
   const markdownSourceText = liveDetail?.markdown_text ?? null;
   const physicalPagesUnknown = liveDetail?.pipeline?.steps.some(step => step.input_mode === "native_pdf" && step.page_map_status === "unknown") ?? false;
-  const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIds.includes(chunk.id)), [displayChunks, selectedChunkIds]);
+  const selectedChunkIdSet = useMemo(() => new Set(selectedChunkIds), [selectedChunkIds]);
+  const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIdSet.has(chunk.id)), [displayChunks, selectedChunkIdSet]);
   const selectedChunk = selectedChunks[0];
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const rememberSourcePosition = useSourceViewPosition(articleViewerRef, documentView, markdownSourceText, selectedChunkIds.length);
@@ -922,7 +923,7 @@ export default function KnowledgePage() {
               // plain container; selection has its own toggle button. Clicking the
               // card body still selects for pointer users.
               <article
-                className={selectedChunkIds.includes(chunk.id) ? "chunk-card selected" : "chunk-card"}
+                className={selectedChunkIdSet.has(chunk.id) ? "chunk-card selected" : "chunk-card"}
                 data-chunk-id={chunk.id}
                 key={chunk.id}
                 onClick={() => selectChunk(chunk.id)}
@@ -932,7 +933,7 @@ export default function KnowledgePage() {
                     <span className="chunk-title-meta">
                       <button
                         aria-label={format("knowledgeDetailSelectChunkAria", { id: chunk.id, number: chunk.index })}
-                        aria-pressed={selectedChunkIds.includes(chunk.id)}
+                        aria-pressed={selectedChunkIdSet.has(chunk.id)}
                         className="chunk-index-badge chunk-select-toggle"
                         onClick={(event) => { event.stopPropagation(); selectChunk(chunk.id); }}
                         type="button"

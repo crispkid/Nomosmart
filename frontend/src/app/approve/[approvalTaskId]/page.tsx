@@ -4,6 +4,7 @@ import { resourcePageTitle } from "@/lib/browserTitle";
 
 import { useFeedback } from "@/components/FeedbackProvider";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
@@ -33,7 +34,6 @@ import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useModalFocus } from "@/components/useModalFocus";
 import { ApprovalEvidenceViewer } from "@/components/ApprovalEvidenceViewer";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
-import { DocumentGraphPreview } from "@/components/DocumentGraphPreview";
 import { useAuth } from "@/components/AuthProvider";
 import { approveApprovalTask, getApprovalTask, publishDocumentVersion, rejectApprovalTask, type ApiError, type ApprovalTaskDetail, type ProjectChatCitation } from "@/lib/api";
 import { buildApprovalConversationCsv, canSubmitApprovalDecision } from "@/lib/approvalDetail";
@@ -43,6 +43,9 @@ import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { resolvedSourceMappings } from "@/lib/markdownSourceMapping";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { formatPersonName } from "@/lib/personName";
+
+// OPT424-036: the graph engine loads only when a graph dialog opens.
+const DocumentGraphPreview = dynamic(() => import("@/components/DocumentGraphPreview").then(module => module.DocumentGraphPreview), { ssr: false });
 
 type Evaluation = "correct" | "needs_revision" | "not_evaluated";
 type Decision = "approve" | "reject";

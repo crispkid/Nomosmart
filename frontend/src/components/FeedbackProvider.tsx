@@ -12,9 +12,14 @@ type Context = { recent: FeedbackRecord[]; notify: (message: Message, toast?: bo
 const FeedbackContext = createContext<Context | null>(null);
 
 function subscribeDialogs(listener: () => void) {
-  const observer = new MutationObserver(listener);
+  // OPT424-036: streamed chat and graph updates mutate the DOM constantly;
+  // re-check for an open dialog at most once per animation frame.
+  let frame = 0;
+  const observer = new MutationObserver(() => {
+    if (!frame) frame = requestAnimationFrame(() => { frame = 0; listener(); });
+  });
   observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-modal"] });
-  return () => observer.disconnect();
+  return () => { observer.disconnect(); cancelAnimationFrame(frame); };
 }
 const hasDialog = () => Boolean(document.querySelector('[aria-modal="true"]'));
 
