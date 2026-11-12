@@ -12,6 +12,7 @@ import { createModelActions, useModelState } from "./system/useModelSection";
 import { createPromptActions, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, useRoleState } from "./system/useRoleSection";
 import { createUserActions, useUserState } from "./system/useUserSection";
+import { createIdentityActions, useIdentityState } from "./system/useIdentitySection";
 import { emptyPermissionState, permissionMenuRows, permissionPayload, permissionStateFromResponse, type GroupMappingRow, type PermissionAction, type PermissionState, type RoleStatusFilter } from "./system/permissionHelpers";
 import { type ModelDeleteDependency, aiProviders, containsSecretConfigKey, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, secretConfigKeys } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
@@ -106,12 +107,6 @@ function breakGlassNormalStateText(status: BreakGlassStatusResponse | null, t: (
 
 
 
-function identitySyncErrorKey(errorCode: string | null): TranslationKey {
-  if (errorCode === "identity_sync_queue_timeout") return "identitySyncQueueTimeout";
-  if (errorCode === "identity_sync_heartbeat_timeout" || errorCode === "identity_sync_run_budget_insufficient") return "identitySyncRunTimeout";
-  return "identitySyncFailed";
-}
-
 
 
 
@@ -151,7 +146,8 @@ export default function SystemManagementWorkspace({
   const activeSection = position.section;
   const activeTab: TabId = activeSection === "people" ? "users" : activeSection === "ai" ? "models" : activeSection === "general" || activeSection === "documents" ? "parameters" : activeSection;
   const [parameterDirty, setParameterDirty] = useState(false);
-  const [identityDirty, setIdentityDirty] = useState(false);
+  const identityState = useIdentityState();
+  const { identityDirty, setIdentityDirty, syncRuns, setSyncRuns, identitySyncing, setIdentitySyncing, breakGlassStatus, setBreakGlassStatus, identityMessage, setIdentityMessage } = identityState;
   const [settingsLeave, setSettingsLeave] = useState<(() => void) | null>(null);
   const leaveFocus = useRef<HTMLElement | null>(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -179,15 +175,12 @@ export default function SystemManagementWorkspace({
   const apiKeyState = useApiKeyState();
   const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = apiKeyState;
   const apiKeyDialogRef = useRef<HTMLElement>(null);
-  const [syncRuns, setSyncRuns] = useState<IdentitySyncRunResponse[]>([]);
 
 
 
 
 
 
-  const [identitySyncing, setIdentitySyncing] = useState(false);
-  const [breakGlassStatus, setBreakGlassStatus] = useState<BreakGlassStatusResponse | null>(null);
   const [systemStatus, setSystemStatus] = useState<OperationsStatusResponse | null>(null);
   const [liveReady, setLiveReady] = useState(false);
   const [loadedSystemScope, setLoadedSystemScope] = useState("");
@@ -267,7 +260,6 @@ export default function SystemManagementWorkspace({
   const canDeleteModels = canDeleteSystemManagement;
   const errorMessage = useCallback((error: ApiError | Error | null) => operationalErrorMessage(error, t, format), [format, t]);
 
-  const [identityMessage, setIdentityMessage] = useState("");
 
 
 
@@ -284,13 +276,6 @@ export default function SystemManagementWorkspace({
   };
   const localizedOperationStatus = (status: string) => operationStatusLabel(status, t);
 
-  const localizedBreakGlassStatus = (status?: BreakGlassStatusResponse["status"]) => {
-    if (!sectionReady("breakGlass")) return t("systemReadCountUnknown");
-    if (status === "configured_disabled") return t("identityBreakGlassConfiguredDisabled");
-    if (status === "attention_required") return t("identityNeedsAttention");
-    if (status === "unavailable") return t("systemOpUnavailable");
-    return t("systemNotConfigured");
-  };
   const activeEmbeddingModels = liveModels.filter((model) => model.type === "Embedding" && model.status === "active");
 
   const systemReadScope = `${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`;
@@ -541,6 +526,9 @@ export default function SystemManagementWorkspace({
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const { cacheRoles, applyMemberSnapshot, updateMappingProjection, readRoleMembers, togglePermission, savePermissions, refreshRolesAndMappings, submitRole, openRoleUsers, toggleRoleUserDraft, roleUserStatusLabels, roleUserIdentityLine, saveRoleUsers, openRoleMapping, saveRoleMapping, changeRoleLifecycle, openRoleDelete, submitRoleDelete, renderLocalRoleCard } = createRoleActions(roleState, { apiFetch, breakGlassRoleUserIds, canDeleteRoles, canEditPermissions, canEditRoles, draftRoleUserIds, externalRoleUserIds, format, groupRows, mappingRows, modal, originalManualRoleUserIds, quickBlocked, readSystemSection, reloadSystemSection, renderSectionReadNotice, roleNames, runModalMutation, runQuickMutation, sectionReady, selectedRoleReadOnly, setModal, setModalError, setSystemError, systemReadScope, systemReadStates, t });
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { localizedBreakGlassStatus, refreshIdentityData, runIdentitySync } = createIdentityActions(identityState, { apiFetch, errorMessage, refreshRolesAndMappings, reloadSystemSection, sectionReady, t });
   const activeRoleUserCandidates = liveUsers.filter((user) => user.status === "active" && memberCandidateIds.includes(user.id));
   const filteredRoleUserCandidates = activeRoleUserCandidates;
   const pendingAddUsers = liveUsers.filter((user) => user.status === "active" && draftRoleUserIds.has(user.id) && !originalManualRoleUserIds.has(user.id));
@@ -573,12 +561,6 @@ export default function SystemManagementWorkspace({
     });
   }
 
-
-  async function refreshIdentityData() {
-    const success = await reloadSystemSection("users");
-    await refreshRolesAndMappings();
-    if (!success) throw new Error("System read could not be confirmed");
-  }
 
   async function refreshSystemStatus() { await reloadSystemSection("status"); }
 
@@ -768,40 +750,6 @@ export default function SystemManagementWorkspace({
 
 
 
-
-  async function runIdentitySync() {
-    if (identitySyncing || syncRuns.some((run) => run.status === "queued" || run.status === "running")) return;
-    setIdentitySyncing(true);
-    setIdentityMessage(t("identitySyncInProgress"));
-    try {
-      let run = await queueIdentitySync(apiFetch);
-      const queued = run;
-      setSyncRuns((current) => [queued, ...current.filter((item) => item.id !== queued.id)]);
-      while (run.status === "queued" || run.status === "running") {
-        await new Promise((resolve) => window.setTimeout(resolve, 1000));
-        run = await getIdentitySyncRun(apiFetch, run.id);
-        const latest = run;
-        setSyncRuns((current) => [latest, ...current.filter((item) => item.id !== latest.id)]);
-      }
-      if (run.status === "succeeded") {
-        setIdentityMessage(t("identitySyncSucceeded"));
-        try {
-          await refreshIdentityData();
-        } catch {
-          setIdentityMessage(t("identitySyncSucceededRefreshFailed"));
-        }
-      } else {
-        setIdentityMessage(t(identitySyncErrorKey(run.error_code)));
-      }
-    } catch (caught) {
-      const error = caught as ApiError | Error;
-      if ("code" in error && error.code === "identity_sync_worker_unavailable") setIdentityMessage(t("identitySyncWorkerUnavailable"));
-      else if ("code" in error && error.code === "identity_sync_already_running") setIdentityMessage(t("identitySyncAlreadyRunning"));
-      else setIdentityMessage(errorMessage(error));
-    } finally {
-      setIdentitySyncing(false);
-    }
-  }
 
 
 
