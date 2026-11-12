@@ -8,6 +8,8 @@ import { EmptyInlineState, SectionHeader, StateBadge, metricPairs, operationStat
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { modalScope, type ModalState, type ModelRow } from "./system/modalState";
 import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
+import { createModelActions, useModelState } from "./system/useModelSection";
+import { type ModelDeleteDependency, aiProviders, containsSecretConfigKey, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, secretConfigKeys } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
 import { identitySourceLabel } from "@/lib/identitySource";
@@ -69,7 +71,6 @@ type PermissionState = Record<string, Record<PermissionAction, boolean>>;
 type SystemReadState = { scope: string; phase: "loading" | "ready" | "error" | "forbidden"; received: boolean; error?: ApiError | Error };
 type RoleStatusFilter = "all" | "enabled" | "disabled";
 type GroupMappingRow = { groupId: string; roleId: string; group: string; source: string; role: string; members: number | null };
-type ModelDeleteDependency = { type: string; count: number };
 type PromptRow = SystemPromptResponse;
 
 
@@ -151,68 +152,15 @@ function identitySyncErrorKey(errorCode: string | null): TranslationKey {
 
 
 
-function modelRow(model: AIModelResponse): ModelRow {
-  return { id: model.id, name: model.name, type: model.model_type, provider: model.provider, endpoint: model.endpoint, default: model.is_default, status: model.is_active ? "active" : "inactive", raw: model };
-}
-
-const aiProviders = [
-  { id: "OpenAI", label: "OpenAI" },
-  { id: "Gemini", label: "Gemini" },
-  { id: "Claude", label: "Claude / Anthropic" },
-  { id: "Ollama", label: "Ollama" },
-  { id: "vLLM", label: "vLLM" },
-  { id: "Custom", label: "Custom / Generic HTTP" }
-];
-
-function normalizedProvider(provider?: string | null) {
-  const found = aiProviders.find((item) => item.id.toLowerCase() === (provider ?? "").toLowerCase());
-  if (found) return found.id;
-  if ((provider ?? "").toLowerCase() === "anthropic") return "Claude";
-  return provider ? "Custom" : "OpenAI";
-}
-
 function modelConfigValue(model: ModelRow | undefined, key: string, fallback = "") {
   const value = model?.raw?.config?.[key];
   return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : fallback;
 }
 
-const nativePdfLimitFields = ["max_input_bytes", "max_request_bytes", "max_response_bytes", "context_window", "min_output_tokens", "max_output_tokens"] as const;
 const nativePdfLimitLabels: Record<typeof nativePdfLimitFields[number], TranslationKey> = {
   max_input_bytes: "nativePdfMaxInput", max_request_bytes: "nativePdfMaxRequest", max_response_bytes: "nativePdfMaxResponse",
   context_window: "nativePdfContext", min_output_tokens: "nativePdfMinOutput", max_output_tokens: "nativePdfMaxOutput"
 };
-
-function nativePdfProfile(model: ModelRow | undefined): Record<string, unknown> {
-  const value = model?.raw?.config?.native_pdf;
-  return value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-}
-
-function nativePdfConfigFromForm(form: FormData, existing: ModelRow | undefined, advanced: unknown): Record<string, unknown> | null {
-  const numeric = Object.fromEntries(nativePdfLimitFields.map((key) => [key, String(form.get(`native_pdf_${key}`) ?? "").trim()]));
-  const hasInput = Object.values(numeric).some(Boolean);
-  if (!hasInput && existing?.status === "inactive" && form.get("is_active") !== "on" && !advanced) return null;
-  if (nativePdfLimitFields.some((key) => !/^\d+$/.test(numeric[key]) || !Number.isSafeInteger(Number(numeric[key])) || Number(numeric[key]) <= 0)) throw new UiValidationError("nativePdfCapabilityInvalid");
-  const profile = { ...nativePdfProfile(existing), protocol: "openai_responses", mime_types: ["application/pdf"],
-    supports_pdf: form.get("native_pdf_supports_pdf") === "on", count_input_tokens: form.get("native_pdf_count_input_tokens") === "on",
-    supports_temperature: form.get("native_pdf_supports_temperature") === "on",
-    ...Object.fromEntries(nativePdfLimitFields.map((key) => [key, Number(numeric[key])])) } as Record<string, unknown>;
-  if (profile.supports_pdf !== true || profile.count_input_tokens !== true || Number(profile.min_output_tokens) > Number(profile.max_output_tokens)
-      || Number(profile.max_output_tokens) >= Number(profile.context_window)) throw new UiValidationError("nativePdfCapabilityInvalid");
-  if (advanced !== undefined) {
-    if (!advanced || typeof advanced !== "object" || Array.isArray(advanced)) throw new UiValidationError("nativePdfConfigConflict");
-    const values = advanced as Record<string, unknown>;
-    for (const key of [...nativePdfLimitFields, "protocol", "mime_types", "supports_pdf", "count_input_tokens", "supports_temperature"]) {
-      if (key in values && JSON.stringify(values[key]) !== JSON.stringify(profile[key])) throw new UiValidationError("nativePdfConfigConflict");
-    }
-    return { ...profile, ...values, ...Object.fromEntries([...nativePdfLimitFields, "protocol", "mime_types", "supports_pdf", "count_input_tokens", "supports_temperature"].map((key) => [key, profile[key]])) };
-  }
-  return profile;
-}
-
-function pairedEmbeddingModelIds(model: ModelRow | undefined) {
-  const value = model?.raw?.config?.paired_embedding_model_ids;
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
-}
 
 function providerNeedsCredential(provider: string) {
   return provider === "OpenAI" || provider === "Gemini" || provider === "Claude";
@@ -225,17 +173,6 @@ function providerHelpKey(provider: string): TranslationKey {
   if (provider === "Ollama") return "systemProviderHelpOllama";
   if (provider === "vLLM") return "systemProviderHelpVllm";
   return "systemProviderHelpCustom";
-}
-
-const secretConfigKeys = new Set(["api_key", "apikey", "secret", "password", "credential", "authorization", "access_token", "refresh_token", "bearer_token", "auth_token"]);
-
-function containsSecretConfigKey(value: unknown): boolean {
-  if (Array.isArray(value)) return value.some((item) => containsSecretConfigKey(item));
-  if (!value || typeof value !== "object") return false;
-  return Object.entries(value).some(([key, item]) => {
-    const normalizedKey = key.toLowerCase().replaceAll("-", "_");
-    return secretConfigKeys.has(normalizedKey) || normalizedKey.endsWith("_secret") || normalizedKey.endsWith("_api_key") || containsSecretConfigKey(item);
-  });
 }
 
 type SystemManagementWorkspaceProps = { initialTab?: SystemTabId; initialPosition?: SettingsPosition };
@@ -271,14 +208,8 @@ export default function SystemManagementWorkspace({
   const [liveRoles, setLiveRoles] = useState<RoleRow[]>([]);
   const [liveGroupMappings, setLiveGroupMappings] = useState<GroupMappingRow[]>([]);
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
-  const [modelTableRows, setModelTableRows] = useState<ModelRow[]>([]);
-  const [modelTableTotal, setModelTableTotal] = useState(0);
-  const [modelTableReceived, setModelTableReceived] = useState(false);
-  const [modelTablePage, setModelTablePage] = useState(1);
-  const [modelTablePageSize, setModelTablePageSize] = useState(20);
-  const [modelTableType, setModelTableType] = useState("all");
-  const [modelTableLoading, setModelTableLoading] = useState(false);
-  const [modelTableError, setModelTableError] = useState("");
+  const modelState = useModelState();
+  const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = modelState;
   const [systemPrompts, setSystemPrompts] = useState<PromptRow[]>([]);
   const [liveProjects, setLiveProjects] = useState<ProjectResponse[]>([]);
   const apiKeyState = useApiKeyState();
@@ -370,13 +301,6 @@ export default function SystemManagementWorkspace({
   const modalReceiptId = useRef<string | null>(null);
   const modalMutationScope = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [modelDeleteConfirmation, setModelDeleteConfirmation] = useState("");
-  const [modelDeleteDependencies, setModelDeleteDependencies] = useState<ModelDeleteDependency[]>([]);
-  const [modelProviderDraft, setModelProviderDraft] = useState("OpenAI");
-  const [modelTypeDraft, setModelTypeDraft] = useState("Chat");
-  const [modelPairDraft, setModelPairDraft] = useState<string[]>([]);
-  const [modelCredentialClearDraft, setModelCredentialClearDraft] = useState(false);
-  const [modelCredentialClearConfirmation, setModelCredentialClearConfirmation] = useState("");
   const [userTableIds, setUserTableIds] = useState<string[]>([]);
   const [userTotal, setUserTotal] = useState(0);
   const [userOverallTotal, setUserOverallTotal] = useState<number | null>(null);
@@ -439,26 +363,7 @@ export default function SystemManagementWorkspace({
     return status;
   };
   const localizedOperationStatus = (status: string) => operationStatusLabel(status, t);
-  const modelDeleteDependencyLabel = (type: string) => {
-    if (type === "system_default") return t("systemModelDependencyDefault");
-    if (type === "current_project_assignment") return t("systemModelDependencyProject");
-    if (type === "running_ocr_pipeline") return t("systemModelDependencyPipeline");
-    if (type === "active_chat_pairing") return t("systemModelDependencyPairing");
-    if (type === "active_system_prompt") return t("systemModelDependencyPrompt");
-    return type;
-  };
 
-  async function runModelConnectionTest(model: ModelRow) {
-    setSystemError(null);
-    try {
-      const tested = await testModel(apiFetch, model.id);
-      setLiveModels((current) => current.map((item) => item.id === model.id ? modelRow(tested) : item));
-      setModelTableRows((current) => current.map((item) => item.id === model.id ? modelRow(tested) : item));
-      notify({ id: crypto.randomUUID(), scope: "system", tone: "success", title: "feedbackConnectionVerified" });
-    } catch (caught) {
-      setSystemError(caught as ApiError | Error);
-    }
-  }
   const localizedBreakGlassStatus = (status?: BreakGlassStatusResponse["status"]) => {
     if (!sectionReady("breakGlass")) return t("systemReadCountUnknown");
     if (status === "configured_disabled") return t("identityBreakGlassConfiguredDisabled");
@@ -643,7 +548,10 @@ export default function SystemManagementWorkspace({
     } finally {
       if (requestId === modelTableRequestRef.current) setModelTableLoading(false);
     }
-  }, [apiFetch, canViewSystemManagement, errorMessage, modelTablePage, modelTablePageSize, modelTableType]);
+  }, [apiFetch, canViewSystemManagement, errorMessage, modelTablePage, modelTablePageSize, modelTableType, setModelTableError, setModelTableLoading, setModelTablePage, setModelTableReceived, setModelTableRows, setModelTableTotal]);
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { modelDeleteDependencyLabel, runModelConnectionTest, refreshModels, activateModel, deactivateModelRow, openModelDeleteModal, submitModelDelete, openModelModal, toggleModelPair, submitModel } = createModelActions(modelState, { apiFetch, modal, notify, refreshModelTable, reloadSystemSection, runModalMutation, runQuickMutation, setLiveModels, setModal, setModalError, setSystemError, t });
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadSystem(); }, 0);
@@ -810,12 +718,6 @@ export default function SystemManagementWorkspace({
     if (!success) throw new Error("System read could not be confirmed");
   }
 
-  async function refreshModels(current: () => boolean = () => true) {
-    const success = await reloadSystemSection("models", current);
-    if (current() && !success) throw new Error("System read could not be confirmed");
-    if (current()) await refreshModelTable();
-  }
-
   async function refreshPrompts(current: () => boolean = () => true) {
     const success = await reloadSystemSection("prompts", current);
     if (current() && !success) throw new Error("System read could not be confirmed");
@@ -955,36 +857,6 @@ export default function SystemManagementWorkspace({
     if (client.status === "revoked") return "coral";
     if (client.effective_status === "expired" || client.effective_status === "scheduled") return "gold";
     return client.status === "active" ? "green" : "gray";
-  }
-
-  async function activateModel(model: ModelRow) {
-    await runQuickMutation({ kind: "model", id: model.id, field: "is_active", value: true }, () => updateModel(apiFetch, model.id, { is_active: true }), refreshModels);
-  }
-
-  async function deactivateModelRow(model: ModelRow, accepted: () => void) {
-    const updated = await updateModel(apiFetch, model.id, { is_active: false }); accepted();
-    setLiveModels((current) => current.map((item) => item.id === model.id ? modelRow(updated) : item));
-    setModelTableRows((current) => current.map((item) => item.id === model.id ? modelRow(updated) : item));
-  }
-
-  function openModelDeleteModal(model: ModelRow) {
-    setModelDeleteConfirmation("");
-    setModelDeleteDependencies([]);
-    setModalError("");
-    setModal({ type: "model-delete", model });
-  }
-
-  async function submitModelDelete(model: ModelRow) {
-    if (!model.raw || modelDeleteConfirmation !== model.name) return;
-    setModelDeleteDependencies([]);
-    await runModalMutation(async () => {
-      try { return await deleteModel(apiFetch, model.id, { confirmation_name: modelDeleteConfirmation, config_version: model.raw!.config_version }); }
-      catch (caught) {
-        const details = (caught as ApiError).details as { dependencies?: ModelDeleteDependency[] } | undefined;
-        if ((caught as ApiError).status === 409 && Array.isArray(details?.dependencies)) setModelDeleteDependencies(details.dependencies);
-        throw caught;
-      }
-    }, (_result, current) => refreshModels(current), "systemModelDeleted");
   }
 
   function requestPromptLeave(action: () => void) {
@@ -1220,107 +1092,6 @@ export default function SystemManagementWorkspace({
     const next = user.status !== "active";
     const updated = await updateUserStatus(apiFetch, user.id, next); accepted();
     setLiveUsers((current) => current.map((item) => item.id === user.id ? { ...item, status: updated.is_active ? "active" : "inactive", raw: updated } : item));
-  }
-
-  function openModelModal(model?: ModelRow) {
-    setModelProviderDraft(normalizedProvider(model?.provider));
-    setModelTypeDraft(model?.type ?? "Chat");
-    setModelPairDraft(pairedEmbeddingModelIds(model));
-    setModelCredentialClearDraft(false);
-    setModelCredentialClearConfirmation("");
-    setModal(model ? { type: "model", model } : { type: "model" });
-  }
-
-  function toggleModelPair(modelId: string, checked: boolean) {
-    setModelPairDraft((current) => checked ? [...new Set([...current, modelId])] : current.filter((id) => id !== modelId));
-  }
-
-  async function submitModel(formData: FormData) {
-    await runModalMutation(async () => {
-      const configText = String(formData.get("config_advanced") || "{}");
-      let config: Record<string, unknown> = {};
-      try { config = JSON.parse(configText) as Record<string, unknown>; } catch { throw new UiValidationError("systemConfigJsonInvalid"); }
-      if (containsSecretConfigKey(config)) throw new UiValidationError("systemConfigJsonNoSecrets");
-      const provider = String(formData.get("provider") || "OpenAI");
-      const modelType = String(formData.get("model_type") || "Chat");
-      if (modelType === "OCR" && provider === "OpenAI") {
-        const profile = nativePdfConfigFromForm(formData, modal?.type === "model" ? modal.model : undefined, config.native_pdf);
-        if (profile) config.native_pdf = profile;
-      }
-      const modelName = String(formData.get("model_name") || "").trim();
-      const baseUrl = String(formData.get("base_url") || "").trim();
-      const endpoint = String(formData.get("endpoint") || baseUrl || "").trim();
-      const pairedIds = formData.getAll("paired_embedding_model_ids").map((value) => String(value)).filter(Boolean);
-      if (modelType === "Chat" && pairedIds.length === 0) throw new UiValidationError("systemChatModelPairRequired");
-      const timeoutSeconds = Number(formData.get("timeout_seconds") || 0);
-      if (modelName) config.model_name = modelName;
-      if (baseUrl) config.base_url = baseUrl;
-      if (String(formData.get("api_version") || "").trim()) config.api_version = String(formData.get("api_version")).trim();
-      if (String(formData.get("organization_id") || "").trim()) config.organization_id = String(formData.get("organization_id")).trim();
-      if (String(formData.get("project_id") || "").trim()) config.project_id = String(formData.get("project_id")).trim();
-      if (String(formData.get("anthropic_version") || "").trim()) config.anthropic_version = String(formData.get("anthropic_version")).trim();
-      if (String(formData.get("embedding_dimension") || "").trim()) config.embedding_dimension = Number(formData.get("embedding_dimension"));
-      if (timeoutSeconds > 0) config.timeout_seconds = timeoutSeconds;
-      if (provider === "vLLM") config.openai_compatible = true;
-      if (provider === "OpenAI" && (modelType === "Chat" || modelType === "Judge")) {
-        config.api_mode = String(formData.get("api_mode") || "responses");
-      } else {
-        delete config.api_mode;
-      }
-      if (modelType === "Chat") config.paired_embedding_model_ids = pairedIds;
-      else delete config.paired_embedding_model_ids;
-      const pricingKeys = ["input_cost_per_million_tokens", "output_cost_per_million_tokens", "embedding_cost_per_million_tokens"];
-      pricingKeys.forEach((key) => delete config[key]);
-      let hasPricing = false;
-      for (const key of pricingKeys) {
-        const value = String(formData.get(key) ?? "").trim();
-        if (!value) continue;
-        const price = Number(value);
-        if (!Number.isFinite(price) || price < 0) throw new UiValidationError("systemModelPricingNonNegative");
-        config[key] = value;
-        hasPricing = true;
-      }
-      const costCurrency = String(formData.get("cost_currency") || "").trim().toUpperCase();
-      if (hasPricing && !costCurrency) throw new UiValidationError("systemModelPricingCurrencyRequired");
-      if (costCurrency) config.cost_currency = costCurrency;
-      else delete config.cost_currency;
-      if (provider === "Custom") {
-        const headersText = String(formData.get("headers_json") || "{}");
-        let headers: Record<string, unknown> = {};
-        try { headers = JSON.parse(headersText) as Record<string, unknown>; } catch { throw new UiValidationError("systemHeadersJsonInvalid"); }
-        if (containsSecretConfigKey(headers)) throw new UiValidationError("systemHeadersJsonNoSecrets");
-        config.headers = headers;
-      }
-      const payload: AIModelPayload = {
-        name: String(formData.get("name") || "").trim(),
-        model_type: modelType,
-        provider,
-        endpoint: endpoint || null,
-        is_active: formData.get("is_active") === "on",
-        is_default: formData.get("is_default") === "on",
-        config
-      };
-      const apiKey = String(formData.get("api_key") || "");
-      const secretRef = String(formData.get("api_key_secret_ref") || "").trim();
-      if (modal?.type === "model" && modal.model) {
-        if (modelCredentialClearDraft) {
-          if (modelCredentialClearConfirmation !== modal.model.name) throw new UiValidationError("systemModelCredentialClearConfirmationMismatch");
-          if (apiKey || secretRef) throw new UiValidationError("systemModelCredentialActionAmbiguous");
-          payload.clear_credential = true;
-          payload.credential_clear_confirmation = modelCredentialClearConfirmation;
-        } else if (apiKey) {
-          payload.api_key = apiKey;
-          if (secretRef && secretRef !== (modal.model.raw?.api_key_secret_ref ?? "")) payload.api_key_secret_ref = secretRef;
-        } else if (secretRef && secretRef !== (modal.model.raw?.api_key_secret_ref ?? "")) {
-          payload.api_key_secret_ref = secretRef;
-        }
-        return await updateModel(apiFetch, modal.model.id, payload);
-      } else {
-        if (apiKey) payload.api_key = apiKey;
-        if (secretRef) payload.api_key_secret_ref = secretRef;
-        return await createModel(apiFetch, payload as AIModelPayload & { model_type: string });
-      }
-    }, (_result, current) => refreshModels(current), "systemModelSettingsUpdated");
   }
 
 
