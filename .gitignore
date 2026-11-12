@@ -45,6 +45,7 @@ celerybeat-schedule*
 test-results/
 playwright-report/
 /output/
+/frontend/output/
 /tmp/
 
 # --- Local configuration and secrets ---
@@ -54,6 +55,7 @@ playwright-report/
 !**/.env.example
 /deploy/docker/nomosmart.env
 /deploy/docker/nomosmart.env.*
+/deploy/docker/generated/
 !/deploy/docker/nomosmart.env.example
 *.pem
 *.key
