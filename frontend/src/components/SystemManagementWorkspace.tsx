@@ -10,6 +10,8 @@ import { modalScope, type ModalState, type ModelRow, type PromptRow, type System
 import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, useModelState } from "./system/useModelSection";
 import { createPromptActions, usePromptState } from "./system/usePromptSection";
+import { createRoleActions, useRoleState } from "./system/useRoleSection";
+import { emptyPermissionState, permissionMenuRows, permissionPayload, permissionStateFromResponse, type GroupMappingRow, type PermissionAction, type PermissionState, type RoleStatusFilter } from "./system/permissionHelpers";
 import { type ModelDeleteDependency, aiProviders, containsSecretConfigKey, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, secretConfigKeys } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
@@ -58,44 +60,7 @@ const settingsSearchFields: Record<string, TranslationKey[]> = {
   ocr: ["ocrRequestTokenSettingLabel", "ocrDocumentTokenSettingLabel", "ocrDocumentTokenSettingHelp"]
 };
 
-const permissionMenuRows = [
-  { key: "Menu.KnowledgeProjects", moduleName: "Menu", functionName: "KnowledgeProjects", labelKey: "systemMenuKnowledgeProjects", descriptionKey: "systemMenuKnowledgeProjectsHelp", actions: ["view", "create"] },
-  { key: "Menu.Reports", moduleName: "Menu", functionName: "Reports", labelKey: "systemMenuReports", descriptionKey: "systemMenuReportsHelp", actions: ["view"] },
-  { key: "Menu.SystemManagement", moduleName: "Menu", functionName: "SystemManagement", labelKey: "systemMenuSystemManagement", descriptionKey: "systemMenuSystemManagementHelp", actions: ["view", "create", "edit", "delete"] },
-  { key: "Project.ProjectArchive", moduleName: "Project", functionName: "ProjectArchive", labelKey: "systemProjectArchive", descriptionKey: "systemProjectArchiveHelp", actions: ["execute"] },
-  { key: "Report.ModelReport", moduleName: "Report", functionName: "ModelReport", labelKey: "systemReportModelReport", descriptionKey: "systemReportModelReportHelp", actions: ["view"] }
-] as const;
-
 type TabId = SystemTabId;
-type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";
-type PermissionState = Record<string, Record<PermissionAction, boolean>>;
-type RoleStatusFilter = "all" | "enabled" | "disabled";
-type GroupMappingRow = { groupId: string; roleId: string; group: string; source: string; role: string; members: number | null };
-
-
-function emptyPermissionState(): PermissionState {
-  return Object.fromEntries(permissionMenuRows.map((row) => [row.key, { view: false, create: false, edit: false, delete: false, execute: false }]));
-}
-
-function permissionStateFromResponse(response: PermissionMatrixResponse): PermissionState {
-  const state = emptyPermissionState();
-  for (const permission of response.permissions) {
-    const key = `${permission.module_name}.${permission.function_name}`;
-    state[key] = { view: permission.can_view, create: permission.can_create, edit: permission.can_edit, delete: permission.can_delete, execute: permission.can_execute };
-  }
-  return state;
-}
-
-function permissionPayload(role: RoleRow, state: PermissionState): PermissionMatrixResponse {
-  return {
-    lock_version: role.lockVersion,
-    permissions: permissionMenuRows.map((row) => {
-      const value = state[row.key] ?? emptyPermissionState()[row.key];
-      const actionSet = new Set<PermissionAction>(row.actions);
-      return { module_name: row.moduleName, function_name: row.functionName, can_view: actionSet.has("view") && value.view, can_create: actionSet.has("create") && value.create, can_edit: actionSet.has("edit") && value.edit, can_delete: actionSet.has("delete") && value.delete, can_execute: actionSet.has("execute") && value.execute };
-    })
-  };
-}
 
 function permissionActionEnabled(row: (typeof permissionMenuRows)[number], action: PermissionAction) {
   return (row.actions as readonly PermissionAction[]).includes(action);
@@ -200,12 +165,9 @@ export default function SystemManagementWorkspace({
     query.addEventListener("change", update); return () => query.removeEventListener("change", update);
   }, []);
 
-  const [selectedRole, setSelectedRole] = useState("");
-  const [permissions, setPermissions] = useState<Record<string, PermissionState>>({});
-  const [permissionSaved, setPermissionSaved] = useState(true);
+  const roleState = useRoleState();
+  const { selectedRole, setSelectedRole, permissions, setPermissions, permissionSaved, setPermissionSaved, liveRoles, setLiveRoles, liveGroupMappings, setLiveGroupMappings, externalGroups, setExternalGroups, roleTableIds, setRoleTableIds, roleTotal, setRoleTotal, roleOverallTotal, setRoleOverallTotal, rolePage, setRolePage, rolePageSize, setRolePageSize, memberOffset, setMemberOffset, memberTotal, setMemberTotal, memberCandidateIds, setMemberCandidateIds, roleUsersReadback, setRoleUsersReadback, roleUsers, setRoleUsers, roleUserDraftIds, setRoleUserDraftIds, roleUserSearch, setRoleUserSearch, rolesView, setRolesView, roleQuery, setRoleQuery, roleStatusFilter, setRoleStatusFilter, roleActionId, setRoleActionId, roleDeleteConfirmation, setRoleDeleteConfirmation, mappingGroupDraft, setMappingGroupDraft, roleMenuTriggerRef } = roleState;
   const [liveUsers, setLiveUsers] = useState<UserRow[]>([]);
-  const [liveRoles, setLiveRoles] = useState<RoleRow[]>([]);
-  const [liveGroupMappings, setLiveGroupMappings] = useState<GroupMappingRow[]>([]);
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
   const modelState = useModelState();
   const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = modelState;
@@ -215,7 +177,6 @@ export default function SystemManagementWorkspace({
   const apiKeyState = useApiKeyState();
   const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = apiKeyState;
   const apiKeyDialogRef = useRef<HTMLElement>(null);
-  const [externalGroups, setExternalGroups] = useState<ExternalGroupResponse[]>([]);
   const [syncRuns, setSyncRuns] = useState<IdentitySyncRunResponse[]>([]);
 
 
@@ -288,31 +249,13 @@ export default function SystemManagementWorkspace({
   const [userOverallTotal, setUserOverallTotal] = useState<number | null>(null);
   const [userPage, setUserPage] = useState(1);
   const [userPageSize, setUserPageSize] = useState(20);
-  const [roleTableIds, setRoleTableIds] = useState<string[]>([]);
-  const [roleTotal, setRoleTotal] = useState(0);
-  const [roleOverallTotal, setRoleOverallTotal] = useState<number | null>(null);
-  const [rolePage, setRolePage] = useState(1);
-  const [rolePageSize, setRolePageSize] = useState(20);
   const [clientNextCursor, setClientNextCursor] = useState<string | null>(null);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectOffset, setProjectOffset] = useState(0);
   const [projectTotal, setProjectTotal] = useState(0);
   const [projectCandidateIds, setProjectCandidateIds] = useState<string[]>([]);
-  const [memberOffset, setMemberOffset] = useState(0);
-  const [memberTotal, setMemberTotal] = useState(0);
-  const [memberCandidateIds, setMemberCandidateIds] = useState<string[]>([]);
-  const [roleUsersReadback, setRoleUsersReadback] = useState<RoleUsersResponse | null>(null);
   const [userQuery, setUserQuery] = useState("");
   const [userSourceFilter, setUserSourceFilter] = useState("all");
-  const [roleUsers, setRoleUsers] = useState<RoleUsersResponse | null>(null);
-  const [roleUserDraftIds, setRoleUserDraftIds] = useState<string[]>([]);
-  const [roleUserSearch, setRoleUserSearch] = useState("");
-  const [rolesView, setRolesView] = useState<"local" | "ldap">("local");
-  const [roleQuery, setRoleQuery] = useState("");
-  const [roleStatusFilter, setRoleStatusFilter] = useState<RoleStatusFilter>("all");
-  const [roleActionId, setRoleActionId] = useState<string | null>(null);
-  const [roleDeleteConfirmation, setRoleDeleteConfirmation] = useState("");
-  const [mappingGroupDraft, setMappingGroupDraft] = useState("");
   const canViewSystemManagement = can("Menu", "SystemManagement", "view");
   const canCreateSystemManagement = can("Menu", "SystemManagement", "create");
   const canEditSystemManagement = can("Menu", "SystemManagement", "edit");
@@ -332,7 +275,6 @@ export default function SystemManagementWorkspace({
 
 
 
-  const roleMenuTriggerRef = useRef<HTMLElement | null>(null);
   const modelTableRequestRef = useRef(0);
   const selectedRoleRecord = liveRoles.find((role) => role.id === selectedRole);
   const selectedRoleLockVersion = selectedRoleRecord?.lockVersion;
@@ -415,33 +357,7 @@ export default function SystemManagementWorkspace({
       return [...map.values()];
     });
   }
-  function cacheRoles(rows: RoleResponse[]) {
-    rows.forEach(role => roleNames.current.set(role.id, role.name));
-    setLiveRoles(current => {
-      const map = new Map(current.map(row => [row.id, row]));
-      rows.forEach(role => map.set(role.id, roleRow(role, map.get(role.id))));
-      return [...map.values()];
-    });
-  }
   function cacheProjects(rows: ProjectResponse[]) { setLiveProjects(current => [...new Map([...current, ...rows].map(row => [row.id, row])).values()]); }
-  function applyMemberSnapshot(roleId: string, response: RoleUsersResponse) {
-    setLiveRoles(rows => rows.map(row => row.id === roleId ? { ...row, ...roleMemberCounts(response), lockVersion: response.lock_version } : row));
-  }
-  function updateMappingProjection() {
-    const known = systemReadStates.current.mappings?.scope === systemReadScope && systemReadStates.current.mappings?.phase === "ready";
-    setLiveRoles(current => current.map(role => {
-      const mapping = mappingRows.current.find(row => row.role_id === role.id);
-      return { ...role, groups: known ? (mapping ? 1 : 0) : null, mappingGroupId: known ? mapping?.external_group_id ?? null : role.mappingGroupId };
-    }));
-    const groups = new Map(groupRows.current.map(group => [group.id, group]));
-    setLiveGroupMappings(mappingRows.current.map(mapping => ({ groupId: mapping.external_group_id, roleId: mapping.role_id, group: groups.get(mapping.external_group_id)?.path || groups.get(mapping.external_group_id)?.group_name || mapping.external_group_id, source: groups.get(mapping.external_group_id)?.identity_origin || "keycloak_local", role: roleNames.current.get(mapping.role_id) ?? mapping.role_id, members: groups.get(mapping.external_group_id)?.member_count ?? null })));
-  }
-  async function readRoleMembers(role: Pick<RoleRow, "id">, current: () => boolean = () => true) {
-    setLiveRoles(rows => rows.map(row => row.id === role.id ? { ...row, members: null, manualMembers: null, ldapMembers: null, breakGlassMembers: null } : row));
-    return readSystemSection(`members:${role.id}`, () => getRoleUsers(apiFetch, role.id), response => {
-      setLiveRoles(rows => rows.map(row => row.id === role.id ? { ...row, ...roleMemberCounts(response) } : row));
-    }, current);
-  }
   async function reloadSystemSection(section: string, current: () => boolean = () => true): Promise<boolean> {
     switch (section) {
       case "users": return readSystemSection(section, () => listUsersPage(apiFetch, { q: userQuery, authSource: userSourceFilter === "all" ? undefined : userSourceFilter, offset: (userPage - 1) * userPageSize, limit: userPageSize }), page => {
@@ -577,7 +493,7 @@ export default function SystemManagementWorkspace({
       setPermissionSaved(true);
     }).catch((caught) => { if (current) setSystemError(caught as ApiError | Error); });
     return () => { current = false; };
-  }, [activeSection, apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion, permissionSaved]);
+  }, [activeSection, apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion, permissionSaved, setLiveRoles, setPermissionSaved, setPermissions]);
 
 
 
@@ -633,6 +549,9 @@ export default function SystemManagementWorkspace({
   const externalRoleUserIds = new Set(roleUserRows.filter((row) => row.source === "external_sync").map((row) => row.user_id));
   const breakGlassRoleUserIds = new Set(roleUserRows.filter((row) => row.source === "break_glass").map((row) => row.user_id));
   const draftRoleUserIds = new Set(roleUserDraftIds);
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { cacheRoles, applyMemberSnapshot, updateMappingProjection, readRoleMembers, togglePermission, savePermissions, refreshRolesAndMappings, submitRole, openRoleUsers, toggleRoleUserDraft, roleUserStatusLabels, roleUserIdentityLine, saveRoleUsers, openRoleMapping, saveRoleMapping, changeRoleLifecycle, openRoleDelete, submitRoleDelete, renderLocalRoleCard } = createRoleActions(roleState, { apiFetch, breakGlassRoleUserIds, canDeleteRoles, canEditPermissions, canEditRoles, draftRoleUserIds, externalRoleUserIds, format, groupRows, mappingRows, modal, originalManualRoleUserIds, quickBlocked, readSystemSection, reloadSystemSection, renderSectionReadNotice, roleNames, runModalMutation, runQuickMutation, sectionReady, selectedRoleReadOnly, setModal, setModalError, setSystemError, systemReadScope, systemReadStates, t });
   const activeRoleUserCandidates = liveUsers.filter((user) => user.status === "active" && memberCandidateIds.includes(user.id));
   const filteredRoleUserCandidates = activeRoleUserCandidates;
   const pendingAddUsers = liveUsers.filter((user) => user.status === "active" && draftRoleUserIds.has(user.id) && !originalManualRoleUserIds.has(user.id));
@@ -665,37 +584,6 @@ export default function SystemManagementWorkspace({
     });
   }
 
-
-  function togglePermission(key: string, action: PermissionAction) {
-    if (!canEditPermissions || selectedRoleReadOnly) return;
-    setPermissions((current) => ({
-      ...current,
-      [selectedRole]: {
-        ...(current[selectedRole] ?? emptyPermissionState()),
-        [key]: { ...((current[selectedRole] ?? emptyPermissionState())[key]), [action]: !((current[selectedRole] ?? emptyPermissionState())[key][action]) }
-      }
-    }));
-    setPermissionSaved(false);
-  }
-
-  async function savePermissions() {
-    const role = liveRoles.find((item) => item.id === selectedRole);
-    if (!role || role.isActive === false || !permissions[selectedRole]) return;
-    try {
-      const response = await replacePermissions(apiFetch, selectedRole, permissionPayload(role, permissions[selectedRole]));
-      setPermissions((current) => ({ ...current, [selectedRole]: permissionStateFromResponse(response) }));
-      setLiveRoles((current) => current.map((item) => item.id === selectedRole ? { ...item, lockVersion: response.lock_version } : item));
-      setPermissionSaved(true);
-      setSystemError(null);
-    } catch (caught) {
-      setSystemError(caught as ApiError | Error);
-    }
-  }
-
-  async function refreshRolesAndMappings(current: () => boolean = () => true) {
-    const results = await Promise.all(["roles", "groups", "mappings"].map(section => reloadSystemSection(section, current)));
-    if (current() && results.some(value => !value)) throw new Error("System read could not be confirmed");
-  }
 
   async function refreshIdentityData() {
     const success = await reloadSystemSection("users");
@@ -860,86 +748,6 @@ export default function SystemManagementWorkspace({
     return () => document.removeEventListener("click", followLink, true);
   });
 
-  async function submitRole(formData: FormData) {
-    const name = modal?.type === "role" && modal.role?.isSystem ? modal.role.name : String(formData.get("name") || "").trim();
-    const description = String(formData.get("description") || "").trim() || null;
-    await runModalMutation(() => modal?.type === "role" && modal.role ? updateRole(apiFetch, modal.role.id, { lock_version: modal.role.lockVersion, name, description }) : createRole(apiFetch, { name, description }), (_result, current) => refreshRolesAndMappings(current), "systemRoleDataUpdated");
-  }
-
-  async function openRoleUsers(role: RoleRow) {
-    setModalError("");
-    const response = await getRoleUsers(apiFetch, role.id);
-    setRoleUsers(response); setRoleUsersReadback(null); setMemberOffset(0); setMemberCandidateIds([]);
-    setRoleUserDraftIds(response.users.filter((row) => row.source === "manual").map((row) => row.user_id));
-    setRoleUserSearch("");
-    setModal({ type: "role-users", role });
-  }
-
-  function toggleRoleUserDraft(userId: string, checked: boolean) {
-    setRoleUserDraftIds((current) => checked ? [...new Set([...current, userId])] : current.filter((id) => id !== userId));
-  }
-
-  function roleUserStatusLabels(user: UserRow) {
-    const labels: Array<{ label: string; tone: "green" | "gold" | "coral" | "gray" }> = [];
-    if (externalRoleUserIds.has(user.id)) labels.push({ label: t("systemRoleUserLdapMember"), tone: "gold" });
-    if (breakGlassRoleUserIds.has(user.id)) labels.push({ label: t("systemRoleUserBreakGlassMember"), tone: "coral" });
-    if (draftRoleUserIds.has(user.id) && !originalManualRoleUserIds.has(user.id)) labels.push({ label: t("systemRoleUserPendingAdd"), tone: "green" });
-    else if (!draftRoleUserIds.has(user.id) && originalManualRoleUserIds.has(user.id)) labels.push({ label: t("systemRoleUserPendingRemove"), tone: "coral" });
-    else if (originalManualRoleUserIds.has(user.id)) labels.push({ label: t("systemRoleUserManualMember"), tone: "gray" });
-    if (!labels.length) labels.push({ label: t("systemRoleUserAvailable"), tone: "gray" });
-    return labels;
-  }
-
-  function roleUserIdentityLine(user: UserRow) {
-    const parts = [
-      user.email,
-      user.raw?.employee_id ? format("systemEmployeeIdValue", { id: user.raw.employee_id }) : null,
-      identitySourceLabel(user.source, t)
-    ].filter(Boolean);
-    return parts.join(" · ");
-  }
-
-  async function saveRoleUsers() {
-    if (modal?.type !== "role-users" || modal.role.isActive === false || !roleUsers) return;
-    await runModalMutation(() => replaceRoleUsers(apiFetch, modal.role.id, { lock_version: roleUsers.lock_version, user_ids: roleUserDraftIds }), async (response, current) => {
-      setRoleUsers(response); setRoleUserDraftIds(response.users.filter(row => row.source === "manual").map(row => row.user_id));
-      await refreshRolesAndMappings(current);
-    }, "systemManualRoleUsersSaved");
-  }
-
-  function openRoleMapping(role: RoleRow) {
-    setMappingGroupDraft(role.mappingGroupId ?? "");
-    setModalError("");
-    setModal({ type: "mapping", role });
-  }
-
-  async function saveRoleMapping() {
-    if (modal?.type !== "mapping" || modal.role.isActive === false) return;
-    await runModalMutation(() => setRoleExternalGroupMapping(apiFetch, modal.role.id, { external_group_id: mappingGroupDraft || null, lock_version: modal.role.lockVersion }), (_result, current) => refreshRolesAndMappings(current), "systemMappingsSaved");
-  }
-
-  async function changeRoleLifecycle(role: RoleRow, isActive: boolean, accepted: () => void, current: () => boolean) {
-    setRoleActionId(role.id);
-    setSystemError(null);
-    try {
-      await updateRole(apiFetch, role.id, { lock_version: role.lockVersion, is_active: isActive }); accepted();
-      await refreshRolesAndMappings(current);
-    } finally {
-      setRoleActionId(null);
-    }
-  }
-
-  function openRoleDelete(role: RoleRow, trigger: HTMLElement) {
-    roleMenuTriggerRef.current = trigger.closest("details")?.querySelector("summary") ?? trigger;
-    setRoleDeleteConfirmation("");
-    setModalError("");
-    setModal({ type: "role-delete", role });
-  }
-
-  async function submitRoleDelete(role: RoleRow) {
-    await runModalMutation(() => deleteRole(apiFetch, role.id, role.lockVersion, roleDeleteConfirmation), (_result, current) => refreshRolesAndMappings(current), "feedbackRoleDeleted");
-  }
-
   function closeModal() {
     if (submitting) return;
     if (modal && dirtyModal === modal) { setDiscardModal(modal); return; }
@@ -997,11 +805,13 @@ export default function SystemManagementWorkspace({
     setIdentityMessage(t("identitySyncInProgress"));
     try {
       let run = await queueIdentitySync(apiFetch);
-      setSyncRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+      const queued = run;
+      setSyncRuns((current) => [queued, ...current.filter((item) => item.id !== queued.id)]);
       while (run.status === "queued" || run.status === "running") {
         await new Promise((resolve) => window.setTimeout(resolve, 1000));
         run = await getIdentitySyncRun(apiFetch, run.id);
-        setSyncRuns((current) => [run, ...current.filter((item) => item.id !== run.id)]);
+        const latest = run;
+        setSyncRuns((current) => [latest, ...current.filter((item) => item.id !== latest.id)]);
       }
       if (run.status === "succeeded") {
         setIdentityMessage(t("identitySyncSucceeded"));
@@ -1037,85 +847,6 @@ export default function SystemManagementWorkspace({
   const globalJudgePrompt = systemPrompts.find((prompt) => prompt.prompt_scope === "global" && prompt.model_type === "Judge");
   const modelSpecificPrompts = systemPrompts.filter((prompt) => prompt.prompt_scope === "model");
   const promptScopeLabel = (prompt: PromptRow) => prompt.prompt_scope === "global" ? t("systemPromptScopeGlobal") : t("systemPromptScopeModel");
-
-  function renderLocalRoleCard(role: RoleRow) {
-    const isActive = role.isActive !== false;
-    const isBusy = roleActionId === role.id;
-    const mappedGroup = externalGroups.find((group) => group.id === role.mappingGroupId);
-    const mappedGroupName = !sectionReady("mappings") || !sectionReady("groups") ? t("systemReadCountUnknown") : mappedGroup?.path || mappedGroup?.group_name || t("systemNoMapping");
-    const mappingIsEditable = isActive && canEditRoles;
-
-    return (
-      <article aria-busy={isBusy} className={`system-role-card${isActive ? "" : " inactive"}`} key={role.id}>
-        <header className="system-role-card-header">
-          <span className="role-icon"><ShieldCheck size={18} /></span>
-          <div className="system-role-card-title">
-            <h3>{role.name}</h3>
-            {role.isSystem ? <div className="system-role-card-badges"><StateBadge tone="gold">{t("systemProtectedDefaultRole")}</StateBadge></div> : null}
-          </div>
-          <div className="system-role-card-controls">
-            <label className="system-role-lifecycle">
-              <span>{isActive ? t("systemEnabled") : t("systemDisabled")}</span>
-              <button
-                aria-checked={isActive}
-                aria-label={format("systemRoleLifecycleControl", { name: role.name, status: isActive ? t("systemEnabled") : t("systemDisabled") })}
-                className="system-role-switch"
-                disabled={role.isSystem || !canEditRoles || quickBlocked || isBusy}
-                onClick={() => {
-                  if (isActive) {
-                    setModal({
-                      type: "confirm",
-                      title: t("systemDisableRoleTitle"),
-                      message: format("systemDisableRoleHelp", { name: role.name }),
-                      actionLabel: t("systemDisable"),
-                      successTitle: "feedbackRoleDisabled", target: { kind: "role", id: role.id, expected: { field: "is_active", value: false } }, run: (accepted, current) => changeRoleLifecycle(role, false, accepted, current)
-                    });
-                  } else {
-                    void runQuickMutation({ kind: "role", id: role.id, field: "is_active", value: true }, () => updateRole(apiFetch, role.id, { lock_version: role.lockVersion, is_active: true }), refreshRolesAndMappings);
-                  }
-                }}
-                role="switch"
-                title={role.isSystem ? t("systemRoleProtectedLifecycle") : undefined}
-                type="button"
-              >
-                <span />
-              </button>
-            </label>
-            {!role.isSystem && canDeleteRoles ? <details className="system-role-menu">
-              <summary aria-label={format("systemRoleMoreActions", { name: role.name })}><Ellipsis size={18} /></summary>
-              <div role="menu">
-                <button className="destructive" onClick={(event) => openRoleDelete(role, event.currentTarget)} role="menuitem" type="button"><Trash2 size={15} />{t("systemDelete")}</button>
-              </div>
-            </details> : null}
-          </div>
-        </header>
-
-        <p className="system-role-description">{role.description || t("systemRoleNoDescription")}</p>
-
-        <dl className="system-role-facts">
-          <div>
-            <dt><Link2 size={15} />{t("systemMappedLdapGroup")}</dt>
-            <dd title={mappedGroupName}>{mappedGroupName}</dd>
-          </div>
-          <div>
-            <dt><UsersRound size={15} />{t("systemRoleMemberSources")}</dt>
-            <dd><span>{format("systemRoleManualMembers", { count: role.manualMembers ?? t("systemReadCountUnknown") })}</span><span>{format("systemRoleLdapMembers", { count: role.ldapMembers ?? t("systemReadCountUnknown") })}</span>{role.breakGlassMembers ? <span>{format("systemRoleBreakGlassMembers", { count: role.breakGlassMembers ?? t("systemReadCountUnknown") })}</span> : null}</dd>
-          </div>
-        </dl>
-
-        {role.members === null ? renderSectionReadNotice(`members:${role.id}`, t("systemRoleMembersUnknown"), false) ?? <FeedbackMessage tone="info" announce={false}>{t("systemRoleMembersUnknown")}</FeedbackMessage> : null}
-        {!isActive ? <div className="system-role-readonly-note"><LockKeyhole size={14} /><span>{t("systemRoleReadOnlyHelp")}</span></div> : null}
-
-        <footer className="system-card-actions">
-          <button className="icon-text-button" disabled={isActive && !canEditRoles} onClick={() => setModal({ type: "role", role })} type="button">{isActive ? <Pencil size={15} /> : <Eye size={15} />}{isActive ? t("systemEdit") : t("systemRoleDetails")}</button>
-          <button className="icon-text-button" onClick={() => { void openRoleUsers(role).catch((caught) => setSystemError(caught as ApiError | Error)); }} type="button"><UsersRound size={15} />{t("systemRoleUsers")}</button>
-          <button className="icon-text-button" disabled={!sectionReady("mappings") || !sectionReady("groups")} onClick={() => openRoleMapping(role)} type="button">{role.mappingGroupId ? <Unlink size={15} /> : <Link2 size={15} />}{mappingIsEditable ? (role.mappingGroupId ? t("systemChangeOrRemoveMapping") : t("systemSetMapping")) : t("systemViewMapping")}</button>
-        </footer>
-
-        {isBusy ? <div className="system-role-card-loading" role="status"><LoaderCircle className="spin" size={18} /><span>{t("systemRoleUpdating")}</span></div> : null}
-      </article>
-    );
-  }
 
   if (!canViewSystemManagement) {
     return <ForbiddenState />;
