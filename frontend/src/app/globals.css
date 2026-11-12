@@ -13129,3 +13129,9 @@ small {
   .knowledge-tag-auto-button,
   .lifecycle-notice-popup button { min-height: 40px; min-width: 40px; }
 }
+
+/* OPT424-033: chunk selection toggle (replaces role="button" on the card) */
+.chunk-select-toggle { border: 1px solid transparent; font: inherit; cursor: pointer; }
+.chunk-select-toggle[aria-pressed="true"] { border-color: var(--deep-green); }
+.chunk-select-toggle:focus-visible { outline: 2px solid var(--calm-green); outline-offset: 2px; }
+@media (max-width: 768px) { .chunk-select-toggle { min-height: 40px; min-width: 40px; } }

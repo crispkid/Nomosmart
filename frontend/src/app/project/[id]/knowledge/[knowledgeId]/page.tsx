@@ -918,26 +918,25 @@ export default function KnowledgePage() {
         >
           <div className="chunk-list extraction-chunks" ref={chunkListRef}>
             {displayChunks.map((chunk) => (
+              // OPT424-033: the card holds edit, delete and tag controls, so it is a
+              // plain container; selection has its own toggle button. Clicking the
+              // card body still selects for pointer users.
               <article
-                aria-label={format("knowledgeDetailSelectChunkAria", { id: chunk.id, number: chunk.index })}
-                aria-pressed={selectedChunkIds.includes(chunk.id)}
                 className={selectedChunkIds.includes(chunk.id) ? "chunk-card selected" : "chunk-card"}
                 data-chunk-id={chunk.id}
                 key={chunk.id}
                 onClick={() => selectChunk(chunk.id)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    selectChunk(chunk.id);
-                  }
-                }}
-                role="button"
-                tabIndex={0}
               >
                 <div className="chunk-head">
                   <span className="chunk-title-row">
                     <span className="chunk-title-meta">
-                      <span className="chunk-index-badge">#{chunk.index}</span>
+                      <button
+                        aria-label={format("knowledgeDetailSelectChunkAria", { id: chunk.id, number: chunk.index })}
+                        aria-pressed={selectedChunkIds.includes(chunk.id)}
+                        className="chunk-index-badge chunk-select-toggle"
+                        onClick={(event) => { event.stopPropagation(); selectChunk(chunk.id); }}
+                        type="button"
+                      >#{chunk.index}</button>
                       <small className="chunk-inline-meta">
                         <span>{chunk.sourceLabel}</span>
                         <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })}</span>
