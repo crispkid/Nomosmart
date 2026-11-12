@@ -10504,6 +10504,7 @@ small {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: 4px;
   min-height: 24px;
   padding: 2px 8px;
   border-radius: var(--radius-control);

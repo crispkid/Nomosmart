@@ -19,7 +19,7 @@ import { formatCount } from "@/lib/numberFormat";
 import type { FeedbackTone } from "@/lib/feedback";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Activity, Bot, Check, ChevronDown, ChevronLeft, ChevronRight, Clock3, DatabaseZap, Ellipsis, Eye, Globe2, Info, KeyRound, Link2, LoaderCircle, LockKeyhole, MessageSquareText, Layers3, Plus, Pencil, RefreshCw, RotateCcw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Unlink, UserRoundCog, UsersRound, X } from "lucide-react";
+import { Activity, AlertTriangle, Bot, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, DatabaseZap, Ellipsis, Eye, Globe2, Info, KeyRound, Layers3, Link2, LoaderCircle, LockKeyhole, MessageSquareText, MinusCircle, Pencil, Plus, RefreshCw, RotateCcw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, Unlink, UserRoundCog, UsersRound, X, XCircle } from "lucide-react";
 import { getIdentitySyncRun, getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, activateIntegrationClient, createIntegrationClient, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, getProject, deactivateIntegrationClient, replaceIntegrationClientProjectScopes, replacePermissions, replaceRoleUsers, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, addSystemPromptVersion, activateSystemPrompt, createSystemPrompt, deactivateSystemPrompt, type AIModelResponse, type AIModelPayload, type ApiError, type BreakGlassStatusResponse, type ExternalGroupResponse, type IdentitySyncRunResponse, type IntegrationClientResponse, type OperationComponentStatus, type OperationsStatusResponse, type PermissionMatrixResponse, type ProjectResponse, type RoleResponse, type RoleUsersResponse, type SystemPromptResponse, type UserSummary, createModel, createRole, deleteRole, deleteModel, listIdentitySyncRuns, queueIdentitySync, setDefaultModel, setRoleExternalGroupMapping, testModel, updateModel, updateRole, updateUser, updateUserStatus } from "@/lib/api";
 import { AIModelCredentialClearControl, OpenAiApiModeField } from "@/components/AIModelCompatibilityFields";
 import { aiModelProviderName } from "@/components/AIModelInventoryFields";
@@ -118,8 +118,12 @@ function permissionActionEnabled(row: (typeof permissionMenuRows)[number], actio
   return (row.actions as readonly PermissionAction[]).includes(action);
 }
 
+const stateBadgeIcons = { green: CheckCircle2, gold: AlertTriangle, gray: MinusCircle, coral: XCircle } as const;
+
+/** Tone is always paired with text and an icon, never color alone. */
 function StateBadge({ children, tone = "green" }: { children: React.ReactNode; tone?: "green" | "gold" | "gray" | "coral" }) {
-  return <span className={`system-state system-state-${tone}`}>{children}</span>;
+  const Icon = stateBadgeIcons[tone];
+  return <span className={`system-state system-state-${tone}`}><Icon aria-hidden="true" size={12} />{children}</span>;
 }
 
 function statusTone(status: string): "green" | "gold" | "gray" | "coral" {
