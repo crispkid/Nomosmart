@@ -104,6 +104,7 @@
     "deploy/helm/nomosmart/templates/embedding-capabilities-configmap.yaml",
     "deploy/helm/nomosmart/templates/finalize-job.yaml",
     "deploy/helm/nomosmart/templates/frontend-deployment.yaml",
+    "deploy/helm/nomosmart/templates/hpa.yaml",
     "deploy/helm/nomosmart/templates/ingress.yaml",
     "deploy/helm/nomosmart/templates/migration-job.yaml",
     "deploy/helm/nomosmart/templates/migration-sql-configmaps.yaml",
