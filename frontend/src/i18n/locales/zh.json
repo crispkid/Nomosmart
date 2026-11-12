@@ -2113,7 +2113,7 @@
   "systemManualRoleUsers": "手動角色使用者",
   "systemEditAiModel": "編輯 AI 模型",
   "systemAddAiModel": "新增 AI 模型",
-  "systemManagerDelegateOptional": "Manager delegate user id（選填）",
+  "systemManagerDelegateOptional": "主管代理人使用者 ID（選填）",
   "systemRoleName": "角色名稱",
   "systemDescription": "描述",
   "systemRoleProtection": "系統角色保護",
