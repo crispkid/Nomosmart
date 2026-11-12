@@ -6,6 +6,8 @@ import SystemParameterSettings from "./SystemParameterSettings";
 import { SettingsCard } from "./SettingsCard";
 import { EmptyInlineState, SectionHeader, StateBadge, metricPairs, operationStatusLabel, statusTone } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
+import { modalScope, type ModalState, type ModelRow } from "./system/modalState";
+import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
 import { identitySourceLabel } from "@/lib/identitySource";
@@ -67,30 +69,9 @@ type PermissionState = Record<string, Record<PermissionAction, boolean>>;
 type SystemReadState = { scope: string; phase: "loading" | "ready" | "error" | "forbidden"; received: boolean; error?: ApiError | Error };
 type RoleStatusFilter = "all" | "enabled" | "disabled";
 type GroupMappingRow = { groupId: string; roleId: string; group: string; source: string; role: string; members: number | null };
-type ModelRow = { id: string; name: string; type: string; provider: string; endpoint: string | null; default: boolean; status: string; raw?: AIModelResponse };
 type ModelDeleteDependency = { type: string; count: number };
 type PromptRow = SystemPromptResponse;
-type ModalState =
-  | { type: "user"; user: UserRow }
-  | { type: "role"; role?: RoleRow }
-  | { type: "role-users"; role: RoleRow }
-  | { type: "mapping"; role: RoleRow }
-  | { type: "role-delete"; role: RoleRow }
-  | { type: "model"; model?: ModelRow }
-  | { type: "model-delete"; model: ModelRow }
-  | { type: "api-key-create" }
-  | { type: "api-key-manage"; client: IntegrationClientResponse }
-  | { type: "confirm"; title: string; message: string; actionLabel: string; successTitle?: TranslationKey; target: { kind: "user" | "role" | "model" | "client"; id: string; expected?: { field: "is_active" | "status"; value: boolean | string } }; run: (accepted: () => void, current: () => boolean) => Promise<void> };
 
-function modalScope(modal: ModalState | null) {
-  if (!modal) return "closed";
-  if (modal.type === "confirm") return `${modal.type}:${modal.target.kind}:${modal.target.id}`;
-  if ("role" in modal) return `${modal.type}:${modal.role?.id ?? "new"}`;
-  if ("model" in modal) return `${modal.type}:${modal.model?.id ?? "new"}`;
-  if ("user" in modal) return `${modal.type}:${modal.user.id}`;
-  if ("client" in modal) return `${modal.type}:${modal.client.id}`;
-  return modal.type;
-}
 
 function emptyPermissionState(): PermissionState {
   return Object.fromEntries(permissionMenuRows.map((row) => [row.key, { view: false, create: false, edit: false, delete: false, execute: false }]));
@@ -300,11 +281,9 @@ export default function SystemManagementWorkspace({
   const [modelTableError, setModelTableError] = useState("");
   const [systemPrompts, setSystemPrompts] = useState<PromptRow[]>([]);
   const [liveProjects, setLiveProjects] = useState<ProjectResponse[]>([]);
-  const [integrationClients, setIntegrationClients] = useState<IntegrationClientResponse[]>([]);
-  const [apiKeyDateValidation, setApiKeyDateValidation] = useState<{ scope: string; errors: Partial<Record<"valid_from" | "expires_at", TranslationKey>> }>({ scope: "", errors: {} });
-  const [apiKeyProjectDraft, setApiKeyProjectDraft] = useState<string[]>([]);
-  const [apiKeyScopeDrafts, setApiKeyScopeDrafts] = useState<Record<string, string[]>>({});
-  const [apiKeyOneTime, setApiKeyOneTime] = useState<{ name: string; key: string } | null>(null);
+  const apiKeyState = useApiKeyState();
+  const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = apiKeyState;
+  const apiKeyDialogRef = useRef<HTMLElement>(null);
   const [selectedPromptId, setSelectedPromptId] = useState("");
   const [promptDraft, setPromptDraft] = useState("");
   const [promptDraftSourceVersion, setPromptDraftSourceVersion] = useState<number | null>(null);
@@ -346,7 +325,6 @@ export default function SystemManagementWorkspace({
   const [dirtyModal, setDirtyModal] = useState<ModalState | null>(null);
   const [discardModal, setDiscardModal] = useState<ModalState | null>(null);
   const systemDialogRef = useRef<HTMLElement>(null);
-  const apiKeyDialogRef = useRef<HTMLElement>(null);
   const systemDialogTriggerRef = useRef<HTMLElement | null>(null);
   useEffect(() => {
     const remember = (event: FocusEvent) => { if (event.target instanceof HTMLElement && !event.target.closest('[role="dialog"],[role="alertdialog"]')) systemDialogTriggerRef.current = event.target; };
@@ -369,7 +347,7 @@ export default function SystemManagementWorkspace({
       if (trigger?.isConnected) trigger.focus();
       else if (fallback?.isConnected) fallback.focus();
     };
-  }, [apiKeyOneTime, modal, activeTab, navigationRef]);
+  }, [apiKeyOneTime, modal, activeTab, navigationRef, apiKeyDialogRef]);
   useEffect(() => {
     if (!promptEditorOpen) return;
     const trigger = systemDialogTriggerRef.current;
@@ -409,9 +387,6 @@ export default function SystemManagementWorkspace({
   const [roleOverallTotal, setRoleOverallTotal] = useState<number | null>(null);
   const [rolePage, setRolePage] = useState(1);
   const [rolePageSize, setRolePageSize] = useState(20);
-  const [clientQuery, setClientQuery] = useState("");
-  const [clientCursors, setClientCursors] = useState<(string | undefined)[]>([undefined]);
-  const [clientPageSize, setClientPageSize] = useState(20);
   const [clientNextCursor, setClientNextCursor] = useState<string | null>(null);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectOffset, setProjectOffset] = useState(0);
@@ -495,6 +470,9 @@ export default function SystemManagementWorkspace({
 
   const systemReadScope = `${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`;
   const systemReadScopeRef = useRef<string | null>(systemReadScope);
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = createApiKeyActions(apiKeyState, { apiFetch, t, format, modal, setModal, setModalError, setModalQueryMessage, systemReadScope, readScopeNow: () => systemReadScopeRef.current, cacheProjects, readSystemSection, reloadSystemSection, runModalMutation, sectionReady });
   const systemReadEpoch = useRef({ version: 0 });
   const systemReadVersions = useRef<Record<string, number>>({});
   const systemReadStates = useRef<Record<string, SystemReadState>>({});
@@ -845,12 +823,6 @@ export default function SystemManagementWorkspace({
 
   async function refreshSystemStatus() { await reloadSystemSection("status"); }
 
-  async function refreshIntegrationClients(current?: () => boolean) {
-    const valid = current ?? (() => true);
-    const success = await reloadSystemSection("clients", valid);
-    if (current && valid() && !success) throw new Error("System read could not be confirmed");
-  }
-
   function setModal(next: React.SetStateAction<ModalState | null>) {
     if (typeof next !== "function") {
       if (modalScope(next) !== modalScope(modal)) { setModalError(""); setModalQueryMessage(""); setModalReadback(""); }
@@ -977,127 +949,6 @@ export default function SystemManagementWorkspace({
       if (!quickGuard.current(token)) return;
       quickGuard.checkFailed(token); setQuickQueryFailed(true); setQuickError(caught as ApiError | Error);
     }
-  }
-
-  function toggleApiKeyProjectDraft(projectId: string, checked: boolean) {
-    setApiKeyProjectDraft((current) => checked ? [...new Set([...current, projectId])] : current.filter((id) => id !== projectId));
-  }
-
-  function toggleApiKeyScopeDraft(clientId: string, projectId: string, checked: boolean) {
-    setApiKeyScopeDrafts((current) => {
-      const existing = current[clientId] ?? [];
-      return { ...current, [clientId]: checked ? [...new Set([...existing, projectId])] : existing.filter((id) => id !== projectId) };
-    });
-  }
-
-  function apiDateValues(formData: FormData, original?: IntegrationClientResponse) {
-    const dates: Partial<Record<"valid_from" | "expires_at", string | null>> = {};
-    const errors: Partial<Record<"valid_from" | "expires_at", TranslationKey>> = {};
-    for (const key of ["valid_from", "expires_at"] as const) {
-      try {
-        const value = String(formData.get(key) ?? "").trim();
-        const date = original ? integrationClientDateUpdate(value, original[key]) : integrationClientDateValue(value);
-        if (date !== undefined) dates[key] = date;
-      } catch (error) {
-        errors[key] = error instanceof IntegrationClientDateError && error.reason === "ambiguous" ? "systemApiKeyDateAmbiguous" : error instanceof IntegrationClientDateError && error.reason === "unavailable" ? "systemApiKeyDateUnavailable" : "systemApiKeyDateInvalid";
-      }
-    }
-    setApiKeyDateValidation({ scope: modalScope(modal), errors });
-    if (Object.keys(errors).length) { setModalError(t("systemApiKeyDateFix")); return null; }
-    return dates;
-  }
-
-  function renderApiKeyDateField(key: "valid_from" | "expires_at", original: string | null = null, disabled = false) {
-    const baseline = integrationClientDateInput(original);
-    const error = baseline === null ? "systemApiKeyDateUnavailable" : apiKeyDateValidation.scope === modalScope(modal) ? apiKeyDateValidation.errors[key] : undefined;
-    const id = `api-key-date-${key}`;
-    return <label className={error ? "has-error" : undefined}>
-      <span>{t(key === "valid_from" ? "systemApiKeyValidFrom" : "systemApiKeyExpiresAt")}</span>
-      <input aria-describedby={`${id}-help${error ? ` ${id}-error` : ""}`} aria-invalid={Boolean(error)} defaultValue={baseline ?? ""} disabled={disabled || baseline === null} name={key} type="datetime-local" onChange={() => setApiKeyDateValidation(current => ({ scope: modalScope(modal), errors: { ...(current.scope === modalScope(modal) ? current.errors : {}), [key]: undefined } }))} />
-      <small id={`${id}-help`}>{format("systemApiKeyDateTimezone", { timezone: Intl.DateTimeFormat().resolvedOptions().timeZone })}</small>
-      {error ? <FeedbackField id={`${id}-error`}>{t(error)}</FeedbackField> : null}
-    </label>;
-  }
-
-  function sameApiKeyScope(left: string[], right: string[]) {
-    return JSON.stringify([...left].sort()) === JSON.stringify([...right].sort());
-  }
-
-  function syncIntegrationClient(updated: IntegrationClientResponse) {
-    setIntegrationClients((current) => current.map((item) => item.id === updated.id ? updated : item));
-    setApiKeyScopeDrafts((current) => ({ ...current, [updated.id]: updated.project_ids }));
-    setModal((current) => current?.type === "api-key-manage" && current.client.id === updated.id ? { ...current, client: updated } : current);
-  }
-
-  function openApiKeyCreateModal() {
-    setApiKeyProjectDraft([]);
-    setModalError("");
-    setModal({ type: "api-key-create" });
-  }
-
-  function openApiKeyManageModal(client: IntegrationClientResponse) {
-    const scope = systemReadScope;
-    void readSystemSection("selectedProjects", () => Promise.all(client.project_ids.map(id => getProject(apiFetch, id))), cacheProjects, () => systemReadScopeRef.current === scope);
-
-    setApiKeyScopeDrafts((current) => ({ ...current, [client.id]: client.project_ids }));
-    setModalError("");
-    setModal({ type: "api-key-manage", client });
-  }
-
-  async function submitApiKey(formData: FormData) {
-    if (!sectionReady("projects")) { setModalError(t("systemReadUnknown")); return; }
-    const dates = apiDateValues(formData); if (!dates) return;
-    if (!apiKeyProjectDraft.length) { setModalError(t("systemApiKeyProjectRequired")); return; }
-    await runModalMutation(() => createIntegrationClient(apiFetch, {
-      name: String(formData.get("name") || "").trim(), description: String(formData.get("description") || "").trim() || null,
-      contact_name: String(formData.get("contact_name") || "").trim() || null, contact_email: String(formData.get("contact_email") || "").trim() || null,
-      contact_department: String(formData.get("contact_department") || "").trim() || null,
-      ...dates,
-      requests_per_minute: Number(formData.get("requests_per_minute") || 60), project_ids: apiKeyProjectDraft
-    }), async (created, current) => {
-      setApiKeyOneTime({ name: created.name, key: created.api_key }); setApiKeyProjectDraft([]);
-      await refreshIntegrationClients(current);
-    }, "systemApiKeyCreated");
-  }
-
-  async function saveApiKeyManagement(client: IntegrationClientResponse, formData: FormData) {
-    const dates = apiDateValues(formData, client); if (!dates) return;
-    const projectIds = apiKeyScopeDrafts[client.id] ?? client.project_ids;
-    if (!projectIds.length) { setModalError(t("systemApiKeyProjectRequired")); return; }
-    await runModalMutation(async (_accepted, current) => {
-      const updated = await updateIntegrationClient(apiFetch, client.id, {
-        lock_version: client.lock_version, name: String(formData.get("name") || "").trim(),
-        description: String(formData.get("description") || "").trim() || null, contact_name: String(formData.get("contact_name") || "").trim() || null,
-        contact_email: String(formData.get("contact_email") || "").trim() || null, contact_department: String(formData.get("contact_department") || "").trim() || null,
-        ...dates, requests_per_minute: Number(formData.get("requests_per_minute") || 60)
-      });
-      if (!current()) throw new DOMException("", "AbortError");
-      if (sameApiKeyScope(projectIds, updated.project_ids)) return updated;
-      try { return await replaceIntegrationClientProjectScopes(apiFetch, client.id, { lock_version: updated.lock_version, project_ids: projectIds }); }
-      catch { if (current()) setModalQueryMessage(t("feedbackPartialUpdate")); throw new MutationOutcomeUnknown(); }
-    }, syncIntegrationClient, "systemApiKeyUpdated");
-  }
-
-  async function rotateApiKey(client: IntegrationClientResponse) {
-    await runModalMutation(() => rotateIntegrationClientKey(apiFetch, client.id, { lock_version: client.lock_version, reason: "manual_rotate" }), async (rotated, current) => {
-      setApiKeyOneTime({ name: rotated.name, key: rotated.api_key }); await refreshIntegrationClients(current);
-    }, "systemApiKeyRotated");
-  }
-
-  async function setApiKeyStatus(client: IntegrationClientResponse, active: boolean) {
-    await runModalMutation(() => active ? activateIntegrationClient(apiFetch, client.id, { lock_version: client.lock_version, reason: "manual_activate" }) : deactivateIntegrationClient(apiFetch, client.id, { lock_version: client.lock_version, reason: "manual_deactivate" }), syncIntegrationClient);
-  }
-
-  async function revokeApiKey(client: IntegrationClientResponse, accepted: () => void) {
-    const updated = await revokeIntegrationClient(apiFetch, client.id, { lock_version: client.lock_version, reason: "manual_revoke" });
-    accepted(); syncIntegrationClient(updated);
-  }
-
-  function apiKeyStatusLabel(client: IntegrationClientResponse) {
-    if (client.effective_status === "expired") return t("systemApiKeyExpired");
-    if (client.effective_status === "scheduled") return t("systemApiKeyScheduled");
-    if (client.status === "revoked") return t("systemApiKeyRevokedStatus");
-    return client.status === "active" ? t("systemEnabled") : t("systemDisabled");
   }
 
   function apiKeyStatusTone(client: IntegrationClientResponse): "green" | "gold" | "gray" | "coral" {
