@@ -11,6 +11,7 @@ import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, useModelState } from "./system/useModelSection";
 import { createPromptActions, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, useRoleState } from "./system/useRoleSection";
+import { createUserActions, useUserState } from "./system/useUserSection";
 import { emptyPermissionState, permissionMenuRows, permissionPayload, permissionStateFromResponse, type GroupMappingRow, type PermissionAction, type PermissionState, type RoleStatusFilter } from "./system/permissionHelpers";
 import { type ModelDeleteDependency, aiProviders, containsSecretConfigKey, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, secretConfigKeys } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
@@ -167,7 +168,8 @@ export default function SystemManagementWorkspace({
 
   const roleState = useRoleState();
   const { selectedRole, setSelectedRole, permissions, setPermissions, permissionSaved, setPermissionSaved, liveRoles, setLiveRoles, liveGroupMappings, setLiveGroupMappings, externalGroups, setExternalGroups, roleTableIds, setRoleTableIds, roleTotal, setRoleTotal, roleOverallTotal, setRoleOverallTotal, rolePage, setRolePage, rolePageSize, setRolePageSize, memberOffset, setMemberOffset, memberTotal, setMemberTotal, memberCandidateIds, setMemberCandidateIds, roleUsersReadback, setRoleUsersReadback, roleUsers, setRoleUsers, roleUserDraftIds, setRoleUserDraftIds, roleUserSearch, setRoleUserSearch, rolesView, setRolesView, roleQuery, setRoleQuery, roleStatusFilter, setRoleStatusFilter, roleActionId, setRoleActionId, roleDeleteConfirmation, setRoleDeleteConfirmation, mappingGroupDraft, setMappingGroupDraft, roleMenuTriggerRef } = roleState;
-  const [liveUsers, setLiveUsers] = useState<UserRow[]>([]);
+  const userState = useUserState();
+  const { liveUsers, setLiveUsers, userTableIds, setUserTableIds, userTotal, setUserTotal, userOverallTotal, setUserOverallTotal, userPage, setUserPage, userPageSize, setUserPageSize, userQuery, setUserQuery, userSourceFilter, setUserSourceFilter } = userState;
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
   const modelState = useModelState();
   const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = modelState;
@@ -196,6 +198,7 @@ export default function SystemManagementWorkspace({
   const [quickQueryFailed, setQuickQueryFailed] = useState(false);
   const { notify } = useFeedback();
   const [modal, setModalState] = useState<ModalState | null>(null);
+  const { cacheUsers, submitUser, toggleUser } = createUserActions(userState, { apiFetch, modal, runModalMutation });
   const [dirtyModal, setDirtyModal] = useState<ModalState | null>(null);
   const [discardModal, setDiscardModal] = useState<ModalState | null>(null);
   const systemDialogRef = useRef<HTMLElement>(null);
@@ -244,18 +247,11 @@ export default function SystemManagementWorkspace({
   const modalReceiptId = useRef<string | null>(null);
   const modalMutationScope = useRef<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
-  const [userTableIds, setUserTableIds] = useState<string[]>([]);
-  const [userTotal, setUserTotal] = useState(0);
-  const [userOverallTotal, setUserOverallTotal] = useState<number | null>(null);
-  const [userPage, setUserPage] = useState(1);
-  const [userPageSize, setUserPageSize] = useState(20);
   const [clientNextCursor, setClientNextCursor] = useState<string | null>(null);
   const [projectQuery, setProjectQuery] = useState("");
   const [projectOffset, setProjectOffset] = useState(0);
   const [projectTotal, setProjectTotal] = useState(0);
   const [projectCandidateIds, setProjectCandidateIds] = useState<string[]>([]);
-  const [userQuery, setUserQuery] = useState("");
-  const [userSourceFilter, setUserSourceFilter] = useState("all");
   const canViewSystemManagement = can("Menu", "SystemManagement", "view");
   const canCreateSystemManagement = can("Menu", "SystemManagement", "create");
   const canEditSystemManagement = can("Menu", "SystemManagement", "edit");
@@ -349,13 +345,6 @@ export default function SystemManagementWorkspace({
       setReadState(section, { scope, phase: "status" in error && error.status === 403 ? "forbidden" : "error", received: Boolean(received), error });
       return false;
     }
-  }
-  function cacheUsers(rows: UserSummary[]) {
-    setLiveUsers(current => {
-      const map = new Map(current.map(row => [row.id, row]));
-      rows.forEach(user => map.set(user.id, userRow(user)));
-      return [...map.values()];
-    });
   }
   function cacheProjects(rows: ProjectResponse[]) { setLiveProjects(current => [...new Map([...current, ...rows].map(row => [row.id, row])).values()]); }
   async function reloadSystemSection(section: string, current: () => boolean = () => true): Promise<boolean> {
@@ -754,25 +743,6 @@ export default function SystemManagementWorkspace({
     const restoreTarget = modal?.type === "role-delete" ? roleMenuTriggerRef.current : null;
     setModal(null);
     if (restoreTarget) window.requestAnimationFrame(() => restoreTarget.focus());
-  }
-
-  async function submitUser(formData: FormData) {
-    if (modal?.type !== "user") return;
-    const payload: Parameters<typeof updateUser>[2] = {
-      knowledge_owner: formData.get("knowledge_owner") === "on", system_notes: String(formData.get("system_notes") || "")
-    };
-    const baseline = modal.user.raw?.manager_delegate_user_id;
-    if (baseline !== undefined && formData.has("manager_delegate_user_id")) {
-      const selected = String(formData.get("manager_delegate_user_id") || "").trim() || null;
-      if (selected !== baseline) payload.manager_delegate_user_id = selected;
-    }
-    await runModalMutation(() => updateUser(apiFetch, modal.user.id, payload), updated => { setLiveUsers(current => current.map(user => user.id === updated.id ? userRow(updated) : user)); }, "systemUserLocalFieldsSaved");
-  }
-
-  async function toggleUser(user: UserRow, accepted: () => void) {
-    const next = user.status !== "active";
-    const updated = await updateUserStatus(apiFetch, user.id, next); accepted();
-    setLiveUsers((current) => current.map((item) => item.id === user.id ? { ...item, status: updated.is_active ? "active" : "inactive", raw: updated } : item));
   }
 
 
