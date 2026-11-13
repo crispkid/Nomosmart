@@ -2,338 +2,38 @@
 
 import { resourcePageTitle } from "@/lib/browserTitle";
 
-import { contentUpdateFeedback, type ContentUpdateFeedback } from "@/lib/contentUpdateFeedback";
-import { FeedbackMessage, FeedbackField, feedbackIcons } from "@/components/FeedbackMessage";
+import { contentUpdateFeedback } from "@/lib/contentUpdateFeedback";
+import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Plus, RotateCcw, Tags, Trash2, Wand2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Tags, Trash2, X } from "lucide-react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
-import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useAuth } from "@/components/AuthProvider";
 import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
 import { OriginalFileDownload } from "@/components/OriginalFileDownload";
 import { IconActionButton } from "@/components/IconActionButton";
 import { useSourceViewPosition } from "@/lib/sourceViewPosition";
-import { FileProcessingStatus } from "@/components/FileProcessingStatus";
-import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
-import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
 import { formatCount } from "@/lib/numberFormat";
 import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
-import { ocrFailureKey, ocrRetryBlocked, ocrRetryBlockReasonKey } from "@/lib/ocrPresentation";
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
 import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, completionGateBlocksKnowledgeDetail, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
-import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type ApprovalChunkEvidence, type KnowledgeDetailResponse, type KnowledgeTagResponse, type PipelineRunDetail } from "@/lib/api";
+import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { mappedSelectionRange } from "@/lib/manualSourceSelection";
 import { VersionGraphPreview } from "@/components/VersionGraphPreview";
-import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { pipelineStepLabel } from "@/lib/pipelineSteps";
-import { codePointLength, markdownArtifactReasonKey, resolvedSourceMappings, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior, type ResolvedSourceMapping } from "@/lib/markdownSourceMapping";
+import { useI18n } from "@/lib/i18nClient";
+import { codePointLength, markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior } from "@/lib/markdownSourceMapping";
 import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi";
 
 const DocumentContentEditorModal = dynamic(() => import("@/components/DocumentContentEditorModal").then(module => module.DocumentContentEditorModal), { ssr: false });
 
-type Translate = (key: TranslationKey) => string;
-type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
-
-type KnowledgeChunk = {
-  id: string;
-  index: number;
-  title: string;
-  type: "text" | "image" | "table" | "chart";
-  sourceAnchor: string;
-  sourceMappings: ResolvedSourceMapping[];
-  sourceLabel: string;
-  content: string;
-  displayMarkdown: string | null;
-  markdownContent: string | null;
-  tokens: number;
-  confidence: number;
-  tags: string[];
-  tagDetails: KnowledgeTagResponse[];
-};
-
-type ArticleView = "original" | "markdown";
-type DocumentView = ArticleView | "tags";
-
-type ManualTextSelection = {
-  content: string;
-  viewMode: ArticleView;
-  sourceAnchor: string;
-  startOffset: number;
-  endOffset: number;
-  offsetScope: "canonical_markdown" | "source_anchor";
-  top: number;
-  left: number;
-};
-
-function sourceAnchor(chunk: ApprovalChunkEvidence) {
-  const resolved = resolvedSourceMappings(chunk.source_mapping)[0];
-  if (resolved) return resolved.sourceAnchor;
-  const firstMapping = chunk.source_mapping[0] as Record<string, unknown> | undefined;
-  const mappedAnchor = firstMapping?.sourceAnchor ?? firstMapping?.source_anchor ?? firstMapping?.anchor;
-  return typeof mappedAnchor === "string" && mappedAnchor ? mappedAnchor : `chunk-${chunk.chunk_index}`;
-}
-
-function sourceLabel(chunk: ApprovalChunkEvidence, _t: Translate, format: Format) {
-  const firstMapping = chunk.source_mapping[0] as Record<string, unknown> | undefined;
-  const page = firstMapping?.page ?? firstMapping?.page_number;
-  if (typeof page === "number" || typeof page === "string") return format("knowledgeDetailOriginalPage", { page });
-  return format("knowledgeDetailChunkLabel", { number: chunk.chunk_index });
-}
-
-function chunkType(contentType: string): KnowledgeChunk["type"] {
-  if (contentType === "image" || contentType === "table" || contentType === "chart") return contentType;
-  return "text";
-}
-
-function displayChunkTitle(title: string | null | undefined, chunkIndex: number, format: Format) {
-  const fallback = format("knowledgeDetailChunkTitle", { number: chunkIndex });
-  const candidate = title?.trim() || fallback;
-  return candidate.replace(new RegExp(`\\s+#${chunkIndex}\\s*$`), "").trim() || fallback;
-}
-
-function visibleTagDetails(tags: KnowledgeTagResponse[]) {
-  return tags.filter((tag) => tag.source !== "rule");
-}
-
-function liveChunk(chunk: ApprovalChunkEvidence, t: Translate, format: Format): KnowledgeChunk {
-  const tagDetails = chunk.tag_details ?? chunk.tags.map((tag, index) => ({ tag_id: `${chunk.id}-${index}`, tag_text: tag, source: "legacy", confidence_score: null, metadata: {}, created_by: null, created_at: "" }));
-  return {
-    id: chunk.id,
-    index: chunk.chunk_index,
-    title: displayChunkTitle(chunk.title, chunk.chunk_index, format),
-    type: chunkType(chunk.content_type),
-    sourceAnchor: sourceAnchor(chunk),
-    sourceMappings: resolvedSourceMappings(chunk.source_mapping),
-    sourceLabel: sourceLabel(chunk, t, format),
-    content: chunk.content,
-    displayMarkdown: chunk.display_markdown,
-    markdownContent: chunk.markdown_content,
-    tokens: chunk.token_count ?? 0,
-    confidence: chunk.confidence_score ?? 0,
-    tags: visibleTagDetails(tagDetails).map((tag) => tag.tag_text),
-    tagDetails: visibleTagDetails(tagDetails)
-  };
-}
-
-function ChunkPreview({ chunk }: { chunk: KnowledgeChunk }) {
-  return (
-    <ChunkMarkdownView
-      chunk={{
-        content: chunk.content,
-        display_markdown: chunk.displayMarkdown,
-        markdown_content: chunk.markdownContent,
-      }}
-      className="chunk-safe-markdown"
-    />
-  );
-}
-
-function TagResultStrip({ className = "", label, tags, t }: { className?: string; label: string; tags: KnowledgeTagResponse[]; t: Translate }) {
-  return (
-    <div aria-label={label} className={`tag-result-strip ${className}`}>
-      <span className="tag-result-strip-label">{label}</span>
-      <div className="tag-result-strip-list">
-        {tags.length ? tags.map((tag) => (
-          <span className={`knowledge-tag-chip tag-source-${tag.source}`} key={tag.tag_id}>
-            <em>{tag.tag_text}</em>
-            <small>{tag.source}</small>
-          </span>
-        )) : <small>{t("knowledgeDetailNoTags")}</small>}
-      </div>
-    </div>
-  );
-}
-
-function layoutUnavailableLabel(status: string | undefined, t: Translate) {
-  if (status === "partial") return t("knowledgeDetailLayoutPartial");
-  if (status === "failed") return t("knowledgeDetailLayoutFailed");
-  return t("knowledgeDetailLayoutUnavailable");
-}
-
-function isPipelineActive(pipeline: PipelineRunDetail | null | undefined) {
-  return Boolean(pipeline && ["running", "processing", "waiting_action", "queued"].includes(pipeline.status));
-}
-
-function failedPipelineStep(pipeline: PipelineRunDetail | null | undefined) {
-  return pipeline?.steps.find((step) => step.status === "failed") ?? null;
-}
-
-function shouldPollKnowledgeCompletionGate(detail: KnowledgeDetailResponse | null) {
-  const pipeline = detail?.pipeline;
-  if (!pipeline || !completionGateBlocksKnowledgeDetail(detail)) return false;
-  if (pipeline.status === "failed" || failedPipelineStep(pipeline)) return false;
-  return isPipelineActive(pipeline);
-}
-
-function pipelineFailureKey(step: PipelineRunDetail["steps"][number] | null | undefined, message?: string | null): TranslationKey {
-  return ocrFailureKey(step, message);
-}
-
-function imageOcrRetryBlocked(step: PipelineRunDetail["steps"][number] | null | undefined) {
-  return ocrRetryBlocked(step);
-}
-
-function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked, onRetry, t, format, embedded = false }: { detail: KnowledgeDetailResponse | null; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format; embedded?: boolean }) {
-  const pipeline = detail?.pipeline ?? null;
-  const failedStep = failedPipelineStep(pipeline);
-  const active = isPipelineActive(pipeline);
-  const currentStepName = failedStep?.step_name ?? pipeline?.current_step_name ?? null;
-  const imageOcrStep = pipeline?.steps.find(step => step.step_name === "ocr_extract" && (step.input_mode === "page_images" || step.input_mode === "native_pdf"));
-  const nativePending = imageOcrStep?.input_mode === "native_pdf" && imageOcrStep.status !== "completed";
-  const progress = Math.max(0, Math.min(100, Math.round(pipeline?.progress_percent ?? 0)));
-  const retryLimitReached = (failedStep?.retry_count ?? 0) >= 3;
-  const canRetry = Boolean(detail && pipeline?.id && detail.version.id && failedStep && !reviewLocked && !retryLimitReached && !imageOcrRetryBlocked(failedStep) && detail.content_update?.status !== "blocked");
-
-  return (
-    <div className={embedded ? "knowledge-detail-gate-body" : `pipeline-layout-fallback ${failedStep ? "failed" : active ? "running" : "idle"}`}>
-      {!embedded ? <div className="pipeline-layout-icon" aria-hidden="true">
-        {active ? <Loader2 className="spin" size={22} /> : failedStep ? <AlertTriangle size={22} /> : <FileText size={22} />}
-      </div> : null}
-      <div className="pipeline-layout-content">
-        {!embedded ? <><strong>{active ? t("knowledgeDetailPipelineGeneratingLayout") : failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailPipelineWaitingTitle")}</strong>
-        <p>{active ? t("knowledgeDetailPipelineGeneratingLayoutHelp") : failedStep ? t("knowledgeDetailPipelineFailedHelp") : layoutUnavailableLabel(detail?.document_layout?.status, t)}</p></> : null}
-        <div className="pipeline-progress-row">
-          <span>{pipelineStepLabel(currentStepName, t)}</span>
-          {!nativePending ? <span>{format("knowledgeDetailPipelineProgressPercent", { percent: progress })}</span> : null}
-        </div>
-        {!nativePending ? <div className="pipeline-progress-track" aria-label={t("knowledgeDetailPipelineProgress")} role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress}>
-          <span style={{ width: `${progress}%` }} />
-        </div> : null}
-        <FileProcessingStatus execution={pipeline?.execution} queued={pipeline?.status === "queued"} />
-        <OCRBudgetStatus step={imageOcrStep} />
-        <ChunkingIssueSummary issue={failedStep?.chunking_issue} />
-        {!failedStep?.chunking_issue && (failedStep?.error_message || pipeline?.error_message) ? <FeedbackField>{t(pipelineFailureKey(failedStep, failedStep?.error_message ?? pipeline?.error_message))}</FeedbackField> : null}
-        {imageOcrRetryBlocked(failedStep) ? <small className="field-note">{t(ocrRetryBlockReasonKey(failedStep) ?? "ocrImagePartialReview")}</small> : null}
-        {reviewLocked ? <small className="field-note">{t("knowledgeDetailReviewLockedReason")}</small> : null}
-        {retryLimitReached ? <small className="field-note">{t("knowledgeDetailRetryLimitReached")}</small> : null}
-        {retryError ? <FeedbackField>{t("knowledgeDetailRetryFailed")}</FeedbackField> : null}
-        {!embedded && canRetry && failedStep ? (
-          <button className="action-button secondary" disabled={retryingStep === failedStep.step_name} type="button" onClick={() => onRetry(failedStep.step_name)}>
-            {retryingStep === failedStep.step_name ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {retryingStep === failedStep.step_name ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function KnowledgeDetailCompletionGate({ detail, projectId, retryingStep, retryError, reviewLocked, onRetry, onEdit, t, format, contentFeedback }: { detail: KnowledgeDetailResponse; projectId: string; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; onEdit: () => void; t: Translate; format: Format; contentFeedback: ContentUpdateFeedback | null }) {
-  const failedStep = failedPipelineStep(detail.pipeline);
-  const retryLimitReached = (failedStep?.retry_count ?? 0) >= 3;
-  const activelyProcessing = isPipelineActive(detail.pipeline) && detail.pipeline?.execution?.phase !== "recovery_required";
-  const canRetry = Boolean(detail.pipeline?.id && failedStep && !reviewLocked && !retryLimitReached && !imageOcrRetryBlocked(failedStep) && detail.content_update?.status !== "blocked");
-  const tone = contentFeedback?.tone ?? (failedStep ? "error" : activelyProcessing ? "info" : "warning");
-  const Icon = feedbackIcons[tone];
-  return (
-    <section className={`knowledge-detail-gate feedback-workflow feedback-${tone}`} role={tone === "error" ? "alert" : "status"}>
-      <div className="knowledge-detail-gate-heading">
-        <span aria-hidden="true">{contentFeedback ? <Icon size={24} /> : activelyProcessing ? <Loader2 className="spin" size={24} /> : <AlertTriangle size={24} />}</span>
-        <div>
-          <strong>{failedStep ? t("knowledgeDetailPipelineFailedTitle") : t("knowledgeDetailCompletionGateTitle")}</strong>
-          <p>{contentFeedback ? t(contentFeedback.message) : failedStep ? t("knowledgeDetailPipelineFailedHelp") : t("knowledgeDetailCompletionGateHelp")}</p>
-        </div>
-      </div>
-      <LayoutPipelineFallback embedded detail={detail} format={format} onRetry={onRetry} retryError={retryError} retryingStep={retryingStep} reviewLocked={reviewLocked} t={t} />
-      <div className="knowledge-detail-gate-actions">
-        {detail.content_edit_mode === "overwrite_candidate" && detail.document.capabilities?.can_edit_chunks ? <button className="action-button" type="button" onClick={onEdit}><Edit3 size={16} />{t("contentEditAction")}</button> : null}
-        {canRetry && failedStep ? <button className="action-button secondary" disabled={retryingStep === failedStep.step_name} type="button" onClick={() => onRetry(failedStep.step_name)}>
-          {retryingStep === failedStep.step_name ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {retryingStep === failedStep.step_name ? t("knowledgeDetailRetryingStep") : t("knowledgeDetailRetryFailedStep")}
-        </button> : null}
-        <Link className="action-button secondary" href={`/project/${projectId}/import`}>
-          <ArrowLeft size={16} /> {t("knowledgeDetailBackToDocuments")}
-        </Link>
-      </div>
-    </section>
-  );
-}
-
-function TagEditor({
-  tags,
-  label,
-  draft,
-  disabled,
-  busy,
-  onDraft,
-  onAdd,
-  onAuto,
-  onDelete,
-  t
-}: {
-  tags: KnowledgeTagResponse[];
-  label?: string;
-  draft: string;
-  disabled: boolean;
-  busy: boolean;
-  onDraft: (value: string) => void;
-  onAdd: () => void;
-  onAuto: () => void;
-  onDelete: (tagId: string) => void;
-  t: Translate;
-}) {
-  const [adding, setAdding] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (adding) inputRef.current?.focus();
-  }, [adding]);
-
-  function submitInlineTag() {
-    if (!draft.trim() || disabled || busy) return;
-    onAdd();
-    setAdding(false);
-  }
-
-  return (
-    <div className="knowledge-tag-editor" onClick={(event) => event.stopPropagation()} onKeyDown={(event) => event.stopPropagation()}>
-      {label ? <span className="knowledge-tag-editor-label">{label}</span> : null}
-      <div className="knowledge-tag-list">
-        {tags.length ? tags.map((tag) => (
-          <span className={`knowledge-tag-chip tag-source-${tag.source}`} key={tag.tag_id}>
-            <em>{tag.tag_text}</em>
-            <small>{tag.source}</small>
-            <button aria-label={`${t("knowledgeDetailDeleteTag")} ${tag.tag_text}`} disabled={disabled || busy} onClick={() => onDelete(tag.tag_id)} type="button"><Trash2 size={12} /></button>
-          </span>
-        )) : <small>{t("knowledgeDetailNoTags")}</small>}
-        {adding ? (
-          <input
-            aria-label={t("knowledgeDetailTagInputPlaceholder")}
-            className="knowledge-tag-inline-input"
-            disabled={disabled || busy}
-            maxLength={80}
-            onBlur={() => {
-              if (!draft.trim()) setAdding(false);
-            }}
-            onChange={(event) => onDraft(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") {
-                event.preventDefault();
-                submitInlineTag();
-              }
-              if (event.key === "Escape") {
-                event.preventDefault();
-                onDraft("");
-                setAdding(false);
-              }
-            }}
-            placeholder={t("knowledgeDetailTagInputPlaceholder")}
-            ref={inputRef}
-            value={draft}
-          />
-        ) : (
-          <button className="knowledge-tag-add-button" disabled={disabled || busy} onClick={() => setAdding(true)} title={t("knowledgeDetailAddTag")} type="button"><Plus size={15} /></button>
-        )}
-        <button className="knowledge-tag-auto-button" disabled={disabled || busy} onClick={onAuto} title={t("knowledgeDetailAutoTag")} type="button">{busy ? <Loader2 className="spin" size={15} /> : <Wand2 size={15} />}</button>
-      </div>
-    </div>
-  );
-}
+import { type Translate, type KnowledgeChunk, type ArticleView, type DocumentView, type ManualTextSelection, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate } from "@/components/knowledgeDetail/knowledgeDetailModel";
+import { ChunkPreview, TagResultStrip, KnowledgeDetailCompletionGate, TagEditor } from "@/components/knowledgeDetail/KnowledgeDetailParts";
 
 export default function KnowledgePage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
