@@ -1,7 +1,8 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
-import type { ProjectResponse } from "@/lib/api";
+import type { ApiFetch, ProjectResponse } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18nClient";
-import type { ModalState } from "./modalState";
+import type { ModalState, ModelRow } from "./modalState";
+import type { QuickMutationTarget } from "./useModelSection";
 
 /** Values the workspace shares with section views; each view picks what it renders with (OPT424-038). */
 export type WorkspaceViewDeps = {
@@ -23,5 +24,20 @@ export type WorkspaceViewDeps = {
   activeProjects: ProjectResponse[];
   projectNameById: Map<string, string>;
   clientNextCursor: string | null;
+  apiFetch: ApiFetch;
+  locale: "en" | "zh";
+  localize: (message: string) => string;
+  localizedStatus: (status: string) => string;
+  localizedOperationStatus: (status: string) => string;
+  quickBlocked: boolean;
+  runQuickMutation: (target: QuickMutationTarget, write: () => Promise<unknown>, refresh: (current: () => boolean) => Promise<void>) => Promise<void>;
+  canCreateModels: boolean;
+  canEditModels: boolean;
+  canDeleteModels: boolean;
+  activeEmbeddingModels: ModelRow[];
+  refreshModelTable: () => Promise<void>;
+  modelTableFirst: number;
+  modelTableLast: number;
+  modelTableTotalPages: number;
   setClientNextCursor: Dispatch<SetStateAction<string | null>>;
 };

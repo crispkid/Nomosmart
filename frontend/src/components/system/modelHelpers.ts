@@ -1,5 +1,6 @@
 /** Model form, provider and pairing helpers shared by the system workspace (OPT424-038). */
 import type { AIModelResponse } from "@/lib/api";
+import type { TranslationKey } from "@/lib/i18nClient";
 import { UiValidationError } from "@/lib/transportError";
 import type { ModelRow } from "./modalState";
 
@@ -68,4 +69,27 @@ export function containsSecretConfigKey(value: unknown): boolean {
     const normalizedKey = key.toLowerCase().replaceAll("-", "_");
     return secretConfigKeys.has(normalizedKey) || normalizedKey.endsWith("_secret") || normalizedKey.endsWith("_api_key") || containsSecretConfigKey(item);
   });
+}
+
+export function modelConfigValue(model: ModelRow | undefined, key: string, fallback = "") {
+  const value = model?.raw?.config?.[key];
+  return typeof value === "string" || typeof value === "number" || typeof value === "boolean" ? String(value) : fallback;
+}
+
+export const nativePdfLimitLabels: Record<typeof nativePdfLimitFields[number], TranslationKey> = {
+  max_input_bytes: "nativePdfMaxInput", max_request_bytes: "nativePdfMaxRequest", max_response_bytes: "nativePdfMaxResponse",
+  context_window: "nativePdfContext", min_output_tokens: "nativePdfMinOutput", max_output_tokens: "nativePdfMaxOutput"
+};
+
+export function providerNeedsCredential(provider: string) {
+  return provider === "OpenAI" || provider === "Gemini" || provider === "Claude";
+}
+
+export function providerHelpKey(provider: string): TranslationKey {
+  if (provider === "OpenAI") return "systemProviderHelpOpenAI";
+  if (provider === "Gemini") return "systemProviderHelpGemini";
+  if (provider === "Claude") return "systemProviderHelpClaude";
+  if (provider === "Ollama") return "systemProviderHelpOllama";
+  if (provider === "vLLM") return "systemProviderHelpVllm";
+  return "systemProviderHelpCustom";
 }
