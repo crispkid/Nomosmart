@@ -40,7 +40,7 @@ export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListO
   return { items, total };
 }
 export async function listProjects(apiFetch: ApiFetch, status: "active" | "archived" = "active") { return collectOffsetPages(offset => listProjectsPage(apiFetch, { status, offset, limit: 200 })); }
-export async function getProject(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`); }
+export async function getProject(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`, { signal }); }
 export async function createProject(apiFetch: ApiFetch, payload: ProjectCreatePayload) { return apiJson<ProjectResponse>(apiFetch, "/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getProjectArchiveImpact(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectArchiveImpactResponse>(apiFetch, `/projects/${projectId}/archive-impact`); }
 export async function archiveProject(apiFetch: ApiFetch, projectId: string, payload: { lock_version: number; confirmation_name: string }) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
@@ -73,7 +73,7 @@ export async function rotateIntegrationClientKey(apiFetch: ApiFetch, clientId: s
 export async function activateIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; reason?: string | null }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/activate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function deactivateIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; reason?: string | null }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/deactivate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function revokeIntegrationClient(apiFetch: ApiFetch, clientId: string, payload: { lock_version: number; reason?: string | null }) { return apiJson<IntegrationClientResponse>(apiFetch, `/integration-clients/${clientId}/revoke`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function listProjectMembers(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectMemberResponse[]>(apiFetch, `/projects/${projectId}/members`); }
+export async function listProjectMembers(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectMemberResponse[]>(apiFetch, `/projects/${projectId}/members`, { signal }); }
 export async function searchProjectMemberCandidates(apiFetch: ApiFetch, projectId: string, query: string, signal?: AbortSignal) {
   const params = new URLSearchParams({ q: query.trim(), offset: "0", limit: "20" });
   return apiJson<ProjectMemberCandidatePage>(apiFetch, `/projects/${projectId}/member-candidates?${params.toString()}`, { signal });
@@ -111,8 +111,8 @@ export async function createDataSource(apiFetch: ApiFetch, projectId: string, pa
 export async function queueDataSourceSync(apiFetch: ApiFetch, projectId: string, dataSourceId: string) {
   return apiJson<DataSyncRunResponse>(apiFetch, `/projects/${projectId}/data-sources/${dataSourceId}/sync`, { method: "POST" });
 }
-export async function listDataSourceSyncRuns(apiFetch: ApiFetch, projectId: string, dataSourceId: string) {
-  return apiJson<DataSyncRunResponse[]>(apiFetch, `/projects/${projectId}/data-sources/${dataSourceId}/sync-runs`);
+export async function listDataSourceSyncRuns(apiFetch: ApiFetch, projectId: string, dataSourceId: string, signal?: AbortSignal) {
+  return apiJson<DataSyncRunResponse[]>(apiFetch, `/projects/${projectId}/data-sources/${dataSourceId}/sync-runs`, { signal });
 }
 export async function startDocumentExtraction(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, payload: { ocr_model_id?: string | null }) {
   return apiJson<{ document: DocumentSummary; pipeline: PipelineSummary }>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/extract`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });

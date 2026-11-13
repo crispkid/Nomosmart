@@ -114,7 +114,7 @@ export async function getSystemParameters(apiFetch: ApiFetch, signal?: AbortSign
   }
   return value;
 }
-export async function getUploadConfig(apiFetch: ApiFetch) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config"); }
+export async function getUploadConfig(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config", { signal }); }
 export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersUpdatePayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemStatus(apiFetch: ApiFetch) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status"); }
 

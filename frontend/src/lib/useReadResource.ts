@@ -11,6 +11,8 @@ export type ReadResourceOptions<T> = {
   onData?: (data: T) => void;
   /** Called once per current read that fails (automatic or explicit). */
   onError?: (error: unknown) => void;
+  /** Called synchronously when a read starts. */
+  onStart?: () => void;
 };
 
 /**
@@ -27,7 +29,8 @@ export function useReadResource<T>(load: (signal: AbortSignal) => Promise<T>, sc
   const keepData = options.keepData ?? false;
   const onData = useRef(options.onData);
   const onError = useRef(options.onError);
-  useEffect(() => { onData.current = options.onData; onError.current = options.onError; });
+  const onStart = useRef(options.onStart);
+  useEffect(() => { onData.current = options.onData; onError.current = options.onError; onStart.current = options.onStart; });
   // One read; resolves { committed } and rethrows the error of a current failed read.
   const run = useCallback(async (): Promise<{ committed: false } | { committed: true; data: T }> => {
     if (!enabled) return { committed: false };
@@ -37,6 +40,7 @@ export function useReadResource<T>(load: (signal: AbortSignal) => Promise<T>, sc
     controller.current = current;
     const same = (value: ReadState<T> | null): value is ReadState<T> => Boolean(value && value.scope === scope && value.load === load);
     setState((previous) => ({ scope, load, data: keepData && same(previous) ? previous.data : null, status: "loading", error: null }));
+    onStart.current?.();
     let data: T;
     try {
       data = await load(current.signal);

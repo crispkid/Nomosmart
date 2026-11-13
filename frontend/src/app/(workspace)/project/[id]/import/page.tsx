@@ -8,7 +8,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import { ocrFailureKey, ocrRetryBlocked } from "@/lib/ocrPresentation";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Clock3, FilePlus2, MessageSquareText, Network, ShieldCheck } from "lucide-react";
 import { AppShell, PageGrid, Panel, StatCard } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload } from "@/components/KnowledgeSourceModals";
@@ -16,13 +16,14 @@ import { formatCount } from "@/lib/numberFormat";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDataSourceConnectionOptions, getPipelineDetail, getProject, getUploadConfig, listModels, listProjectDocuments, listProjectMembers, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, uploadProjectDocuments, type AIModelResponse, type ApiError, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse } from "@/lib/api";
+import { createDataSource, getDataSourceConnectionOptions, getPipelineDetail, getProject, getUploadConfig, listModels, listProjectDocuments, listProjectMembers, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, uploadProjectDocuments, type AIModelResponse, type ApiError, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse, type ProjectMemberResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { pipelineIsExecuting } from "@/lib/reviewPresentation";
 import { confirmedUploadResults, UploadAttemptGuard, uploadOutcomeUnknown, type UploadBatchResult } from "@/lib/uploadProgress";
+import { useReadResource } from "@/lib/useReadResource";
 import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
@@ -70,7 +71,7 @@ function ProjectImportPage() {
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [project, setProject] = useState<ProjectResponse | null>(null);
   const [titleRead, setTitleRead] = useState<{ fetch: typeof apiFetch; route: string } | null>(null);
-  const [projectAccess, setProjectAccess] = useState<"loading" | "granted" | "denied" | "error">("loading");
+  const [projectAccessState, setProjectAccess] = useState<"loading" | "granted" | "denied" | "error">("loading");
   const { allDocuments, setLiveDocuments, setCreatedImports,
     replaceLiveDocuments, updateUploadedDocumentSnapshots, acceptExtractionReceipt, updatePipelineSnapshots, updateTerminalChunkCount } = useDocumentList();
   const [manualStartPending, setManualStartPending] = useState<Record<string, boolean>>({});
@@ -93,8 +94,58 @@ function ProjectImportPage() {
   const projectDragDepth = useRef(0);
   const [dataServiceModalOpen, setDataServiceModalOpen] = useState(false);
   const referenceSourceState = useReferenceSourceState();
-  const [documentLoadState, setDocumentLoadState] = useState<"loading" | "ready" | "error">("loading");
-  const [documentLoadError, setDocumentLoadError] = useState("");
+  const setProjectMembersRef = useRef<(members: ProjectMemberResponse[]) => void>(() => undefined);
+  // OPT424-035: the project (with its members) and the document list are read resources. Their results
+  // feed the page state that permission, upload and pipeline actions also update.
+  const readProject = useCallback(async (signal: AbortSignal) => Promise.all([
+    getProject(apiFetch, params.id, signal),
+    listProjectMembers(apiFetch, params.id, signal).catch(() => [] as ProjectMemberResponse[]),
+  ]), [apiFetch, params.id]);
+  const projectRead = useReadResource(readProject, `${params.id}:${currentUser?.user_id ?? ""}`, true, {
+    onData: ([projectRow, members]) => {
+      setProject(projectRow);
+      setTitleRead({ fetch: apiFetch, route: params.id });
+      setProjectAccess("granted");
+      setProjectMembersRef.current(members);
+    },
+    onError: (error) => {
+      setProject(null);
+      setProjectAccess((error as ApiError).status === 401 || (error as ApiError).status === 403 ? "denied" : "error");
+    },
+  });
+  const projectAccess = projectRead.status === "loading" ? "loading" : projectAccessState;
+  const readDocuments = useCallback(async (signal: AbortSignal) => {
+    const [documents, models, uploadConfig] = await Promise.all([
+      listProjectDocuments(apiFetch, params.id, signal),
+      listModels(apiFetch, "OCR", signal),
+      getUploadConfig(apiFetch, signal).catch(() => null)
+    ]);
+    const hydrated = await Promise.all(documents.map(async (document) => {
+      const versionId = document.latest_version?.id;
+      const pipelineId = document.latest_pipeline?.id;
+      if (!versionId || !pipelineId) return liveDocumentFromSummary(document, t);
+      try {
+        const detail = await getPipelineDetail(apiFetch, params.id, document.id, versionId, pipelineId, signal);
+        return liveDocumentFromSummary(document, t, detail);
+      } catch {
+        return liveDocumentFromSummary(document, t);
+      }
+    }));
+    return { hydrated, models, uploadConfig };
+  }, [apiFetch, params.id, t]);
+  const documentsRead = useReadResource(readDocuments, params.id, true, {
+    onData: ({ hydrated, models, uploadConfig }) => {
+      replaceLiveDocuments(hydrated);
+      setOcrModels(models.filter((model) => model.is_active));
+      if (uploadConfig?.max_upload_size_mb) setMaxUploadSizeMb(uploadConfig.max_upload_size_mb);
+    },
+    onError: () => {
+      setLiveDocuments([]);
+      setOcrModels([]);
+    },
+  });
+  const documentLoadState = documentsRead.status;
+  const documentLoadError = documentsRead.status === "error" ? t("projectImportLoadDocumentsFailed") : "";
   const { notify } = useFeedback();
   const statusChangeState = useStatusChangeState();
   const { committedStatuses, pendingStatusChange, statusSubmitting } = statusChangeState;
@@ -121,29 +172,9 @@ function ProjectImportPage() {
   const canManageProjectPermissions = projectReady && (project?.is_owner ?? false);
   const projectPermissionState = useProjectPermissionState({ apiFetch, canManageProjectPermissions, params, t });
   const { permissionModalOpen, setProjectMembers } = projectPermissionState;
+  useLayoutEffect(() => { setProjectMembersRef.current = setProjectMembers; }, [setProjectMembers]);
   const projectPermissionActions = createProjectPermissionActions(projectPermissionState, { apiFetch, canManageProjectPermissions, currentUser, params, project, setProject, setProjectAccess });
   const { openPermissionModal } = projectPermissionActions;
-
-  useEffect(() => {
-    let cancelled = false;
-    setProjectAccess("loading");
-    Promise.all([
-      getProject(apiFetch, params.id),
-      listProjectMembers(apiFetch, params.id).catch(() => [])
-    ]).then(([projectRow, members]) => {
-      if (cancelled) return;
-      setProject(projectRow);
-      setTitleRead({ fetch: apiFetch, route: params.id });
-      setProjectAccess("granted");
-      setProjectMembers(members);
-    }).catch((error: ApiError) => {
-      if (!cancelled) {
-        setProject(null);
-        setProjectAccess(error.status === 401 || error.status === 403 ? "denied" : "error");
-      }
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, params.id, currentUser?.user_id, setProjectMembers]);
 
   useEffect(() => {
     if (projectAccess === "loading" || (projectAccess === "granted" && project?.capabilities.can_upload)) return;
@@ -157,43 +188,6 @@ function ProjectImportPage() {
     setProjectDropActive(false);
     projectDragDepth.current = 0;
   }, [projectAccess, project?.capabilities.can_upload, releaseModalObservation]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setDocumentLoadState("loading");
-    setDocumentLoadError("");
-    Promise.all([
-      listProjectDocuments(apiFetch, params.id),
-      listModels(apiFetch, "OCR"),
-      getUploadConfig(apiFetch).catch(() => null)
-    ]).then(async ([documents, models, uploadConfig]) => {
-      if (cancelled) return;
-      const hydrated = await Promise.all(documents.map(async (document) => {
-        const versionId = document.latest_version?.id;
-        const pipelineId = document.latest_pipeline?.id;
-        if (!versionId || !pipelineId) return liveDocumentFromSummary(document, t);
-        try {
-          const detail = await getPipelineDetail(apiFetch, params.id, document.id, versionId, pipelineId);
-          return liveDocumentFromSummary(document, t, detail);
-        } catch {
-          return liveDocumentFromSummary(document, t);
-        }
-      }));
-      if (cancelled) return;
-      replaceLiveDocuments(hydrated);
-      setOcrModels(models.filter((model) => model.is_active));
-      if (uploadConfig?.max_upload_size_mb) setMaxUploadSizeMb(uploadConfig.max_upload_size_mb);
-      setDocumentLoadState("ready");
-    }).catch(() => {
-      if (!cancelled) {
-        setLiveDocuments([]);
-        setOcrModels([]);
-        setDocumentLoadState("error");
-        setDocumentLoadError(t("projectImportLoadDocumentsFailed"));
-      }
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, params.id, t, replaceLiveDocuments, setLiveDocuments]);
 
   const visibleDocuments = useMemo(() => filterAndSortDocuments(allDocuments, documentQuery, sortBy), [allDocuments, documentQuery, sortBy]);
   const elapsedEnabled = Boolean(currentUser && projectReady && documentLoadState === "ready");

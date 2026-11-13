@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { CheckCircle2, Clock3, FolderSync, Layers3, ListRestart, RotateCcw, UploadCloud, X } from "lucide-react";
 import { StatusBadge } from "@/components/AppShell";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
@@ -8,6 +8,7 @@ import type { CreatedKnowledgeDocument } from "@/components/KnowledgeSourceModal
 import { ReferenceVersionSelect } from "@/components/ReferenceVersionSelect";
 import { getPipelineDetail, listDataSourceSyncRuns, listProjectDocuments, listProjectReferenceSources, switchActiveDocumentVersion, updateDocumentReferenceVersion, updateProjectDocumentFile, type DataSyncRunResponse, type DocumentSummary, type ReferenceSourceVersionResponse } from "@/lib/api";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
+import { useReadResource } from "@/lib/useReadResource";
 import type { useDocumentList } from "@/lib/useDocumentList";
 import { formatSyncDate, getReferenceSource, getSourceState, isServiceDocument, isWorkingVersion, liveDocumentFromSummary, normalizeVersion, syncRunLabel, syncRunStep, type DocumentItem, type VersionSwitchTarget } from "./importDocumentModel";
 import type { ImportPageDeps } from "./pageDeps";
@@ -34,6 +35,30 @@ type ProjectVersionViewDeps = Pick<ImportPageDeps, "format" | "locale" | "t"> & 
 
 export type ProjectVersionState = ReturnType<typeof useProjectVersionState>;
 
+/** Reads one data source's sync runs into the shared per-source map and loading flags (OPT424-035). */
+function useDataSourceSyncRunsRead(
+  apiFetch: ProjectVersionStateDeps["apiFetch"],
+  projectId: string,
+  dataSourceId: string | null,
+  setSyncRunsByDataSource: ProjectVersionStateDeps["setSyncRunsByDataSource"],
+  setSyncRunLoading: ProjectVersionStateDeps["setSyncRunLoading"],
+) {
+  const readSyncRuns = useCallback((signal: AbortSignal) => dataSourceId ? listDataSourceSyncRuns(apiFetch, projectId, dataSourceId, signal) : Promise.resolve([]), [apiFetch, projectId, dataSourceId]);
+  useReadResource<DataSyncRunResponse[]>(readSyncRuns, dataSourceId, Boolean(dataSourceId), {
+    onStart: () => { if (dataSourceId) setSyncRunLoading((current) => ({ ...current, [dataSourceId]: true })); },
+    onData: (runs) => {
+      if (!dataSourceId) return;
+      setSyncRunsByDataSource((current) => ({ ...current, [dataSourceId]: runs }));
+      setSyncRunLoading((current) => ({ ...current, [dataSourceId]: false }));
+    },
+    onError: () => {
+      if (!dataSourceId) return;
+      setSyncRunsByDataSource((current) => ({ ...current, [dataSourceId]: [] }));
+      setSyncRunLoading((current) => ({ ...current, [dataSourceId]: false }));
+    },
+  });
+}
+
 /** Document version, reference update and active-version switch state (split from the project import page, OPT424-038). */
 export function useProjectVersionState(deps: ProjectVersionStateDeps) {
   const { apiFetch, format, params, t, allDocuments, syncRunsByDataSource, setSyncRunsByDataSource, setSyncRunLoading } = deps;
@@ -49,34 +74,17 @@ export function useProjectVersionState(deps: ProjectVersionStateDeps) {
   const [referenceUpdateVersions, setReferenceUpdateVersions] = useState<ReferenceSourceVersionResponse[]>([]);
   const [referenceUpdateVersionId, setReferenceUpdateVersionId] = useState("");
   const [referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed] = useState(false);
-  const [referenceUpdateLoading, setReferenceUpdateLoading] = useState(false);
   const versionDocument = allDocuments.find((document) => document.id === versionDocumentId);
   const versionReferenceSource = versionDocument ? getReferenceSource(versionDocument) : null;
   const displayedVersions = versionDocument ? versionDocument.versions : [];
   const versionDataSourceId = versionDocument && "dataSourceId" in versionDocument ? versionDocument.dataSourceId : undefined;
   const currentSyncRuns = versionDataSourceId ? syncRunsByDataSource[versionDataSourceId] ?? [] : [];
 
-  useEffect(() => {
-    if (!versionDataSourceId) return;
-    let cancelled = false;
-    setSyncRunLoading((current) => ({ ...current, [versionDataSourceId]: true }));
-    listDataSourceSyncRuns(apiFetch, params.id, versionDataSourceId)
-      .then((runs) => {
-        if (!cancelled) setSyncRunsByDataSource((current) => ({ ...current, [versionDataSourceId]: runs }));
-      })
-      .catch(() => {
-        if (!cancelled) setSyncRunsByDataSource((current) => ({ ...current, [versionDataSourceId]: [] }));
-      })
-      .finally(() => {
-        if (!cancelled) setSyncRunLoading((current) => ({ ...current, [versionDataSourceId]: false }));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiFetch, params.id, setSyncRunLoading, setSyncRunsByDataSource, versionDataSourceId]);
+  // OPT424-035: sync runs of the open data source are a read resource feeding the shared per-source map.
+  const projectId = params.id;
+  useDataSourceSyncRunsRead(apiFetch, projectId, versionDataSourceId ?? null, setSyncRunsByDataSource, setSyncRunLoading);
 
   useEffect(() => {
-    const source = versionReferenceSource;
     // Opening another document resets the reference update form before loading its versions.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setVersionUpdateError("");
@@ -84,30 +92,26 @@ export function useProjectVersionState(deps: ProjectVersionStateDeps) {
     setReferenceUpdateVersions([]);
     setReferenceUpdateVersionId("");
     setReferenceUpdateOldConfirmed(false);
-    if (!source?.referenceId || !source.sourceDocumentId || !source.hasAccess) return;
-    let cancelled = false;
-    setReferenceUpdateLoading(true);
-    listProjectReferenceSources(apiFetch, params.id)
-      .then((projects) => {
-        if (cancelled) return;
-        const documents = projects.flatMap((project) => project.documents);
-        const sourceDocument = documents.find((document) => document.id === source.sourceDocumentId);
-        const versions = sourceDocument?.versions ?? [];
-        setReferenceUpdateVersions(versions);
-        const selected = versions.find((version) => version.id === source.sourceVersionId) ?? versions.find((version) => version.status === "active") ?? versions[0];
-        setReferenceUpdateVersionId(selected?.id ?? "");
-      })
-      .catch((error) => {
-        if (!cancelled) setVersionUpdateError(operationalErrorMessage(error, t, format, "referenceLoadSourcesFailed"));
-      })
-      .finally(() => {
-        if (!cancelled) setReferenceUpdateLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [apiFetch, format, params.id, t, versionReferenceSource]);
-  return { versionDocumentId, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, versionUpdateError, setVersionUpdateError, versionUpdateNotice, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, versionSwitchError, setVersionSwitchError, referenceUpdateVersions, setReferenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, setReferenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns };
+  }, [versionReferenceSource]);
+
+  // OPT424-035: the source versions offered for a reference update are a read resource.
+  const referenceKey = versionReferenceSource?.referenceId && versionReferenceSource.sourceDocumentId && versionReferenceSource.hasAccess
+    ? JSON.stringify([versionReferenceSource.referenceId, versionReferenceSource.sourceDocumentId, versionReferenceSource.sourceVersionId]) : null;
+  const readReferenceSources = useCallback((signal: AbortSignal) => listProjectReferenceSources(apiFetch, projectId, signal), [apiFetch, projectId]);
+  const referenceSourcesRead = useReadResource(readReferenceSources, referenceKey, referenceKey !== null, {
+    onData: (projects) => {
+      const source = versionReferenceSource;
+      const documents = projects.flatMap((project) => project.documents);
+      const sourceDocument = documents.find((document) => document.id === source?.sourceDocumentId);
+      const versions = sourceDocument?.versions ?? [];
+      setReferenceUpdateVersions(versions);
+      const selected = versions.find((version) => version.id === source?.sourceVersionId) ?? versions.find((version) => version.status === "active") ?? versions[0];
+      setReferenceUpdateVersionId(selected?.id ?? "");
+    },
+    onError: (error) => setVersionUpdateError(operationalErrorMessage(error, t, format, "referenceLoadSourcesFailed")),
+  });
+  const referenceUpdateLoading = referenceKey !== null && referenceSourcesRead.status === "loading";
+  return { versionDocumentId, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, versionUpdateError, setVersionUpdateError, versionUpdateNotice, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, versionSwitchError, setVersionSwitchError, referenceUpdateVersions, setReferenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns };
 }
 
 /** Document version actions, created each render once page dependencies exist. */

@@ -67,8 +67,8 @@ export async function getDocumentLifecycleImpact(apiFetch: ApiFetch, projectId: 
 export async function updateDocumentLifecycle(apiFetch: ApiFetch, projectId: string, documentId: string, payload: { lock_version: number; status: string; impact_confirmed?: boolean; reason?: string | null }) {
   return apiJson<DocumentSummary>(apiFetch, `/projects/${projectId}/documents/${documentId}/lifecycle`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function listProjectReferenceSources(apiFetch: ApiFetch, projectId: string) {
-  return apiJson<ReferenceSourceProjectResponse[]>(apiFetch, `/projects/${projectId}/reference-sources`);
+export async function listProjectReferenceSources(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
+  return apiJson<ReferenceSourceProjectResponse[]>(apiFetch, `/projects/${projectId}/reference-sources`, { signal });
 }
 export async function importProjectDocumentReferences(apiFetch: ApiFetch, projectId: string, payload: { mode: "reference" | "copy"; items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }> }) {
   return apiJson<DocumentReferenceImportResponse>(apiFetch, `/projects/${projectId}/document-references/import`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
