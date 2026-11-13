@@ -7,8 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3, FileText } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
-import { getApprovalSummary, getReportSummary, listPendingApprovals, listProjects } from "@/lib/api";
-import { countProjectsUpdatedToday, localCalendarDayKey } from "@/lib/homeMetrics";
+import { getApprovalSummary, getReportSummary, listPendingApprovals } from "@/lib/api";
+import { localCalendarDayKey, readHomeProjectMetrics } from "@/lib/homeMetrics";
 import { useI18n } from "@/lib/i18nClient";
 
 function shortId(value: string) {
@@ -18,27 +18,28 @@ function shortId(value: string) {
 export default function HomePage() {
   const { format, locale, t } = useI18n();
   const { apiFetch, authReady, operationGuards } = useAuth();
-  const readProjects = useCallback(() => listProjects(apiFetch), [apiFetch]);
   const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
   const readApprovals = useCallback(() => listPendingApprovals(apiFetch), [apiFetch]);
   const readReport = useCallback(() => getReportSummary(apiFetch, { topic: "system_overview" }), [apiFetch]);
-  const projectsRead = useReadResource(readProjects, operationGuards, authReady);
   const summaryRead = useReadResource(readSummary, operationGuards, authReady);
   const approvalsRead = useReadResource(readApprovals, operationGuards, authReady);
   const reportRead = useReadResource(readReport, operationGuards, authReady);
-  const projects = useMemo(() => projectsRead.data ?? [], [projectsRead.data]);
   const approvalSummary = summaryRead.data;
   const approvals = approvalsRead.data ?? [];
   const reportSummary = reportRead.data;
-  const projectsMetricState = projectsRead.status;
   const approvalMetricState = summaryRead.status;
   const [calendarDay, setCalendarDay] = useState(() => localCalendarDayKey(new Date()));
-  const metrics = useMemo(() => Object.fromEntries((reportSummary?.metrics ?? []).map((item) => [item.key, item])), [reportSummary]);
-  const activeProjects = projects.filter((project) => project.status === "active").length;
-  const updatedTodayProjects = useMemo(() => {
+  // OPT424-035: KPI counts come from paged reads, not from loading every project.
+  const readProjects = useCallback((signal: AbortSignal) => {
     const [year, month, day] = calendarDay.split("-").map(Number);
-    return countProjectsUpdatedToday(projects, new Date(year, month, day, 12));
-  }, [calendarDay, projects]);
+    return readHomeProjectMetrics(apiFetch, new Date(year, month, day, 12), signal);
+  }, [apiFetch, calendarDay]);
+  const projectsRead = useReadResource(readProjects, operationGuards, authReady);
+  const projects = useMemo(() => projectsRead.data?.recent ?? [], [projectsRead.data]);
+  const projectsMetricState = projectsRead.status;
+  const metrics = useMemo(() => Object.fromEntries((reportSummary?.metrics ?? []).map((item) => [item.key, item])), [reportSummary]);
+  const activeProjects = projectsRead.data?.activeTotal ?? 0;
+  const updatedTodayProjects = projectsRead.data?.updatedToday ?? 0;
 
   const activeProjectsHelper = projectsMetricState === "loading"
     ? t("homeKpiLoadingHelper")
