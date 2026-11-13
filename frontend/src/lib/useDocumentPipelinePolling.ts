@@ -3,7 +3,8 @@
 import { useEffect, useRef } from "react";
 import type { CreatedKnowledgeDocument as Document } from "../components/KnowledgeSourceModals";
 import { getPipelineDetail, type ApiFetch, type PipelineRunDetail } from "./api";
-import { isPollingAuthorizationFailure, startFileProcessingPolling } from "./fileProcessingPolling";
+import { fileProcessingPollDelay, isPollingAuthorizationFailure } from "./fileProcessingPolling";
+import { ReadResource } from "./readResource";
 import { extractionRunKey, fileObservationMode, type PipelineObservationOwnership } from "./manualExtraction";
 import { receiveUploadDocuments } from "./documentList";
 
@@ -56,21 +57,36 @@ export function useDocumentPipelinePolling(options: Options) {
         lease.release();
         continue;
       }
-      const stop = startFileProcessingPolling({
-        active: valid,
-        execution: () => observer.document.pipeline.execution,
-        load: () => {
-          if (fileObservationMode(observer.document) === "cleanup" && !cleanupBudget.take(key)) {
-            throw new Error("pipeline_cleanup_observation_exhausted");
-          }
-          return getPipelineDetail(current.current.apiFetch, options.projectId,
-            document.id, document.latestVersionId!, document.pipeline.id!, lease.signal);
-        },
-        value: (detail) => {
+      // OPT424-035: each observer is a ReadResource: GET-only, one read at a time, aborted with the
+      // ownership lease, first read after one polling interval, polling while the observation is valid.
+      const handleError = (error: unknown) => {
+        if (!valid()) return;
+        const cleanup = fileObservationMode(observer.document) === "cleanup";
+        const invalidContract = error instanceof Error && error.message === "file_processing_poll_contract_invalid";
+        const next = { ...observer.document, pipeline: { ...observer.document.pipeline, observationInterrupted: true,
+          cleanupObservationStopped: cleanup && (cleanupBudget.exhausted(key) || invalidContract || isPollingAuthorizationFailure(error)),
+        } };
+        if (isPollingAuthorizationFailure(error)) denied.current.add(key);
+        publish(next);
+      };
+      const delay = () => fileProcessingPollDelay(observer.document.pipeline.execution, globalThis.document.visibilityState === "hidden");
+      const load = (signal: AbortSignal) => {
+        if (!valid()) return Promise.reject(new DOMException("Observation inactive", "AbortError"));
+        if (fileObservationMode(observer.document) === "cleanup" && !cleanupBudget.take(key)) {
+          return Promise.reject(new Error("pipeline_cleanup_observation_exhausted"));
+        }
+        return getPipelineDetail(current.current.apiFetch, options.projectId,
+          document.id, document.latestVersionId!, document.pipeline.id!, AbortSignal.any([lease.signal, signal]));
+      };
+      let begun = false;
+      const resource = new ReadResource<PipelineRunDetail>({
+        onStart: () => { begun = true; },
+        onData: (detail) => {
           if (!valid()) return;
           if (detail.project_id !== options.projectId || detail.document_id !== document.id
             || detail.id !== document.pipeline.id || detail.document_version_id !== document.latestVersionId) {
-            throw new Error("pipeline_observation_scope_mismatch");
+            handleError(new Error("pipeline_observation_scope_mismatch"));
+            return;
           }
           const candidate = current.current.applyDetail(observer.document, detail);
           // An older terminal response must not stop an observer of newer work.
@@ -78,17 +94,24 @@ export function useDocumentPipelinePolling(options: Options) {
           if (fileObservationMode(next) === "cleanup" && cleanupBudget.exhausted(key)) stopCleanup(next);
           else publish(next);
         },
-        error: (error) => {
-          if (!valid()) return;
-          const cleanup = fileObservationMode(observer.document) === "cleanup";
-          const invalidContract = error instanceof Error && error.message === "file_processing_poll_contract_invalid";
-          const next = { ...observer.document, pipeline: { ...observer.document.pipeline, observationInterrupted: true,
-            cleanupObservationStopped: cleanup && (cleanupBudget.exhausted(key) || invalidContract || isPollingAuthorizationFailure(error)),
-          } };
-          if (isPollingAuthorizationFailure(error)) denied.current.add(key);
-          publish(next);
+        onError: (error) => {
+          if (error instanceof DOMException && error.name === "AbortError") return;
+          handleError(error);
+        },
+        poll: (outcome) => {
+          if ("error" in outcome && isPollingAuthorizationFailure(outcome.error)) return null;
+          if (!valid()) return null;
+          try { return delay(); } catch (error) { handleError(error); return null; }
         },
       });
+      const begin = () => {
+        if (!valid()) return;
+        try { resource.start(load, delay()); } catch (error) { handleError(error); }
+      };
+      const visibility = () => { if (begun) resource.schedule(); else begin(); };
+      globalThis.document.addEventListener("visibilitychange", visibility);
+      begin();
+      const stop = () => { resource.dispose(); globalThis.document.removeEventListener("visibilitychange", visibility); };
       lease.signal.addEventListener("abort", stop, { once: true });
       observer.stop = () => { stop(); lease.release(); };
       observers.current.set(key, observer);
