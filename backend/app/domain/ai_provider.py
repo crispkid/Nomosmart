@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-import ssl
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +12,7 @@ import httpx
 
 from app.api.schemas import ProjectChatCitation
 from app.core.config import Settings, get_settings
+from app.integrations.provider_http import ProviderRejectedError, ProviderUnavailableError, post_provider_json
 from app.core.errors import AppError
 from app.domain.model_credentials import resolve_model_credential
 from app.db.models import AIModel
@@ -530,31 +528,12 @@ def _post_json(
     timeout_seconds: int,
     verify_tls: bool,
 ) -> dict[str, Any]:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", **(headers or {})},
-        method="POST",
-    )
-    context = _ssl_context(verify_tls)
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds, context=context) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise AppError("model_invocation_failed", "Chat Model provider rejected the request", status_code=502, details={"status_code": exc.code}) from exc
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return post_provider_json(url, body, headers=headers, timeout_seconds=timeout_seconds, verify_tls=verify_tls)
+    except ProviderRejectedError as exc:
+        raise AppError("model_invocation_failed", "Chat Model provider rejected the request", status_code=502, details={"status_code": exc.status_code}) from exc
+    except ProviderUnavailableError as exc:
         raise AppError("model_provider_unavailable", "Chat Model provider is unavailable", status_code=503) from exc
-
-
-def _ssl_context(verify_tls: bool) -> ssl.SSLContext | None:
-    if not verify_tls:
-        return ssl._create_unverified_context()
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except (ImportError, OSError):
-        return None
 
 
 def _auth_headers(model: AIModel, settings: Settings) -> dict[str, str]:

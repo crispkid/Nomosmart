@@ -24,12 +24,13 @@ from app.core.errors import AppError
 from app.db.models import AIModel, AIModelUsageEvent, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingProfile, OutboxEvent, PipelineRun, PipelineRunStep, Project, Tag
 from app.domain.ai_provider import AIProviderResult, generate_knowledge_tags
 from app.domain.document_layout import build_document_layout, renderable_source_anchors
+from app.integrations.provider_http import ProviderRejectedError, ProviderUnavailableError, post_provider_json
 from app.domain.embeddings import (
     _embedding_auth_headers,
     _int,
-    _ssl_context,
     _string,
     _timeout,
+    _verify_tls,
     embed_chunks,
     load_canonical_embeddings,
     model_name,
@@ -956,19 +957,17 @@ def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]
     dimensions = _int(config.get("dimensions") or config.get("embedding_dimension"), default=0)
     if dimensions > 0:
         body["dimensions"] = dimensions
-    request = urllib.request.Request(
-        _openai_embeddings_url(_string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url)),
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", **_embedding_auth_headers(model, settings)},
-        method="POST",
-    )
-    context = _ssl_context(config)
     try:
-        with urllib.request.urlopen(request, timeout=_timeout(config, default=60), context=context) as response:  # noqa: S310 - operator-configured model endpoint
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise AppError("embedding_adapter_provider_rejected", "Embedding adapter provider rejected the request", status_code=502, details={"status_code": exc.code}) from exc
-    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        return post_provider_json(
+            _openai_embeddings_url(_string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url)),
+            body,
+            headers=_embedding_auth_headers(model, settings),
+            timeout_seconds=_timeout(config, default=60),
+            verify_tls=_verify_tls(config),
+        )
+    except ProviderRejectedError as exc:
+        raise AppError("embedding_adapter_provider_rejected", "Embedding adapter provider rejected the request", status_code=502, details={"status_code": exc.status_code}) from exc
+    except ProviderUnavailableError as exc:
         raise AppError("embedding_adapter_unavailable", "Embedding adapter endpoint is unavailable", status_code=503) from exc
 
 
