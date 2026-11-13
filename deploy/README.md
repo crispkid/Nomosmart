@@ -290,21 +290,24 @@ runtime checks remain in place.
 
 ### Migration contract
 
-Current source targets [V058](../sql/migrations/V058__performance_indexes.sql).
+Current source targets [V060](../sql/migrations/V060__backfill_document_version_creators.sql).
 For an empty database, official Flyway applies the unchanged
 [B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 through V058. Existing databases retain their published migration chain and
-continue through V058. V058 only adds indexes; writes to the indexed tables wait while
-each index is built, so run it in the normal upgrade window. No B058 or rewritten
+then V055 through V060. Existing databases retain their published migration chain and
+continue through V060. V058 only adds indexes; writes to the indexed tables wait while
+each index is built, so run it in the normal upgrade window. V059 only drops the
+retired Keycloak column defaults. V060 writes the recorded creator into document
+versions that have none, marked `version_created_by_source = "V060"`; each migration
+file lists its rollback SQL. No B060 or rewritten
 historical SQL is introduced. The source-bound
 [migration contract](migrations/release-contract.json) defines the current SQL
 target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=058`, `MIGRATION_REQUIRED_CHECKSUM=480069758`, and
+`MIGRATION_REQUIRED_VERSION=060`, `MIGRATION_REQUIRED_CHECKSUM=571486141`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
-`migration.requiredChecksum`, and `migration.baselineChecksum`. The current058
+`migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
 contract validates the additive SQL target, rather than inventing a same-version
 baseline. Flyway still validates the installed migration history. Keep the version
 as a string. Flyway's signed32-bit checksum and the SQL file's SHA256 hash serve

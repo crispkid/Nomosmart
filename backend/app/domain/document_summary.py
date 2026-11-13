@@ -1,10 +1,10 @@
 """Batch, authorized document/version presentation metadata (no writes)."""
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.db.models import AuditLog, Chunk, Document, DocumentVersion, User
+from app.db.models import Chunk, Document, DocumentVersion, User
 
 
 def document_summary_metadata(session: Session, project_id: UUID, document_ids: list[UUID]) -> dict:
@@ -28,21 +28,8 @@ def document_summary_metadata(session: Session, project_id: UUID, document_ids: 
         document = by_document.get(version.document_id)
         if not creators[version.id] and document and version.version_major == 1 and version.extraction_revision == 0 and version.created_at == document.created_at:
             creators[version.id] = document.created_by
-    unknown = {str(item.id): item.id for item in versions if not creators.get(item.id)}
-    if unknown:
-        # Only creation actions tied to this exact version. Retry/extract actors
-        # are deliberately excluded: a different person may start processing.
-        audits = session.scalars(select(AuditLog).where(AuditLog.result == "success", AuditLog.action.in_((
-            "document.version.update_file", "document.reextract.queued", "document_reference.create",
-            "document_reference.import.copy", "document_reference.import.reference", "document_reference.update_version")),
-            or_(AuditLog.summary["version_id"].astext.in_(unknown), AuditLog.summary["target_version_id"].astext.in_(unknown),
-                (AuditLog.action == "document.reextract.queued") & (AuditLog.resource_type == "document_version") & AuditLog.resource_id.in_(list(unknown.values())))
-        ).order_by(AuditLog.created_at, AuditLog.id))
-        for audit in audits:
-            version_id = unknown.get(str((audit.summary or {}).get("version_id") or (audit.summary or {}).get("target_version_id")
-                or (audit.resource_id if audit.action == "document.reextract.queued" else None)))
-            if version_id and not creators.get(version_id):
-                creators[version_id] = audit.actor_user_id
+    # OPT424-016 / D424-11: creators are recorded on the version (backfilled by V060);
+    # audit_logs are no longer read here. Versions without a record stay unknown.
     user_ids = {item.created_by for item in documents} | set(creators.values())
     user_ids.discard(None)
     # Only names of authors of the already-scoped documents; never enumerate users.

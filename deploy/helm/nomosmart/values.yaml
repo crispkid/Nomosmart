@@ -257,8 +257,8 @@ worker:
 
 migration:
   # NomoSmart 0.2.4 target from deploy/migrations/release-contract.json.
-  requiredVersion: "058"
-  requiredChecksum: "480069758"
+  requiredVersion: "060"
+  requiredChecksum: "571486141"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

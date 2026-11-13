@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.2.4",
-  "required_version": "058",
+  "required_version": "060",
   "targets": {
     "SQL": {
-      "file": "V058__performance_indexes.sql",
-      "checksum": 480069758,
-      "sha256": "2af6a0c1f92d30877b41e893468968515a067b7d5e70711c9fd0a5249fe1cd9b"
+      "file": "V060__backfill_document_version_creators.sql",
+      "checksum": 571486141,
+      "sha256": "7224d628bcd604ae3f6f03441bf47421513e0b090d156272f584640f32add939"
     }
   }
 }
