@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { ApprovalPendingPublishPage, ApprovalPendingPublishResponse } from "./api";
+import { ReadResource } from "./readResource";
 
-type Load = (cursor?: string | null) => Promise<ApprovalPendingPublishPage>;
+type Load = (cursor?: string | null, signal?: AbortSignal) => Promise<ApprovalPendingPublishPage>;
 type State = {
   scope: unknown; load: Load; items: ApprovalPendingPublishResponse[];
   total: number | null; cursor: string | null; hasMore: boolean;
@@ -16,12 +17,15 @@ export function usePendingPublishList(load: Load, scope: unknown, enabled: boole
   const [state, setState] = useState<State | null>(null);
   const stored = useRef<State | null>(null);
   const requests = useRef({ generation: 0, busy: false });
+  // OPT424-035: each page read runs through a ReadResource, so a newer read aborts the older request.
+  const resource = useRef(new ReadResource<ApprovalPendingPublishPage>());
   const identity = useMemo(() => ({ load, scope, enabled }), [load, scope, enabled]);
   const lifecycle = useRef<typeof identity | null>(null);
   useLayoutEffect(() => {
     lifecycle.current = identity;
     const pending = requests.current;
-    return () => { lifecycle.current = null; pending.generation++; pending.busy = false; };
+    const reads = resource.current;
+    return () => { lifecycle.current = null; pending.generation++; pending.busy = false; reads.invalidate(); };
   }, [identity]);
 
   const read = useCallback(async (previous: State | null, append: boolean) => {
@@ -36,8 +40,9 @@ export function usePendingPublishList(load: Load, scope: unknown, enabled: boole
     const commit = (next: State) => { stored.current = next; setState(next); };
     commit({ ...base, loading: true, error: null, failedPage: null });
     try {
-      const page = await load(append ? base.cursor : null);
-      if (lifecycle.current !== identity || generation !== requests.current.generation) return;
+      const result = await resource.current.run((signal) => load(append ? base.cursor : null, signal));
+      if (!result.committed || lifecycle.current !== identity || generation !== requests.current.generation) return;
+      const page = result.data;
       const rows = new Map((append ? base.items : []).map(item => [item.document_version_id, item]));
       page.items.forEach(item => rows.set(item.document_version_id, item));
       commit({ ...base, items: [...rows.values()], total: page.total, cursor: page.next_cursor,

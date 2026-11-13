@@ -4,7 +4,7 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.2.3**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.2.4**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
 
 ## 核心功能
 
@@ -43,7 +43,7 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 | 權威資料 | PostgreSQL 18.4；Flyway 管理只能向前套用的移轉 |
 | 檔案儲存 | S3 相容服務；內建部署使用 RustFS |
 | 搜尋／圖譜 | OpenSearch 2.19、Neo4j 5.26 Community |
-| 部署 | Docker Compose v2、Helm Chart 0.2.3 |
+| 部署 | Docker Compose v2、Helm Chart 0.2.4 |
 
 ## PDF 與模型設定
 

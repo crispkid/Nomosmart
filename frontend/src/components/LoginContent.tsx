@@ -11,30 +11,34 @@ import type { LoginNotice } from "@/lib/authState";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { BrowserTitle } from "@/lib/browserTitle";
 import { apiBaseUrl, safeReturnPath } from "@/lib/oidc";
+import { useReadResource } from "@/lib/useReadResource";
 
 const noticeKeys: Record<LoginNotice, TranslationKey> = {
   session_expired: "loginNoticeSessionExpired", logged_out: "loginNoticeLoggedOut", logout_incomplete: "loginNoticeLogoutIncomplete", login_cancelled: "loginNoticeCancelled", account_unavailable: "loginNoticeAccountUnavailable", auth_service_unavailable: "loginNoticeServiceUnavailable", oidc_error: "oidcCallbackError"
 };
 type PublicConfig = { mode: "oidc" | "ldap"; display_name: string };
 
+async function readPublicConfig(signal: AbortSignal): Promise<PublicConfig> {
+  const response = await fetch(`${apiBaseUrl()}/auth/config`, { cache: "no-store", credentials: "same-origin", signal });
+  if (!response.ok) throw new Error("configuration_unavailable");
+  return await response.json() as PublicConfig;
+}
+
 export default function LoginContent({ notice, loginChecked }: { notice: LoginNotice | null; loginChecked: boolean }) {
   const { t } = useI18n();
   const { logout } = useAuth();
-  const [config, setConfig] = useState<PublicConfig | null>(null);
   const [error, setError] = useState(false);
   const [busy, setBusy] = useState(false);
   const [emergency, setEmergency] = useState(false);
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [returnTo, setReturnTo] = useState("/");
 
+  // OPT424-035: the public sign-in configuration is a read resource; a failed read shows the login error.
+  const configRead = useReadResource<PublicConfig>(readPublicConfig, "auth-config", true, { onError: () => setError(true) });
+  const config = configRead.data;
   useEffect(() => {
-    const controller = new AbortController();
     const timer = window.setTimeout(() => setReturnTo(safeReturnPath(new URL(window.location.href).searchParams.get("returnTo"))), 0);
-    void fetch(`${apiBaseUrl()}/auth/config`, { cache: "no-store", credentials: "same-origin", signal: controller.signal }).then(async response => {
-      if (!response.ok) throw new Error("configuration_unavailable");
-      setConfig(await response.json() as PublicConfig);
-    }).catch(() => { if (!controller.signal.aborted) setError(true); });
-    return () => { controller.abort(); window.clearTimeout(timer); };
+    return () => window.clearTimeout(timer);
   }, []);
 
   async function signIn(event: FormEvent<HTMLFormElement>) {

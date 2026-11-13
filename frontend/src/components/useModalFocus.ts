@@ -29,6 +29,8 @@ export function useModalFocus(active: boolean, onEscape: () => void) {
     const dialog = ref.current;
     if (!active || !dialog) return;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    // A re-rendered opener is a new element; its stable id still identifies it.
+    const previousId = previous?.id || null;
     if (topDialog() === dialog) focusStart(dialog);
     function keydown(event: KeyboardEvent) {
       if (!dialog || topDialog() !== dialog) return;
@@ -55,7 +57,9 @@ export function useModalFocus(active: boolean, onEscape: () => void) {
       document.removeEventListener("focusin", focusin);
       queueMicrotask(() => {
         const parent = topDialog();
-        if (previous && visible(previous) && !previous.matches(":disabled") && (!parent || parent.contains(previous))) previous.focus();
+        const opener = previous?.isConnected ? previous : previousId ? document.getElementById(previousId) : null;
+        if (opener && visible(opener) && !opener.matches(":disabled") && (!parent || parent.contains(opener))) opener.focus();
+        else if (previous && visible(previous) && !previous.matches(":disabled") && (!parent || parent.contains(previous))) previous.focus();
         else if (parent) focusStart(parent);
         else document.querySelector<HTMLElement>(".project-context a, main a[href], main button:not(:disabled)")?.focus();
       });

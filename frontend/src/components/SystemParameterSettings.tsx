@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { RotateCcw, Save, RefreshCw } from "lucide-react";
 import { useAuth } from "./AuthProvider";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { getSystemParameters, patchSystemParameters, type ApiError, type SystemParameterApiValues, type SystemParametersPayload } from "@/lib/api";
 import { useOperationGuard } from "./useOperationGuard";
@@ -33,14 +34,11 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   const { t, format, locale } = useI18n();
   const groups = fields[section];
   const keys = groups.flatMap(group => group.fields.map(field => field.key));
-  const [data, setData] = useState<SystemParametersPayload | null>(null);
   const [draft, setDraft] = useState<Partial<Record<Key, string>>>({});
   const [baseline, setBaseline] = useState<Partial<Record<Key, string>>>({});
   const [errors, setErrors] = useState<Partial<Record<Key, TranslationKey>>>({});
   const [notice, setNotice] = useState<TranslationKey | null>(null);
-  const [error, setError] = useState<ApiError | Error | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [reload, setReload] = useState(0);
+  const [saveError, setError] = useState<ApiError | Error | null>(null);
   const [comparison, setComparison] = useState<SystemParametersPayload | null>(null);
   const [checking, setChecking] = useState(false);
   const restoredDraft = useRef<Partial<Record<Key, string>> | null>(null);
@@ -48,17 +46,19 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   const dirty = keys.some(key => draft[key] !== baseline[key]);
   const editable = can("Menu", "SystemManagement", "edit");
   useEffect(() => { onDirtyChange(dirty); return () => onDirtyChange(false); }, [dirty, onDirtyChange]);
-  useEffect(() => {
-    let current = true;
-    void getSystemParameters(apiFetch).then(value => {
-      if (!current) return;
+  // OPT424-035: the editor is keyed by section; it reloads only on an explicit reload. Earlier values
+  // stay visible while reloading or after a failed reload.
+  const readParameters = useCallback((signal: AbortSignal) => getSystemParameters(apiFetch, signal), [apiFetch]);
+  const parametersRead = useReadResource<SystemParametersPayload>(readParameters, section, true, {
+    keepData: true,
+    onData: value => {
       const values = Object.fromEntries(keys.map(key => [key, String(value[key])]));
-      setData(value); setDraft({ ...values, ...restoredDraft.current }); restoredDraft.current = null; setBaseline(values); setError(null);
-    }).catch(caught => { if (current) setError(caught); }).finally(() => { if (current) setLoading(false); });
-    return () => { current = false; };
-    // The editor is keyed by section; reload only after an explicit discard/reload.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [apiFetch, section, reload]);
+      setDraft({ ...values, ...restoredDraft.current }); restoredDraft.current = null; setBaseline(values); setError(null);
+    },
+  });
+  const data = parametersRead.data;
+  const loading = parametersRead.status === "loading";
+  const error = saveError ?? (parametersRead.status === "error" ? parametersRead.error as ApiError | Error : null);
   useEffect(() => {
     const beforeUnload = (event: BeforeUnloadEvent) => { if (dirty || blocked) { event.preventDefault(); event.returnValue = ""; } };
     const restore = (event: Event) => {
@@ -103,7 +103,7 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
       if (!guard.current(token)) return;
       guard.accepted(token);
       const saved = Object.fromEntries(keys.map(key => [key, String(response.values[key])]));
-      setData(previous => previous ? { ...previous, ...response.values, parameter_metadata: { ...previous.parameter_metadata, ...response.parameter_metadata }, section_revisions: { ...previous.section_revisions, [section]: response.revision } } : previous);
+      parametersRead.update(previous => ({ ...previous, ...response.values, parameter_metadata: { ...previous.parameter_metadata, ...response.parameter_metadata }, section_revisions: { ...previous.section_revisions, [section]: response.revision } }));
       setDraft(saved); setBaseline(saved); setNotice("systemParametersSaved"); guard.complete(token);
     } catch (caught) {
       guard.failed(token, caught); setError(caught as ApiError | Error);
@@ -124,8 +124,8 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   const unknown = ["unknown", "read_failed", "accepted"].includes(state.phase);
   return <div className="settings-parameter-editor" data-session-draft-key="system.parameters">
     {loading ? <FeedbackMessage tone="info">{t("loadingData")}</FeedbackMessage> : null}
-    {error || unknown ? <FeedbackMessage tone={unknown ? "warning" : "error"} title={t(unknown ? "feedbackResultUnknown" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflict" : "systemReadFailedTitle")} actions={<><button className="action-button secondary" type="button" disabled={checking} onClick={() => void compareCurrent()}><RefreshCw size={16} />{t("settingsCompare")}</button>{!unknown ? <button className="action-button secondary" type="button" disabled={dirty} onClick={() => { setLoading(true); setReload(value => value + 1); }}><RefreshCw size={16} />{t("retry")}</button> : null}</>}>{t(unknown ? "settingsUnknownHelp" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflictHelp" : "settingsSaveError")}</FeedbackMessage> : null}
-    {comparison ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemParameters")}</th><th>{t("systemUnsavedChanges")}</th><th>{t("settingsCurrentValue")}</th></tr></thead><tbody>{groups.flatMap(group => group.fields).map(field => <tr key={field.key}><th>{t(field.label)}</th><td>{draft[field.key]}</td><td>{String(comparison[field.key])}</td></tr>)}</tbody></table><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, String(comparison[key])])); setData(comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></div> : null}
+    {error || unknown ? <FeedbackMessage tone={unknown ? "warning" : "error"} title={t(unknown ? "feedbackResultUnknown" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflict" : "systemReadFailedTitle")} actions={<><button className="action-button secondary" type="button" disabled={checking} onClick={() => void compareCurrent()}><RefreshCw size={16} />{t("settingsCompare")}</button>{!unknown ? <button className="action-button secondary" type="button" disabled={dirty} onClick={() => { setError(null); void parametersRead.reload(); }}><RefreshCw size={16} />{t("retry")}</button> : null}</>}>{t(unknown ? "settingsUnknownHelp" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflictHelp" : "settingsSaveError")}</FeedbackMessage> : null}
+    {comparison ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemParameters")}</th><th>{t("systemUnsavedChanges")}</th><th>{t("settingsCurrentValue")}</th></tr></thead><tbody>{groups.flatMap(group => group.fields).map(field => <tr key={field.key}><th>{t(field.label)}</th><td>{draft[field.key]}</td><td>{String(comparison[field.key])}</td></tr>)}</tbody></table><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, String(comparison[key])])); parametersRead.update(() => comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></div> : null}
     {groups.map(group => <SettingsCard key={group.panel} panel={group.panel} title={t(group.title)}>
       {group.fields.map(field => {
         const id = `setting-${field.key}`, metadata = data?.parameter_metadata[field.key];

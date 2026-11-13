@@ -25,28 +25,30 @@ RUN npm ci --no-audit --no-fund
 FROM base AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1
+ENV NEXT_OUTPUT=standalone
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 RUN npm run build
-
-FROM base AS prod-deps
-WORKDIR /app
-COPY package.json package-lock.json ./
-RUN npm ci --omit=dev --no-audit --no-fund
 
 FROM base AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
+# The standalone server reads HOSTNAME; Docker sets it to the container id.
+ENV HOSTNAME=0.0.0.0
+ENV PORT=3000
+
 RUN addgroup -S -g 10001 nomosmart \
   && adduser -S -u 10001 nomosmart -G nomosmart \
   && rm -rf /usr/local/lib/node_modules/npm /usr/local/bin/npm /usr/local/bin/npx
-COPY --from=builder --chown=nomosmart:nomosmart /app/package.json /app/package-lock.json ./
-COPY --from=builder --chown=nomosmart:nomosmart /app/.next ./.next
-COPY --from=builder --chown=nomosmart:nomosmart /app/public ./public
-COPY --from=prod-deps --chown=nomosmart:nomosmart /app/node_modules ./node_modules
+# OPT424-042: traced standalone server only; code is root-owned and read-only,
+# and only .next/cache is writable by the runtime user.
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+RUN mkdir -p .next/cache && chown nomosmart:nomosmart .next/cache
 
 USER nomosmart
 EXPOSE 3000
-CMD ["node", "node_modules/next/dist/bin/next", "start"]
+CMD ["node", "server.js"]

@@ -1,0 +1,66 @@
+# --- Local-only project process material (CHG-424 D424-03) ---
+# Specifications, process records, agent instructions, harness and tests are kept
+# on developer machines and are intentionally not version-controlled.
+/SPECIFICATION.md
+/SPEC_CHANGELOG.md
+/DEVELOPMENT_PLAN.md
+/TEST_PLAN.md
+/TRACEABILITY.md
+/API_COMPATIBILITY.md
+/AGENTS.md
+/CLAUDE.md
+/HARNESS/
+/docs/CHG-*
+/docs/changes/
+/docs/verification/
+/tests/
+/backend/tests/
+/backend/historical_tests/
+/frontend/tests/
+/deploy/release/tests/
+conftest.py
+vitest.config.*
+vitest.workspace.*
+playwright.config.*
+
+# --- Dependencies and build output ---
+node_modules/
+/frontend/.next/
+/frontend/out/
+/frontend/coverage/
+/frontend/.vitest-attachments/
+*.tsbuildinfo
+/backend/venv/
+/backend/.venv/
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.json
+coverage.xml
+htmlcov/
+celerybeat-schedule*
+test-results/
+playwright-report/
+/output/
+/frontend/output/
+/tmp/
+
+# --- Local configuration and secrets ---
+.env
+.env.*
+!.env.example
+!**/.env.example
+/deploy/docker/nomosmart.env
+/deploy/docker/nomosmart.env.*
+/deploy/docker/generated/
+!/deploy/docker/nomosmart.env.example
+*.pem
+*.key
+
+# --- Local operator workspaces ---
+/.operator/
+/.artifacts/
+.DS_Store

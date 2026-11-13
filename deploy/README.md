@@ -2,9 +2,9 @@
 
 Current source uses authentication contract2. Start with [English README](../README.md), [繁中README](../README.zh-TW.md), and the [authentication guide](../docs/AUTHENTICATION.en.md). There is no bundled or optional identity-provider component in Compose/Helm. The directory and optional external OIDC service remain operator-managed.
 
-This is an operating guide, not a statement of production readiness. [Current gaps](../docs/AUTHENTICATION-STATUS.md), [configuration verification](../docs/AUTHENTICATION-STATUS.md#deployment-file-checks) and [historical instructions](../docs/archive/authentication-contract-1/README.md) are separate records.
+This is an operating guide, not a statement of production readiness. Current gaps, configuration verification and historical instructions are separate records.
 
-Latest AD qualification: [Windows Server 2025 / strict LDAPS results](../docs/CHG-368-RESULT.md) cover sign-in, user/group changes and actual 1500+1 member ranges. This used an isolated authentication runtime; Compose/Helm deployment results were reused within their recorded source limits. The AD VM remains available; media/snapshot cleanup is complete after Peter approved option A, with strict LDAPS availability confirmed after restart.
+Latest AD qualification: Windows Server 2025 / strict LDAPS results cover sign-in, user/group changes and actual 1500+1 member ranges. This used an isolated authentication runtime; Compose/Helm deployment results were reused within their recorded source limits. The AD VM remains available; media/snapshot cleanup is complete after Peter approved option A, with strict LDAPS availability confirmed after restart.
 
 ## Docker Compose
 
@@ -116,6 +116,32 @@ A Backend 401 proves transport to authorization, not successful file ingestion.
 The Frontend forwards bounded chunks and the Backend uses bounded disk scratch
 space. Watch memory, disk capacity, and restarts during boundary checks;
 do not increase memory limits or remove the cap just to make validation pass.
+
+### Database and worker limits
+
+All values below are optional; defaults keep the PostgreSQL and Celery behavior
+of 0.2.4. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
+
+| Setting | Default | Recommended production value |
+| --- | --- | --- |
+| `NOMOSMART_DB_POOL_SIZE` / `NOMOSMART_DB_MAX_OVERFLOW` | 10 / 20 | Keep unless PostgreSQL `max_connections` requires less |
+| `NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 0 (no limit) | `3900000` (65 min). Must exceed the longest upload and Chat Model timeout, because a chat turn holds its transaction-scoped conversation lock across the provider call |
+| `NOMOSMART_DB_STATEMENT_TIMEOUT_MS` | 0 (no limit) | `0`; report exports and graph reconciliation can run long single statements |
+| `NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS` | 300 | 300 for heartbeat, scheduling, outbox dispatch, notification and recovery tasks (hard limit +30 s) |
+| `NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS` | 0 (no limit) | Set only after measuring the longest OCR, directory sync, validation and graph sync runs |
+| `NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS` | 3600 | Larger than the longest late-acknowledged task, or Redis redelivers it |
+| `FRONTEND_MEM_LIMIT` / `BACKEND_MEM_LIMIT` / `WORKER_MEM_LIMIT` / `BEAT_MEM_LIMIT` (Compose) | 1g / 2g / 4g / 512m | Raise the worker limit for large OCR documents |
+
+Compose application services drop all Linux capabilities and set
+`no-new-privileges`; the backend-image services keep only CHOWN, FOWNER, SETUID,
+SETGID and DAC_OVERRIDE for the root entrypoint that copies secrets and then runs
+the application as UID 10001 with no effective capabilities. In Helm, every
+application Deployment and Job has a container `securityContext` and resources,
+`frontend.readOnlyRootFilesystem: true` runs the frontend on a read-only root
+filesystem with writable `emptyDir` for `.next/cache` and `/tmp`, and
+`autoscaling.frontend|backend.enabled` adds an HPA with `replicaCount` as the
+minimum. Pods already roll on every Helm upgrade through the release-revision
+annotation. Pin images by digest with `tag: "<version>@sha256:<digest>"`.
 
 ### Public API edge routing
 
@@ -264,19 +290,24 @@ runtime checks remain in place.
 
 ### Migration contract
 
-Current source targets [V056](../sql/migrations/V056__native_pdf_cleanup.sql).
+Current source targets [V060](../sql/migrations/V060__backfill_document_version_creators.sql).
 For an empty database, official Flyway applies the unchanged
 [B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 and V056. Existing databases retain their published migration chain and continue
-through V056. No B056 or rewritten historical SQL is introduced. The source-bound
+then V055 through V060. Existing databases retain their published migration chain and
+continue through V060. V058 only adds indexes; writes to the indexed tables wait while
+each index is built, so run it in the normal upgrade window. V059 only drops the
+retired Keycloak column defaults. V060 writes the recorded creator into document
+versions that have none, marked `version_created_by_source = "V060"`; each migration
+file lists its rollback SQL. No B060 or rewritten
+historical SQL is introduced. The source-bound
 [migration contract](migrations/release-contract.json) defines the current SQL
 target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=056`, `MIGRATION_REQUIRED_CHECKSUM=99561060`, and
+`MIGRATION_REQUIRED_VERSION=060`, `MIGRATION_REQUIRED_CHECKSUM=571486141`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
-`migration.requiredChecksum`, and `migration.baselineChecksum`. The current056
+`migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
 contract validates the additive SQL target, rather than inventing a same-version
 baseline. Flyway still validates the installed migration history. Keep the version
 as a string. Flyway's signed32-bit checksum and the SQL file's SHA256 hash serve
@@ -432,7 +463,7 @@ The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Bea
 
 The current source adds the `local-verified-release` v4 format and the separate [protocol dependency lock](release/external-dependencies.protocol.lock.json); historical v2/v3 validation retains its own lock and contract. The current lock has no mandatory Keycloak image. This source is not a qualified or signed package.
 
-Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See [current verification and remaining work](../docs/CHG-369-RESULT.md).
+Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See current verification and remaining work.
 
 既有部署相容性：Compose 啟動準備仍可為已掛載的舊版 IdP 憑證參照建立私有 tmpfs 檔案，供尚未升級的容器安全讀取。此相容處理不建立 Keycloak 服務，也不變更登入協定。既有容器更換憑證時應沿用其已核對的映像與掛載，先確認啟動腳本相容，再依維護計畫重啟；認證架構切換與資料庫升級仍走各自的升級程序。
 
@@ -440,7 +471,7 @@ Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart
 
 Use `installer/nomosmart-one-click --protocol-config /operator/private/target.toml --init-config` to create new owner-only target and values files in an existing mode700 directory. It never overwrites files or changes directory permissions. Edit actual service/CA/Secret/directory references, then use `--plan-only`; apply only with the returned `--confirm-digest` or explicit `--yes`. The wrapper invokes the real protocol installer, stops at the administrator sign-in checkpoint (exit10), and does not finalize on the operator's behalf. Legacy `--config` and bundled-wrapper input fail before operations; direct Helm retains bundled support.
 
-The protocol payload contains only the current installer import closure and examples. Original wrapper/CLI/templates are preserved with hashes in [the archival inventory](../docs/CHG-375-ARCHIVE-INVENTORY.json); explicitly marked old templates and inactive source remain for historical tests, outside current entry points and payloads. The local tunnel example forwards only datastore traffic. Configure any external OIDC service explicitly using the actual issuer and trusted TLS.
+The protocol payload contains only the current installer import closure and examples. Original wrapper/CLI/templates are preserved with hashes in the archival inventory; explicitly marked old templates and inactive source remain for historical tests, outside current entry points and payloads. The local tunnel example forwards only datastore traffic. Configure any external OIDC service explicitly using the actual issuer and trusted TLS.
 
 Legacy `nomosmart-release create` and `assemble-validation` reject the current protocol chart before reading keys, building or creating output. Historical `verify-package` remains available. `assemble-local` retains its actual full-suite, 80% coverage, security and signing requirements; this cleanup does not produce a signed package or qualify production publication.
 

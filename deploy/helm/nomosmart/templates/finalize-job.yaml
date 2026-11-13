@@ -47,6 +47,8 @@ spec:
       containers:
         - name: finalize
           image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          resources:
+            {{- toYaml .Values.jobs.resources | nindent 12 }}
           imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
           command: ["python", "-m", "app.deployment.bootstrap"]
           args: ["--mode", "finalize", "--wait-seconds", "0"]

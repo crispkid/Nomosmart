@@ -69,6 +69,8 @@ compatibility:
   publicApiContract: v1-scoped-graph-idempotent
   securityContract: chg260-mounted-secrets-password-only
 
+# Pin application images by digest with tag: "0.2.4@sha256:<digest>",
+# the same form used for the migration image below.
 image:
   frontend:
     repository: nomosmart/frontend
@@ -110,6 +112,24 @@ securityContext:
   capabilities:
     drop: ["ALL"]
 
+# OPT424-040: bounded resources for migration, bootstrap, finalize and
+# backup-bucket Jobs.
+jobs:
+  resources:
+    requests: {cpu: 100m, memory: 256Mi}
+    limits: {cpu: "1", memory: 1Gi}
+
+# Optional HorizontalPodAutoscalers; replicaCount stays the floor.
+autoscaling:
+  frontend:
+    enabled: false
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+  backend:
+    enabled: false
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
 sftpKnownHosts:
   configMapName: ""
   key: ssh_known_hosts
@@ -120,6 +140,8 @@ ftpsCa:
   key: ca.crt
 
 frontend:
+  # Read-only root filesystem with writable emptyDir for .next/cache and /tmp.
+  readOnlyRootFilesystem: false
   service:
     type: ClusterIP
     port: 3000
@@ -210,6 +232,19 @@ backend:
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"
     NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS: "10"
+    # Celery beat intervals in seconds (OPT424-019).
+    NOMOSMART_BEAT_DIRECTORY_SCHEDULE_CHECK_SECONDS: "60"
+    NOMOSMART_BEAT_DATA_SOURCE_SYNC_SECONDS: "60"
+    NOMOSMART_BEAT_OUTBOX_DISPATCH_SECONDS: "10"
+    NOMOSMART_BEAT_ARCHIVE_RECOVERY_SECONDS: "60"
+    NOMOSMART_BEAT_AUTH_RETENTION_CLEANUP_SECONDS: "86400"
+    NOMOSMART_BEAT_PUBLIC_API_RETENTION_CLEANUP_SECONDS: "86400"
+    # AI provider defaults when a model has no endpoint/base_url or version of its own (OPT424-019).
+    NOMOSMART_PROVIDER_OPENAI_BASE_URL: https://api.openai.com/v1
+    NOMOSMART_PROVIDER_GEMINI_BASE_URL: https://generativelanguage.googleapis.com/v1beta
+    NOMOSMART_PROVIDER_GEMINI_API_VERSION: v1beta
+    NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL: https://api.anthropic.com/v1
+    NOMOSMART_PROVIDER_ANTHROPIC_VERSION: "2023-06-01"
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "1", memory: 1Gi}
@@ -222,8 +257,8 @@ worker:
 
 migration:
   # NomoSmart 0.2.4 target from deploy/migrations/release-contract.json.
-  requiredVersion: "057"
-  requiredChecksum: "-398616135"
+  requiredVersion: "060"
+  requiredChecksum: "571486141"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

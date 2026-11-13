@@ -8,6 +8,7 @@ import { useAuth } from "./AuthProvider";
 import { useFeedback } from "./FeedbackProvider";
 import { FeedbackMessage, feedbackIcons } from "./FeedbackMessage";
 import { getNotificationUnreadCount, listNotificationPage, markAllNotificationsRead, markNotificationRead, resolveNotification, type NotificationResponse } from "@/lib/api";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -51,15 +52,14 @@ function ScopedNotificationCenter() {
   const { t, format, locale } = useI18n();
   const [open, setOpen] = useState(false), [tab, setTab] = useState<"pending" | "all" | "recent">("pending");
   const [items, setItems] = useState<NotificationResponse[]>([]), [cursor, setCursor] = useState<string | null>(null);
-  const [count, setCount] = useState<number | null>(null), [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(false), [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const generation = useRef(0), panel = useRef<HTMLDivElement>(null), trigger = useRef<HTMLButtonElement>(null);
-  const refreshCount = useCallback(async () => {
-    const request = generation.current;
-    try { const result = await getNotificationUnreadCount(apiFetch); if (request === generation.current) setCount(result.unread_count); }
-    catch { if (request === generation.current) setCount(null); }
-  }, [apiFetch]);
-  useEffect(() => { let active = true; getNotificationUnreadCount(apiFetch).then(result => { if (active) setCount(result.unread_count); }).catch(() => { if (active) setCount(null); }); return () => { active = false; }; }, [apiFetch]);
+  // OPT424-035: the unread count is a read resource; refreshes keep the last count, a failure shows it as unknown.
+  const readCount = useCallback((signal: AbortSignal) => getNotificationUnreadCount(apiFetch, signal), [apiFetch]);
+  const countRead = useReadResource(readCount, "notifications", true, { keepData: true });
+  const count = countRead.status === "error" ? null : countRead.data?.unread_count ?? null;
+  const refreshCount = countRead.reload;
   useEffect(() => {
     const outside = (event: PointerEvent) => { if (panel.current && !panel.current.contains(event.target as Node)) setOpen(false); };
     const escape = (event: KeyboardEvent) => { if (event.key === "Escape" && open) { setOpen(false); trigger.current?.focus(); } };

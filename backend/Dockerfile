@@ -38,7 +38,7 @@ ARG OPENSSL_VERSION=3.0.13-0ubuntu3.16
 ARG APT_VERSION=2.8.4ubuntu0.1
 ARG BROTLI_VERSION=1.1.0-2ubuntu0.1
 ARG PCRE2_VERSION=10.42-4ubuntu2.2
-ARG PERL_VERSION=5.38.2-3.2ubuntu0.6
+ARG PERL_VERSION=5.38.2-3.2ubuntu0.7
 ARG ZLIB_VERSION=1:1.3.dfsg-3.1ubuntu2.3
 
 ENV DEBIAN_FRONTEND=noninteractive
@@ -66,10 +66,11 @@ RUN apt-get -o Acquire::Retries=0 update \
   && useradd --uid 10001 --gid nomosmart --home-dir /home/nomosmart --create-home --shell /usr/sbin/nologin nomosmart
 
 COPY --from=builder /opt/venv /opt/venv
-COPY --chown=nomosmart:nomosmart app ./app
+# OPT424-042: application code stays root-owned and read-only for the runtime user.
+COPY app ./app
 # PDF recognition uses the configured native document model; no local OCR tools.
-COPY --chown=nomosmart:nomosmart main.py migrate.py models.py ./
-COPY --chown=nomosmart:nomosmart scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
+COPY main.py migrate.py models.py ./
+COPY scripts/soft_deleted_residue_cleanup.py ./scripts/soft_deleted_residue_cleanup.py
 
 USER nomosmart
 EXPOSE 8000

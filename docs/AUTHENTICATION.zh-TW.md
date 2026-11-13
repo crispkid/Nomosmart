@@ -108,4 +108,4 @@ Docker設定產生器不再建立Keycloak憑證或推測企業issuer。準備真
 
 系統使用者列表顯示API回傳的有效系統角色，同一角色合併人工／同步來源。Knowledge Owner旗標與Project Owner關係另列，不當成角色清單；沒有系統管理讀權限的回應不包含全域角色資訊。
 
-AD維護後可由AD主機使用`backend/scripts/ad_readiness.ps1`，指定Domain、ExpectedHost及ExpectedNamingContext，先確認NTDS／Netlogon／DNS、DC discovery與RootDSE同步。選擇提供具受限ACL的CredentialFile時，再指定SentinelDn／ExpectedGuid，工具才會做一次嚴格LDAPS及身分讀回。密碼不放命令列；認證拒絕不自動重試。工具實測及範圍見[AD就緒結果](CHG-369-AD-READINESS-RESULT.json)。
+AD維護後可由AD主機使用`backend/scripts/ad_readiness.ps1`，指定Domain、ExpectedHost及ExpectedNamingContext，先確認NTDS／Netlogon／DNS、DC discovery與RootDSE同步。選擇提供具受限ACL的CredentialFile時，再指定SentinelDn／ExpectedGuid，工具才會做一次嚴格LDAPS及身分讀回。密碼不放命令列；認證拒絕不自動重試。工具實測及範圍見AD就緒結果。

@@ -18,6 +18,7 @@ import { getKnowledgeArtifactBlob, type ApiError } from "@/lib/api";
 import { cancelFailedContent, getContentEditor, saveContent, type ContentEditorSource, type ContentUpdateResult } from "@/lib/documentContentApi";
 import { preserveSource, sourceDocument, utf16Offset, type SourceDocument } from "@/lib/contentEditorSource";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { useOperationGuard } from "./useOperationGuard";
 
@@ -33,12 +34,18 @@ export function DocumentContentEditorModal({ projectId, documentId, versionId, c
   const { apiFetch, currentUser } = useAuth();
   const { notify } = useFeedback();
   const { t, format } = useI18n();
-  const [source, setSource] = useState<ContentEditorSource | null>(null);
   const [draft, setDraft] = useState("");
   const [mode, setMode] = useState<"rich" | "text">("text");
   const [compare, setCompare] = useState(false);
-  const [original, setOriginal] = useState<{ url?: string; text?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // OPT424-035: the editable source is a read resource; it reloads when the edited chunk/version
+  // changes (no longer when only the interface language changes).
+  const readSource = useCallback((signal: AbortSignal) => getContentEditor(apiFetch, projectId, documentId, versionId, chunkId, signal), [apiFetch, projectId, documentId, versionId, chunkId]);
+  const sourceRead = useReadResource<ContentEditorSource>(readSource, JSON.stringify([projectId, documentId, versionId, chunkId ?? null]), true, {
+    onData: value => setDraft(value.failed_update?.pending_markdown ?? value.markdown),
+    onError: () => setError(t("contentEditLoadFailed")),
+  });
+  const source = sourceRead.data;
   const { guard, state: operation, blocked } = useOperationGuard(`${currentUser?.user_id}:${projectId}:${documentId}:${versionId}`);
   const acceptedResult = useRef<ContentUpdateResult | null>(null);
   const [acceptedDraft, setAcceptedDraft] = useState<string | null>(null);
@@ -71,14 +78,6 @@ export function DocumentContentEditorModal({ projectId, documentId, versionId, c
     if (busy) return;
     if (dirty) setConfirmDiscard(true); else onClose();
   }, [busy, dirty, onClose]);
-
-  useEffect(() => {
-    const controller = new AbortController();
-    getContentEditor(apiFetch, projectId, documentId, versionId, chunkId, controller.signal).then(value => {
-      if (!controller.signal.aborted) { setSource(value); setDraft(value.failed_update?.pending_markdown ?? value.markdown); }
-    }).catch(() => { if (!controller.signal.aborted) setError(t("contentEditLoadFailed")); });
-    return () => controller.abort();
-  }, [apiFetch, projectId, documentId, versionId, chunkId, t]);
 
   useEffect(() => {
     if (!source || !editor?.markdown || readyRef.current) return;
@@ -119,22 +118,23 @@ export function DocumentContentEditorModal({ projectId, documentId, versionId, c
     }
   }, [source, mode, editor]);
 
+  // OPT424-035: the read-only original is a read resource while the comparison is open; an object
+  // URL lives exactly as long as the committed data that holds it.
+  const originalMetadata = source?.original_file ?? null;
+  const originalPath = originalMetadata ? originalMetadata.preview_url || originalMetadata.download_url : null;
+  const readOriginal = useCallback(async (signal: AbortSignal): Promise<{ url?: string; text?: string } | null> => {
+    const blob = await getKnowledgeArtifactBlob(apiFetch, originalPath!, signal);
+    if (blob.type.startsWith("text/") || originalMetadata?.viewer_type === "markdown") return { text: await blob.text() };
+    if (signal.aborted) return null;
+    if (blob.type === "application/pdf" || blob.type.startsWith("image/")) return { url: URL.createObjectURL(blob) };
+    return null;
+  }, [apiFetch, originalPath, originalMetadata?.viewer_type]);
+  const originalRead = useReadResource(readOriginal, originalPath, compare && Boolean(originalPath));
+  const original = originalRead.status === "ready" ? originalRead.data : null;
   useEffect(() => {
-    if (!compare || !source?.original_file) return;
-    let cancelled = false, url: string | null = null;
-    const metadata = source.original_file;
-    const path = metadata.preview_url || metadata.download_url;
-    if (!path) return;
-    getKnowledgeArtifactBlob(apiFetch, path).then(async blob => {
-      if (cancelled) return;
-      if (blob.type.startsWith("text/") || metadata.viewer_type === "markdown") {
-        const text = await blob.text(); if (!cancelled) setOriginal({ text });
-      } else if (blob.type === "application/pdf" || blob.type.startsWith("image/")) {
-        url = URL.createObjectURL(blob); setOriginal({ url });
-      }
-    }).catch(() => { if (!cancelled) setOriginal(null); });
-    return () => { cancelled = true; if (url) URL.revokeObjectURL(url); };
-  }, [apiFetch, compare, source]);
+    const url = originalRead.data?.url;
+    return () => { if (url) URL.revokeObjectURL(url); };
+  }, [originalRead.data]);
 
   function switchMode(next: "rich" | "text") {
     if (!editor?.markdown || busy || blocked || conversionError) return;

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import hashlib
 import json
 from ipaddress import IPv4Network, IPv6Network, ip_network
 import os
 from pathlib import Path
 import ssl
 import stat
+import threading
 from typing import Annotated, Any
 from typing import Literal, Self
 from urllib.parse import urlparse
@@ -135,6 +137,14 @@ class Settings(MigrationProbeSettings):
 
     database_url: SecretStr = SecretStr("postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/nomosmart")
     model_usage_write_timeout_seconds: int = Field(default=10, ge=1, le=60, validation_alias="NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS")
+    db_pool_size: int = Field(default=10, ge=1, le=200, validation_alias="NOMOSMART_DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, ge=0, le=400, validation_alias="NOMOSMART_DB_MAX_OVERFLOW")
+    db_pool_timeout_seconds: int = Field(default=30, ge=1, le=600, validation_alias="NOMOSMART_DB_POOL_TIMEOUT_SECONDS")
+    # 0 keeps the PostgreSQL server default (no limit). Chat turns intentionally
+    # hold a transaction-scoped advisory lock across the provider call, so an
+    # idle-in-transaction limit must exceed the longest provider timeout.
+    db_statement_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_STATEMENT_TIMEOUT_MS")
+    db_idle_in_transaction_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS")
     redis_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_broker_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_result_backend: SecretStr = SecretStr("redis://127.0.0.1:6379/1")
@@ -281,6 +291,24 @@ class Settings(MigrationProbeSettings):
     ocr_max_response_bytes: int = Field(default=8388608, ge=1, le=2**31-1, validation_alias="NOMOSMART_OCR_MAX_RESPONSE_BYTES")
     ocr_document_timeout_seconds: int = Field(default=120, ge=1, le=1800, validation_alias="NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS")
     celery_global_keyprefix: str = ""
+    celery_visibility_timeout_seconds: int = Field(default=3600, ge=300, le=172800, validation_alias="NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS")
+    # Scheduling/maintenance tasks finish in seconds; long work tasks (OCR,
+    # directory sync, validation, graph sync...) are unlimited unless set (0).
+    celery_short_task_soft_time_limit_seconds: int = Field(default=300, ge=0, le=86400, validation_alias="NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS")
+    celery_long_task_soft_time_limit_seconds: int = Field(default=0, ge=0, le=172800, validation_alias="NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS")
+    # OPT424-019: Celery beat intervals (seconds) for the periodic scheduling and maintenance tasks.
+    beat_directory_schedule_check_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DIRECTORY_SCHEDULE_CHECK_SECONDS")
+    beat_data_source_sync_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DATA_SOURCE_SYNC_SECONDS")
+    beat_outbox_dispatch_seconds: int = Field(default=10, ge=1, le=600, validation_alias="NOMOSMART_BEAT_OUTBOX_DISPATCH_SECONDS")
+    beat_archive_recovery_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_ARCHIVE_RECOVERY_SECONDS")
+    beat_auth_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_AUTH_RETENTION_CLEANUP_SECONDS")
+    beat_public_api_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_PUBLIC_API_RETENTION_CLEANUP_SECONDS")
+    # OPT424-019: provider defaults used when a model has no endpoint/base_url or version of its own.
+    provider_openai_base_url: str = Field(default="https://api.openai.com/v1", validation_alias="NOMOSMART_PROVIDER_OPENAI_BASE_URL")
+    provider_gemini_base_url: str = Field(default="https://generativelanguage.googleapis.com/v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_BASE_URL")
+    provider_gemini_api_version: str = Field(default="v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_API_VERSION")
+    provider_anthropic_base_url: str = Field(default="https://api.anthropic.com/v1", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL")
+    provider_anthropic_version: str = Field(default="2023-06-01", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_VERSION")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""
@@ -553,6 +581,26 @@ def create_neo4j_driver(settings: Settings, *, auth=None, **options):
     if auth is None:
         auth = (settings.neo4j_username.get_secret_value(), settings.neo4j_password.get_secret_value())
     return GraphDatabase.driver(uri, auth=auth, **neo4j_driver_options(settings), **options)
+
+
+_SHARED_NEO4J_DRIVERS: dict[tuple, Any] = {}
+_SHARED_NEO4J_LOCK = threading.Lock()
+
+
+def shared_neo4j_driver(settings: Settings):
+    """Process-wide application driver; a driver owns a connection pool.
+
+    Keyed by process id so forked workers never reuse a parent's sockets, and by
+    the credential digest so a settings change gets a new driver.
+    """
+    credential = hashlib.sha256(settings.neo4j_password.get_secret_value().encode("utf-8")).hexdigest()
+    key = (os.getpid(), settings.neo4j_uri, settings.neo4j_username.get_secret_value(), credential, settings.neo4j_ca_cert_path)
+    with _SHARED_NEO4J_LOCK:
+        driver = _SHARED_NEO4J_DRIVERS.get(key)
+        if driver is None:
+            driver = create_neo4j_driver(settings)
+            _SHARED_NEO4J_DRIVERS[key] = driver
+        return driver
 
 
 @lru_cache(maxsize=1)

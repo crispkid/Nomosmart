@@ -27,7 +27,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     department: Mapped[str | None] = mapped_column(String(255))
     title: Mapped[str | None] = mapped_column(String(255))
-    auth_source: Mapped[str] = mapped_column(String(32), nullable=False, default="keycloak")
+    auth_source: Mapped[str] = mapped_column(String(32), nullable=False)
     manager_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     manager_delegate_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     manager_delegate_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -87,7 +87,7 @@ class ExternalGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     group_dn: Mapped[str | None] = mapped_column(Text)
     group_name: Mapped[str] = mapped_column(String(255), nullable=False)
     path: Mapped[str | None] = mapped_column(Text)
-    identity_origin: Mapped[str] = mapped_column(String(32), nullable=False, default="keycloak_local")
+    identity_origin: Mapped[str] = mapped_column(String(32), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 

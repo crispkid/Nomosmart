@@ -1,0 +1,29 @@
+{{- if include "nomosmart.applicationStageEnabled" . }}
+{{- range $component := list "frontend" "backend" }}
+{{- $config := index $.Values.autoscaling $component }}
+{{- if $config.enabled }}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: {{ include "nomosmart.fullname" $ }}-{{ $component }}
+  labels:
+    {{- include "nomosmart.labels" $ | nindent 4 }}
+    app.kubernetes.io/component: {{ $component }}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: {{ include "nomosmart.fullname" $ }}-{{ $component }}
+  minReplicas: {{ index $.Values.replicaCount $component }}
+  maxReplicas: {{ $config.maxReplicas }}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{ $config.targetCPUUtilizationPercentage }}
+{{- end }}
+{{- end }}
+{{- end }}

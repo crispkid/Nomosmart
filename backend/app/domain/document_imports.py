@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -542,19 +542,53 @@ def _title_from_filename(filename: str) -> str:
     return title[:MAX_TITLE_LENGTH]
 
 
-def latest_versions(session: Session, project_id: UUID) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
-    documents = list(session.scalars(select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False)).order_by(desc(Document.updated_at), Document.title)))
+@dataclass(frozen=True)
+class DocumentListPosition:
+    """Keyset position after a document in list order (updated_at newest first, title, id)."""
+
+    updated_at: datetime
+    title: str
+    document_id: UUID
+
+
+def latest_versions(
+    session: Session,
+    project_id: UUID,
+    *,
+    after: DocumentListPosition | None = None,
+    limit: int | None = None,
+) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
+    statement = select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False))
+    if after is not None:
+        # OPT424-016: keyset over (updated_at DESC, title ASC, id ASC) for the paged list.
+        statement = statement.where(or_(
+            Document.updated_at < after.updated_at,
+            and_(Document.updated_at == after.updated_at, or_(
+                Document.title > after.title,
+                and_(Document.title == after.title, Document.id > after.document_id),
+            )),
+        ))
+    statement = statement.order_by(desc(Document.updated_at), Document.title, Document.id)
+    if limit is not None:
+        statement = statement.limit(limit)
+    documents = list(session.scalars(statement))
+    if not documents:
+        return []
+    # One DISTINCT ON query per relation instead of two queries per document.
+    versions = {version.document_id: version for version in session.scalars(
+        select(DocumentVersion).where(DocumentVersion.document_id.in_([document.id for document in documents]),
+            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
+        .distinct(DocumentVersion.document_id)
+        .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)))}
+    pipelines = {pipeline.document_version_id: pipeline for pipeline in session.scalars(
+        select(PipelineRun).where(PipelineRun.document_version_id.in_([version.id for version in versions.values()]),
+            ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+        .distinct(PipelineRun.document_version_id)
+        .order_by(PipelineRun.document_version_id, desc(PipelineRun.created_at)))} if versions else {}
     rows: list[tuple[Document, DocumentVersion | None, PipelineRun | None]] = []
     for document in documents:
-        version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id,
-            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
-            .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)).limit(1))
-        pipeline = None
-        if version is not None:
-            pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id,
-                ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
-                .order_by(desc(PipelineRun.created_at)).limit(1))
-        rows.append((document, version, pipeline))
+        version = versions.get(document.id)
+        rows.append((document, version, pipelines.get(version.id) if version is not None else None))
     return rows
 
 

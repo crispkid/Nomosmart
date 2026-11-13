@@ -54,6 +54,9 @@ class JsonFormatter(logging.Formatter):
             value = getattr(record, key, None)
             if value is not None:
                 payload[key] = safe_readiness_checks(value) if key == "readiness_checks" else redact_log_value(key, value)
+        if record.exc_info and record.exc_info[0] is not None:
+            payload["exception_type"] = record.exc_info[0].__name__
+            payload["stack"] = self.formatException(record.exc_info)
         return json.dumps(payload, ensure_ascii=False)
 
 

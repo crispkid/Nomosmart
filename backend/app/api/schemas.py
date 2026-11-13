@@ -358,6 +358,13 @@ class DocumentSummary(BaseModel):
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
+class DocumentSummaryPage(BaseModel):
+    """One page of the project document list (OPT424-016); next_cursor is null on the last page."""
+
+    items: list[DocumentSummary]
+    next_cursor: str | None = None
+
+
 class DocumentUploadResult(BaseModel):
     index: int
     filename: str

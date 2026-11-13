@@ -1,5 +1,6 @@
 "use client";
 
+import { useModalFocus } from "@/components/useModalFocus";
 import { createContext, useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { BrowserTitle } from "@/lib/browserTitle";
@@ -50,6 +51,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [checking, setChecking] = useState(false);
   const [recheckResult, setRecheckResult] = useState<"idle" | "denied" | "failed">("idle");
   const [restorePrompt, setRestorePrompt] = useState<DraftPointer | null>(null);
+  // Focus stays in the prompt; Escape must not discard or restore a draft implicitly.
+  const restoreDialogRef = useModalFocus(Boolean(restorePrompt), () => undefined);
   const csrf = useRef<string | null>(null);
   const closing = useRef(false);
   const generation = useRef(0);
@@ -125,7 +128,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally { setChecking(false); }
   }, [apiFetch, login, t]);
 
-  useEffect(() => { (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true; }, []);
+  useEffect(() => {
+    (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true;
+    document.getElementById("nomosmart-hydration-stalled")?.remove();
+  }, []);
   useEffect(() => { const timer = window.setTimeout(() => { void probe(); }, 0); return () => window.clearTimeout(timer); }, [probe]);
   useEffect(() => {
     const broadcast = new BroadcastChannel("nomosmart-session-v2");
@@ -220,7 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const ready = authReady && currentUser && applicationAccess === "granted";
   return <AuthContext.Provider value={value}><GraphLayoutSession identity={ready ? identity : null}><FeedbackProvider currentUser={currentUser} enabled={Boolean(ready)}>
     {!isProtected ? children : connectionFailed ? <AuthConnectionRecovery busy={checking} failed onRetry={() => { void probe(); }} /> : applicationAccess === "denied" ? <ApplicationAccessDenied onLogout={logout} onRecheck={probe} recheckResult={recheckResult} rechecking={checking} userDisplayName={userDisplayName} /> : ready ? children : <><BrowserTitle label={t("authCheckingSession")} /><main className="auth-loading" role={authError ? "alert" : "status"}>{authError || t("authCheckingSession")}</main></>}
-    {restorePrompt ? <div className="auth-session-modal" role="dialog" aria-modal="true" aria-labelledby="draft-restore-title"><section><h2 id="draft-restore-title">{t("restoreDraftTitle")}</h2><p>{t("restoreDraftHelp")}</p><footer><button className="action-button secondary" onClick={() => { void finishDraft(false); }} type="button">{t("discardDraft")}</button><button className="action-button" onClick={() => { void finishDraft(true); }} type="button">{t("restoreDraft")}</button></footer></section></div> : null}
+    {restorePrompt ? <div ref={restoreDialogRef as React.RefObject<HTMLDivElement>} className="auth-session-modal" role="dialog" aria-modal="true" aria-labelledby="draft-restore-title"><section><h2 id="draft-restore-title">{t("restoreDraftTitle")}</h2><p>{t("restoreDraftHelp")}</p><footer><button className="action-button secondary" onClick={() => { void finishDraft(false); }} type="button">{t("discardDraft")}</button><button className="action-button" onClick={() => { void finishDraft(true); }} type="button">{t("restoreDraft")}</button></footer></section></div> : null}
   </FeedbackProvider></GraphLayoutSession></AuthContext.Provider>;
 }
 export function useAuth() { const value = useContext(AuthContext); if (!value) throw new Error("useAuth must be used inside AuthProvider"); return value; }

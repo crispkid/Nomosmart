@@ -2,10 +2,7 @@ from __future__ import annotations
 
 import json
 import re
-import ssl
-import urllib.error
 import urllib.parse
-import urllib.request
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
 from typing import Any
@@ -15,6 +12,7 @@ import httpx
 
 from app.api.schemas import ProjectChatCitation
 from app.core.config import Settings, get_settings
+from app.integrations.provider_http import ProviderRejectedError, ProviderUnavailableError, post_provider_json
 from app.core.errors import AppError
 from app.domain.model_credentials import resolve_model_credential
 from app.db.models import AIModel
@@ -141,7 +139,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider in {"openai", "vllm", "custom"}:
-        default_url = "https://api.openai.com/v1" if provider == "openai" else ""
+        default_url = settings.provider_openai_base_url if provider == "openai" else ""
         base_url = _string(config.get("base_url") or model.endpoint or default_url).rstrip("/")
         if not base_url:
             raise AppError("model_endpoint_required", "Chat Model endpoint is required", status_code=422)
@@ -168,7 +166,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider == "gemini":
-        base_url = _string(config.get("base_url") or model.endpoint or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_gemini_base_url).rstrip("/")
         api_key = _resolve_api_key(model, settings)
         if api_key:
             headers["x-goog-api-key"] = api_key
@@ -182,8 +180,8 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider in {"claude", "anthropic"}:
-        base_url = _string(config.get("base_url") or model.endpoint or "https://api.anthropic.com/v1").rstrip("/")
-        headers["anthropic-version"] = _string(config.get("anthropic_version") or "2023-06-01")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_anthropic_base_url).rstrip("/")
+        headers["anthropic-version"] = _string(config.get("anthropic_version") or settings.provider_anthropic_version)
         body = {
             "model": _model_name(model),
             "system": messages[0]["content"],
@@ -425,7 +423,7 @@ def _invoke_openai_compatible(model: AIModel, messages: list[dict[str, str]], se
     config = model.config or {}
     provider = model.provider.strip().lower()
     if provider == "openai":
-        base_url = _string(config.get("base_url") or model.endpoint or "https://api.openai.com/v1").rstrip("/")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url).rstrip("/")
     else:
         base_url = _string(config.get("base_url") or model.endpoint).rstrip("/")
     if not base_url:
@@ -476,7 +474,7 @@ def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], set
 
 
 def _openai_responses_url(value: object) -> str:
-    base_url = _string(value).rstrip("/") or "https://api.openai.com/v1"
+    base_url = _string(value).rstrip("/") or get_settings().provider_openai_base_url
     return base_url if base_url.lower().endswith("/responses") else f"{base_url}/responses"
 
 
@@ -495,7 +493,7 @@ def _invoke_ollama(model: AIModel, messages: list[dict[str, str]], _settings: Se
 def _invoke_gemini(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
     model_name = _model_name(model)
-    base_url = _string(config.get("base_url") or model.endpoint or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+    base_url = _string(config.get("base_url") or model.endpoint or settings.provider_gemini_base_url).rstrip("/")
     api_key = _resolve_api_key(model, settings)
     url = f"{base_url}/models/{urllib.parse.quote(model_name, safe='')}:generateContent"
     headers = {"x-goog-api-key": api_key} if api_key else {}
@@ -509,9 +507,9 @@ def _invoke_gemini(model: AIModel, messages: list[dict[str, str]], settings: Set
 
 def _invoke_claude(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
-    base_url = _string(config.get("base_url") or model.endpoint or "https://api.anthropic.com/v1").rstrip("/")
+    base_url = _string(config.get("base_url") or model.endpoint or settings.provider_anthropic_base_url).rstrip("/")
     headers = _auth_headers(model, settings)
-    headers["anthropic-version"] = _string(config.get("anthropic_version") or "2023-06-01")
+    headers["anthropic-version"] = _string(config.get("anthropic_version") or settings.provider_anthropic_version)
     body = {
         "model": _model_name(model),
         "system": messages[0]["content"],
@@ -530,31 +528,12 @@ def _post_json(
     timeout_seconds: int,
     verify_tls: bool,
 ) -> dict[str, Any]:
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", **(headers or {})},
-        method="POST",
-    )
-    context = _ssl_context(verify_tls)
     try:
-        with urllib.request.urlopen(request, timeout=timeout_seconds, context=context) as response:
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise AppError("model_invocation_failed", "Chat Model provider rejected the request", status_code=502, details={"status_code": exc.code}) from exc
-    except (urllib.error.URLError, TimeoutError, json.JSONDecodeError) as exc:
+        return post_provider_json(url, body, headers=headers, timeout_seconds=timeout_seconds, verify_tls=verify_tls)
+    except ProviderRejectedError as exc:
+        raise AppError("model_invocation_failed", "Chat Model provider rejected the request", status_code=502, details={"status_code": exc.status_code}) from exc
+    except ProviderUnavailableError as exc:
         raise AppError("model_provider_unavailable", "Chat Model provider is unavailable", status_code=503) from exc
-
-
-def _ssl_context(verify_tls: bool) -> ssl.SSLContext | None:
-    if not verify_tls:
-        return ssl._create_unverified_context()
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except (ImportError, OSError):
-        return None
 
 
 def _auth_headers(model: AIModel, settings: Settings) -> dict[str, str]:

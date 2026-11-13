@@ -37,6 +37,8 @@ spec:
       containers:
         - name: migration
           image: "{{ .Values.image.migration.repository }}:{{ .Values.image.migration.tag }}"
+          resources:
+            {{- toYaml .Values.jobs.resources | nindent 12 }}
           imagePullPolicy: {{ .Values.image.migration.pullPolicy }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}

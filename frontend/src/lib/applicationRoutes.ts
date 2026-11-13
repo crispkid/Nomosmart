@@ -3,6 +3,13 @@ const STATIC_PROTECTED_PAGES = new Set(["/", "/projects", "/approve", "/reports"
 const PROJECT_PAGE = /^\/project\/[^/]+\/(?:import|knowledge\/[^/]+(?:\/(?:chat-test|submit-review))?)$/;
 const APPROVAL_PAGE = /^\/approve\/[^/]+$/;
 
+/** Serializable form for the pre-hydration watchdog in the root layout. */
+export const protectedPageMatchers = {
+  staticPages: [...STATIC_PROTECTED_PAGES],
+  projectPage: PROJECT_PAGE.source,
+  approvalPage: APPROVAL_PAGE.source,
+};
+
 export function isProtectedApplicationPage(pathname: string): boolean {
   // Unknown page shapes must reach Next's terminal 404 without initiating OIDC.
   // The same result survives a full remount; a per-component ref cannot do that.

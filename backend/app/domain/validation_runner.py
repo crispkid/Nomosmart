@@ -16,6 +16,7 @@ from app.domain.ai_provider import evaluate_rag_answer, generate_rag_answer
 from app.domain.chat_citations import citation_persistence_payload, validate_citation_markers
 from app.domain.chat_conversations import require_conversation_identity
 from app.domain.model_usage import record_model_usage, QUERY_USAGE_STOP_CODES
+from app.domain.project_retrieval import _resolve_document_staging_scope, _resolve_retrieval_scope, _search_document_staging_chunks, _search_published_chunks
 from app.domain.system_prompts import (
     SystemPromptLayer,
     SystemPromptResolution,
@@ -108,8 +109,6 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
 
 
 def _execute_item(session: Session, run: ValidationRun, project: Project, item: ValidationRunItem) -> None:
-    from app.api.routes import serving
-
     item.status = "running"
     item.error_message = None
     item.error_code = None
@@ -129,12 +128,12 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
             user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids, unused_only=True)
         if run.run_scope == "document_staging":
-            requested_ids = serving._resolve_document_staging_scope(session, project.id, list(selected_ids))
-            citations = serving._search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            requested_ids = _resolve_document_staging_scope(session, project.id, list(selected_ids))
+            citations = _search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "document_staging"
         else:
-            _manifests, _manifest_ids, requested_ids = serving._resolve_retrieval_scope(session, project.id, list(selected_ids))
-            citations = serving._search_published_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            _manifests, _manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, list(selected_ids))
+            citations = _search_published_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "published"
         chat_model = _manifest_model(session, run, "chat_model_id", "Chat") if citations else None
         chat_prompt = _manifest_prompt(run, "chat_prompt") if chat_model is not None else None

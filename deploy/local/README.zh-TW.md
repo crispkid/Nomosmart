@@ -27,4 +27,4 @@ Compose及Helm已移除內建認證服務。本機仍需真實的PostgreSQL、Re
 
 ## 證據與歷史
 
-[現行驗證與缺口](../../docs/AUTHENTICATION-STATUS.zh-TW.md)、[設定檢查](../../docs/AUTHENTICATION-STATUS.zh-TW.md)、[舊本機說明](../../docs/archive/authentication-contract-1/local.zh-TW.before-doc-sync.md)。[2026-10-01驗證](VALIDATION.md)僅保留當時結果，不當成目前來源已通過。
+現行驗證與缺口、設定檢查、舊本機說明。2026-10-01驗證僅保留當時結果，不當成目前來源已通過。

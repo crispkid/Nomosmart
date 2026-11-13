@@ -16,3 +16,8 @@ output
 .env
 .env.*
 !.env.example
+# Local-only tests and test configuration (CHG-424 D424-03)
+tests
+vitest.config.*
+playwright.config.*
+eslint-rules/*.test.*

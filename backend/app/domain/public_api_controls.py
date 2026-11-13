@@ -17,7 +17,7 @@ from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.core.idempotency import canonical_request_hash, storage_scope, validate_replay
 from app.db.models import ChatFeedbackEvent, IdempotencyKey
-from app.integrations.redis_ha import redis_client
+from app.integrations.redis_ha import shared_redis_client
 
 
 _RATE_LIMIT_SCRIPT = """
@@ -119,14 +119,11 @@ def fail_idempotent_operation(record: IdempotencyKey, error: AppError) -> None:
 def enforce_rate_limit(settings: Settings, *, dimension: str, limit: int) -> None:
     key = f"nomosmart:public-api:rate:{keyed_fingerprint(settings, 'rate', dimension)}"
     try:
-        client = redis_client(
+        client = shared_redis_client(
             settings,
             decode_responses=True,
         )
-        try:
-            count = int(client.eval(_RATE_LIMIT_SCRIPT, 1, key, settings.public_api_rate_limit_window_seconds))
-        finally:
-            client.close()
+        count = int(client.eval(_RATE_LIMIT_SCRIPT, 1, key, settings.public_api_rate_limit_window_seconds))
     except redis.RedisError as exc:
         raise AppError("public_api_rate_limit_unavailable", "Public API rate limiting is unavailable", status_code=503) from exc
     if count > limit:

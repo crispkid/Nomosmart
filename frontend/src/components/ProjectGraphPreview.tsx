@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "next/navigation";
 import { useGraphSourceBinding } from "@/lib/useGraphSourceBinding";
 import { useAuth } from "@/components/AuthProvider";
@@ -8,6 +8,7 @@ import { GraphExplorer, type GraphExplorerEdge, type GraphExplorerNode } from "@
 import { getProjectGraph, getProjectGraphNeighbors, type ProjectGraphResponse } from "@/lib/api";
 import { chunkGraphTitle } from "@/lib/documentGraph";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 
 type SourceNodeKind = "chunk" | "document" | "project" | "tag";
 type SourceNode = {
@@ -371,25 +372,19 @@ export function ProjectGraphPreview() {
   const { format, t } = useI18n();
   const scopeRef = useRef<string | null>(null);
   useLayoutEffect(() => { scopeRef.current = authReady ? params?.id ?? null : null; return () => { scopeRef.current = null; }; }, [authReady, params?.id, apiFetch]);
-  const [liveGraph, setLiveGraph] = useState<ProjectGraphResponse | null>(null);
-  const [graphStatus, setGraphStatus] = useState<"empty" | "error" | "not-ready" | "forbidden" | "live" | "loading">("loading");
   const [expandingNodeId, setExpandingNodeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    const projectId = params?.id;
-    if (!authReady || !projectId) return;
-    let cancelled = false;
-    getProjectGraph(apiFetch, projectId, 120).then((graph) => {
-      if (cancelled) return;
-      setLiveGraph(graph);
-      setGraphStatus(graph.nodes.length ? "live" : "empty");
-    }).catch((error: Error & { status?: number; code?: string }) => {
-      if (cancelled) return;
-      setLiveGraph(null);
-      setGraphStatus(error.status === 403 ? "forbidden" : ["graph_projection_not_ready", "graph_identity_conflict"].includes(error.code ?? "") ? "not-ready" : "error");
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, authReady, params?.id]);
+  // A neighbor expansion that finds the projection not ready hides the graph for that project.
+  const [expansionNotReady, setExpansionNotReady] = useState<string | null>(null);
+  const projectId = params?.id ?? null;
+  const readGraph = useCallback((signal: AbortSignal) => getProjectGraph(apiFetch, projectId!, 120, signal), [apiFetch, projectId]);
+  const graphRead = useReadResource<ProjectGraphResponse>(readGraph, projectId, authReady && Boolean(projectId));
+  const readError = graphRead.error as (Error & { status?: number; code?: string }) | undefined;
+  const hiddenByExpansion = expansionNotReady !== null && expansionNotReady === projectId;
+  const liveGraph = hiddenByExpansion ? null : graphRead.data;
+  const graphStatus: "empty" | "error" | "not-ready" | "forbidden" | "live" | "loading" = hiddenByExpansion ? "not-ready"
+    : graphRead.status === "loading" ? "loading"
+    : graphRead.status === "error" ? (readError?.status === 403 ? "forbidden" : ["graph_projection_not_ready", "graph_identity_conflict"].includes(readError?.code ?? "") ? "not-ready" : "error")
+    : graphRead.data?.nodes.length ? "live" : "empty";
 
   function expandNeighborGraph(nodeId: string) {
     const projectId = params?.id;
@@ -397,12 +392,11 @@ export function ProjectGraphPreview() {
     setExpandingNodeId(nodeId);
     getProjectGraphNeighbors(apiFetch, projectId, nodeId, 80).then((neighborGraph) => {
       if (scopeRef.current !== projectId || neighborGraph.project_id !== projectId) return;
-      setLiveGraph((current) => current?.project_id === projectId ? mergeProjectGraphs(current, neighborGraph) : neighborGraph);
+      graphRead.update((current) => current.project_id === projectId ? mergeProjectGraphs(current, neighborGraph) : neighborGraph);
     }).catch((error: { code?: string }) => {
       if (scopeRef.current !== projectId) return;
       if (["graph_projection_not_ready", "graph_identity_conflict"].includes(error.code ?? "")) {
-        setLiveGraph(null);
-        setGraphStatus("not-ready");
+        setExpansionNotReady(projectId);
       }
     }).finally(() => setExpandingNodeId((current) => current === nodeId ? null : current));
   }

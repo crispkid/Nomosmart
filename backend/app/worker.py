@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import logging
 import os
 from threading import Event, Thread
 from uuid import UUID, uuid4
@@ -37,6 +38,7 @@ from app.services.identity_sync_jobs import (
 )
 
 
+logger = logging.getLogger("nomosmart.worker")
 settings = get_settings()
 celery_app = Celery("nomosmart", broker=settings.celery_broker_url.get_secret_value(), backend=settings.celery_result_backend.get_secret_value())
 if settings.redis_ha_mode == "sentinel":
@@ -55,7 +57,7 @@ if settings.redis_ha_mode == "sentinel":
     celery_app.conf.broker_transport_options = {
         "master_name": settings.redis_sentinel_master_name,
         "sentinel_kwargs": sentinel_kwargs,
-        "visibility_timeout": 3600,
+        "visibility_timeout": settings.celery_visibility_timeout_seconds,
     }
     celery_app.conf.result_backend_transport_options = {
         "master_name": settings.redis_sentinel_master_name,
@@ -69,6 +71,45 @@ if settings.celery_global_keyprefix:
         "global_keyprefix": settings.celery_global_keyprefix}
     celery_app.conf.result_backend_transport_options = {**celery_app.conf.result_backend_transport_options,
         "global_keyprefix": settings.celery_global_keyprefix}
+if settings.redis_ha_mode != "sentinel":
+    # Late-acked tasks running longer than this are redelivered by Redis.
+    celery_app.conf.broker_transport_options = {**celery_app.conf.broker_transport_options,
+        "visibility_timeout": settings.celery_visibility_timeout_seconds}
+SHORT_TASKS = (
+    "app.worker.record_runtime_heartbeat",
+    "app.worker.queue_scheduled_directory_sync_v2",
+    "app.worker.queue_scheduled_data_source_sync",
+    "app.worker.recover_stale_project_archives",
+    "app.worker.dispatch_outbox",
+    "app.worker.run_notification_event",
+    "app.worker.recover_staging_retention",
+)
+LONG_TASKS = (
+    "app.worker.run_directory_sync_v2",
+    "app.worker.run_graph_sync",
+    "app.worker.run_project_archive_cleanup",
+    "app.worker.run_chunk_artifact_reconciliation",
+    "app.worker.run_document_content_update",
+    "app.worker.run_project_chat_validation",
+    "app.worker.run_data_source_sync",
+    "app.worker.cleanup_public_api_retention",
+    "app.worker.run_document_extraction",
+    "app.worker.cleanup_authentication_retention",
+    "app.worker.run_staging_retention",
+)
+
+
+def task_time_limits(short_soft_seconds: int, long_soft_seconds: int) -> dict[str, dict[str, int]]:
+    """Soft limit raises SoftTimeLimitExceeded; the hard limit follows 30 s later."""
+    annotations = {}
+    for names, soft in ((SHORT_TASKS, short_soft_seconds), (LONG_TASKS, long_soft_seconds)):
+        if soft:
+            annotations.update({name: {"soft_time_limit": soft, "time_limit": soft + 30} for name in names})
+    return annotations
+
+
+celery_app.conf.task_annotations = task_time_limits(settings.celery_short_task_soft_time_limit_seconds,
+    settings.celery_long_task_soft_time_limit_seconds)
 celery_app.conf.task_queues = (Queue("celery"), Queue("nomosmart-auth-v2"))
 celery_app.conf.task_routes = {
     "app.worker.run_directory_sync_v2": {"queue": "nomosmart-auth-v2"},
@@ -81,13 +122,13 @@ celery_app.conf.timezone = settings.identity_sync_timezone
 _minute, _hour, _day_of_month, _month_of_year, _day_of_week = settings.identity_sync_schedule.split()
 celery_app.conf.beat_schedule = {
     "record-runtime-heartbeat": {"task": "app.worker.record_runtime_heartbeat", "schedule": float(settings.identity_sync_heartbeat_seconds)},
-    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_directory_sync_v2", "schedule": DirectoryDailySchedule(run_every=60, app=celery_app)},
-    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": 60.0},
-    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": 10.0},
-    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": 60.0},
-    "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": 86400.0},
+    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_directory_sync_v2", "schedule": DirectoryDailySchedule(run_every=settings.beat_directory_schedule_check_seconds, app=celery_app)},
+    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": float(settings.beat_data_source_sync_seconds)},
+    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": float(settings.beat_outbox_dispatch_seconds)},
+    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": float(settings.beat_archive_recovery_seconds)},
+    "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": float(settings.beat_auth_retention_cleanup_seconds)},
     "recover-staging-retention": {"task": "app.worker.recover_staging_retention", "schedule": float(settings.staging_retention_recovery_seconds)},
-    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": 86400.0},
+    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": float(settings.beat_public_api_retention_cleanup_seconds)},
 }
 
 
@@ -97,7 +138,7 @@ def _record_worker_runtime_heartbeat(**_: object) -> None:
     try:
         record_worker_heartbeat(settings)
     except Exception:
-        return
+        logger.warning("worker_heartbeat_failed", exc_info=True, extra={"worker_task": "runtime_heartbeat"})
 
 
 
@@ -126,6 +167,7 @@ class _IdentityRunHeartbeat:
                         return
                     run.heartbeat_at = datetime.now(UTC)
             except Exception:
+                logger.warning("identity_sync_heartbeat_failed", exc_info=True, extra={"worker_task": "identity_sync_heartbeat"})
                 continue
 
     def __enter__(self) -> "_IdentityRunHeartbeat":
@@ -332,6 +374,7 @@ def dispatch_document_outbox(factory) -> None:
             run_document_extraction.apply_async(args=[str(dispatch.run_id), str(dispatch.task_id),
                 str(dispatch.generation)], task_id=str(dispatch.broker_task_id))
         except Exception:  # Ambiguous broker response: retain same durable task, never re-claim it.
+            logger.warning("file_processing_dispatch_unconfirmed", exc_info=True, extra={"worker_task": "dispatch_outbox"})
             with factory.begin() as session:
                 event = session.get(OutboxEvent, event_id, with_for_update=True)
                 if event and event.task_id == str(dispatch.broker_task_id):
@@ -419,7 +462,7 @@ def run_document_content_update(update_id: str) -> None:
         execute_content_update(session,UUID(update_id),settings)
 
 
-@celery_app.task(name="app.worker.run_project_chat_validation", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+@celery_app.task(name="app.worker.run_project_chat_validation", autoretry_for=(Exception,), dont_autoretry_for=(AppError,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def run_project_chat_validation(run_id: str) -> None:
     factory = get_session_factory()
     with factory() as session:
@@ -435,12 +478,14 @@ def run_project_chat_validation(run_id: str) -> None:
         try:
             execute_validation_run(session, UUID(run_id))
         except Exception as exc:
+            # The failed unit of work may have left the session unusable.
+            session.rollback()
             add_audit(session, actor_user_id=None, action="worker.validation_run.failed", resource_type="validation_run", resource_id=UUID(run_id), result="failed", request_id=None, summary={"error_code": getattr(exc, "code", "validation_run_failed")})
             session.commit()
             raise
 
 
-@celery_app.task(name="app.worker.run_data_source_sync", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+@celery_app.task(name="app.worker.run_data_source_sync", autoretry_for=(Exception,), dont_autoretry_for=(AppError,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def run_data_source_sync(run_id: str) -> None:
     factory = get_session_factory()
     with factory.begin() as session:
@@ -529,6 +574,7 @@ class _DocumentTaskHeartbeat:
                 with self.factory.begin() as session:
                     require_claim(session, self.claim, check_scope=False)
             except Exception:
+                logger.warning("file_processing_claim_heartbeat_stopped", exc_info=True, extra={"worker_task": "document_extraction"})
                 return  # Missing DB proof is handled fail-closed by the reconciler.
 
     def __enter__(self):
