@@ -5,80 +5,23 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy import select
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.api.schemas import SessionDraftCreatePayload, SessionDraftCreateResponse, SessionDraftRestorePayload, SessionDraftRestoreResponse
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.db.models import SessionExpiredFormDraft, SystemParameter, User
+from app.db.models import SessionExpiredFormDraft, SystemParameter
 from app.db.session import get_db
-from app.security.auth import JWTValidator, bearer, get_jwt_validator
+from app.domain.system_parameter_store import read_values
 from app.security.context import IdentityContext, get_identity_context
-from app.services.logout import revoke_login_session
-from app.services.audit import add_audit
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
-@router.get("/oidc/config")
-def oidc_config(request: Request) -> dict[str, str]:
-    settings = request.app.state.settings
-    return {
-        "issuer": settings.oidc_issuer_url,
-        "client_id": settings.oidc_frontend_client_id,
-        "audience": settings.oidc_audience,
-        "authorization_flow": "authorization_code_pkce",
-    }
 
 
-@router.get("/me")
-def current_user(
-    request: Request,
-    context: IdentityContext = Depends(get_identity_context),
-    session: Session = Depends(get_db),
-) -> dict[str, object]:
-    principal = context.principal
-    user = session.get(User, context.user_id)
-    if user is None:
-        raise AppError("user_not_synchronized", "User has not been synchronized", status_code=403)
-    add_audit(
-        session,
-        actor_user_id=context.user_id,
-        action="auth.login.success",
-        resource_type="login_session",
-        resource_id=None,
-        result="success",
-        request_id=request.state.request_id,
-        summary={"issuer": principal.issuer, "subject_fingerprint": sha256(principal.subject.encode("utf-8")).hexdigest()},
-    )
-    session.commit()
-    return {
-        "user_id": str(context.user_id),
-        "subject": principal.subject,
-        "employee_id": principal.employee_id,
-        "email": principal.email,
-        "given_name": user.given_name,
-        "family_name": user.family_name,
-        "display_name": user.display_name,
-        "groups": list(principal.groups),
-        "permissions": [
-            {
-                "module_name": grant.module_name,
-                "function_name": grant.function_name,
-                "can_view": grant.can_view,
-                "can_create": grant.can_create,
-                "can_edit": grant.can_edit,
-                "can_delete": grant.can_delete,
-                "can_execute": grant.can_execute,
-            }
-            for grant in context.grants
-        ],
-        "visible_project_ids": [str(project_id) for project_id in sorted(context.visible_project_ids, key=str)],
-    }
 
 
 @router.post("/session-drafts", response_model=SessionDraftCreateResponse)
@@ -148,36 +91,13 @@ def discard_session_draft(
     return {"status": "discarded"}
 
 
-@router.post("/logout")
-def logout(
-    request: Request,
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
-    validator: JWTValidator = Depends(get_jwt_validator),
-    session: Session = Depends(get_db),
-) -> dict[str, str]:
-    if credentials is None or credentials.scheme.lower() != "bearer":
-        raise AppError("authentication_required", "Bearer access token is required", status_code=401)
-    principal = validator.validate(credentials.credentials)
-    try:
-        revoke_login_session(session, principal=principal, token=credentials.credentials, request_id=request.state.request_id)
-        session.commit()
-    except SQLAlchemyError:
-        # Success means the denylist, grants and audit are durably committed.
-        # Never expose database statements/parameters, including rollback failures.
-        try:
-            session.rollback()
-        except SQLAlchemyError:
-            pass  # get_db still closes the failed session; logout remains unconfirmed.
-        raise AppError("logout_unavailable", "Unable to confirm logout", status_code=503) from None
-    return {"status": "logged_out"}
 
 
 SENSITIVE_DRAFT_KEY_PARTS = ("password", "otp", "token", "secret", "credential", "api_key", "apikey", "authorization", "bearer", "pkce", "private_key", "refresh")
 
 
 def _draft_ttl_minutes(session: Session) -> int:
-    row = session.scalar(select(SystemParameter).where(SystemParameter.key == "session_expired_form_draft_ttl_minutes"))
-    return int(row.value if row is not None else 30)
+    return read_values(session, ("session_expired_form_draft_ttl_minutes",))["session_expired_form_draft_ttl_minutes"]
 
 
 def _safe_return_path(value: str) -> str:

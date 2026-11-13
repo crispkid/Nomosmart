@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select, true
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, aliased
 
 from app.core.errors import AppError
 from app.db.models import ApprovalRequest, ApprovalTask, ProjectMember, ProjectOwner, ReviewRecord, Role, RolePermission, RoleUser, User
@@ -64,13 +65,24 @@ def approval_request_read_predicate(session: Session, context: IdentityContext):
         User.id == ApprovalRequest.submitter_id,
         User.manager_user_id == context.user_id,
     ).exists()
+    current_manager = aliased(User)
+    now = datetime.now(UTC)
+    delegate = select(User.id).join(current_manager, current_manager.id == User.manager_user_id).where(
+        User.id == ApprovalRequest.submitter_id,
+        current_manager.is_active.is_(True),
+        current_manager.directory_enabled.is_(True),
+        current_manager.locally_disabled.is_(False),
+        current_manager.manager_delegate_user_id == context.user_id,
+        or_(current_manager.manager_delegate_start_at.is_(None), current_manager.manager_delegate_start_at <= now),
+        or_(current_manager.manager_delegate_end_at.is_(None), current_manager.manager_delegate_end_at >= now),
+    ).exists()
     owner = select(ProjectOwner.project_id).where(
         ProjectOwner.project_id == ApprovalRequest.project_id,
         ProjectOwner.user_id == context.user_id,
     ).exists()
     return and_(
         ApprovalRequest.project_id.in_(context.visible_project_ids),
-        or_(ApprovalRequest.submitter_id == context.user_id, assigned, original_manager, reviewed, manager, owner),
+        or_(ApprovalRequest.submitter_id == context.user_id, assigned, original_manager, reviewed, manager, delegate, owner),
     )
 
 

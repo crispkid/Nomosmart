@@ -35,11 +35,20 @@ spec:
       {{- end }}
       initContainers:
         {{- include "nomosmart.backendReadyInitContainer" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: frontend
           image: "{{ .Values.image.frontend.repository }}:{{ .Values.image.frontend.tag }}"
           imagePullPolicy: {{ .Values.image.frontend.pullPolicy }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+            {{- if .Values.frontend.readOnlyRootFilesystem }}
+            readOnlyRootFilesystem: true
+            {{- end }}
           ports:
             - name: http
               containerPort: 3000
@@ -47,7 +56,13 @@ spec:
             - configMapRef:
                 name: {{ include "nomosmart.fullname" . }}-config
           volumeMounts:
-            {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
+            {{- include "nomosmart.internalCaVolumeMount" (merge (dict "omitAuthKeys" true) .) | nindent 12 }}
+            {{- if .Values.frontend.readOnlyRootFilesystem }}
+            - name: next-cache
+              mountPath: /app/.next/cache
+            - name: tmp
+              mountPath: /tmp
+            {{- end }}
           readinessProbe:
             httpGet:
               path: /
@@ -67,7 +82,15 @@ spec:
           resources:
             {{- toYaml .Values.frontend.resources | nindent 12 }}
       volumes:
-        {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
+        {{- include "nomosmart.internalCaVolume" (merge (dict "omitAuthKeys" true) .) | nindent 8 }}
+        {{- if .Values.frontend.readOnlyRootFilesystem }}
+        - name: next-cache
+          emptyDir:
+            sizeLimit: 256Mi
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
+        {{- end }}
       {{- if .Values.highAvailability.enabled }}
       affinity:
         {{- include "nomosmart.haAffinity" (dict "root" . "component" "frontend") | nindent 8 }}

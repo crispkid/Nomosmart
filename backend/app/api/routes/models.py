@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.api.schemas import AIModelCreate, AIModelDeleteRequest, AIModelResponse, AIModelUpdate
+from app.core.config import get_settings
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import AIModel, DocumentVersion, PipelineRun, Project, SystemPrompt
@@ -15,7 +16,6 @@ from app.db.session import get_db
 from app.domain.connection_evidence import ai_model_connection_fingerprint, invalidate_model_connection_evidence
 from app.domain.connection_probes import probe_ai_model
 from app.domain.model_usage import record_model_usage, validate_pricing_config
-from app.domain.ocr_timeout_policy import normalize_timeout_config
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission, require_menu_permission
 from app.services.audit import add_audit
@@ -86,6 +86,8 @@ def create_model(
     if not payload.is_active and payload.is_default:
         raise AppError("inactive_model_cannot_be_default", "Inactive model cannot be the default", status_code=422)
     provider = _normalize_provider(payload.provider)
+    if payload.model_type == "OCR" and provider.lower() != "openai":
+        raise AppError("ocr_provider_unsupported", "New document recognition requires a native PDF provider", status_code=422)
     _validate_credential_input(request.app.state.settings, payload.api_key, payload.api_key_secret_ref)
     config = _normalized_config(
         provider=provider,
@@ -119,6 +121,10 @@ def create_model(
         config=config,
         config_version=1,
     )
+    if model.model_type == "OCR":
+        from app.domain.ocr_capabilities import require_native_capabilities
+        require_native_capabilities(AIModel(model_type="OCR", provider=model.provider, endpoint=model.endpoint,
+            config=model.config, is_active=True, deleted_at=None))
     from app.domain.embedding_capacity import validate_model_capacity_config
     validate_model_capacity_config(model, request.app.state.settings)
     session.add(model)
@@ -276,6 +282,10 @@ def update_model(
     credential_confirmed = bool(replacement_api_key or replacement_secret_ref or clear_credential)
     if old_authority != new_authority and model.api_key_configured and not credential_confirmed:
         raise AppError("model_credential_reconfirmation_required", "Changing provider or endpoint requires credential confirmation", status_code=422)
+    if model.model_type == "OCR" and (next_active or next_default):
+        from app.domain.ocr_capabilities import require_native_capabilities
+        require_native_capabilities(AIModel(model_type="OCR", provider=next_provider, endpoint=next_endpoint,
+            config=changes.get("config", next_config), is_active=True, deleted_at=None))
     if changes.get("is_default") is True:
         session.execute(
             update(AIModel)
@@ -360,11 +370,13 @@ def _normalized_config(
         if candidate:
             _validate_model_endpoint(str(candidate))
     provider_key = provider.lower()
+    if model_type == "OCR" and require_credential and provider_key != "openai":
+        raise AppError("ocr_provider_unsupported", "Native PDF recognition requires a supported provider", status_code=422)
     if provider_key == "openai":
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("base_url", endpoint or "https://api.openai.com/v1")
+        normalized.setdefault("base_url", endpoint or get_settings().provider_openai_base_url)
         if model_type in {"Chat", "Judge"} and "api_mode" in normalized:
             api_mode = str(normalized.get("api_mode") or "").strip().lower()
             if api_mode not in {"responses", "chat_completions"}:
@@ -376,18 +388,21 @@ def _normalized_config(
             normalized["api_mode"] = api_mode
         if model_type == "Embedding":
             normalized.setdefault("embedding_dimension", None)
-        if model_type == "OCR":
-            normalized.update(normalize_timeout_config(normalized))
+        if model_type == "OCR" and (require_credential or "native_pdf" in normalized):
+            from app.domain.ocr_capabilities import normalize_native_capabilities
+            normalized["native_pdf"] = normalize_native_capabilities(normalized)
+            normalized["retry_count"] = 0
+            normalized["pdf_input_mode"] = "native_pdf"
     elif provider_key == "gemini":
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("api_version", "v1beta")
+        normalized.setdefault("api_version", get_settings().provider_gemini_api_version)
     elif provider_key == "claude":
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("anthropic_version", "2023-06-01")
+        normalized.setdefault("anthropic_version", get_settings().provider_anthropic_version)
         if endpoint:
             normalized.setdefault("base_url", endpoint)
     elif provider_key == "ollama":
@@ -609,6 +624,9 @@ def set_default_model(
     model = session.scalar(select(AIModel).where(AIModel.id == model_id, AIModel.deleted_at.is_(None)))
     if model is None or not model.is_active:
         raise AppError("active_model_not_found", "Active model was not found", status_code=404)
+    if model.model_type == "OCR":
+        from app.domain.ocr_capabilities import require_native_capabilities
+        require_native_capabilities(model)
     session.execute(
         update(AIModel)
         .where(AIModel.model_type == model.model_type, AIModel.deleted_at.is_(None))

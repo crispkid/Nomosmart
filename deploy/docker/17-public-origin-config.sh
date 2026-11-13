@@ -17,3 +17,20 @@ if [ "$NOMOSMART_PUBLIC_ORIGIN" != "https://$NOMOSMART_PUBLIC_AUTHORITY" ]; then
   exit 2
 fi
 export NOMOSMART_PUBLIC_AUTHORITY NOMOSMART_PUBLIC_ORIGIN EDGE_HTTPS_PORT
+
+# Initial normal-admin sign-in is reachable only from the deployment allowlist.
+NOMOSMART_ONBOARDING_ACCESS_RULES=''
+if [ "${DEPLOYMENT_PHASE:-operational}" = onboarding ]; then
+  rules='allow 127.0.0.1/32;'
+  policy=${ONBOARDING_ADMIN_ALLOW_CIDR:-127.0.0.1/32}
+  case "$policy" in ''|*[!0-9a-fA-F:./,]*) echo 'Invalid onboarding source policy' >&2; exit 64 ;; esac
+  old_ifs=$IFS
+  IFS=,
+  for cidr in $policy; do
+    case "$cidr" in 0.0.0.0/0|::/0) echo 'Unrestricted onboarding source is forbidden' >&2; exit 64 ;; esac
+    rules="$rules allow $cidr;"
+  done
+  IFS=$old_ifs
+  NOMOSMART_ONBOARDING_ACCESS_RULES="$rules deny all;"
+fi
+export NOMOSMART_ONBOARDING_ACCESS_RULES

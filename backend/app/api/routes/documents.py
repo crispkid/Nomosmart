@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import hashlib
 import json
 import re
@@ -8,7 +10,7 @@ from time import perf_counter
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
@@ -16,10 +18,12 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, KnowledgeTagResponse, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
+from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
 from app.domain.ai_provider import generate_knowledge_tags
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
 from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation
@@ -29,7 +33,7 @@ from app.api.schemas import ContentUpdatePayload, ContentRetryPayload, ContentCa
 from app.db.models import DocumentContentUpdate
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
-from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction
+from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, DocumentListPosition, latest_versions, start_document_extraction
 from app.domain.document_layout import project_document_layout as _document_layout
 from app.domain.document_summary import document_summary_metadata
 from app.domain.document_execution import execution_projection
@@ -38,6 +42,8 @@ from app.domain.markdown_artifacts import normalize_source_mappings, resolve_man
 from app.domain.markdown_structure import MarkdownStructureParser
 from app.domain.multipart_upload import MultipartPayload, parse_multipart as _parse_multipart
 from app.domain.upload_stream import receive_upload
+from app.domain.system_parameter_store import intake_settings
+from app.domain.staging_retention import retention_state
 from app.domain.upload_content import UploadContent
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation, require_idempotency_key
 from app.domain.model_usage import record_model_usage
@@ -69,9 +75,7 @@ async def save_document_content(project_id: UUID, document_id: UUID, version_id:
     context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
     # Bound before JSON decoding; escaped Unicode can expand UTF-8 text sixfold.
     settings = request.app.state.settings
-    project,_,_ = scoped_content(session,project_id,document_id,version_id,context)
-    if not can_edit_content(session,project.id,context.user_id):
-        raise AppError("project_editor_required","Editor permission is required",status_code=403)
+    await run_in_threadpool(_authorize_content_edit,session,project_id,document_id,version_id,context)
     body = bytearray()
     async for part in request.stream():
         if len(body) + len(part) > settings.content_edit_max_utf8_bytes * 6 + 65536:
@@ -81,16 +85,31 @@ async def save_document_content(project_id: UUID, document_id: UUID, version_id:
         payload = ContentUpdatePayload.model_validate_json(bytes(body))
     except ValueError as exc:
         raise AppError("content_edit_invalid","Content request is invalid",status_code=422) from exc
+    body_json,code = await run_in_threadpool(_queue_content_edit,session,settings,request.state.request_id,project_id,document_id,version_id,
+        idempotency_key,payload,context)
+    return JSONResponse(body_json,status_code=code)
+
+
+def _authorize_content_edit(session: Session,project_id: UUID,document_id: UUID,version_id: UUID,context: IdentityContext) -> None:
+    project,_,_ = scoped_content(session,project_id,document_id,version_id,context)
+    if not can_edit_content(session,project.id,context.user_id):
+        raise AppError("project_editor_required","Editor permission is required",status_code=403)
+    # Release the connection while the client streams the request body.
+    session.commit()
+
+
+def _queue_content_edit(session: Session,settings,request_id: str,project_id: UUID,document_id: UUID,version_id: UUID,
+    idempotency_key: str | None,payload: ContentUpdatePayload,context: IdentityContext):
     project,document,version = scoped_content(session,project_id,document_id,version_id,context,write=True)
     replay,record = begin_idempotent_operation(session,settings,scope=f"content-edit:{project.id}:{document.id}:{context.user_id}",
         raw_key=idempotency_key,request_payload={"version_id":str(version.id),"payload":payload.model_dump(mode="json")})
     if replay:
-        return JSONResponse(replay.body,status_code=replay.status_code)
-    result = queue_content_update(session,project,document,version,payload,context.user_id,settings,request.state.request_id)
+        return replay.body,replay.status_code
+    result = queue_content_update(session,project,document,version,payload,context.user_id,settings,request_id)
     code = 202 if result["changed"] else 200
     complete_idempotent_operation(record,result,status_code=code)
     session.commit()
-    return JSONResponse(result,status_code=code)
+    return result,code
 
 
 @router.get("/{document_id}/versions/{version_id}/content-updates/{update_id}")
@@ -148,7 +167,10 @@ class _CompensatingStorage:
         self.commit_started = False
 
     def put_object(self, *, bucket: str, key: str, body: bytes | UploadContent, content_type: str | None):
-        # Register BEFORE PUT: connection loss does not prove that S3 stored nothing.
+        # Track the actual isolated key before PUT, including uncertain writes.
+        prefix = self._storage.object_prefix
+        if prefix and not key.startswith(prefix):
+            key = prefix + key.lstrip("/")
         self._created.append((bucket, key))
         try:
             return self._storage.put_object(bucket=bucket, key=key, body=body, content_type=content_type)
@@ -298,10 +320,74 @@ def _process_upload_item(
 @router.get("", response_model=list[DocumentSummary])
 def list_project_documents(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> list[DocumentSummary]:
     project = _get_scoped_project(session, project_id, context)
+    return _document_summaries(session, project, context, latest_versions(session, project.id))
+
+
+@router.get("/page", response_model=DocumentSummaryPage)
+def list_project_documents_page(
+    project_id: UUID,
+    request: Request,
+    cursor: str | None = Query(default=None, max_length=1024),
+    limit: int = Query(default=50, ge=1, le=200),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> DocumentSummaryPage:
+    """Cursor-paged document list in the same order as the full list (OPT424-016, D424-10)."""
+    project = _get_scoped_project(session, project_id, context)
+    settings = request.app.state.settings
+    after = None
+    if cursor:
+        payload = decode_cursor(settings, namespace="documents", value=cursor)
+        try:
+            if payload.get("project") != str(project.id):
+                raise ValueError("cursor_project_mismatch")
+            after = DocumentListPosition(datetime.fromisoformat(str(payload["updated_at"])), str(payload["title"]), UUID(str(payload["id"])))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
+    rows = latest_versions(session, project.id, after=after, limit=limit + 1)
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        last = rows[-1][0]
+        next_cursor = encode_cursor(settings, namespace="documents", payload={"project": str(project.id), "updated_at": last.updated_at.isoformat(), "title": last.title, "id": str(last.id)})
+    return DocumentSummaryPage(items=_document_summaries(session, project, context, rows), next_cursor=next_cursor)
+
+
+def _document_summaries(session: Session, project, context: IdentityContext, rows) -> list[DocumentSummary]:
     capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-    rows = latest_versions(session, project.id)
-    metadata = document_summary_metadata(session, project.id, [document.id for document, _version, _pipeline in rows])
-    return [_project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=capabilities, summary_metadata=metadata) for document, version, pipeline in rows]
+    document_ids = [document.id for document, _version, _pipeline in rows]
+    metadata = document_summary_metadata(session, project.id, document_ids)
+    prefetched = _prefetch_document_list(session, project.id, document_ids)
+    visible = set(context.visible_project_ids)
+    return [_project_document(session, document, version, pipeline, visible_project_ids=visible, capabilities=capabilities, summary_metadata=metadata, prefetched=prefetched) for document, version, pipeline in rows]
+
+
+@dataclass(frozen=True)
+class _DocumentListPrefetch:
+    versions: dict[UUID, list[DocumentVersion]]
+    connections: list[DataConnection]
+    references: dict[UUID, DocumentReference]
+
+
+def _prefetch_document_list(session: Session, project_id: UUID, document_ids: list[UUID]) -> _DocumentListPrefetch:
+    """Load per-document relations once for the whole list (OPT424-016)."""
+    versions: dict[UUID, list[DocumentVersion]] = {}
+    references: dict[UUID, DocumentReference] = {}
+    if document_ids:
+        for version in session.scalars(
+            select(DocumentVersion)
+            .where(DocumentVersion.document_id.in_(document_ids), DocumentVersion.project_id == project_id)
+            .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision), desc(DocumentVersion.created_at))
+        ):
+            versions.setdefault(version.document_id, []).append(version)
+        references = {reference.target_document_id: reference for reference in session.scalars(
+            select(DocumentReference)
+            .where(DocumentReference.target_document_id.in_(document_ids), DocumentReference.status != "detached")
+            .distinct(DocumentReference.target_document_id)
+            .order_by(DocumentReference.target_document_id, desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
+        )}
+    connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == project_id)))
+    return _DocumentListPrefetch(versions=versions, connections=connections, references=references)
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=200)
@@ -314,8 +400,16 @@ async def upload_documents(
 ) -> DocumentUploadResponse:
     project = await run_in_threadpool(_authorize_upload, session, project_id, context)
     raw_key = require_idempotency_key(idempotency_key)
-    async with receive_upload(request) as payload:
+    request.state.upload_settings = await run_in_threadpool(_upload_settings_before_stream, session, request.app.state.settings)
+    async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_upload_documents, project, request, raw_key, context, session, payload)
+
+
+def _upload_settings_before_stream(session: Session, settings):
+    upload_settings = intake_settings(session, settings)
+    # Streaming may take minutes; do not hold a connection or transaction open.
+    session.commit()
+    return upload_settings
 
 
 def _authorize_upload(session: Session, project_id: UUID, context: IdentityContext) -> Project:
@@ -356,7 +450,7 @@ def _complete_upload_documents(project: Project, request: Request, raw_key: str,
         results.append(
             _process_upload_item(
                 session_factory=session_factory,
-                settings=request.app.state.settings,
+                settings=request.state.upload_settings,
                 project_id=project.id,
                 actor_user_id=context.user_id,
                 visible_project_ids=set(context.visible_project_ids),
@@ -394,7 +488,8 @@ async def update_uploaded_document_file(
     session: Session = Depends(get_db),
 ) -> DocumentUpdateResponse:
     project, document = await run_in_threadpool(_authorize_update_file, session, project_id, document_id, context)
-    async with receive_upload(request) as payload:
+    request.state.upload_settings = await run_in_threadpool(_upload_settings_before_stream, session, request.app.state.settings)
+    async with receive_upload(request, settings=request.state.upload_settings) as payload:
         return await run_in_threadpool(_complete_update_file, project, document, request, context, session, payload)
 
 
@@ -417,7 +512,7 @@ def _complete_update_file(project: Project, document: Document, request: Request
     try:
         version, pipeline, no_change = create_updated_file_version(
             session=session,
-            settings=request.app.state.settings,
+            settings=request.state.upload_settings,
             storage=storage,
             project=project,
             document=document,
@@ -491,7 +586,7 @@ def reextract_document(
         return DocumentReextractResponse.model_validate(replay.body)
     document, version, pipeline = create_reextraction_revision(
         session=session,
-        settings=request.app.state.settings,
+        settings=intake_settings(session, request.app.state.settings),
         project=project,
         document_id=document_id,
         source_version_id=payload.source_version_id,
@@ -541,7 +636,7 @@ def start_extraction(
     if document is None or version is None or document.project_id != project.id or version.document_id != document.id:
         raise AppError("document_not_found", "Document was not found", status_code=404)
     _ensure_not_review_locked(version, "document.extraction.start")
-    pipeline = start_document_extraction(session=session, settings=request.app.state.settings, project=project, document=document, version=version, actor_user_id=context.user_id, requested_ocr_model_id=payload.ocr_model_id, force_ocr=payload.force_ocr)
+    pipeline = start_document_extraction(session=session, settings=intake_settings(session, request.app.state.settings), project=project, document=document, version=version, actor_user_id=context.user_id, requested_ocr_model_id=payload.ocr_model_id, force_ocr=payload.force_ocr)
     add_audit(session, actor_user_id=context.user_id, action="document.extraction.start", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"version_id": str(version.id), "force_ocr": payload.force_ocr})
     session.commit()
     session.refresh(document)
@@ -1384,12 +1479,6 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
     )
 
 
-
-
-
-
-
-
 def _scoped_document_version(session: Session, project_id: UUID, document_id: UUID, version_id: UUID) -> tuple[Document, DocumentVersion]:
     document = session.get(Document, document_id)
     version = session.get(DocumentVersion, version_id)
@@ -1495,12 +1584,17 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
     chat_access = {"mode": "published" if published_ready else "staging" if next_stage_allowed else "history_only" if has_history else "unavailable",
         "document_version_id": version.id, "query_enabled": published_ready or next_stage_allowed,
         "reason_code": None if published_ready or next_stage_allowed else next_stage_block_reason}
+    retention = retention_state(session, version.id)
+    if retention and retention["expired"] and not published_ready:
+        chat_access.update(mode="history_only" if has_history else "unavailable", query_enabled=False,
+                           reason_code="staging_retention_expired")
     edit_mode, edit_reason = content_edit_mode(session, project, version, can_edit_content(session, project.id, context.user_id))
     if pipeline_detail:
         for step in pipeline_detail.steps:
             if step.chunking_issue:
                 step.chunking_issue.can_edit_content = edit_mode != "readonly"
     return KnowledgeDetailResponse(
+        staging_retention=retention,
         document=_project_document(session, document, version, pipeline, expose_storage=False, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))),
         version=_version_summary(version, expose_storage=False),
         pipeline=pipeline_detail,
@@ -1597,8 +1691,6 @@ def _delete_orphan_tags(session: Session, candidate_tag_ids: list[UUID]) -> list
         session.flush()
         deleted_ids.append(tag_id)
     return deleted_ids
-
-
 
 
 def _chunk_offsets(chunk: Chunk) -> tuple[int | None, int | None]:
@@ -1774,30 +1866,6 @@ def _reindex_active_chunks(session: Session, project_id: UUID, document_id: UUID
     for index, chunk in enumerate(active_chunks, start=1):
         chunk.chunk_index = index
     session.flush()
-
-
-def _tag_details_query(session: Session, source_model, link_filter) -> list[KnowledgeTagResponse]:
-    rows = session.execute(select(source_model, Tag).join(Tag, source_model.tag_id == Tag.id).where(link_filter, source_model.source != "rule").order_by(Tag.name)).all()
-    return [
-        KnowledgeTagResponse(
-            tag_id=tag.id,
-            tag_text=tag.name,
-            source=link.source,
-            confidence_score=float(link.confidence_score) if link.confidence_score is not None else None,
-            metadata=link.metadata_ or {},
-            created_by=link.created_by,
-            created_at=link.created_at,
-        )
-        for link, tag in rows
-    ]
-
-
-def _chunk_tag_details(session: Session, chunk_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, ChunkTag, ChunkTag.chunk_id == chunk_id)
-
-
-def _document_tag_details(session: Session, version_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, DocumentVersionTag, DocumentVersionTag.document_version_id == version_id)
 
 
 def _delete_rule_chunk_tags(session: Session, chunk_id: UUID) -> None:
@@ -2024,9 +2092,10 @@ def _project_document(
     visible_project_ids: set[UUID] | None = None,
     capabilities: dict[str, bool] | None = None,
     summary_metadata: dict | None = None,
+    prefetched: "_DocumentListPrefetch | None" = None,
 ) -> DocumentSummary:
     metadata = summary_metadata if summary_metadata is not None else document_summary_metadata(session, document.project_id, [document.id])
-    versions = list(
+    versions = prefetched.versions.get(document.id, []) if prefetched is not None else list(
         session.scalars(
             select(DocumentVersion)
             .where(DocumentVersion.document_id == document.id, DocumentVersion.project_id == document.project_id)
@@ -2055,14 +2124,16 @@ def _project_document(
         latest_version=_version_summary(version, expose_storage=expose_storage, metadata=metadata["versions"].get(version.id)) if version else None,
         versions=[_version_summary(row, expose_storage=expose_storage, metadata=metadata["versions"].get(row.id)) for row in versions],
         latest_pipeline=_pipeline_summary(pipeline) if pipeline else None,
-        service_source=_service_source_summary(session, document),
-        reference_source=_reference_source_summary(session, document, version, visible_project_ids),
+        service_source=_service_source_summary(session, document, prefetched.connections if prefetched is not None else None),
+        reference_source=_reference_source_summary(session, document, version, visible_project_ids,
+            prefetched.references if prefetched is not None else None),
         capabilities=effective_capabilities,
     )
 
 
-def _service_source_summary(session: Session, document: Document) -> DocumentServiceSourceSummary | None:
-    connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == document.project_id)))
+def _service_source_summary(session: Session, document: Document, connections: list[DataConnection] | None = None) -> DocumentServiceSourceSummary | None:
+    if connections is None:
+        connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == document.project_id)))
     for connection in connections:
         source_identity = connection.source_identity or {}
         if str(source_identity.get("document_id") or "") != str(document.id):
@@ -2082,8 +2153,9 @@ def _service_source_summary(session: Session, document: Document) -> DocumentSer
     return None
 
 
-def _reference_source_summary(session: Session, document: Document, version: DocumentVersion | None, visible_project_ids: set[UUID] | None) -> DocumentReferenceSourceSummary | None:
-    reference = session.scalar(
+def _reference_source_summary(session: Session, document: Document, version: DocumentVersion | None, visible_project_ids: set[UUID] | None,
+    references: dict[UUID, DocumentReference] | None = None) -> DocumentReferenceSourceSummary | None:
+    reference = references.get(document.id) if references is not None else session.scalar(
         select(DocumentReference)
         .where(DocumentReference.target_document_id == document.id, DocumentReference.status != "detached")
         .order_by(desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
@@ -2208,6 +2280,8 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
         paid = session.scalar(select(AIModelUsageEvent.id).where(
             AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.attempted.is_(True),
             AIModelUsageEvent.metadata_["physical_page"].astext.is_not(None)).limit(1)) is not None
+    if step.step_name == "ocr_extract" and configured.get("pdf_input_mode") == "native_pdf":
+        return _native_step_summary(step, configured, run, session)
     mode = bool(receipt) or configured.get("pdf_input_mode") == "page_images"
     error_code = receipt.get("error_code") or ((step.artifact_payload or {}).get("error_code") if step.status == "failed" else None)
     if not error_code and step.status == "failed" and session is not None:
@@ -2258,6 +2332,60 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
         confirmed_output_tokens=used,
         remaining_output_tokens=max(0, tokens.document - used) if tokens and used is not None else None,
         chunking_issue=issue,
+    )
+
+
+def _native_step_summary(step, configured, run, session) -> PipelineStepSummary:
+    """Project durable native receipts without inventing page counts or known usage."""
+    from app.db.models import AIModelUsageEvent, OCRDocumentReceipt
+    from app.domain.ocr_token_settings import native_from_snapshot
+    from app.domain.ocr_presentation import ocr_call_state
+
+    receipt = session.scalar(select(OCRDocumentReceipt).where(OCRDocumentReceipt.step_id == step.id)
+        .order_by(OCRDocumentReceipt.created_at.desc()).limit(1)) if session else None
+    error_code = (step.artifact_payload or {}).get("error_code") if step.status == "failed" else None
+    paid = bool(session and session.scalar(select(AIModelUsageEvent.id).where(
+        AIModelUsageEvent.pipeline_step_id == step.id, AIModelUsageEvent.attempted.is_(True)).limit(1)))
+    bound = not receipt or bool(run and receipt.run_id == run.id and receipt.document_version_id == run.document_version_id)
+    if not bound:
+        error_code = "ocr_document_receipt_conflict"
+    elif receipt and receipt.error_code:
+        error_code = receipt.error_code
+    tokens = None
+    try:
+        tokens = native_from_snapshot(configured)
+    except AppError:
+        error_code = "ocr_token_settings_invalid"
+    pending = bool(receipt and receipt.status in {"intent", "unknown"})
+    call_state = "unconfirmed" if not bound or (receipt and receipt.status == "unknown") else ocr_call_state(
+        has_intent=pending, step_status=step.status, pipeline_status=run.status if run else None,
+        claim_token=step.claim_token, lease_expires_at=step.lease_expires_at)
+    if not error_code and call_state == "unconfirmed":
+        error_code = "ocr_document_provider_result_unknown"
+    used = None
+    if bound and receipt:
+        output = (receipt.usage or {}).get("output_tokens")
+        if receipt.usage_event_id and type(output) is int and output >= 0:
+            used = output
+        elif receipt.attempted is False and not pending:
+            used = 0
+    elif bound and not paid:
+        used = 0
+    attempted = bool(receipt and receipt.attempted is not False)
+    retry_allowed = bool(step.status == "failed" and step.retry_count < 3 and bound
+        and not paid and not attempted and not pending)
+    return PipelineStepSummary(
+        id=step.id, step_name=step.step_name, status=step.status,
+        progress_percent=float(step.progress_percent), progress_message=step.progress_message,
+        retry_count=step.retry_count, output_artifact_ref=step.output_artifact_ref,
+        started_at=step.started_at, completed_at=step.completed_at, error_message=step.error_message,
+        input_mode="native_pdf", ocr_call_state=call_state, processed_pages=None, total_pages=None,
+        page_map_status="unknown", source_precision="document",
+        request_output_token_limit=tokens.request if tokens else None,
+        document_output_token_limit=tokens.document if tokens else None,
+        confirmed_output_tokens=used,
+        remaining_output_tokens=max(0, tokens.document - used) if tokens and used is not None else None,
+        error_code=error_code, retry_allowed=retry_allowed,
     )
 
 

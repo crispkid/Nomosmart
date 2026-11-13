@@ -13,6 +13,7 @@ from uuid import UUID, uuid4
 
 from sqlalchemy import Text, cast, delete, or_, select, text
 
+from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db import models as m
 from app.domain.content_pipeline_evidence import BODY_KEYS, DERIVED_BODY_STEPS
@@ -22,6 +23,7 @@ from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, st
 from app.domain.index_residue import check_index_references, discover_indices, known_index_names, verify_external_owner
 from app.security.context import resolve_identity_context
 from app.security.permissions import require_application_access
+from app.security.session_auth import principal_for_session, validate_session_row
 from app.services.audit import add_audit
 
 KEY = "soft_deleted_residue_cleanup_v1"
@@ -99,8 +101,27 @@ def locked_scope(session, scope, context):
 
 
 def authorize(session, scope, context):
-    # Re-resolve grants and membership, including revocation/disablement, each batch.
-    fresh = resolve_identity_context(session, context.principal)
+    # The entry point already authenticated the secret. Re-read its session each
+    # batch without retaining that secret or renewing user activity.
+    if context.principal.issuer != "nomosmart-session":
+        reject("authentication_required", 401)
+    try:
+        session_id = UUID(context.principal.session_id)
+    except (ValueError, TypeError, AttributeError):
+        reject("authentication_required", 401)
+    session.flush()
+    row = session.scalar(select(m.AuthSession).where(m.AuthSession.id == session_id)
+        .execution_options(populate_existing=True))
+    if row is not None and (row.user_id != context.user_id or row.user_id != context.principal.user_id):
+        reject("authentication_required", 401)
+    # Pending work was flushed first. Expire only authorization
+    # metadata so a long-lived ORM session cannot hide disablement or new grants.
+    for cached in tuple(session.identity_map.values()):
+        if isinstance(cached, (m.User, m.IdentitySetting, m.AuthEmergencyAccess, m.RolePermission)):
+            session.expire(cached)
+    settings = get_settings()
+    validate_session_row(settings, session, row)
+    fresh = resolve_identity_context(session, principal_for_session(settings, session, row))
     require_application_access(fresh.grants)
     if (fresh.user_id != context.user_id or fresh.principal.expires_at <= datetime.now(UTC)
         or scope.project_id not in fresh.visible_project_ids or not can_edit_content(session, scope.project_id, fresh.user_id)):

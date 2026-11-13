@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import OperationComponentStatus, OperationRecentError, OperationsStatusResponse
 from app.core.config import Settings
-from app.db.models import AIModel, ActiveVersionManifest, AuditLog, OutboxEvent, ValidationRun
+from app.db.models import AIModel, ActiveVersionManifest, AuditLog, OutboxEvent, ValidationRun, StagingRetentionJob
 from app.integrations.health import DependencyStatus, check_dependencies
 from app.services.identity_sync_jobs import identity_runtime_status
 
@@ -67,12 +67,13 @@ def _provider_components(session: Session, checked_at: datetime) -> list[Operati
 
 
 def _queue_component(session: Session, checked_at: datetime) -> OperationComponentStatus:
-    pending = int(session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status == "pending")) or 0)
+    pending = int(session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status == "pending", OutboxEvent.available_at <= checked_at)) or 0)
     failed = int(session.scalar(select(func.count()).select_from(OutboxEvent).where(OutboxEvent.status == "failed")) or 0)
     processed_at = session.scalar(select(func.max(OutboxEvent.processed_at)))
     status = "healthy"
     detail = "empty" if pending == 0 else "pending"
-    if failed:
+    retention_failed = int(session.scalar(select(func.count()).select_from(StagingRetentionJob).where(StagingRetentionJob.status.in_(("failed", "blocked")))) or 0)
+    if failed or retention_failed:
         status, detail = "degraded", "failed_events_present"
     elif pending > 100:
         status, detail = "degraded", "queue_depth_high"
@@ -81,7 +82,7 @@ def _queue_component(session: Session, checked_at: datetime) -> OperationCompone
         status=status,
         detail_code=detail,
         checked_at=checked_at,
-        metrics={"pending": pending, "failed": failed, "last_processed_at": processed_at.isoformat() if processed_at else None},
+        metrics={"pending": pending, "failed": failed, "failed_staging_retention": retention_failed, "last_processed_at": processed_at.isoformat() if processed_at else None},
     )
 
 

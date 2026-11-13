@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.db.models import OCRDocumentReceipt
+
 import asyncio
 import csv
 import io
@@ -60,7 +62,7 @@ TOPIC_COLUMNS: dict[str, list[str]] = {
     "document_pipeline_metrics": ["project_id", "project_name", "pipeline_runs", "completed_runs", "failed_runs", "retry_count", "avg_pipeline_seconds", "p95_pipeline_seconds"],
     "rag_quality_metrics": ["project_id", "project_name", "qa_count", "no_answer_rate", "cited_answer_rate", "human_correct_rate", "needs_revision_rate"],
     "validation_run_metrics": ["project_id", "project_name", "validation_runs", "completed_runs", "failed_runs", "pass_rate", "failed_questions", "manual_review_count"],
-    "model_usage_metrics": ["model_type", "ai_model_name", "provider", "project_name", "usage_purpose", "source_channel", "call_count", "success_count", "failure_count", "input_tokens", "output_tokens", "total_tokens", "embedding_tokens", "ocr_pages", "ocr_images", "vector_count", "chunk_count", "avg_latency_ms", "p95_latency_ms", "provider_reported_cost", "estimated_cost", "currency", "cost_source", "error_rate"],
+    "model_usage_metrics": ["model_type", "ai_model_name", "provider", "project_name", "usage_purpose", "source_channel", "call_count", "success_count", "failure_count", "input_tokens", "output_tokens", "total_tokens", "embedding_tokens", "token_count_status", "native_pdf_documents", "ocr_pages", "page_count_status", "ocr_images", "image_count_status", "vector_count", "chunk_count", "avg_latency_ms", "p95_latency_ms", "provider_reported_cost", "estimated_cost", "currency", "cost_source", "error_rate"],
     "alert_metrics": ["level", "alert_type", "project_id", "project_name", "count", "oldest_at"],
 }
 
@@ -126,7 +128,11 @@ HEADER_LABELS: dict[str, dict[str, dict[str, str]]] = {
         "output_tokens": "Output Token",
         "total_tokens": "總 Token",
         "embedding_tokens": "Embedding Token",
-        "ocr_pages": "OCR 頁數",
+        "token_count_status": "Token 用量完整性",
+        "native_pdf_documents": "PDF 辨識文件數",
+        "page_count_status": "頁數完整性",
+        "image_count_status": "圖片計數完整性",
+        "ocr_pages": "已知辨識頁數",
         "ocr_images": "OCR 影像數",
         "vector_count": "向量數",
         "chunk_count": "切片數",
@@ -205,7 +211,11 @@ HEADER_LABELS: dict[str, dict[str, dict[str, str]]] = {
         "output_tokens": "Output Tokens",
         "total_tokens": "Total Tokens",
         "embedding_tokens": "Embedding Tokens",
-        "ocr_pages": "OCR Pages",
+        "token_count_status": "Token usage status",
+        "native_pdf_documents": "Native PDF documents",
+        "page_count_status": "Page count status",
+        "image_count_status": "Image count status",
+        "ocr_pages": "Known recognized pages",
         "ocr_images": "OCR Images",
         "vector_count": "Vector Count",
         "chunk_count": "Chunk Count",
@@ -432,7 +442,7 @@ def export_report_csv(
                     raise asyncio.CancelledError
                 for row in current_batch:
                     yield _report_csv_row(
-                        [_csv_value(row.get(column)) for column in columns]
+                        [_csv_value(_report_count_value(row, column, locale) if topic == "model_usage_metrics" else row.get(column)) for column in columns]
                     )
                     row_count += 1
                 await asyncio.sleep(0)
@@ -1133,6 +1143,27 @@ def _alert_mapping(session: Session, row) -> dict:
     }
 
 
+
+def _date_conditions(date_column, date_from: datetime | None, date_to: datetime | None) -> list:
+    conditions = []
+    if date_from:
+        conditions.append(date_column >= date_from)
+    if date_to:
+        conditions.append(date_column <= date_to)
+    return conditions
+
+
+def _grouped_values(session: Session, project_column, project_ids: set[UUID], *conditions, value=None) -> dict:
+    """One GROUP BY query per metric instead of one query per project."""
+    if not project_ids:
+        return {}
+    statement = (
+        select(project_column, value if value is not None else func.count())
+        .where(project_column.in_(project_ids), *conditions)
+        .group_by(project_column)
+    )
+    return {project_id: result for project_id, result in session.execute(statement)}
+
 def _projects(session: Session, project_ids: set[UUID] | None, limit: int | None = None) -> list[Project]:
     statement = select(Project)
     if project_ids is not None:
@@ -1266,30 +1297,44 @@ def _project_rankings(session: Session, project_ids: set[UUID] | None, date_from
         date_to,
         rank_offset=0,
     )
+    citations = _grouped_values(
+        session,
+        ChatRecord.project_id,
+        {row["project_id"] for row in rows},
+        *_date_conditions(ChatRecord.created_at, date_from, date_to),
+        value=func.coalesce(func.sum(func.jsonb_array_length(ChatRecord.reference_docs)), 0),
+    )
     return [
-        ReportProjectRankingItem(project_id=row["project_id"], project_name=row["project_name"], chat_count=row["qa_count"], validation_run_count=row["validation_runs"], citation_count=_count_citations(session, {row["project_id"]}, date_from, date_to))
+        ReportProjectRankingItem(project_id=row["project_id"], project_name=row["project_name"], chat_count=row["qa_count"], validation_run_count=row["validation_runs"], citation_count=int(citations.get(row["project_id"], 0)))
         for row in rows
     ]
 
 
 def _project_ranking_rows(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:
+    projects = _projects(session, project_ids)
+    ids = {project.id for project in projects}
+    pipeline_dates = _date_conditions(PipelineRun.created_at, date_from, date_to)
+    pipeline_totals = _grouped_values(session, PipelineRun.project_id, ids, *pipeline_dates)
+    pipeline_failures = _grouped_values(session, PipelineRun.project_id, ids, PipelineRun.status == "failed", *pipeline_dates)
+    chat_counts = _grouped_values(session, ChatRecord.project_id, ids, *_date_conditions(ChatRecord.created_at, date_from, date_to))
+    validation_counts = _grouped_values(session, ValidationRun.project_id, ids, *_date_conditions(ValidationRun.created_at, date_from, date_to))
+    document_counts = _grouped_values(session, Document.project_id, ids, Document.is_deleted.is_(False))
+    active_documents = _grouped_values(session, Document.project_id, ids, Document.status == "active", Document.is_deleted.is_(False))
+    active_users = _grouped_values(session, ChatRecord.project_id, ids, value=func.count(func.distinct(ChatRecord.created_by)))
     rows: list[dict] = []
-    for project in _projects(session, project_ids):
-        scoped = {project.id}
-        pipeline_total = _count_project_dated(session, PipelineRun, PipelineRun.created_at, scoped, date_from, date_to)
-        pipeline_failed = _count_project_dated(session, PipelineRun, PipelineRun.created_at, scoped, date_from, date_to, "failed")
-        chat_count = _count_chats(session, scoped, date_from, date_to)
-        validation_count = _count_validation_runs(session, scoped, date_from, date_to)
+    for project in projects:
+        pipeline_total = int(pipeline_totals.get(project.id, 0))
+        pipeline_failed = int(pipeline_failures.get(project.id, 0))
         rows.append(
             {
                 "project_id": project.id,
                 "project_name": project.name,
-                "document_count": _count_documents(session, scoped, deleted=False),
-                "active_documents": _count_documents(session, scoped, "active", deleted=False),
+                "document_count": int(document_counts.get(project.id, 0)),
+                "active_documents": int(active_documents.get(project.id, 0)),
                 "pipeline_runs": pipeline_total,
-                "qa_count": chat_count,
-                "validation_runs": validation_count,
-                "active_users_30d": _active_user_count(session, scoped),
+                "qa_count": int(chat_counts.get(project.id, 0)),
+                "validation_runs": int(validation_counts.get(project.id, 0)),
+                "active_users_30d": int(active_users.get(project.id, 0)),
                 "success_rate": _rate(pipeline_total - pipeline_failed, pipeline_total),
                 "failure_rate": _rate(pipeline_failed, pipeline_total),
             }
@@ -1351,149 +1396,162 @@ def _document_reference_rows(session: Session, project_ids: set[UUID] | None, da
 
 
 def _owner_project_rows(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:
-    rows = []
-    for project in _projects(session, project_ids, limit):
-        scoped = {project.id}
-        rows.append(
-            {
-                "project_id": project.id,
-                "project_name": project.name,
-                "active_documents": _count_documents(session, scoped, "active", deleted=False),
-                "pending_manager_review": _count_approval(session, scoped, "pending_manager_review"),
-                "pending_owner_review": _count_approval(session, scoped, "pending_owner_review"),
-                "approved_unpublished": _count_approval(session, scoped, "approved"),
-                "inbound_references": _count_references(
-                    session,
-                    project.id,
-                    "source",
-                    date_from,
-                    date_to,
-                ),
-                "outbound_references": _count_references(
-                    session,
-                    project.id,
-                    "target",
-                    date_from,
-                    date_to,
-                ),
-                "no_answer_rate": _no_answer_rate(session, scoped, date_from, date_to),
-                "validation_pass_rate": _validation_pass_rate(session, scoped, date_from, date_to),
-                "open_alerts": _count_notifications(session, scoped, unresolved_only=True),
-            }
+    projects = _projects(session, project_ids, limit)
+    ids = {project.id for project in projects}
+    if not ids:
+        return []
+    active_documents = _grouped_values(session, Document.project_id, ids, Document.status == "active", Document.is_deleted.is_(False))
+    approvals: dict[tuple[UUID, str], int] = {
+        (project_id, status): int(count)
+        for project_id, status, count in session.execute(
+            select(ApprovalRequest.project_id, ApprovalRequest.status, func.count())
+            .where(ApprovalRequest.project_id.in_(ids), ApprovalRequest.status.in_(("pending_manager_review", "pending_owner_review", "approved")))
+            .group_by(ApprovalRequest.project_id, ApprovalRequest.status)
         )
-    return rows
+    }
+    reference_dates = _date_conditions(DocumentReference.created_at, date_from, date_to)
+    inbound = _grouped_values(session, DocumentReference.source_project_id, ids, DocumentReference.status == "active", *reference_dates)
+    outbound = _grouped_values(session, DocumentReference.target_project_id, ids, DocumentReference.status == "active", *reference_dates)
+    chat_dates = _date_conditions(ChatRecord.created_at, date_from, date_to)
+    chats = _grouped_values(session, ChatRecord.project_id, ids, *chat_dates)
+    no_answers = _grouped_values(session, ChatRecord.project_id, ids, *chat_dates,
+        value=func.sum(case((ChatRecord.answer.like("無法確認%"), 1), else_=0)))
+    validation_dates = _date_conditions(ValidationRun.created_at, date_from, date_to)
+    validations = _grouped_values(session, ValidationRun.project_id, ids, *validation_dates)
+    validations_completed = _grouped_values(session, ValidationRun.project_id, ids, ValidationRun.status == "completed", *validation_dates)
+    open_alerts = _grouped_values(session, Notification.project_id, ids, Notification.resolved_at.is_(None))
+    return [
+        {
+            "project_id": project.id,
+            "project_name": project.name,
+            "active_documents": int(active_documents.get(project.id, 0)),
+            "pending_manager_review": approvals.get((project.id, "pending_manager_review"), 0),
+            "pending_owner_review": approvals.get((project.id, "pending_owner_review"), 0),
+            "approved_unpublished": approvals.get((project.id, "approved"), 0),
+            "inbound_references": int(inbound.get(project.id, 0)),
+            "outbound_references": int(outbound.get(project.id, 0)),
+            "no_answer_rate": _rate(int(no_answers.get(project.id) or 0), int(chats.get(project.id, 0))),
+            "validation_pass_rate": _rate(int(validations_completed.get(project.id, 0)), int(validations.get(project.id, 0))),
+            "open_alerts": int(open_alerts.get(project.id, 0)),
+        }
+        for project in projects
+    ]
 
 
 def _pipeline_rows(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:
+    projects = _projects(session, project_ids, limit)
+    ids = {project.id for project in projects}
+    if not ids:
+        return []
+    duration_seconds = func.greatest(
+        0.0,
+        func.extract(
+            "epoch",
+            PipelineRun.completed_at
+            - func.coalesce(PipelineRun.started_at, PipelineRun.created_at),
+        ),
+    )
+    aggregate_query = _project_date_filters(
+        select(
+            PipelineRun.project_id,
+            func.count(PipelineRun.id).label("pipeline_runs"),
+            func.sum(
+                case((PipelineRun.status == "completed", 1), else_=0)
+            ).label("completed_runs"),
+            func.sum(
+                case((PipelineRun.status == "failed", 1), else_=0)
+            ).label("failed_runs"),
+            func.avg(duration_seconds)
+            .filter(PipelineRun.completed_at.is_not(None))
+            .label("avg_pipeline_seconds"),
+            func.percentile_cont(0.95)
+            .within_group(duration_seconds)
+            .filter(PipelineRun.completed_at.is_not(None))
+            .label("p95_pipeline_seconds"),
+        ),
+        PipelineRun,
+        PipelineRun.created_at,
+        ids,
+        date_from,
+        date_to,
+    ).group_by(PipelineRun.project_id)
+    aggregates = {row.project_id: row for row in session.execute(aggregate_query)}
+    retry_query = _project_date_filters(
+        select(PipelineRun.project_id, func.coalesce(func.sum(PipelineRunStep.retry_count), 0))
+        .join(PipelineRun, PipelineRun.id == PipelineRunStep.run_id),
+        PipelineRun,
+        PipelineRun.created_at,
+        ids,
+        date_from,
+        date_to,
+    ).group_by(PipelineRun.project_id)
+    retries = {project_id: int(total or 0) for project_id, total in session.execute(retry_query)}
     rows = []
-    for project in _projects(session, project_ids, limit):
-        scoped = {project.id}
-        duration_seconds = func.greatest(
-            0.0,
-            func.extract(
-                "epoch",
-                PipelineRun.completed_at
-                - func.coalesce(PipelineRun.started_at, PipelineRun.created_at),
-            ),
-        )
-        aggregate_query = _project_date_filters(
-            select(
-                func.count(PipelineRun.id).label("pipeline_runs"),
-                func.sum(
-                    case((PipelineRun.status == "completed", 1), else_=0)
-                ).label("completed_runs"),
-                func.sum(
-                    case((PipelineRun.status == "failed", 1), else_=0)
-                ).label("failed_runs"),
-                func.avg(duration_seconds)
-                .filter(PipelineRun.completed_at.is_not(None))
-                .label("avg_pipeline_seconds"),
-                func.percentile_cont(0.95)
-                .within_group(duration_seconds)
-                .filter(PipelineRun.completed_at.is_not(None))
-                .label("p95_pipeline_seconds"),
-            ),
-            PipelineRun,
-            PipelineRun.created_at,
-            scoped,
-            date_from,
-            date_to,
-        )
-        aggregate = session.execute(aggregate_query).one()
-        retry_query = (
-            select(func.coalesce(func.sum(PipelineRunStep.retry_count), 0))
-            .join(PipelineRun, PipelineRun.id == PipelineRunStep.run_id)
-        )
-        retry_query = _project_date_filters(
-            retry_query,
-            PipelineRun,
-            PipelineRun.created_at,
-            scoped,
-            date_from,
-            date_to,
-        )
+    for project in projects:
+        aggregate = aggregates.get(project.id)
+        average = aggregate.avg_pipeline_seconds if aggregate is not None else None
+        p95 = aggregate.p95_pipeline_seconds if aggregate is not None else None
         rows.append(
             {
                 "project_id": project.id,
                 "project_name": project.name,
-                "pipeline_runs": int(aggregate.pipeline_runs or 0),
-                "completed_runs": int(aggregate.completed_runs or 0),
-                "failed_runs": int(aggregate.failed_runs or 0),
-                "retry_count": int(session.scalar(retry_query) or 0),
-                "avg_pipeline_seconds": round(
-                    float(aggregate.avg_pipeline_seconds),
-                    2,
-                )
-                if aggregate.avg_pipeline_seconds is not None
-                else None,
-                "p95_pipeline_seconds": round(
-                    float(aggregate.p95_pipeline_seconds),
-                    2,
-                )
-                if aggregate.p95_pipeline_seconds is not None
-                else None,
+                "pipeline_runs": int(aggregate.pipeline_runs or 0) if aggregate is not None else 0,
+                "completed_runs": int(aggregate.completed_runs or 0) if aggregate is not None else 0,
+                "failed_runs": int(aggregate.failed_runs or 0) if aggregate is not None else 0,
+                "retry_count": retries.get(project.id, 0),
+                "avg_pipeline_seconds": round(float(average), 2) if average is not None else None,
+                "p95_pipeline_seconds": round(float(p95), 2) if p95 is not None else None,
             }
         )
     return rows
 
 
 def _rag_quality_rows(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:
+    projects = _projects(session, project_ids, limit)
+    ids = {project.id for project in projects}
+    if not ids:
+        return []
+    aggregate_query = _chat_filters(
+        select(
+            ChatRecord.project_id,
+            func.count(ChatRecord.id).label("qa_count"),
+            func.sum(
+                case((ChatRecord.answer.like("無法確認%"), 1), else_=0)
+            ).label("no_answer_count"),
+            func.sum(
+                case(
+                    (func.jsonb_array_length(ChatRecord.reference_docs) > 0, 1),
+                    else_=0,
+                )
+            ).label("cited_count"),
+            func.sum(
+                case((ChatRecord.evaluation == "correct", 1), else_=0)
+            ).label("correct_count"),
+            func.sum(
+                case(
+                    (ChatRecord.evaluation == "needs_revision", 1),
+                    else_=0,
+                )
+            ).label("needs_revision_count"),
+            func.sum(
+                case(
+                    (ChatRecord.evaluation != "not_evaluated", 1),
+                    else_=0,
+                )
+            ).label("evaluated_count"),
+        ),
+        ids,
+        date_from,
+        date_to,
+    ).group_by(ChatRecord.project_id)
+    aggregates = {row.project_id: row for row in session.execute(aggregate_query)}
     rows = []
-    for project in _projects(session, project_ids, limit):
-        scoped = {project.id}
-        aggregate_query = _chat_filters(
-            select(
-                func.count(ChatRecord.id).label("qa_count"),
-                func.sum(
-                    case((ChatRecord.answer.like("無法確認%"), 1), else_=0)
-                ).label("no_answer_count"),
-                func.sum(
-                    case(
-                        (func.jsonb_array_length(ChatRecord.reference_docs) > 0, 1),
-                        else_=0,
-                    )
-                ).label("cited_count"),
-                func.sum(
-                    case((ChatRecord.evaluation == "correct", 1), else_=0)
-                ).label("correct_count"),
-                func.sum(
-                    case(
-                        (ChatRecord.evaluation == "needs_revision", 1),
-                        else_=0,
-                    )
-                ).label("needs_revision_count"),
-                func.sum(
-                    case(
-                        (ChatRecord.evaluation != "not_evaluated", 1),
-                        else_=0,
-                    )
-                ).label("evaluated_count"),
-            ),
-            scoped,
-            date_from,
-            date_to,
-        )
-        aggregate = session.execute(aggregate_query).one()
+    for project in projects:
+        aggregate = aggregates.get(project.id)
+        if aggregate is None:
+            rows.append({"project_id": project.id, "project_name": project.name, "qa_count": 0, "no_answer_rate": 0.0,
+                "cited_answer_rate": 0.0, "human_correct_rate": 0.0, "needs_revision_rate": 0.0})
+            continue
         qa_count = int(aggregate.qa_count or 0)
         evaluated_count = int(aggregate.evaluated_count or 0)
         rows.append(
@@ -1687,6 +1745,10 @@ def _model_usage_statement(
             else_=0,
         )
     ).label("failure_count")
+    native_pdf = and_(AIModelUsageEvent.model_type == "OCR", AIModelUsageEvent.attempted.is_(True),
+                      func.coalesce(AIModelUsageEvent.metadata_["input_mode"].astext, "") == "native_pdf")
+    ocr_attempt = and_(AIModelUsageEvent.model_type == "OCR", AIModelUsageEvent.attempted.is_(True))
+    legacy_image = and_(ocr_attempt, ~native_pdf)
     statement = (
         select(
             AIModelUsageEvent.model_type.label("model_type"),
@@ -1697,6 +1759,14 @@ def _model_usage_statement(
             AIModelUsageEvent.usage_purpose.label("usage_purpose"),
             AIModelUsageEvent.source_channel.label("source_channel"),
             AIModelUsageEvent.cost_currency.label("currency"),
+            func.sum(case((and_(AIModelUsageEvent.attempted.is_(True), AIModelUsageEvent.total_tokens.is_not(None)), 1), else_=0)).label("known_token_calls"),
+            func.sum(case((and_(AIModelUsageEvent.attempted.is_(True), AIModelUsageEvent.total_tokens.is_(None)), 1), else_=0)).label("unknown_token_calls"),
+            func.count(func.distinct(case((native_pdf, func.coalesce(AIModelUsageEvent.document_version_id,
+                OCRDocumentReceipt.original_document_version_id)), else_=None))).label("native_pdf_documents"),
+            func.sum(case((and_(ocr_attempt, AIModelUsageEvent.ocr_pages.is_not(None)), 1), else_=0)).label("known_page_calls"),
+            func.sum(case((and_(ocr_attempt, AIModelUsageEvent.ocr_pages.is_(None)), 1), else_=0)).label("unknown_page_calls"),
+            func.sum(case((and_(legacy_image, AIModelUsageEvent.ocr_images.is_not(None)), 1), else_=0)).label("known_image_calls"),
+            func.sum(case((and_(legacy_image, AIModelUsageEvent.ocr_images.is_(None)), 1), else_=0)).label("unknown_image_calls"),
             attempted,
             successes,
             failures,
@@ -1736,6 +1806,7 @@ def _model_usage_statement(
             func.max(AIModelUsageEvent.cost_source).label("max_cost_source"),
         )
         .join(AIModel, AIModel.id == AIModelUsageEvent.model_id)
+        .outerjoin(OCRDocumentReceipt, OCRDocumentReceipt.usage_event_id == AIModelUsageEvent.id)
         .outerjoin(Project, Project.id == AIModelUsageEvent.project_id)
     )
     if project_ids is not None:
@@ -1772,6 +1843,12 @@ def _model_usage_statement(
     )
 
 
+def _count_status(known, unknown) -> str:
+    if unknown:
+        return "partial" if known else "unknown"
+    return "known" if known else "not_applicable"
+
+
 def _model_usage_mapping(row) -> dict:
     mapping = row._mapping
     calls = int(mapping["call_count"] or 0)
@@ -1796,6 +1873,10 @@ def _model_usage_mapping(row) -> dict:
         "output_tokens": int(mapping["output_tokens"] or 0),
         "total_tokens": int(mapping["total_tokens"] or 0),
         "embedding_tokens": int(mapping["embedding_tokens"] or 0),
+        "token_count_status": _count_status(mapping["known_token_calls"], mapping["unknown_token_calls"]),
+        "native_pdf_documents": int(mapping["native_pdf_documents"] or 0),
+        "page_count_status": _count_status(mapping["known_page_calls"], mapping["unknown_page_calls"]),
+        "image_count_status": _count_status(mapping["known_image_calls"], mapping["unknown_image_calls"]),
         "ocr_pages": int(mapping["ocr_pages"] or 0),
         "ocr_images": int(mapping["ocr_images"] or 0),
         "vector_count": int(mapping["vector_count"] or 0),
@@ -1994,6 +2075,24 @@ def _iso(value: datetime | None) -> str | None:
 def _localized_headers(locale: str, columns: list[str]) -> list[str]:
     labels = HEADER_LABELS["en" if locale.lower().startswith("en") else "zh"]
     return [labels.get(column, column) for column in columns]
+
+
+def _report_count_value(row: dict, key: str, locale: str):
+    status_key = {"ocr_pages": "page_count_status", "ocr_images": "image_count_status"}.get(key)
+    if key in {"input_tokens", "output_tokens", "total_tokens", "embedding_tokens"}:
+        status_key = "token_count_status"
+    if status_key is None:
+        return row.get(key)
+    english = locale.lower().startswith("en")
+    labels = ("Unknown", "Not applicable", "partly unknown") if english else ("未知", "不適用", "部分未知")
+    status = row.get(status_key)
+    if status == "unknown":
+        return labels[0]
+    if status == "not_applicable":
+        return labels[1]
+    if status == "partial":
+        return f"{row.get(key, '')} ({labels[2]})"
+    return row.get(key)
 
 
 def _csv_value(value) -> str | int | float:

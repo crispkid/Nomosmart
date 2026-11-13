@@ -13,5 +13,3 @@ opensearch:
   mode: bundled
 neo4j:
   mode: bundled
-keycloak:
-  mode: bundled

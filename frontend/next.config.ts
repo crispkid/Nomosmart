@@ -16,6 +16,9 @@ function allowedDevOrigins() {
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // OPT424-042: container builds ship the traced standalone server only.
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
+  logging: { incomingRequests: { ignore: [/\/auth\//] } },
   distDir: process.env.NODE_ENV === "development" ? ".next-dev" : ".next",
   typescript: {
     tsconfigPath: process.env.NODE_ENV === "development" ? "tsconfig.dev.json" : "tsconfig.json"

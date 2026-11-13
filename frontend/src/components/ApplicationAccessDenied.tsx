@@ -1,5 +1,9 @@
 "use client";
 
+import { DropdownSelect } from "@/components/DropdownSelect";
+
+import { BrowserTitle } from "@/lib/browserTitle";
+
 import { FeedbackMessage } from "./FeedbackMessage";
 import { useState } from "react";
 import { Languages, LogOut, RefreshCw, ShieldX } from "lucide-react";
@@ -30,7 +34,7 @@ export function ApplicationAccessDenied({
   }
 
   return (
-    <main className="application-access-denied-page">
+    <main className="application-access-denied-page"><BrowserTitle label={t("applicationAccessDeniedTitle")} />
       <header className="application-access-denied-toolbar">
         <div className="brand">
           <span className="brand-mark">N</span>
@@ -39,13 +43,13 @@ export function ApplicationAccessDenied({
         <label className="application-access-language">
           <Languages aria-hidden="true" size={17} />
           <span className="sr-only">{t("languageSwitcher")}</span>
-          <select
+          <DropdownSelect
             aria-label={t("languageSwitcher")}
             onChange={(event) => setLocale(event.target.value === "en" ? "en" : "zh")}
             value={locale}
           >
             {supportedLocales.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
-          </select>
+          </DropdownSelect>
         </label>
       </header>
 

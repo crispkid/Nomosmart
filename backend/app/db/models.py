@@ -15,7 +15,11 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __table_args__ = (CheckConstraint("employee_id IS NULL OR employee_id ~ '^Z.{0,9}$'", name="employee_id_format").ddl_if(dialect="postgresql"),)
 
     employee_id: Mapped[str | None] = mapped_column(String(10), unique=True)
-    keycloak_user_id: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    keycloak_user_id: Mapped[str | None] = mapped_column(String(255), unique=True)
+    directory_source_id: Mapped[UUID | None] = mapped_column(ForeignKey("directory_sources.id"))
+    directory_object_id: Mapped[str | None] = mapped_column(String(255))
+    directory_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    locally_disabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     ldap_dn: Mapped[str | None] = mapped_column(Text)
     email: Mapped[str | None] = mapped_column(String(320), index=True)
     given_name: Mapped[str | None] = mapped_column(String(255))
@@ -23,7 +27,7 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     display_name: Mapped[str] = mapped_column(String(255), nullable=False)
     department: Mapped[str | None] = mapped_column(String(255))
     title: Mapped[str | None] = mapped_column(String(255))
-    auth_source: Mapped[str] = mapped_column(String(32), nullable=False, default="keycloak")
+    auth_source: Mapped[str] = mapped_column(String(32), nullable=False)
     manager_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     manager_delegate_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     manager_delegate_start_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -78,11 +82,12 @@ class ExternalGroup(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "external_groups"
     __table_args__ = (UniqueConstraint("source", "external_group_id"),)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
+    directory_source_id: Mapped[UUID | None] = mapped_column(ForeignKey("directory_sources.id"))
     external_group_id: Mapped[str] = mapped_column(String(255), nullable=False)
     group_dn: Mapped[str | None] = mapped_column(Text)
     group_name: Mapped[str] = mapped_column(String(255), nullable=False)
     path: Mapped[str | None] = mapped_column(Text)
-    identity_origin: Mapped[str] = mapped_column(String(32), nullable=False, default="keycloak_local")
+    identity_origin: Mapped[str] = mapped_column(String(32), nullable=False)
     is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
@@ -108,6 +113,7 @@ class ExternalGroupUser(Base):
 
 class IdentitySyncRun(UUIDPrimaryKeyMixin, Base):
     __tablename__ = "identity_sync_runs"
+    configuration_revision: Mapped[int | None] = mapped_column(Integer)
     source: Mapped[str] = mapped_column(String(32), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
     trigger_type: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
@@ -245,9 +251,39 @@ class SystemParameter(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     updated_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
 
 
+class SystemParameterSectionRevision(Base):
+    __tablename__ = "system_parameter_section_revisions"
+    __table_args__ = (CheckConstraint("section IN ('general','documents')", name="section_allowed"), CheckConstraint("revision > 0", name="revision_positive"))
+    section: Mapped[str] = mapped_column(String(16), primary_key=True)
+    revision: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class StagingRetentionJob(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    __tablename__ = "staging_retention_jobs"
+    __table_args__ = (UniqueConstraint("document_version_id"), CheckConstraint("ttl_days BETWEEN 1 AND 3650", name="ttl_days_range"),
+                     Index("ix_staging_retention_due", "status", "expires_at"))
+    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"), nullable=False)
+    document_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"), nullable=False)
+    approval_request_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("approval_requests.id"), nullable=False)
+    rejected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    ttl_days: Mapped[int] = mapped_column(Integer, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="scheduled")
+    lease_token: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True))
+    lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    attempt: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    checkpoint: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
 class IdentitySetting(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     __tablename__ = "identity_settings"
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    session_revision: Mapped[int | None] = mapped_column(Integer)
+    base_revision: Mapped[int | None] = mapped_column(Integer)
     state: Mapped[str] = mapped_column(String(64), nullable=False)
     configuration: Mapped[dict] = mapped_column(JSONB, nullable=False)
     secret_configured: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
@@ -845,6 +881,7 @@ class FileProcessingPolicy(Base):
     )
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
     deployment_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False, unique=True)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     revision: Mapped[int] = mapped_column(Integer, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
@@ -853,6 +890,7 @@ class FileProcessingPolicy(Base):
 class FileProcessingPolicyRevision(Base):
     __tablename__ = "file_processing_policy_revisions"
     __table_args__ = (CheckConstraint("revision > 0", name="file_policy_history_revision"),)
+    schema_version: Mapped[int] = mapped_column(Integer, nullable=False, default=1, server_default="1")
     revision: Mapped[int] = mapped_column(Integer, primary_key=True)
     snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
     content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
@@ -1367,3 +1405,67 @@ class GraphSyncJob(UUIDPrimaryKeyMixin, Base):
     lease_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+# Register protocol identity tables on the same application metadata.
+from app.db.auth_models import (  # noqa: E402,F401
+    AuthAttemptWindow, AuthCandidateEvidence, AuthConnectionSecret, AuthEmergencyAccess,
+    AuthLoginFlow, AuthSession, AuthenticationIdentity, DirectorySource,
+)
+
+
+class OCRDocumentReceipt(UUIDPrimaryKeyMixin, TimestampMixin, Base):
+    """Immutable native-call identity and observed accounting, independent of artifacts."""
+    __tablename__ = "ocr_document_receipts"
+    __table_args__ = (
+        UniqueConstraint("original_step_id", "attempt_id", name="uq_ocr_document_step_attempt"),
+        UniqueConstraint("original_step_id", "retry_count", name="uq_ocr_document_step_retry"),
+        UniqueConstraint("usage_event_id", name="uq_ocr_document_usage_event"),
+        Index("uq_ocr_document_active_version", "original_document_version_id", unique=True,
+              postgresql_where=text("status IN ('intent', 'unknown')")),
+        Index("ix_ocr_document_version_created", "original_document_version_id", "created_at"),
+        CheckConstraint("status IN ('intent','confirmed_completed','confirmed_rejected','confirmed_incomplete','unknown')", name="ocr_document_status"),
+        CheckConstraint("promotion_state IN ('pending','promoted','discarded')", name="ocr_document_promotion"),
+        CheckConstraint("(document_id IS NULL OR document_id = original_document_id) AND (document_version_id IS NULL OR document_version_id = original_document_version_id) AND (run_id IS NULL OR run_id = original_run_id) AND (step_id IS NULL OR step_id = original_step_id)", name="ocr_document_live_identity"),
+        CheckConstraint("(num_nonnulls(document_id, document_version_id, run_id, step_id) = 4 AND content_removed_at IS NULL AND content_cleanup_run_id IS NULL) OR (num_nonnulls(document_id, document_version_id, run_id, step_id) = 0 AND content_removed_at IS NOT NULL AND content_cleanup_run_id IS NOT NULL AND status NOT IN ('intent','unknown'))", name="ocr_document_content_removal"),
+        CheckConstraint("retry_count >= 0 AND counted_input_tokens > 0 AND request_output_limit > 0", name="ocr_document_limits"),
+        CheckConstraint("output_bytes IS NULL OR output_bytes >= 0", name="ocr_document_output_bytes"),
+        CheckConstraint("promotion_state <> 'promoted' OR status = 'confirmed_completed'", name="ocr_document_promoted_complete"),
+    )
+    project_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
+    document_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"))
+    original_document_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    document_version_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("document_versions.id"))
+    original_document_version_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    run_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("pipeline_runs.id"))
+    original_run_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    step_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("pipeline_run_steps.id"))
+    original_step_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    model_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ai_models.id"), nullable=False)
+    attempt_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), nullable=False)
+    retry_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    snapshot_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    binding_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    dispatch_binding: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    model_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    policy_snapshot: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    counted_input_tokens: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    request_output_limit: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    promotion_state: Mapped[str] = mapped_column(String(16), nullable=False)
+    attempted: Mapped[bool | None] = mapped_column(Boolean)
+    usage: Mapped[dict] = mapped_column(JSONB, nullable=False, default=dict)
+    usage_event_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("ai_model_usage_events.id"))
+    provider_response_id: Mapped[str | None] = mapped_column(String(255))
+    response_artifact_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    response_sha256: Mapped[str | None] = mapped_column(String(64))
+    output_artifact_uri: Mapped[str] = mapped_column(Text, nullable=False)
+    output_sha256: Mapped[str | None] = mapped_column(String(64))
+    output_bytes: Mapped[int | None] = mapped_column(BigInteger)
+    observation_sha256: Mapped[str | None] = mapped_column(String(64))
+    error_code: Mapped[str | None] = mapped_column(String(100))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    promoted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    content_removed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    content_cleanup_run_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("project_archive_runs.id"))

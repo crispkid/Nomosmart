@@ -1,5 +1,7 @@
 "use client";
 
+import { DropdownSelect } from "@/components/DropdownSelect";
+
 import { useI18n } from "@/lib/i18nClient";
 
 
@@ -9,7 +11,7 @@ export function OpenAiApiModeField({ existingMode, isExisting, modelType }: { ex
   const selectedMode = existingMode === "responses" || existingMode === "chat_completions"
     ? existingMode
     : isExisting ? "chat_completions" : "responses";
-  return <label><span>{t("systemOpenAiApiMode")}</span><select defaultValue={selectedMode} key={selectedMode} name="api_mode"><option value="responses">{t("systemOpenAiResponsesMode")}</option><option value="chat_completions">{t("systemOpenAiChatCompletionsMode")}</option></select><small>{t("systemOpenAiApiModeHelp")}</small></label>;
+  return <label><span>{t("systemOpenAiApiMode")}</span><DropdownSelect defaultValue={selectedMode} key={selectedMode} name="api_mode"><option value="responses">{t("systemOpenAiResponsesMode")}</option><option value="chat_completions">{t("systemOpenAiChatCompletionsMode")}</option></DropdownSelect><small>{t("systemOpenAiApiModeHelp")}</small></label>;
 }
 
 export function AIModelCredentialClearControl({

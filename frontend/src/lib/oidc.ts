@@ -8,8 +8,8 @@ function authRuntimeConfig() {
   return {
     appOrigin: process.env.FRONTEND_APP_ORIGIN ?? "http://127.0.0.1:3000",
     apiBaseUrl: process.env.FRONTEND_PUBLIC_API_BASE_URL ?? "/api/backend",
-    oidcIssuerUrl: process.env.FRONTEND_OIDC_ISSUER_URL ?? "http://127.0.0.1:8080/realms/nomosmart",
-    oidcInternalIssuerUrl: process.env.FRONTEND_OIDC_INTERNAL_ISSUER_URL ?? process.env.FRONTEND_OIDC_ISSUER_URL ?? "http://127.0.0.1:8080/realms/nomosmart",
+    oidcIssuerUrl: process.env.FRONTEND_OIDC_ISSUER_URL ?? "",
+    oidcInternalIssuerUrl: process.env.FRONTEND_OIDC_INTERNAL_ISSUER_URL ?? process.env.FRONTEND_OIDC_ISSUER_URL ?? "",
     oidcClientId: process.env.FRONTEND_OIDC_CLIENT_ID ?? "nomosmart-frontend",
     oidcAudience: process.env.FRONTEND_OIDC_AUDIENCE ?? "nomosmart-backend",
   };
@@ -54,10 +54,11 @@ export function base64Url(bytes: Uint8Array): string {
 export function randomUrlToken(size = 32): string { return base64Url(crypto.getRandomValues(new Uint8Array(size))); }
 export async function pkceChallenge(verifier: string): Promise<string> { return base64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)))); }
 
-export function authorizationUrl(config: OidcConfig, input: { state: string; nonce: string; challenge: string; prompt?: string }): string {
+export function authorizationUrl(config: OidcConfig, input: { state: string; nonce: string; challenge: string; prompt?: string; locale?: "zh" | "en" }): string {
   const url = new URL(`${config.issuer}/protocol/openid-connect/auth`);
   for (const [key, value] of Object.entries({ client_id: config.clientId, redirect_uri: config.callbackUrl, response_type: "code", scope: "openid profile email", state: input.state, nonce: input.nonce, code_challenge: input.challenge, code_challenge_method: "S256" })) url.searchParams.set(key, value);
   if (input.prompt) url.searchParams.set("prompt", input.prompt);
+  if (input.locale === "zh" || input.locale === "en") url.searchParams.set("ui_locales", input.locale === "en" ? "en" : "zh-TW");
   return url.toString();
 }
 

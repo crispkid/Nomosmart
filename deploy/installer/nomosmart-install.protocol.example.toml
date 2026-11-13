@@ -1,0 +1,9 @@
+api_version = "install.nomosmart.io/protocol-v2"
+
+[target]
+context = "YOUR_EXPLICIT_KUBERNETES_CONTEXT"
+namespace = "nomosmart"
+release = "nomosmart"
+installation_id = "00000000-0000-4000-8000-000000000001"
+values_file = "protocol-values.json"
+chart = "../helm/nomosmart"

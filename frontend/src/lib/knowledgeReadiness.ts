@@ -7,9 +7,43 @@ const completedStagingStates = new Set([
   "publish_ready", "ready_to_publish", "completed", "review_rejected",
 ]);
 
+const knowledgeDetailReadyStates = new Set([
+  "submission_ready", "pending_manager_review", "pending_owner_review", "approved",
+  "publish_ready", "ready_to_publish", "publishing", "production_indexing", "graph_syncing",
+  "published_active", "published", "active", "completed", "review_rejected",
+]);
+const automaticExtractionSteps = [
+  "upload_received", "parse_document", "ocr_extract", "generate_markdown", "split_paragraphs",
+  "chunk_knowledge", "auto_tag", "build_embeddings", "build_staging_index", "build_graph_preview",
+  "prepare_submission",
+];
+const governanceWaitingVersions: Record<string, string> = {
+  manager_review: "pending_manager_review", owner_review: "pending_owner_review", publish: "approved",
+};
+
+/** Governance waiting follows completed extraction; it never grants editing permission. */
+function hasCompletedGovernanceWait(detail: KnowledgeDetailResponse): boolean {
+  const pipeline = detail.pipeline;
+  if (!pipeline || pipeline.status !== "waiting_action"
+    || !pipeline.current_step_name || governanceWaitingVersions[pipeline.current_step_name] !== detail.version.status
+    || pipeline.project_id !== detail.document.project_id || pipeline.document_id !== detail.document.id
+    || pipeline.document_version_id !== detail.version.id || pipeline.steps.some(step => step.status === "failed")) return false;
+  const required = pipeline.run_type === "document_extraction" ? automaticExtractionSteps
+    : pipeline.run_type === "document_content_update" ? ["generate_markdown", "parse_structure", "auto_tag", "embedding", "staging_index", "build_graph_preview", "cleanup_superseded"] : null;
+  return Boolean(required && required.every(name => {
+    const steps = pipeline.steps.filter(step => step.step_name === name);
+    return steps.length === 1 && steps[0].status === "completed";
+  }));
+}
+
+export function completionGateBlocksKnowledgeDetail(detail: KnowledgeDetailResponse | null): boolean {
+  return Boolean(detail?.pipeline && !knowledgeDetailReadyStates.has(detail.pipeline.status)
+    && !hasCompletedGovernanceWait(detail));
+}
+
 /** A read can be repeated without granting access or claiming the cause is transient. */
 export function needsKnowledgeReadinessCheck(detail: KnowledgeDetailResponse | null): boolean {
-  return Boolean(detail && detail.pipeline && completedStagingStates.has(detail.pipeline.status)
+  return Boolean(detail && detail.pipeline && (completedStagingStates.has(detail.pipeline.status) || hasCompletedGovernanceWait(detail))
     && completedStagingStates.has(detail.version.status)
     && !detail.pipeline.steps.some((step) => step.status === "failed")
     // Unpublished documents are "inactive"; this is not an archived project.

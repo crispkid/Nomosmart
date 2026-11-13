@@ -1,17 +1,21 @@
+import json
+
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
+from starlette.concurrency import run_in_threadpool
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import BreakGlassStatusResponse, OperationsStatusResponse, SystemParametersPayload, SystemParametersUpdatePayload, UploadConfigResponse
 from app.core.errors import AppError
-from app.db.models import SystemParameter
+from app.db.models import AuthEmergencyAccess, Role, RoleUser, SystemParameter
 from app.db.session import get_db
-from app.domain.system_parameters import SystemParameterValues
-from app.domain.ocr_token_settings import from_rows, OCRTokenSettings, KEYS as OCR_KEYS
+from app.domain import system_parameter_store as store
+from pydantic import ValidationError
+from app.domain.ocr_token_settings import (NativeOCRTokenSettings, NATIVE_KEYS as OCR_KEYS,
+    legacy_page_from_rows, PAGE_KEY, REQUEST_KEY, DOCUMENT_KEY, NATIVE_POLICY)
 from app.domain.operations import build_operations_status
-from app.integrations.keycloak import KeycloakAdminClient, KeycloakBreakGlassStatus
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import MENU_SYSTEM_MANAGEMENT, PermissionAction, require_menu_permission
 from app.services.audit import add_audit
@@ -20,69 +24,81 @@ from app.services.audit import add_audit
 router = APIRouter(prefix="/system", tags=["system"])
 
 
-def _keycloak_realm(issuer_url: str) -> str:
-    return issuer_url.rstrip("/").rsplit("/", 1)[-1]
+def _payload(session, settings):
+    values, defaults, revisions, metadata, _, _ = store.snapshot(session)
+    tokens = NativeOCRTokenSettings(values[OCR_KEYS[0]], values[OCR_KEYS[1]])
+    legacy_rows = list(session.scalars(select(SystemParameter).where(SystemParameter.key == PAGE_KEY)))
+    legacy_value = legacy_page_from_rows(legacy_rows)
+    legacy_default = legacy_page_from_rows(legacy_rows, defaults=True)
+    return SystemParametersPayload(**values, ocr_page_max_output_tokens=legacy_value,
+        ocr_token_budget_policy=NATIVE_POLICY,
+        ocr_token_defaults={PAGE_KEY: legacy_default, **{key: defaults[key] for key in OCR_KEYS}},
+        ocr_token_settings_hash=tokens.content_hash, section_revisions=revisions,
+        parameter_defaults=defaults, parameter_metadata=metadata,
+        deployment_max_upload_size_mb=settings.max_upload_size_mb)
 
 
-def _break_glass_deployment_evidence(settings) -> tuple[str, str, str]:
-    runbook = "configured" if settings.break_glass_runbook_uri.strip() else "missing"
-    alerting = "configured" if settings.break_glass_alerting_evidence.strip() else "missing"
-    return runbook, alerting, "deployment_only"
+def _unique_pairs(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise AppError("invalid_system_parameters", "Duplicate JSON field", status_code=422)
+        result[key] = value
+    return result
 
 
-def _break_glass_response(row: KeycloakBreakGlassStatus, *, checked_at: datetime, settings) -> BreakGlassStatusResponse:
-    runbook_evidence, alerting_evidence, lifecycle_control = _break_glass_deployment_evidence(settings)
-    status = row.status
-    detail_code = row.detail_code
-    if status == "configured_disabled" and (runbook_evidence == "missing" or alerting_evidence == "missing"):
-        status = "attention_required"
-        detail_code = "deployment_evidence_missing"
-    return BreakGlassStatusResponse(
-        username=row.username,
-        status=status,  # type: ignore[arg-type]
-        detail_code=detail_code,
-        configured=row.configured,
-        enabled=row.enabled,
-        local_account=row.local_account,
-        system_admin_mapped=row.system_admin_mapped,
-        credential_update_required=row.credential_update_required,
-        required_actions=list(row.required_actions),
-        credential_source=row.credential_source,
-        runbook_evidence=runbook_evidence,
-        alerting_evidence=alerting_evidence,
-        lifecycle_control=lifecycle_control,
-        checked_at=checked_at,
-    )
-
-
-def _rows_to_payload(rows: list[SystemParameter]) -> SystemParametersPayload:
-    values = {row.key: row.value for row in rows}
-    tokens, defaults = from_rows(rows), from_rows(rows, defaults=True)
-    return SystemParametersPayload(
-        ocr_page_max_output_tokens=tokens.page,
-        ocr_document_max_tokens=tokens.document,
-        ocr_token_defaults={OCR_KEYS[0]: defaults.page, OCR_KEYS[1]: defaults.document},
-        ocr_token_settings_hash=tokens.content_hash,
-        max_upload_size_mb=int(values["max_upload_size_mb"]),
-        default_timezone=str(values["default_timezone"]),
-        staging_index_ttl_days=int(values["staging_index_ttl_days"]),
-        session_expired_form_draft_ttl_minutes=int(values.get("session_expired_form_draft_ttl_minutes", 30)),
-    )
+async def _body(request):
+    try:
+        raw = bytearray()
+        async for chunk in request.stream():
+            if len(raw) + len(chunk) > 16384:
+                raise ValueError()
+            raw.extend(chunk)
+        value = json.loads(raw, object_pairs_hook=_unique_pairs)
+        if type(value) is not dict:
+            raise ValueError()
+        return value
+    except (ValueError, UnicodeError, RecursionError):
+        raise AppError("invalid_system_parameters", "Invalid settings payload", status_code=422)
 
 
 @router.get("/parameters", response_model=SystemParametersPayload)
-def get_parameters(
-    context: IdentityContext = Depends(get_identity_context),
-    session: Session = Depends(get_db),
-) -> SystemParametersPayload:
+def get_parameters(request: Request, context: IdentityContext = Depends(get_identity_context),
+                   session: Session = Depends(get_db)) -> SystemParametersPayload:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
-    rows = list(session.scalars(select(SystemParameter).order_by(SystemParameter.key)))
-    return _rows_to_payload(rows)
+    return _payload(session, request.app.state.settings)
+
+
+@router.patch("/parameters")
+async def patch_parameters(request: Request, context: IdentityContext = Depends(get_identity_context),
+                           session: Session = Depends(get_db)):
+    require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
+    body = await _body(request)
+    if "expected_revision" not in body:
+        raise AppError("system_parameters_revision_required", "Reload settings before saving", status_code=428)
+    section, values, expected = body.get("section"), body.get("values"), body.get("expected_revision")
+    if (set(body) != {"section", "expected_revision", "values"} or not isinstance(section, str)
+        or section not in store.SECTIONS or type(values) is not dict or not isinstance(expected, str)
+        or len(expected) != 64 or any(c not in "0123456789abcdef" for c in expected)):
+        raise AppError("invalid_system_parameters", "Invalid section update", status_code=422)
+    return await run_in_threadpool(_patch_transaction, section, values, expected, request, context, session)
+
+
+def _patch_transaction(section, values, expected, request, context, session):
+    changed = store.update_sections(session, changes={section: values}, expected={section: expected},
+        actor=context.user_id, request_id=request.state.request_id,
+        deployment_limit=request.app.state.settings.max_upload_size_mb)
+    data, defaults, revisions, metadata, _, _ = store.snapshot(session, [section])
+    response = {"section": section, "values": data, "defaults": defaults,
+                "revision": revisions[section], "parameter_metadata": metadata, "changed": changed}
+    session.commit()
+    return response
 
 
 @router.get("/upload-config", response_model=UploadConfigResponse)
-def get_upload_config(request: Request, context: IdentityContext = Depends(get_identity_context)) -> UploadConfigResponse:
-    return UploadConfigResponse(max_upload_size_mb=request.app.state.settings.max_upload_size_mb)
+def get_upload_config(request: Request, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> UploadConfigResponse:
+    effective = store.intake_settings(session, request.app.state.settings)
+    return UploadConfigResponse(max_upload_size_mb=effective.max_upload_size_mb, deployment_max_upload_size_mb=request.app.state.settings.max_upload_size_mb)
 
 
 @router.get("/status", response_model=OperationsStatusResponse)
@@ -102,113 +118,45 @@ def get_break_glass_status(
     session: Session = Depends(get_db),
 ) -> BreakGlassStatusResponse:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
+    now = datetime.now(UTC)
     settings = request.app.state.settings
-    checked_at = datetime.now(UTC)
-    username = settings.break_glass_username.strip()
-    runbook_evidence, alerting_evidence, lifecycle_control = _break_glass_deployment_evidence(settings)
-    if not username:
-        response = BreakGlassStatusResponse(
-            username=None,
-            status="not_configured",
-            detail_code="username_missing",
-            configured=False,
-            enabled=None,
-            local_account=None,
-            system_admin_mapped=None,
-            credential_update_required=None,
-            required_actions=[],
-            credential_source="deployment_secret",
-            runbook_evidence=runbook_evidence,
-            alerting_evidence=alerting_evidence,
-            lifecycle_control=lifecycle_control,
-            checked_at=checked_at,
-        )
-        add_audit(session, actor_user_id=context.user_id, action="system.break_glass.status", resource_type="break_glass", resource_id=None, result="failure", request_id=request.state.request_id, summary={"detail_code": response.detail_code})
-        session.commit()
-        return response
-    if not settings.keycloak_sync_client_secret.get_secret_value():
-        response = BreakGlassStatusResponse(
-            username=username,
-            status="unavailable",
-            detail_code="keycloak_service_account_secret_missing",
-            configured=False,
-            enabled=None,
-            local_account=None,
-            system_admin_mapped=None,
-            credential_update_required=None,
-            required_actions=[],
-            credential_source="deployment_secret",
-            runbook_evidence=runbook_evidence,
-            alerting_evidence=alerting_evidence,
-            lifecycle_control=lifecycle_control,
-            checked_at=checked_at,
-        )
-        add_audit(session, actor_user_id=context.user_id, action="system.break_glass.status", resource_type="break_glass", resource_id=None, result="failure", request_id=request.state.request_id, summary={"detail_code": response.detail_code})
-        session.commit()
-        return response
-    try:
-        client = KeycloakAdminClient(
-            base_url=settings.keycloak_admin_endpoint,
-            realm=_keycloak_realm(settings.oidc_issuer_url),
-            client_id=settings.keycloak_sync_client_id,
-            client_secret=settings.keycloak_sync_client_secret.get_secret_value(),
-        )
-        response = _break_glass_response(
-            client.break_glass_status(username, system_admin_group=settings.break_glass_system_admin_group),
-            checked_at=checked_at,
-            settings=settings,
-        )
-        add_audit(session, actor_user_id=context.user_id, action="system.break_glass.status", resource_type="break_glass", resource_id=None, result="success" if response.status == "configured_disabled" else "failure", request_id=request.state.request_id, summary={"status": response.status, "detail_code": response.detail_code})
-        session.commit()
-        return response
-    except AppError as exc:
-        response = BreakGlassStatusResponse(
-            username=username,
-            status="unavailable",
-            detail_code=exc.code,
-            configured=False,
-            enabled=None,
-            local_account=None,
-            system_admin_mapped=None,
-            credential_update_required=None,
-            required_actions=[],
-            credential_source="deployment_secret",
-            runbook_evidence=runbook_evidence,
-            alerting_evidence=alerting_evidence,
-            lifecycle_control=lifecycle_control,
-            checked_at=checked_at,
-        )
-        add_audit(session, actor_user_id=context.user_id, action="system.break_glass.status", resource_type="break_glass", resource_id=None, result="failure", request_id=request.state.request_id, summary={"detail_code": response.detail_code})
-        session.commit()
-        return response
+    row = session.scalar(select(AuthEmergencyAccess).where(AuthEmergencyAccess.username == settings.auth_emergency_username))
+    configured = bool(row and row.password_verifier)
+    enabled = bool(configured and row.active_until and row.active_until > now)
+    mapped = bool(row and session.scalar(select(RoleUser.user_id).join(Role, Role.id == RoleUser.role_id).where(RoleUser.user_id == row.user_id, Role.name == "system-admin", RoleUser.source == "break_glass")))
+    status = "attention_required" if enabled else "configured_disabled" if configured else "not_configured"
+    return BreakGlassStatusResponse(username=settings.auth_emergency_username, status=status, detail_code="temporary_emergency_window" if enabled else "deployment_activation_required", configured=configured, enabled=enabled, local_account=True, system_admin_mapped=mapped, credential_update_required=False, required_actions=[], credential_source="deployment_secret", runbook_evidence="configured" if settings.break_glass_runbook_uri else "missing", alerting_evidence="configured", lifecycle_control="deployment_only", checked_at=now)
 
 
 @router.put("/parameters", response_model=SystemParametersPayload)
-def update_parameters(
-    payload: SystemParametersUpdatePayload,
-    request: Request,
-    context: IdentityContext = Depends(get_identity_context),
-    session: Session = Depends(get_db),
-) -> SystemParametersPayload:
+async def update_parameters(request: Request, context: IdentityContext = Depends(get_identity_context),
+                            session: Session = Depends(get_db)) -> SystemParametersPayload:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
-    core = payload.model_dump(exclude=set(OCR_KEYS) | {"expected_ocr_token_settings_hash"})
-    SystemParameterValues(**core).validate()
-    rows = {row.key: row for row in session.scalars(select(SystemParameter).order_by(SystemParameter.key).with_for_update())}
-    current = from_rows(list(rows.values()))
-    from_rows(list(rows.values()), defaults=True)
-    submitted = payload.model_dump(exclude_unset=True)
-    changed_ocr = set(submitted) & set(OCR_KEYS)
-    if changed_ocr and payload.expected_ocr_token_settings_hash != current.content_hash:
-        raise AppError("ocr_token_settings_conflict", "OCR output settings changed; reload before saving", status_code=409)
-    OCRTokenSettings(submitted.get(OCR_KEYS[0], current.page), submitted.get(OCR_KEYS[1], current.document))
-    values = core | {key: submitted[key] for key in changed_ocr}
-    old_values = {key: rows[key].value for key in values if key in rows}
-    for key, value in values.items():
-        if key not in rows:
-            rows[key] = SystemParameter(key=key, value=value, default_value=value, value_type="integer", unit="minutes", description="Session-expired form draft retention")
-            session.add(rows[key])
-        rows[key].value = value
-        rows[key].updated_by = context.user_id
-    add_audit(session, actor_user_id=context.user_id, action="system.parameters.update", resource_type="system_parameters", resource_id=None, result="success", request_id=request.state.request_id, summary={"old": old_values, "new": values})
+    body = await _body(request)
+    expected = body.get("expected_section_revisions")
+    if not isinstance(expected, dict) or set(expected) != set(store.SECTIONS):
+        raise AppError("system_parameters_revision_required", "Reload settings before saving", status_code=428)
+    try:
+        payload = SystemParametersUpdatePayload.model_validate(body)
+    except ValidationError as exc:
+        raise AppError("invalid_system_parameters", "Invalid settings values", status_code=422,
+                       details={"fields": [str(error["loc"][0]) for error in exc.errors()]}) from exc
+    values = payload.model_dump(exclude_unset=True)
+    ocr_changed = any(key in values for key in OCR_KEYS)
+    if ocr_changed and not payload.expected_ocr_token_settings_hash:
+        raise AppError("system_parameters_revision_required", "Reload OCR settings before saving", status_code=428)
+    return await run_in_threadpool(_put_transaction, values, expected, payload, ocr_changed, request, context, session)
+
+
+def _put_transaction(values, expected, payload, ocr_changed, request, context, session):
+    if PAGE_KEY in values:
+        legacy_rows = list(session.scalars(select(SystemParameter).where(SystemParameter.key == PAGE_KEY)))
+        if values[PAGE_KEY] != legacy_page_from_rows(legacy_rows):
+            raise AppError("ocr_page_token_setting_retired", "Per-page OCR output setting is retired; use the request output setting", status_code=422)
+    store.update_sections(session, changes={section: {key: values[key] for key in keys if key in values}
+        for section, keys in store.SECTIONS.items()}, expected=expected, actor=context.user_id,
+        request_id=request.state.request_id, deployment_limit=request.app.state.settings.max_upload_size_mb,
+        ocr_hash=payload.expected_ocr_token_settings_hash if ocr_changed else None)
+    result = _payload(session, request.app.state.settings)
     session.commit()
-    return _rows_to_payload(list(rows.values()))
+    return result

@@ -1,0 +1,10 @@
+{{- if .Values.authentication.bootstrapConfiguration }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "nomosmart.fullname" . }}-auth-bootstrap
+  labels:
+    {{- include "nomosmart.labels" . | nindent 4 }}
+data:
+  config.json: {{ toJson .Values.authentication.bootstrapConfiguration | quote }}
+{{- end }}

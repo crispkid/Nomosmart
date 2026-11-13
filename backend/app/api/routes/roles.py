@@ -216,7 +216,7 @@ def set_external_group_mapping(
         external_group = session.scalar(select(ExternalGroup).where(ExternalGroup.id == payload.external_group_id).with_for_update())
         if external_group is None:
             raise AppError("external_group_not_found", "External group was not found", status_code=404)
-        if not external_group.is_active or external_group.identity_origin != "ldap":
+        if not external_group.is_active or external_group.identity_origin not in {"ldap", "ad"}:
             raise AppError("invalid_ldap_group_mapping", "Mappings require an active LDAP group", status_code=422)
         occupied = session.scalar(
             select(ExternalGroupRoleMapping).where(

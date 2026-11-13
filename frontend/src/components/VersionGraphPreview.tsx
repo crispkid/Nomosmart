@@ -1,14 +1,20 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback } from "react";
 import { useAuth } from "@/components/AuthProvider";
 import { DocumentGraphPreview } from "@/components/DocumentGraphPreview";
 import { getDocumentVersionGraph, type ProjectGraphResponse } from "@/lib/api";
 import { versionGraphEvidence } from "@/lib/versionGraphEvidence";
 import { useGraphSourceBinding } from "@/lib/useGraphSourceBinding";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 
 type GraphErrorKey = "graphProjectionNotReady" | "graphProjectForbiddenStatus" | "graphProjectUnavailableStatus";
+
+function graphErrorKey(failure: { code?: string; status?: number } | undefined): GraphErrorKey {
+  return failure?.code === "graph_projection_not_ready" || failure?.code === "graph_identity_conflict"
+    ? "graphProjectionNotReady" : failure?.status === 403 ? "graphProjectForbiddenStatus" : "graphProjectUnavailableStatus";
+}
 
 /** Both draft and published dialogs follow the Backend's scoped evidence source. */
 export function VersionGraphPreview({ projectId, documentId, versionId, documentTitle, version }: {
@@ -17,21 +23,11 @@ export function VersionGraphPreview({ projectId, documentId, versionId, document
   const { apiFetch, authReady } = useAuth();
   const { t, format } = useI18n();
   const scope = `${projectId}/${documentId}/${versionId}`;
-  const [loaded, setLoaded] = useState<{ scope: string; graph: ProjectGraphResponse | null; error: GraphErrorKey | null } | null>(null);
-  const graph = authReady && loaded?.scope === scope ? loaded.graph : null;
+  const readGraph = useCallback((signal: AbortSignal) => getDocumentVersionGraph(apiFetch, projectId, documentId, versionId, 500, signal), [apiFetch, projectId, documentId, versionId]);
+  const graphRead = useReadResource<ProjectGraphResponse>(readGraph, scope, authReady);
+  const graph = graphRead.data;
   const binding = useGraphSourceBinding(graph);
-  const error = authReady && loaded?.scope === scope ? loaded.error : null;
-  useEffect(() => {
-    let cancelled = false;
-    if (!authReady) return;
-    getDocumentVersionGraph(apiFetch, projectId, documentId, versionId, 500)
-      .then((result) => { if (!cancelled) setLoaded({ scope, graph: result, error: null }); })
-      .catch((failure: { code?: string; status?: number }) => {
-        if (!cancelled) setLoaded({ scope, graph: null, error: failure.code === "graph_projection_not_ready" || failure.code === "graph_identity_conflict"
-          ? "graphProjectionNotReady" : failure.status === 403 ? "graphProjectForbiddenStatus" : "graphProjectUnavailableStatus" });
-      });
-    return () => { cancelled = true; };
-  }, [apiFetch, authReady, projectId, documentId, versionId, scope]);
+  const error = graphRead.status === "error" ? graphErrorKey(graphRead.error as { code?: string; status?: number }) : null;
   if (!graph) return <p role="status">{t(error ?? "graphProjectLoadingStatus")}</p>;
   const evidence = versionGraphEvidence(graph, versionId, documentTitle);
   return <>

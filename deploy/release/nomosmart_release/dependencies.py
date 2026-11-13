@@ -84,7 +84,7 @@ def validate_dependencies(payload: Any, *, version: str) -> dict[str, Any]:
     return payload
 
 
-def load_dependencies(path: Path = LOCK_PATH, *, version: str = "0.2.1") -> dict[str, Any]:
+def load_dependencies(path: Path = LOCK_PATH, *, version: str = "0.2.0") -> dict[str, Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, ValueError) as exc:
@@ -98,5 +98,60 @@ def installer_images(application_images: dict[str, str], dependencies: dict[str,
     result.update({name: dependencies["images"][name]["reference"] for name in (
         "migration", "redis", "rustfs", "opensearch", "neo4j", "keycloak"
     )})
+    result["postgresql"] = dependencies["images"]["postgresql_operator"]["reference"]
+    return result
+
+
+PROTOCOL_LOCK_PATH = LOCK_PATH.with_name("external-dependencies.protocol.lock.json")
+PROTOCOL_REPOSITORIES = {name: repo for name, repo in OFFICIAL_REPOSITORIES.items() if name != "keycloak"}
+
+
+def validate_protocol_dependencies(payload: Any, *, version: str) -> dict[str, Any]:
+    if (not isinstance(payload, dict) or set(payload) != {"schema_version", "auth_contract_revision", "release_version", "images", "downloads"}
+            or type(payload.get("schema_version")) is not int or payload["schema_version"] != 2
+            or type(payload.get("auth_contract_revision")) is not int or payload["auth_contract_revision"] != 2
+            or payload.get("release_version") != version):
+        raise ReleaseContractError("protocol dependency lock type or version is invalid")
+    if not isinstance(payload["images"], dict) or set(payload["images"]) != set(PROTOCOL_REPOSITORIES):
+        raise ReleaseContractError("protocol dependency image inventory differs")
+    # Keep the current inventory explicit; historical schemas retain their rules.
+    for name, repository in PROTOCOL_REPOSITORIES.items():
+        row = payload["images"][name]
+        if not isinstance(row, dict) or set(row) != {"reference", "platforms"}:
+            raise ReleaseContractError(f"protocol dependency fields differ: {name}")
+        reference = row["reference"]
+        if not isinstance(reference, str) or not re.fullmatch(re.escape(repository)+r":[A-Za-z0-9][A-Za-z0-9._-]*@sha256:[0-9a-f]{64}", reference):
+            raise ReleaseContractError(f"protocol dependency source or digest is invalid: {name}")
+        if reference.split("@",1)[0].rsplit(":",1)[1] in {"latest","stable","main","master"}:
+            raise ReleaseContractError(f"protocol dependency requires a version tag: {name}")
+        platforms = row["platforms"]
+        if not isinstance(platforms, dict) or set(platforms) != PLATFORMS or any(not isinstance(d,str) or not re.fullmatch(r"sha256:[0-9a-f]{64}",d) for d in platforms.values()):
+            raise ReleaseContractError(f"protocol dependency platforms are incomplete: {name}")
+        if name in FIXED_PLATFORM_IMAGES and repository+"@"+reference.split("@",1)[1] != FIXED_PLATFORM_IMAGES[name]:
+            raise ReleaseContractError(f"protocol platform differs from installer contract: {name}")
+    if not isinstance(payload["downloads"],dict) or set(payload["downloads"]) != set(OFFICIAL_DOWNLOADS):
+        raise ReleaseContractError("protocol download inventory differs")
+    for name, pattern in OFFICIAL_DOWNLOADS.items():
+        row = payload["downloads"][name]
+        if (not isinstance(row,dict) or set(row)!={"url","sha256"} or not isinstance(row["url"],str)
+                or not re.fullmatch(pattern,row["url"]) or not isinstance(row["sha256"],str) or not SHA256.fullmatch(row["sha256"])):
+            raise ReleaseContractError(f"protocol download URL or checksum is invalid: {name}")
+    search_version=payload["images"]["opensearch"]["reference"].split("@",1)[0].rsplit(":",1)[1]
+    if f"/repository-s3/{search_version}/" not in payload["downloads"]["opensearch_repository_s3"]["url"]:
+        raise ReleaseContractError("OpenSearch and repository-s3 versions differ")
+    return payload
+
+
+def load_protocol_dependencies(path: Path = PROTOCOL_LOCK_PATH, *, version: str) -> dict[str, Any]:
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeError, ValueError) as exc:
+        raise ReleaseContractError("protocol dependency lock is unavailable or invalid") from exc
+    return validate_protocol_dependencies(payload, version=version)
+
+
+def protocol_installer_images(application_images: dict[str, str], dependencies: dict[str, Any]) -> dict[str, str]:
+    result = dict(application_images)
+    result.update({name:dependencies["images"][name]["reference"] for name in ("migration","redis","rustfs","opensearch","neo4j")})
     result["postgresql"] = dependencies["images"]["postgresql_operator"]["reference"]
     return result

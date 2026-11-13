@@ -79,6 +79,24 @@ def _citations_in_scope(values, version: DocumentVersion) -> bool:
         for value in values)
 
 
+def _legacy_judge_in_scope(row: AIModelUsageEvent, version: DocumentVersion,
+                           runs: dict[UUID, ValidationRun], items: dict[UUID, ValidationRunItem]) -> bool:
+    """Read-only proof for missing-version Judge usage; explicit scope wins."""
+    if (row.document_version_id is not None or row.project_id != version.project_id
+            or row.document_id not in (None, version.document_id)
+            or row.source_channel != "validation" or row.usage_purpose != "validation_judge"
+            or row.model_type != "Judge"):
+        return False
+    run, item = runs.get(row.validation_run_id), items.get(row.validation_run_item_id)
+    return (run is not None and item is not None and item.run_id == run.id
+            and _same_scope(run, version) and run.run_scope == "document_staging"
+            and run.status in {"completed", "failed", "partial_failed", "cancelled"}
+            and run.approval_task_id is None and _only_version(run.selected_document_ids, version)
+            and _only_version(item.selected_document_ids, version)
+            and _citations_in_scope(item.reference_docs, version)
+            and (row.chat_record_id is None or row.chat_record_id == item.chat_record_id))
+
+
 def _check_fk_inventory(session: Session) -> None:
     # An unhandled future ON DELETE CASCADE must fail closed, not erase new data.
     rows = session.execute(text("""
@@ -163,8 +181,10 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
 
     usage = _locked(session, AIModelUsageEvent, or_(AIModelUsageEvent.chat_record_id.in_(chat_ids),
         AIModelUsageEvent.validation_run_item_id.in_(item_ids)))
+    item_map = {item.id: item for item in items + children}
     for row in usage:
-        _require(_same_scope(row, version) and not row.public_api_request_log_id and not row.integration_client_id)
+        _require((_same_scope(row, version) or _legacy_judge_in_scope(row, version, run_map, item_map))
+                 and not row.public_api_request_log_id and not row.integration_client_id)
         if row.pipeline_run_id or row.pipeline_step_id:
             linked_step = session.get(PipelineRunStep, row.pipeline_step_id) if row.pipeline_step_id else None
             pipeline_ids = {value for value in (row.pipeline_run_id, linked_step.run_id if linked_step else None) if value}

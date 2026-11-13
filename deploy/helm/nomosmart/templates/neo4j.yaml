@@ -36,6 +36,7 @@ spec:
         {{- include "nomosmart.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: neo4j
     spec:
+      enableServiceLinks: false
       securityContext: {runAsNonRoot: true, runAsUser: 7474, runAsGroup: 7474, fsGroup: 7474, seccompProfile: {type: RuntimeDefault}}
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

@@ -29,7 +29,6 @@ from app.api.schemas import (
 from app.core.errors import AppError
 from app.db.models import Chunk, ChunkTag, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, OutboxEvent, PipelineRun, Project, ProjectMember, ProjectOwner, Tag, User
 from app.db.session import get_db
-from app.domain.document_imports import resolve_ocr_model
 from app.domain.document_codes import allocate_document_code
 from app.domain.notifications import resolve_business_notifications
 from app.domain.extraction_pipeline import initialize_pipeline_steps
@@ -410,7 +409,6 @@ def _create_next_reference_version(
         raise AppError("document_update_working_version_exists", "A working version already exists for this referenced document", status_code=409)
     now = datetime.now(UTC)
     major = (latest.version_major if latest else 0) + 1
-    ocr_model = resolve_ocr_model(session, target_project, None)
     source_text = _source_text_for_version(session, source_version)
     version = DocumentVersion(
         id=uuid4(),
@@ -427,8 +425,8 @@ def _create_next_reference_version(
         content_sha256=hashlib.sha256(source_text.encode("utf-8")).hexdigest() if source_text else None,
         uploaded_at=now,
         original_snapshot_uri=source_version.original_snapshot_uri,
-        ocr_model_id=ocr_model.id,
-        ocr_config_version=ocr_model.config_version,
+        ocr_model_id=None,
+        ocr_config_version=None,
         chunk_strategy={
             "source": "project_reference" if mode == "reference" else "project_copy",
             "version_created_by": str(actor_user_id),
@@ -439,6 +437,7 @@ def _create_next_reference_version(
             "source_version_label": source_version.version_label,
             "source_text": source_text,
             "source_text_origin": "canonical_markdown_artifact",
+            "ocr_snapshot": {"input_mode": "direct_text", "force_ocr": False, "retry_count": 0},
             "source_markdown_sha256": hashlib.sha256(source_text.encode("utf-8")).hexdigest(),
         },
         embedding_model_id=target_project.embedding_model_id,
@@ -465,10 +464,10 @@ def _create_next_reference_version(
     target_document.updated_at = now
     session.add_all([version, pipeline])
     session.flush()
-    initialize_pipeline_steps(session, pipeline, ocr_model_id=ocr_model.id, ocr_name=ocr_model.name, force_ocr=False)
+    initialize_pipeline_steps(session, pipeline, ocr_model_id=None, ocr_name="Direct text", force_ocr=False)
     session.flush()
     if mode == "copy":
-        copied = _copy_source_extraction(session, target_project, source_version, version, actor_user_id)
+        copied = _copy_source_extraction(session, target_project, source_version, version, actor_user_id, settings=settings)
         complete_copied_steps(session, source=source_version, target=version, pipeline=pipeline, chunks=copied)
     session.add(OutboxEvent(id=uuid4(), topic="document.extraction.requested", aggregate_type="pipeline_run", aggregate_id=pipeline.id, project_id=target_project.id, project_generation=target_project.work_generation, payload={"pipeline_run_id": str(pipeline.id), "project_id": str(target_project.id), "project_generation": target_project.work_generation}, status="pending", attempts=0, available_at=now, created_at=now))
     return version, pipeline
@@ -536,8 +535,9 @@ def _source_text_for_version(session: Session, source_version: DocumentVersion) 
     return artifact.text
 
 
-def _copy_source_extraction(session: Session, target_project: Project, source_version: DocumentVersion, target_version: DocumentVersion, actor_user_id: UUID) -> list[Chunk]:
-    copied = copy_chunks(session, source=source_version, target=target_version)
+def _copy_source_extraction(session: Session, target_project: Project, source_version: DocumentVersion, target_version: DocumentVersion, actor_user_id: UUID, *, settings) -> list[Chunk]:
+    copied = copy_chunks(session, source=source_version, target=target_version,
+                         target_project=target_project, settings=settings)
     _copy_document_tags(session, target_project.id, source_version.id, target_version.id, actor_user_id)
     for chunk in copied:
         _copy_chunk_tags(session, target_project.id, UUID(chunk.chunk_strategy["copied_from_chunk_id"]), chunk.id, actor_user_id)

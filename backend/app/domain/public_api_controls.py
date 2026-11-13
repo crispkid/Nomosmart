@@ -16,8 +16,8 @@ from app.core.config import Settings
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.core.idempotency import canonical_request_hash, storage_scope, validate_replay
-from app.db.models import IdempotencyKey
-from app.integrations.redis_ha import redis_client
+from app.db.models import ChatFeedbackEvent, IdempotencyKey
+from app.integrations.redis_ha import shared_redis_client
 
 
 _RATE_LIMIT_SCRIPT = """
@@ -119,14 +119,11 @@ def fail_idempotent_operation(record: IdempotencyKey, error: AppError) -> None:
 def enforce_rate_limit(settings: Settings, *, dimension: str, limit: int) -> None:
     key = f"nomosmart:public-api:rate:{keyed_fingerprint(settings, 'rate', dimension)}"
     try:
-        client = redis_client(
+        client = shared_redis_client(
             settings,
             decode_responses=True,
         )
-        try:
-            count = int(client.eval(_RATE_LIMIT_SCRIPT, 1, key, settings.public_api_rate_limit_window_seconds))
-        finally:
-            client.close()
+        count = int(client.eval(_RATE_LIMIT_SCRIPT, 1, key, settings.public_api_rate_limit_window_seconds))
     except redis.RedisError as exc:
         raise AppError("public_api_rate_limit_unavailable", "Public API rate limiting is unavailable", status_code=503) from exc
     if count > limit:
@@ -136,3 +133,29 @@ def enforce_rate_limit(settings: Settings, *, dimension: str, limit: int) -> Non
 def encrypt_payload(settings: Settings, response_id: object, field: str, value: object) -> str:
     serialized = json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
     return EnvelopeCipher(settings.encryption_key_bytes).encrypt(serialized, context=f"public-response:{response_id}:{field}")
+
+
+def decrypt_feedback_metadata(session: Session, key: bytes, event: ChatFeedbackEvent) -> str:
+    """Read durable event AAD, or the exact recoverable legacy operation AAD.
+
+    This is for bounded maintenance; it never exposes caller metadata via HTTP.
+    Missing legacy context is an explicit refusal, never a guessed UUID.
+    """
+    if not event.public_response_id or not event.end_user_metadata_encrypted:
+        raise AppError("feedback_encryption_context_unavailable", "Feedback encryption context is unavailable", status_code=422)
+    cipher = EnvelopeCipher(key)
+    prefix = f"public-response:{event.public_response_id}:feedback:"
+    try:
+        return cipher.decrypt(event.end_user_metadata_encrypted, context=f"{prefix}{event.id}:end-user")
+    except AppError as exc:
+        if exc.code != "invalid_encrypted_value":
+            raise
+    if not event.integration_client_id or not event.idempotency_key_hash:
+        raise AppError("feedback_encryption_context_unavailable", "Feedback encryption context is unavailable", status_code=422)
+    operation_id = session.scalar(select(IdempotencyKey.id).where(
+        IdempotencyKey.scope == storage_scope(f"public-feedback:{event.integration_client_id}:{event.public_response_id}"),
+        IdempotencyKey.key == event.idempotency_key_hash,
+    ))
+    if operation_id is None:
+        raise AppError("feedback_encryption_context_unavailable", "Feedback encryption context is unavailable", status_code=422)
+    return cipher.decrypt(event.end_user_metadata_encrypted, context=f"{prefix}{operation_id}:end-user")

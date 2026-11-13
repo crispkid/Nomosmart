@@ -34,10 +34,10 @@ def application_access_denied_audit_summary(principal: IdentityPrincipal) -> dic
 
 
 def resolve_identity_context(session: Session, principal: IdentityPrincipal) -> IdentityContext:
-    user = session.scalar(select(User).where(User.keycloak_user_id == principal.subject))
+    user = session.get(User, principal.user_id) if principal.user_id else None
     if user is None:
         raise AppError("user_not_synchronized", "User has not been synchronized", status_code=403)
-    if not user.is_active:
+    if not user.is_active or user.locally_disabled or not user.directory_enabled:
         raise AppError("user_disabled", "User account is disabled", status_code=403)
     permission_rows = session.execute(
         select(RolePermission)

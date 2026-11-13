@@ -1,3 +1,6 @@
+log_format nomosmart_safe '$remote_addr [$time_local] "$request_method $uri $server_protocol" $status $body_bytes_sent';
+access_log /var/log/nginx/access.log nomosmart_safe;
+
 server {
     listen 80;
     server_name ${NOMOSMART_PUBLIC_HOST};
@@ -15,6 +18,7 @@ server {
 
 server {
     listen 443 ssl;
+    ${NOMOSMART_ONBOARDING_ACCESS_RULES}
     server_name ${NOMOSMART_PUBLIC_HOST};
 
     ssl_certificate /etc/nginx/tls/tls.crt;
@@ -28,48 +32,6 @@ server {
         access_log off;
         add_header Content-Type text/plain;
         return 200 "ready\n";
-    }
-
-    location ^~ /identity/admin/ {
-        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
-        deny all;
-        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
-    }
-
-    location = /identity/admin {
-        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
-        deny all;
-        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
-    }
-
-    location ^~ /identity/realms/master/ {
-        allow ${KEYCLOAK_ADMIN_ALLOW_CIDR};
-        deny all;
-        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
-    }
-
-    location ^~ /identity/ {
-        proxy_set_header Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Host ${NOMOSMART_PUBLIC_AUTHORITY};
-        proxy_set_header X-Forwarded-Port ${EDGE_HTTPS_PORT};
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_set_header X-Forwarded-For $remote_addr;
-        proxy_pass ${KEYCLOAK_EDGE_UPSTREAM};
     }
 
     # Only this namespace reaches Backend. No URI suffix means the original

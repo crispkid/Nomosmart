@@ -467,6 +467,8 @@ def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lo
     session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=_delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
     _notify(session, task.submitter_id, task.project_id, "review.rejected", "審核已退回", f"文件版本 {version.version_label} 已退回，請建立新 revision 修正後重新送審", {"document_version_id": str(version.id), "reason": comment})
     add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment})
+    from app.domain.staging_retention import schedule_retention
+    schedule_retention(session, version, request.id, now)
     return task
 
 
@@ -814,6 +816,93 @@ def _version(session: Session, version_id: UUID) -> DocumentVersion:
     if version is None:
         raise AppError("document_version_not_found", "Document version was not found", status_code=404)
     return version
+
+
+def restore_cancelled_review_pipeline(session: Session, approval: ApprovalRequest, version: DocumentVersion) -> bool:
+    """Restore complete work only when this cancellation owns the waiting run."""
+    from app.domain.content_pipeline_evidence import current_pipeline, UPDATE_STEPS, update_submission_state
+    from app.domain.extraction_pipeline import AUTO_EXTRACTION_STEPS, REVIEW_AND_PUBLICATION_STEPS, _graph_preview_artifact
+    from app.domain.submission_evidence import build_submission_evidence
+
+    if (approval.status != "cancelled" or approval.cancelled_at is None
+            or version.status != "submission_ready" or version.published_at is not None
+            or version.id != approval.document_version_id or version.project_id != approval.project_id
+            or version.document_id != approval.document_id):
+        return False
+    latest = session.scalar(select(ApprovalRequest.id).where(
+        ApprovalRequest.document_version_id == version.id
+    ).order_by(ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc()).limit(1))
+    if latest != approval.id or session.scalar(select(ApprovalRequest.id).where(
+            ApprovalRequest.document_version_id == version.id, ApprovalRequest.id != approval.id,
+            ApprovalRequest.status.in_(("pending_manager_review", "pending_owner_review", "approved", "published")))):
+        return False
+    project = session.get(Project, approval.project_id)
+    document = session.get(Document, approval.document_id)
+    if (project is None or project.status != "active" or document is None or document.is_deleted
+            or document.project_id != project.id):
+        return False
+    pipeline = current_pipeline(session, version.id, project_id=project.id, document_id=document.id)
+    if pipeline is None:
+        return False
+    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.id == pipeline.id).with_for_update())
+    if (pipeline.status != "waiting_action" or pipeline.current_step_name not in {MANAGER_REVIEW, OWNER_REVIEW}
+            or pipeline.project_generation != project.work_generation):
+        return False
+    evidence = session.scalar(select(ApprovalEvidenceManifest).where(
+        ApprovalEvidenceManifest.approval_request_id == approval.id))
+    manifest = evidence.manifest if evidence and isinstance(evidence.manifest, dict) else {}
+    expected_scope = {"project": project.id, "document": document.id, "version": version.id, "pipeline": pipeline.id}
+    if (not evidence or evidence.manifest_hash != approval.evidence_revision
+            or sha256(json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode()).hexdigest() != evidence.manifest_hash
+            or any(not isinstance(manifest.get(key), dict) or manifest[key].get("id") != str(value)
+                   for key, value in expected_scope.items())):
+        return False
+    steps = list(session.scalars(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline.id)))
+    if any(step.claim_token is not None or step.lease_expires_at is not None for step in steps):
+        return False
+    if pipeline.run_type == "document_content_update":
+        ready, _ = update_submission_state(session, project, document, version, pipeline, steps)
+        if not ready:
+            return False
+        restored_status, restored_step = "completed", UPDATE_STEPS[-1]
+    elif pipeline.run_type == "document_extraction":
+        statuses = {step.step_name: step.status for step in steps}
+        if any(statuses.get(name) != "completed" for name in AUTO_EXTRACTION_STEPS):
+            return False
+        restored_status, restored_step = "submission_ready", "prepare_submission"
+    else:
+        return False
+
+    # Artifact validation may refuse. Keep the cancellation, but roll back every
+    # tentative readiness/preview change rather than certifying incomplete work.
+    try:
+        with session.begin_nested() as savepoint:
+            pipeline.status = restored_status
+            pipeline.progress_percent = 100
+            pipeline.current_step_name = restored_step
+            pipeline.current_waiting_role = None
+            pipeline.current_action_url = None
+            pipeline.estimated_remaining_seconds = None
+            pipeline.error_message = None
+            for step in steps:
+                if step.step_name in REVIEW_AND_PUBLICATION_STEPS:
+                    step.status = "pending"
+                    step.progress_percent = 0
+                    step.progress_message = None
+                    step.error_message = None
+                    step.started_at = None
+                    step.completed_at = None
+            chunks = list(session.scalars(select(Chunk).where(
+                Chunk.document_version_id == version.id, Chunk.status == "active").order_by(Chunk.chunk_index, Chunk.id)))
+            version.chunk_strategy = {**(version.chunk_strategy or {}),
+                "graph_preview": _graph_preview_artifact(session, project, document, version, chunks)}
+            session.flush()
+            if not build_submission_evidence(session, project=project, document=document, version=version).next_stage_allowed:
+                savepoint.rollback()
+                return False
+    except AppError:
+        return False
+    return True
 
 
 def _mark_pipeline_waiting(session: Session, version_id: UUID, step_name: str, waiting_role: str) -> None:

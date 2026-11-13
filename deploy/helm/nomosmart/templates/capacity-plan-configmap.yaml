@@ -8,13 +8,13 @@
 }}
 {{- $pvcs := list }}
 {{- $fullname := include "nomosmart.fullname" . }}
-{{- range $name := list "postgresql" "redis" "rustfs" "opensearch" "neo4j" "keycloak" }}
+{{- range $name := list "postgresql" "redis" "rustfs" "opensearch" "neo4j" }}
 {{- $component := index $.Values $name }}
 {{- if eq $component.mode "bundled" }}
 {{- $replicas := 1 }}
 {{- if and (eq $name "postgresql") $component.operator.enabled }}
 {{- $replicas = int $component.cluster.instances }}
-{{- else if or (eq $name "opensearch") (eq $name "keycloak") }}
+{{- else if eq $name "opensearch" }}
 {{- $replicas = int $component.cluster.replicas }}
 {{- else if and (or (eq $name "redis") (eq $name "rustfs")) $component.cluster.enabled }}
 {{- $replicas = int $component.cluster.replicas }}
@@ -23,7 +23,7 @@
 {{- if and (eq $name "redis") $component.cluster.enabled }}
 {{- $workloads = append $workloads (dict "name" "redis-sentinel" "replicas" $component.cluster.sentinelReplicas "requests" $component.resources.requests "limits" $component.resources.limits) }}
 {{- end }}
-{{- if and (ne $name "keycloak") $component.persistence.enabled }}
+{{- if $component.persistence.enabled }}
 {{- $claims := list }}
 {{- range $index := until $replicas }}
 {{- if and (eq $name "postgresql") $component.operator.enabled }}

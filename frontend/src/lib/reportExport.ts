@@ -64,9 +64,19 @@ export function buildCsv(rows: CsvRow[], preferredHeaders?: string[], headerTitl
   return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
 
+export function reportCountValue(row: CsvRow, key: "ocr_pages" | "ocr_images" | "input_tokens" | "output_tokens" | "total_tokens" | "embedding_tokens", labels: { unknown: string; notApplicable: string; partial: string }): CsvCell {
+  const status = row[key === "ocr_pages" ? "page_count_status" : key === "ocr_images" ? "image_count_status" : "token_count_status"];
+  if (status === "unknown") return labels.unknown;
+  if (status === "not_applicable") return labels.notApplicable;
+  if (status === "partial") return `${row[key] ?? ""} (${labels.partial})`;
+  return row[key];
+}
+
 export function buildLocalizedReportCsv(rows: CsvRow[], topic: ReportTopic, locale: ReportCsvLocale) {
   const headers = getReportHeaders(rows, topic);
-  return buildCsv(rows, headers, getLocalizedReportHeaders(headers, locale, topic));
+  const labels = locale === "en" ? { unknown: "Unknown", notApplicable: "Not applicable", partial: "partly unknown" } : { unknown: "未知", notApplicable: "不適用", partial: "部分未知" };
+  const data = topic === "model_usage_metrics" ? rows.map((row) => ({ ...row, ocr_pages: reportCountValue(row, "ocr_pages", labels), ocr_images: reportCountValue(row, "ocr_images", labels), input_tokens: reportCountValue(row, "input_tokens", labels), output_tokens: reportCountValue(row, "output_tokens", labels), total_tokens: reportCountValue(row, "total_tokens", labels), embedding_tokens: reportCountValue(row, "embedding_tokens", labels) })) : rows;
+  return buildCsv(data, headers, getLocalizedReportHeaders(headers, locale, topic));
 }
 
 function escapeCsvCell(value: CsvCell) {
@@ -84,11 +94,15 @@ const reportColumnHeaders: Record<ReportTopic, string[]> = {
   document_pipeline_metrics: ["project_name", "avg_pipeline_minutes", "p95_pipeline_minutes", "success_rate", "retry_count"],
   rag_quality_metrics: ["project_name", "qa_count", "no_answer_rate", "cited_answer_rate", "human_correct_rate"],
   validation_run_metrics: ["project_name", "validation_runs", "pass_rate", "failed_questions", "manual_review_count"],
-  model_usage_metrics: ["model_type", "ai_model_name", "provider", "project_name", "usage_purpose", "source_channel", "call_count", "success_count", "failure_count", "input_tokens", "output_tokens", "total_tokens", "embedding_tokens", "ocr_pages", "ocr_images", "vector_count", "chunk_count", "avg_latency_ms", "p95_latency_ms", "provider_reported_cost", "estimated_cost", "currency", "cost_source", "error_rate"],
+  model_usage_metrics: ["model_type", "ai_model_name", "provider", "project_name", "usage_purpose", "source_channel", "call_count", "success_count", "failure_count", "input_tokens", "output_tokens", "total_tokens", "embedding_tokens", "token_count_status", "native_pdf_documents", "ocr_pages", "page_count_status", "ocr_images", "image_count_status", "vector_count", "chunk_count", "avg_latency_ms", "p95_latency_ms", "provider_reported_cost", "estimated_cost", "currency", "cost_source", "error_rate"],
   alert_metrics: ["level", "alert_type", "project_name", "count", "oldest_at"]
 };
 
 const defaultColumnLabels: Record<string, LocalizedHeader> = {
+  token_count_status: { zh: "Token 用量完整性", en: "Token usage status" },
+  native_pdf_documents: { zh: "PDF 辨識文件數", en: "Native PDF documents" },
+  page_count_status: { zh: "頁數完整性", en: "Page count status" },
+  image_count_status: { zh: "圖片計數完整性", en: "Image count status" },
   active_documents: { zh: "活躍文件", en: "Active documents" },
   active_users_30d: { zh: "30 天活躍使用者", en: "Active users 30d" },
   active_version: { zh: "目前版本", en: "Active version" },

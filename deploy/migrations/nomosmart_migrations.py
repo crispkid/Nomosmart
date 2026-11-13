@@ -24,9 +24,11 @@ def release_contract(*, contract_path: Path = CONTRACT_PATH, sql_root: Path | No
             or not any(int(part) for part in re.split(r"[._]", version))):
         raise ValueError("invalid migration target version")
     targets = contract.get("targets")
-    if not isinstance(targets, dict) or set(targets) != {"SQL", "SQL_BASELINE"}:
+    if not isinstance(targets, dict) or set(targets) not in ({"SQL"}, {"SQL", "SQL_BASELINE"}):
         raise ValueError("invalid migration target types")
     for kind, prefix in (("SQL", "V"), ("SQL_BASELINE", "B")):
+        if kind not in targets:
+            continue  # Additive SQL targets retain the earlier baseline unchanged.
         target = targets[kind]
         if not isinstance(target, dict) or type(target.get("checksum")) is not int:
             raise ValueError("invalid migration checksum")
@@ -51,7 +53,7 @@ def helm_values() -> dict[str, str]:
     return {
         "requiredVersion": contract["required_version"],
         "requiredChecksum": str(contract["targets"]["SQL"]["checksum"]),
-        "baselineChecksum": str(contract["targets"]["SQL_BASELINE"]["checksum"]),
+        "baselineChecksum": str(contract["targets"]["SQL_BASELINE"]["checksum"]) if "SQL_BASELINE" in contract["targets"] else "",
     }
 
 

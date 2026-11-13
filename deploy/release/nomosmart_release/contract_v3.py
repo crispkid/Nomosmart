@@ -130,7 +130,7 @@ def validate_manifest(payload: dict[str, Any]) -> None:
         raise ReleaseContractError("deferred acceptance must remain explicit and cannot be marked passed")
 
 
-def verify_payload(root: Path, payload: dict[str, Any]) -> tuple[dict[str, str], dict[str, str]]:
+def verify_payload(root: Path, payload: dict[str, Any], *, protocol_contract: bool = False) -> tuple[dict[str, str], dict[str, str]]:
     """Validate inventoried content after shared checksum verification."""
     inventory = {row["path"]: row["sha256"] for row in payload["files"]}
     inspect_publication_files(root, inventory)
@@ -142,7 +142,9 @@ def verify_payload(root: Path, payload: dict[str, Any]) -> tuple[dict[str, str],
             raise ReleaseContractError(f"release evidence differs from its inventory: {label}")
         return path
 
-    dependencies = load_dependencies(
+    from .dependencies import load_protocol_dependencies, protocol_installer_images
+    dependency_loader = load_protocol_dependencies if protocol_contract else load_dependencies
+    dependencies = dependency_loader(
         referenced(payload["external_dependencies"], "external dependencies"), version=payload["release_id"]
     )
     for name, row in payload["gates"].items():
@@ -213,4 +215,5 @@ def verify_payload(root: Path, payload: dict[str, Any]) -> tuple[dict[str, str],
             "cloudnativepg_operator", "barman_cloud_plugin", "barman_cloud_sidecar"
         )
     }
-    return installer_images(payload["application_images"], dependencies), platform_images
+    image_inventory = protocol_installer_images if protocol_contract else installer_images
+    return image_inventory(payload["application_images"], dependencies), platform_images

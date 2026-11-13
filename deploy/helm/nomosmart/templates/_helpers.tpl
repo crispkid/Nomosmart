@@ -153,7 +153,7 @@ podAntiAffinity:
 {{- end -}}
 
 {{- define "nomosmart.runtimeSecretEnv" -}}
-{{- range $key := list "APP_ENCRYPTION_KEY" "DATABASE_URL" "REDIS_URL" "REDIS_SENTINEL_PASSWORD" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY" "OPENSEARCH_PASSWORD" "NEO4J_PASSWORD" "OIDC_CLIENT_SECRET" "KEYCLOAK_SYNC_CLIENT_SECRET" }}
+{{- range $key := list "AUTH_ENCRYPTION_KEY" "APP_ENCRYPTION_KEY" "DATABASE_URL" "REDIS_URL" "REDIS_SENTINEL_PASSWORD" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ACCESS_KEY_ID" "S3_SECRET_ACCESS_KEY" "OPENSEARCH_PASSWORD" "NEO4J_PASSWORD" }}
 {{- $secretKey := $key }}
 {{- if and (eq $key "REDIS_SENTINEL_PASSWORD") (eq $.Values.redis.mode "bundled") (eq $.Values.redis.auth.username $.Values.redis.auth.replicationUsername) (eq $.Values.redis.auth.username $.Values.redis.auth.sentinelUsername) }}
 {{- $secretKey = $.Values.redis.auth.passwordSecretKey }}
@@ -163,6 +163,9 @@ podAntiAffinity:
     secretKeyRef:
       name: {{ include "nomosmart.secretName" $ }}
       key: {{ $secretKey }}
+      {{- if eq $key "AUTH_ENCRYPTION_KEY" }}
+      optional: true
+      {{- end }}
 {{- end }}
 {{- end -}}
 
@@ -194,9 +197,13 @@ workload, and "application" for the one-shot migration/bootstrap revision.
 {{- if and (eq $stage "application") (not .Values.bootstrap.finalize.enabled) -}}true{{- end -}}
 {{- end -}}
 
-{{/* Real TCP DNS is opt-in for the isolated local profile only. */}}
+{{/* Optional per-Pod DNS settings; never changes cluster-wide resolution. */}}
 {{- define "nomosmart.localPodDnsConfig" -}}
-{{- if .Values.localDevelopment.dnsOverTcp }}
+{{- with .Values.podHostAliases }}
+hostAliases:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- if or .Values.podDnsOverTcp .Values.localDevelopment.dnsOverTcp }}
 dnsConfig:
   options:
     - {name: ndots, value: "1"}

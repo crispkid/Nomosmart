@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { FileText, X } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import { useModalFocus } from "@/components/useModalFocus";
 import { ChunkMarkdownView, selectChunkMarkdownSource } from "@/components/ChunkMarkdownView";
 import { SafeMarkdown } from "@/components/SafeMarkdown";
 import { chunkContentPreview } from "@/lib/documentGraph";
@@ -47,17 +48,13 @@ export function ChatResponseEvidence({
 }) {
   const { format, t } = useI18n();
   const [selected, setSelected] = useState<SelectedCitation | null>(null);
-  const dialogRef = useRef<HTMLElement>(null);
+  const dialogRef = useModalFocus(Boolean(selected), () => setSelected(null));
   const normalizedAnswer = answer || answerFallback;
   const selectedDisplaySource = selected ? selectChunkMarkdownSource({
     content: selected.citation.content,
     display_markdown: selected.citation.display_markdown,
     markdown_content: selected.citation.markdown_content,
   }) : null;
-
-  useEffect(() => {
-    if (selected) dialogRef.current?.focus();
-  }, [selected]);
 
   const titles = useMemo(
     () => citations.map((citation) => chatCitationTitle(

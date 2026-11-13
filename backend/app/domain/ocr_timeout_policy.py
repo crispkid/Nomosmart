@@ -34,8 +34,6 @@ def normalize_timeout_config(config: dict[str, object], *, required: bool = Fals
     return result
 
 
-def split_snapshot(config: dict[str, object]) -> dict[str, object]:
-    return {POLICY_KEY: SPLIT_POLICY, **normalize_timeout_config(config)}
 
 
 def snapshot_timeout_policy(snapshot: dict[str, object]) -> dict[str, object]:
@@ -115,36 +113,3 @@ class OCRRequestWindow:
                 status_code=503 if attempted else 422)
 
 
-@dataclass(frozen=True)
-class PDFOCRDeadline:
-    page_seconds: int
-    document_seconds: int
-    started: float
-
-    @classmethod
-    def start(cls, snapshot: dict[str, object]) -> PDFOCRDeadline:
-        policy = snapshot_timeout_policy(snapshot)
-        if not policy:
-            raise AppError("ocr_timeout_config_invalid", "Split PDF OCR requires a versioned snapshot", status_code=422)
-        return cls(policy[PAGE_KEY], policy[DOCUMENT_KEY], monotonic())
-
-    @property
-    def deadline(self) -> float:
-        return self.started + self.document_seconds
-
-    def request_window(self) -> OCRRequestWindow:
-        now = monotonic()
-        document_limited = self.deadline <= now + self.page_seconds
-        window = OCRRequestWindow(now, min(now + self.page_seconds, self.deadline),
-                                  "document_timeout" if document_limited else "page_timeout")
-        window.check(attempted=False)
-        return window
-
-    def diagnostics(self, *, page: int, config_version: object, window: OCRRequestWindow | None = None) -> dict[str, object]:
-        now = monotonic()
-        return safe_diagnostics({"policy": SPLIT_POLICY, "physical_page": page, "config_version": config_version,
-            "page_timeout_seconds": self.page_seconds, "document_timeout_seconds": self.document_seconds,
-            "effective_request_timeout_ms": max(0, int((window.deadline-window.started)*1000)) if window else 0,
-            "page_elapsed_ms": max(0, int((now-window.started)*1000)) if window else 0,
-            "document_elapsed_ms": max(0, int((now-self.started)*1000)),
-            "remaining_document_ms": max(0, int((self.deadline-now)*1000))})

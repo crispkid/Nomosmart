@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+import logging
 import os
 from threading import Event, Thread
 from uuid import UUID, uuid4
 
+from kombu import Queue
 from celery import Celery
-from celery.schedules import crontab
+from app.services.directory_schedule import DirectoryDailySchedule
 from celery.signals import heartbeat_sent, worker_ready
 from sqlalchemy import or_, select
 
@@ -24,10 +26,9 @@ from app.domain.graph_sync_jobs import GRAPH_SYNC_TOPIC, execute_graph_sync_job
 from app.domain.notifications import NOTIFICATION_TOPIC, execute_notification_event
 from app.domain.project_archival import ARCHIVE_CLEANUP_TOPIC, execute_project_archive_cleanup, recover_stale_project_archive_runs
 from app.domain.public_api_retention import enforce_public_api_retention
+from app.domain.staging_retention import TOPIC as STAGING_RETENTION_TOPIC, execute_retention, recover_due_jobs
 from app.domain.validation_runner import execute_validation_run
-from app.integrations.keycloak import KeycloakAdminClient
 from app.services.audit import add_audit
-from app.services.identity_sync import reconcile_snapshot
 from app.services.identity_sync_jobs import (
     create_identity_sync_run,
     effective_identity_sync_scope,
@@ -37,6 +38,7 @@ from app.services.identity_sync_jobs import (
 )
 
 
+logger = logging.getLogger("nomosmart.worker")
 settings = get_settings()
 celery_app = Celery("nomosmart", broker=settings.celery_broker_url.get_secret_value(), backend=settings.celery_result_backend.get_secret_value())
 if settings.redis_ha_mode == "sentinel":
@@ -55,7 +57,7 @@ if settings.redis_ha_mode == "sentinel":
     celery_app.conf.broker_transport_options = {
         "master_name": settings.redis_sentinel_master_name,
         "sentinel_kwargs": sentinel_kwargs,
-        "visibility_timeout": 3600,
+        "visibility_timeout": settings.celery_visibility_timeout_seconds,
     }
     celery_app.conf.result_backend_transport_options = {
         "master_name": settings.redis_sentinel_master_name,
@@ -64,15 +66,69 @@ if settings.redis_ha_mode == "sentinel":
     }
     celery_app.conf.broker_use_ssl = redis_ssl
     celery_app.conf.redis_backend_use_ssl = redis_ssl
+if settings.celery_global_keyprefix:
+    celery_app.conf.broker_transport_options = {**celery_app.conf.broker_transport_options,
+        "global_keyprefix": settings.celery_global_keyprefix}
+    celery_app.conf.result_backend_transport_options = {**celery_app.conf.result_backend_transport_options,
+        "global_keyprefix": settings.celery_global_keyprefix}
+if settings.redis_ha_mode != "sentinel":
+    # Late-acked tasks running longer than this are redelivered by Redis.
+    celery_app.conf.broker_transport_options = {**celery_app.conf.broker_transport_options,
+        "visibility_timeout": settings.celery_visibility_timeout_seconds}
+SHORT_TASKS = (
+    "app.worker.record_runtime_heartbeat",
+    "app.worker.queue_scheduled_directory_sync_v2",
+    "app.worker.queue_scheduled_data_source_sync",
+    "app.worker.recover_stale_project_archives",
+    "app.worker.dispatch_outbox",
+    "app.worker.run_notification_event",
+    "app.worker.recover_staging_retention",
+)
+LONG_TASKS = (
+    "app.worker.run_directory_sync_v2",
+    "app.worker.run_graph_sync",
+    "app.worker.run_project_archive_cleanup",
+    "app.worker.run_chunk_artifact_reconciliation",
+    "app.worker.run_document_content_update",
+    "app.worker.run_project_chat_validation",
+    "app.worker.run_data_source_sync",
+    "app.worker.cleanup_public_api_retention",
+    "app.worker.run_document_extraction",
+    "app.worker.cleanup_authentication_retention",
+    "app.worker.run_staging_retention",
+)
+
+
+def task_time_limits(short_soft_seconds: int, long_soft_seconds: int) -> dict[str, dict[str, int]]:
+    """Soft limit raises SoftTimeLimitExceeded; the hard limit follows 30 s later."""
+    annotations = {}
+    for names, soft in ((SHORT_TASKS, short_soft_seconds), (LONG_TASKS, long_soft_seconds)):
+        if soft:
+            annotations.update({name: {"soft_time_limit": soft, "time_limit": soft + 30} for name in names})
+    return annotations
+
+
+celery_app.conf.task_annotations = task_time_limits(settings.celery_short_task_soft_time_limit_seconds,
+    settings.celery_long_task_soft_time_limit_seconds)
+celery_app.conf.task_queues = (Queue("celery"), Queue("nomosmart-auth-v2"))
+celery_app.conf.task_routes = {
+    "app.worker.run_directory_sync_v2": {"queue": "nomosmart-auth-v2"},
+    "app.worker.queue_scheduled_directory_sync_v2": {"queue": "nomosmart-auth-v2"},
+    "app.worker.record_runtime_heartbeat": {"queue": "nomosmart-auth-v2"},
+}
+celery_app.conf.beat_scheduler = "app.services.directory_schedule:DirectoryBeatScheduler"
+celery_app.conf.beat_max_loop_interval = 60
 celery_app.conf.timezone = settings.identity_sync_timezone
 _minute, _hour, _day_of_month, _month_of_year, _day_of_week = settings.identity_sync_schedule.split()
 celery_app.conf.beat_schedule = {
     "record-runtime-heartbeat": {"task": "app.worker.record_runtime_heartbeat", "schedule": float(settings.identity_sync_heartbeat_seconds)},
-    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_identity_sync", "schedule": crontab(minute=_minute, hour=_hour, day_of_month=_day_of_month, month_of_year=_month_of_year, day_of_week=_day_of_week)},
-    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": 60.0},
-    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": 10.0},
-    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": 60.0},
-    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": 86400.0},
+    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_directory_sync_v2", "schedule": DirectoryDailySchedule(run_every=settings.beat_directory_schedule_check_seconds, app=celery_app)},
+    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": float(settings.beat_data_source_sync_seconds)},
+    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": float(settings.beat_outbox_dispatch_seconds)},
+    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": float(settings.beat_archive_recovery_seconds)},
+    "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": float(settings.beat_auth_retention_cleanup_seconds)},
+    "recover-staging-retention": {"task": "app.worker.recover_staging_retention", "schedule": float(settings.staging_retention_recovery_seconds)},
+    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": float(settings.beat_public_api_retention_cleanup_seconds)},
 }
 
 
@@ -82,18 +138,9 @@ def _record_worker_runtime_heartbeat(**_: object) -> None:
     try:
         record_worker_heartbeat(settings)
     except Exception:
-        return
+        logger.warning("worker_heartbeat_failed", exc_info=True, extra={"worker_task": "runtime_heartbeat"})
 
 
-def _keycloak_client(*, timeout_seconds: float | None = None) -> KeycloakAdminClient:
-    realm = settings.oidc_issuer_url.rstrip("/").rsplit("/", 1)[-1]
-    return KeycloakAdminClient(
-        base_url=settings.keycloak_admin_endpoint,
-        realm=realm,
-        client_id=settings.keycloak_sync_client_id,
-        client_secret=settings.keycloak_sync_client_secret.get_secret_value(),
-        timeout_seconds=timeout_seconds or 10.0,
-    )
 
 
 class _IdentityRunHeartbeat:
@@ -120,6 +167,7 @@ class _IdentityRunHeartbeat:
                         return
                     run.heartbeat_at = datetime.now(UTC)
             except Exception:
+                logger.warning("identity_sync_heartbeat_failed", exc_info=True, extra={"worker_task": "identity_sync_heartbeat"})
                 continue
 
     def __enter__(self) -> "_IdentityRunHeartbeat":
@@ -160,253 +208,23 @@ def record_runtime_heartbeat() -> None:
     record_beat_heartbeat(settings)
 
 
-@celery_app.task(name="app.worker.run_identity_sync")
+@celery_app.task(name="app.worker.run_directory_sync_v2")
 def run_identity_sync(run_id: str, lease_token: str | None = None) -> None:
+    from app.services.directory_sync_worker import execute_directory_sync
     try:
-        parsed_run_id = UUID(run_id)
+        parsed_id = UUID(run_id)
         parsed_lease = UUID(lease_token) if lease_token else None
     except ValueError:
         return
+    if parsed_lease is None:
+        return
     factory = get_session_factory()
-    with factory.begin() as session:
-        run = session.scalar(select(IdentitySyncRun).where(IdentitySyncRun.id == parsed_run_id).with_for_update())
-        if run is None or run.status != "queued" or parsed_lease is None or run.lease_token != parsed_lease:
-            return
-        now = datetime.now(UTC)
-        run.status = "running"
-        run.phase = "provider_discovery"
-        run.started_at = now
-        run.heartbeat_at = now
-        run.attempt += 1
-    current_provider_id: str | None = None
-    try:
-        client = _keycloak_client(timeout_seconds=settings.identity_sync_keycloak_provider_timeout_seconds)
-        with _IdentityRunHeartbeat(factory, parsed_run_id, parsed_lease, settings.identity_sync_heartbeat_seconds):
-            providers = sorted(
-                client.list_directory_providers(concurrency_key=settings.encryption_key_bytes),
-                key=lambda provider: provider.id,
-            )
-            with factory.begin() as session:
-                run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                if run is None:
-                    return
-                requested_scope = run.requested_scope
-                run_started_at = run.started_at or run.queued_at
-                now = datetime.now(UTC)
-                for provider in providers:
-                    requested_people = run.requested_scope in {"people", "people_and_groups"}
-                    requested_groups = run.requested_scope in {"groups", "people_and_groups"}
-                    skipped = not provider.enabled
-                    session.add(
-                        IdentitySyncProviderResult(
-                            run_id=run.id,
-                            provider_id=provider.id,
-                            provider_name=provider.name[:255],
-                            provider_vendor=provider.vendor[:64],
-                            requested_scope=run.requested_scope,
-                            status="skipped" if skipped else "pending",
-                            user_sync_status="skipped" if skipped and requested_people else "pending" if requested_people else "not_requested",
-                            group_sync_status="skipped" if skipped and requested_groups else "pending" if requested_groups else "not_requested",
-                            completed_at=now if skipped else None,
-                            created_at=now,
-                        )
-                    )
-                run.heartbeat_at = now
-
-            for provider in providers:
-                if not provider.enabled:
-                    continue
-                current_provider_id = provider.id
-                with factory.begin() as session:
-                    run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                    result = _identity_provider_result(session, parsed_run_id, provider.id)
-                    if run is None or result is None:
-                        return
-                    elapsed = (datetime.now(UTC) - run_started_at).total_seconds()
-                    remaining = settings.identity_sync_run_timeout_seconds - elapsed
-                    if remaining < 30:
-                        raise AppError("identity_sync_run_budget_insufficient", "Identity synchronization has insufficient remaining runtime", status_code=504)
-                    now = datetime.now(UTC)
-                    result.status = "running"
-                    result.started_at = now
-                    result.heartbeat_at = now
-                    run.heartbeat_at = now
-
-                if requested_scope in {"people", "people_and_groups"}:
-                    with factory.begin() as session:
-                        run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                        result = _identity_provider_result(session, parsed_run_id, provider.id)
-                        if run is None or result is None:
-                            return
-                        run.phase = "provider_user_sync"
-                        run.heartbeat_at = datetime.now(UTC)
-                        result.user_sync_status = "running"
-                        result.heartbeat_at = run.heartbeat_at
-                    remaining = settings.identity_sync_run_timeout_seconds - (datetime.now(UTC) - run_started_at).total_seconds()
-                    if remaining < 30:
-                        raise AppError("identity_sync_run_budget_insufficient", "Identity synchronization has insufficient remaining runtime", status_code=504)
-                    client.timeout_seconds = min(settings.identity_sync_keycloak_provider_timeout_seconds, remaining)
-                    user_sync = client.trigger_directory_user_sync(provider.id)
-                    with factory.begin() as session:
-                        run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                        result = _identity_provider_result(session, parsed_run_id, provider.id)
-                        if run is None or result is None:
-                            return
-                        result.users_added = user_sync.added
-                        result.users_updated = user_sync.updated
-                        result.users_removed = user_sync.removed
-                        result.users_failed = user_sync.failed
-                        result.users_ignored = 0
-                        result.user_sync_ignored = user_sync.ignored
-                        result.user_sync_status = "failed" if user_sync.failed or user_sync.ignored else "succeeded"
-                        result.heartbeat_at = datetime.now(UTC)
-                        run.heartbeat_at = result.heartbeat_at
-                    if user_sync.ignored:
-                        raise AppError("keycloak_provider_sync_ignored", "Keycloak directory user synchronization was ignored", status_code=502)
-                    if user_sync.failed:
-                        raise AppError("keycloak_provider_sync_failed", "Keycloak directory user synchronization failed", status_code=502)
-
-                if requested_scope in {"groups", "people_and_groups"}:
-                    with factory.begin() as session:
-                        run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                        result = _identity_provider_result(session, parsed_run_id, provider.id)
-                        if run is None or result is None:
-                            return
-                        run.phase = "provider_group_sync"
-                        run.heartbeat_at = datetime.now(UTC)
-                        result.group_sync_status = "running"
-                        result.heartbeat_at = run.heartbeat_at
-                    remaining = settings.identity_sync_run_timeout_seconds - (datetime.now(UTC) - run_started_at).total_seconds()
-                    if remaining < 30:
-                        raise AppError("identity_sync_run_budget_insufficient", "Identity synchronization has insufficient remaining runtime", status_code=504)
-                    client.timeout_seconds = min(settings.identity_sync_keycloak_provider_timeout_seconds, remaining)
-                    group_mappers = client.list_directory_group_mappers(provider.id)
-                    if not group_mappers:
-                        raise AppError("keycloak_group_mapper_missing", "Keycloak LDAP group mapper was not found", status_code=422)
-                    if len(group_mappers) > 1:
-                        raise AppError("keycloak_group_mapper_ambiguous", "Multiple Keycloak LDAP group mappers were found", status_code=422)
-                    expected_group_path = settings.keycloak_ldap_group_path.rstrip("/") or "/"
-                    if group_mappers[0].groups_path != expected_group_path:
-                        raise AppError("keycloak_ldap_group_path_mismatch", "Keycloak LDAP group mapper path does not match deployment configuration", status_code=422)
-                    remaining = settings.identity_sync_run_timeout_seconds - (datetime.now(UTC) - run_started_at).total_seconds()
-                    if remaining < 30:
-                        raise AppError("identity_sync_run_budget_insufficient", "Identity synchronization has insufficient remaining runtime", status_code=504)
-                    client.timeout_seconds = min(settings.identity_sync_keycloak_provider_timeout_seconds, remaining)
-                    client.trigger_directory_group_sync(provider.id, group_mappers[0].id)
-                    with factory.begin() as session:
-                        run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                        result = _identity_provider_result(session, parsed_run_id, provider.id)
-                        if run is None or result is None:
-                            return
-                        result.group_sync_status = "succeeded"
-                        result.heartbeat_at = datetime.now(UTC)
-                        run.heartbeat_at = result.heartbeat_at
-
-                with factory.begin() as session:
-                    run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                    result = _identity_provider_result(session, parsed_run_id, provider.id)
-                    if run is None or result is None:
-                        return
-                    now = datetime.now(UTC)
-                    result.status = "succeeded"
-                    result.completed_at = now
-                    result.heartbeat_at = now
-                    run.heartbeat_at = now
-                    add_audit(
-                        session,
-                        actor_user_id=None,
-                        action="identity_sync.provider.completed",
-                        resource_type="identity_sync_provider_result",
-                        resource_id=result.id,
-                        result="success",
-                        request_id=None,
-                        summary={
-                            "run_id": str(run.id),
-                            "provider_id": provider.id,
-                            "provider_name": provider.name[:255],
-                            "provider_vendor": provider.vendor[:64],
-                            "requested_scope": run.requested_scope,
-                            "users_added": result.users_added,
-                            "users_updated": result.users_updated,
-                            "users_removed": result.users_removed,
-                            "users_failed": result.users_failed,
-                            "users_ignored": result.users_ignored,
-                            "user_sync_ignored": result.user_sync_ignored,
-                        },
-                    )
-                current_provider_id = None
-
-            with factory.begin() as session:
-                run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                if run is None:
-                    return
-                run.phase = "snapshot_fetch"
-                run.heartbeat_at = datetime.now(UTC)
-            remaining = settings.identity_sync_run_timeout_seconds - (datetime.now(UTC) - run_started_at).total_seconds()
-            if remaining < 30:
-                raise AppError("identity_sync_run_budget_insufficient", "Identity synchronization has insufficient remaining runtime", status_code=504)
-            client.timeout_seconds = min(settings.identity_sync_keycloak_provider_timeout_seconds, remaining)
-            snapshot = client.snapshot()
-            with factory.begin() as session:
-                run = _active_identity_run_for_lease(session, parsed_run_id, parsed_lease)
-                if run is None:
-                    return
-                run.phase = "reconciliation"
-                run.heartbeat_at = datetime.now(UTC)
-                reconcile_snapshot(
-                    session,
-                    run,
-                    snapshot,
-                    ldap_group_path=settings.keycloak_ldap_group_path,
-                    break_glass_username=settings.break_glass_username,
-                    requested_scope=run.requested_scope,
-                )
-                add_audit(
-                    session,
-                    actor_user_id=None,
-                    action="worker.identity_sync.completed",
-                    resource_type="identity_sync_run",
-                    resource_id=run.id,
-                    result="success",
-                    request_id=None,
-                    summary={
-                        "requested_scope": run.requested_scope,
-                        "provider_count": len(providers),
-                        "users_created": run.users_created,
-                        "users_updated": run.users_updated,
-                        "users_disabled": run.users_disabled,
-                        "groups_created": run.groups_created,
-                        "groups_updated": run.groups_updated,
-                        "role_memberships_updated": run.role_memberships_updated,
-                        "attempt": run.attempt,
-                    },
-                )
-    except Exception as exc:
-        with factory.begin() as session:
-            run = session.scalar(select(IdentitySyncRun).where(IdentitySyncRun.id == parsed_run_id).with_for_update())
-            if run is not None and run.status in {"queued", "running"} and run.lease_token == parsed_lease:
-                candidate_error_code = getattr(exc, "code", "identity_sync_failed")
-                safe_error_code = candidate_error_code if isinstance(candidate_error_code, str) and 0 < len(candidate_error_code) <= 100 else "identity_sync_failed"
-                run.status = "failed"
-                run.phase = "failed"
-                run.completed_at = datetime.now(UTC)
-                run.error_code = safe_error_code
-                run.error_message = "Identity synchronization failed"
-                if current_provider_id:
-                    provider_result = _identity_provider_result(session, parsed_run_id, current_provider_id)
-                    if provider_result is not None:
-                        provider_result.status = "failed"
-                        provider_result.completed_at = run.completed_at
-                        provider_result.heartbeat_at = run.completed_at
-                        provider_result.error_code = safe_error_code
-                        if provider_result.user_sync_status in {"pending", "running"}:
-                            provider_result.user_sync_status = "failed"
-                        if provider_result.group_sync_status in {"pending", "running"}:
-                            provider_result.group_sync_status = "failed"
-                add_audit(session, actor_user_id=None, action="worker.identity_sync.failed", resource_type="identity_sync_run", resource_id=run.id, result="failed", request_id=None, summary={"error_code": run.error_code, "attempt": run.attempt})
+    with _IdentityRunHeartbeat(factory, parsed_id, parsed_lease, settings.identity_sync_heartbeat_seconds):
+        execute_directory_sync(settings, factory, parsed_id, parsed_lease)
 
 
-@celery_app.task(name="app.worker.queue_scheduled_identity_sync")
+
+@celery_app.task(name="app.worker.queue_scheduled_directory_sync_v2")
 def queue_scheduled_identity_sync() -> None:
     factory = get_session_factory()
     with factory.begin() as session:
@@ -445,7 +263,7 @@ def dispatch_outbox() -> None:
     with factory.begin() as session:
         now = datetime.now(UTC)
         events = list(session.scalars(select(OutboxEvent).where(
-            OutboxEvent.topic.in_(("identity.sync.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, CONTENT_UPDATE_TOPIC, ARCHIVE_CLEANUP_TOPIC)),
+            OutboxEvent.topic.in_(("identity.directory-sync.v2.requested", "validation.run.requested", "data_source.sync.requested", GRAPH_SYNC_TOPIC, NOTIFICATION_TOPIC, RECONCILIATION_TOPIC, CONTENT_UPDATE_TOPIC, ARCHIVE_CLEANUP_TOPIC, STAGING_RETENTION_TOPIC)),
             OutboxEvent.available_at <= now,
             or_(OutboxEvent.status == "pending", (OutboxEvent.status == "dispatching") & (OutboxEvent.lease_expires_at < now)),
         ).with_for_update(skip_locked=True).limit(20)))
@@ -469,7 +287,7 @@ def dispatch_outbox() -> None:
             try:
                 task = _outbox_task(event.topic)
                 args = [str(event.aggregate_id)]
-                if event.topic == "identity.sync.requested":
+                if event.topic == "identity.directory-sync.v2.requested":
                     args.append(str((event.payload or {}).get("lease_token") or ""))
                 task.apply_async(args=args, task_id=task_id)
             except Exception as exc:
@@ -556,6 +374,7 @@ def dispatch_document_outbox(factory) -> None:
             run_document_extraction.apply_async(args=[str(dispatch.run_id), str(dispatch.task_id),
                 str(dispatch.generation)], task_id=str(dispatch.broker_task_id))
         except Exception:  # Ambiguous broker response: retain same durable task, never re-claim it.
+            logger.warning("file_processing_dispatch_unconfirmed", exc_info=True, extra={"worker_task": "dispatch_outbox"})
             with factory.begin() as session:
                 event = session.get(OutboxEvent, event_id, with_for_update=True)
                 if event and event.task_id == str(dispatch.broker_task_id):
@@ -570,7 +389,7 @@ def dispatch_document_outbox(factory) -> None:
 
 def _outbox_task(topic: str):
     tasks = {
-        "identity.sync.requested": run_identity_sync,
+        "identity.directory-sync.v2.requested": run_identity_sync,
         "validation.run.requested": run_project_chat_validation,
         "data_source.sync.requested": run_data_source_sync,
         GRAPH_SYNC_TOPIC: run_graph_sync,
@@ -578,6 +397,7 @@ def _outbox_task(topic: str):
         RECONCILIATION_TOPIC: run_chunk_artifact_reconciliation,
         CONTENT_UPDATE_TOPIC: run_document_content_update,
         ARCHIVE_CLEANUP_TOPIC: run_project_archive_cleanup,
+        STAGING_RETENTION_TOPIC: run_staging_retention,
     }
     return tasks[topic]
 
@@ -642,7 +462,7 @@ def run_document_content_update(update_id: str) -> None:
         execute_content_update(session,UUID(update_id),settings)
 
 
-@celery_app.task(name="app.worker.run_project_chat_validation", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+@celery_app.task(name="app.worker.run_project_chat_validation", autoretry_for=(Exception,), dont_autoretry_for=(AppError,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def run_project_chat_validation(run_id: str) -> None:
     factory = get_session_factory()
     with factory() as session:
@@ -658,12 +478,14 @@ def run_project_chat_validation(run_id: str) -> None:
         try:
             execute_validation_run(session, UUID(run_id))
         except Exception as exc:
+            # The failed unit of work may have left the session unusable.
+            session.rollback()
             add_audit(session, actor_user_id=None, action="worker.validation_run.failed", resource_type="validation_run", resource_id=UUID(run_id), result="failed", request_id=None, summary={"error_code": getattr(exc, "code", "validation_run_failed")})
             session.commit()
             raise
 
 
-@celery_app.task(name="app.worker.run_data_source_sync", autoretry_for=(Exception,), retry_backoff=True, retry_jitter=True, max_retries=3)
+@celery_app.task(name="app.worker.run_data_source_sync", autoretry_for=(Exception,), dont_autoretry_for=(AppError,), retry_backoff=True, retry_jitter=True, max_retries=3)
 def run_data_source_sync(run_id: str) -> None:
     factory = get_session_factory()
     with factory.begin() as session:
@@ -752,6 +574,7 @@ class _DocumentTaskHeartbeat:
                 with self.factory.begin() as session:
                     require_claim(session, self.claim, check_scope=False)
             except Exception:
+                logger.warning("file_processing_claim_heartbeat_stopped", exc_info=True, extra={"worker_task": "document_extraction"})
                 return  # Missing DB proof is handled fail-closed by the reconciler.
 
     def __enter__(self):
@@ -763,3 +586,22 @@ class _DocumentTaskHeartbeat:
         self.thread.join(timeout=5)
         if self.thread.is_alive():
             raise AppError("file_processing_heartbeat_stop_unconfirmed", "Task finalization requires confirmed shutdown", status_code=503)
+
+
+@celery_app.task(name="app.worker.cleanup_authentication_retention")
+def cleanup_authentication_retention() -> None:
+    from app.services.auth_retention import cleanup_authentication
+    with get_session_factory().begin() as session:
+        cleanup_authentication(session)
+
+
+@celery_app.task(name="app.worker.run_staging_retention", acks_late=True, reject_on_worker_lost=True)
+def run_staging_retention(job_id: str) -> None:
+    with get_session_factory()() as session:
+        execute_retention(session, settings, UUID(job_id))
+
+
+@celery_app.task(name="app.worker.recover_staging_retention")
+def recover_staging_retention() -> None:
+    with get_session_factory().begin() as session:
+        recover_due_jobs(session, settings)

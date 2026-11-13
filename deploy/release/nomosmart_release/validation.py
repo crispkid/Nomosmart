@@ -17,11 +17,11 @@ from .contract_v3 import (
 from .publication import inspect_publication_files, validate_application_images
 
 
-def collect_evidence(evidence_dir: Path, source_sha: str) -> tuple[dict[str, Any], set[str]]:
+def collect_evidence(evidence_dir: Path, source_sha: str, *, required_gates=REQUIRED_GATES) -> tuple[dict[str, Any], set[str]]:
     """Read existing reports; never synthesize successful checks or coverage."""
     gates: dict[str, Any] = {}
     paths: set[str] = set()
-    for name in sorted(REQUIRED_GATES):
+    for name in sorted(required_gates):
         relative = f"gates/{name}.json"
         path = _bounded_file(evidence_dir, relative)
         report = _load_json(path, label=f"gate {name}")
@@ -85,7 +85,10 @@ def assemble_validation_release(
         PROHIBITED_CONTENT, ReleaseBuildError, _chart_digest, _chart_version,
         _copy_runtime, _deterministic_archive, _git, _payload_inventory, _safe_copy,
         _write_json, source_hygiene, source_identity,
+        reject_legacy_creation_for_protocol_chart,
     )
+
+    reject_legacy_creation_for_protocol_chart(repo)
 
     if release_id != __version__ or not re.fullmatch(r"\d+\.\d+\.\d+", release_id):
         raise ReleaseBuildError("release ID must match this release tool's version")

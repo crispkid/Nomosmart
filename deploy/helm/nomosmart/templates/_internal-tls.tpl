@@ -1,4 +1,19 @@
 {{- define "nomosmart.internalCaVolumeMount" -}}
+{{- if and .Values.authentication.previousKeysSecretName (not .omitAuthKeys) }}
+- name: authentication-keyring
+  mountPath: /run/nomosmart-auth-keys
+  readOnly: true
+{{- end }}
+{{- if .Values.authentication.caSecretName }}
+- name: authentication-ca
+  mountPath: /etc/nomosmart/auth-ca
+  readOnly: true
+{{- end }}
+{{- if .Values.authentication.bootstrapConfiguration }}
+- name: authentication-bootstrap
+  mountPath: /etc/nomosmart/auth-bootstrap
+  readOnly: true
+{{- end }}
 - name: embedding-capabilities
   mountPath: /etc/nomosmart/embedding-capabilities.json
   subPath: embedding-capabilities.json
@@ -19,9 +34,6 @@
 {{- if and (eq .Values.neo4j.mode "external") .Values.neo4j.external.caSecretName }}
 {{- $files = append $files "neo4j-ca.crt" }}
 {{- end }}
-{{- if and (eq .Values.keycloak.mode "external") .Values.keycloak.external.caSecretName }}
-{{- $files = append $files "keycloak-ca.crt" }}
-{{- end }}
 {{- range $file := $files }}
 - name: internal-ca
   mountPath: /etc/nomosmart/tls/{{ $file }}
@@ -31,6 +43,27 @@
 {{- end -}}
 
 {{- define "nomosmart.internalCaVolume" -}}
+{{- if and .Values.authentication.previousKeysSecretName (not .omitAuthKeys) }}
+- name: authentication-keyring
+  emptyDir: {medium: Memory, sizeLimit: 1Mi}
+- name: authentication-old-keys
+  secret:
+    secretName: {{ .Values.authentication.previousKeysSecretName }}
+    defaultMode: 0440
+    items:
+      - key: {{ .Values.authentication.previousKeysSecretKey }}
+        path: keys.json
+{{- end }}
+{{- if .Values.authentication.caSecretName }}
+- name: authentication-ca
+  secret:
+    secretName: {{ .Values.authentication.caSecretName }}
+{{- end }}
+{{- if .Values.authentication.bootstrapConfiguration }}
+- name: authentication-bootstrap
+  configMap:
+    name: {{ include "nomosmart.fullname" . }}-auth-bootstrap
+{{- end }}
 - name: embedding-capabilities
   configMap:
     name: {{ include "nomosmart.fullname" . }}-embedding-capabilities
@@ -86,11 +119,5 @@
           name: {{ .Values.neo4j.external.caSecretName }}
           items:
             - {key: {{ .Values.neo4j.external.caKey }}, path: neo4j-ca.crt}
-      {{- end }}
-      {{- if and (eq .Values.keycloak.mode "external") .Values.keycloak.external.caSecretName }}
-      - secret:
-          name: {{ .Values.keycloak.external.caSecretName }}
-          items:
-            - {key: {{ .Values.keycloak.external.caKey | default "ca.crt" }}, path: keycloak-ca.crt}
       {{- end }}
 {{- end -}}

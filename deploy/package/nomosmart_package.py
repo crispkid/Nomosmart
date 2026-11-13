@@ -67,9 +67,6 @@ USERNAMES: Final[dict[str, str]] = {
     "postgres_admin": "postgres",
     "postgres_app": "nomosmart",
     "postgres_migration": "nomosmart_migration",
-    "keycloak_db": "keycloak",
-    "keycloak_bootstrap": "nomosmart",
-    "keycloak_sync": "nomosmart-sync",
     "rustfs": "nomosmart",
     "redis_service": "nomosmart",
     "redis_replication": "nomosmart",
@@ -85,10 +82,7 @@ PRIMITIVE_SECRET_NAMES: Final[tuple[str, ...]] = (
     "postgres_admin_password",
     "postgres_app_password",
     "postgres_migration_password",
-    "keycloak_db_password",
-    "keycloak_bootstrap_admin_password",
     "oidc_client_secret",
-    "keycloak_sync_client_secret",
     "rustfs_secret_access_key",
     "redis_password",
     "redis_replication_password",
@@ -104,8 +98,6 @@ KNOWN_PERIPHERAL_SECRET_NAMES: Final[frozenset[str]] = frozenset(
         "postgres_admin_password",
         "postgres_app_password",
         "postgres_migration_password",
-        "keycloak_db_password",
-        "keycloak_bootstrap_admin_password",
         "rustfs_secret_access_key",
         "redis_password",
         "redis_replication_password",
@@ -122,11 +114,7 @@ HELM_SECRET_KEYS: Final[dict[str, str]] = {
     "postgres_admin_password": "POSTGRES_ADMIN_PASSWORD",
     "postgres_app_password": "POSTGRES_PASSWORD",
     "postgres_migration_password": "POSTGRES_MIGRATION_PASSWORD",
-    "keycloak_db_password": "KEYCLOAK_DB_PASSWORD",
-    "keycloak_bootstrap_admin_password": "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD",
-    "keycloak_bootstrap_admin_username": "KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME",
     "oidc_client_secret": "OIDC_CLIENT_SECRET",
-    "keycloak_sync_client_secret": "KEYCLOAK_SYNC_CLIENT_SECRET",
     "rustfs_secret_access_key": "S3_SECRET_ACCESS_KEY",
     "redis_password": "REDIS_PASSWORD",
     "redis_replication_password": "REDIS_REPLICATION_PASSWORD",
@@ -798,7 +786,7 @@ def _build_values(
     )
     cryptographic_values = [
         values[name]
-        for name in ("app_encryption_key", "oidc_client_secret", "keycloak_sync_client_secret")
+        for name in ("app_encryption_key", "oidc_client_secret")
     ]
     if len(cryptographic_values) != len(set(cryptographic_values)):
         raise PackageError("generated cryptographic secrets are not unique")
@@ -836,7 +824,6 @@ def _build_values(
             ),
             "database_migration_user": USERNAMES["postgres_migration"],
             "database_migration_password": postgres_migration_password,
-            "keycloak_bootstrap_admin_username": USERNAMES["keycloak_bootstrap"],
             "redis_url": f"{redis_scheme}://{USERNAMES['redis_service']}:{redis_password_uri}@{redis_host}:{redis_port}/0",
             "celery_broker_url": f"{redis_scheme}://{USERNAMES['redis_service']}:{redis_password_uri}@{redis_host}:{redis_port}/0",
             "celery_result_backend": f"{redis_scheme}://{USERNAMES['redis_service']}:{redis_password_uri}@{redis_host}:{redis_port}/1",
@@ -926,7 +913,7 @@ def _replace_manifest(directory: Path, payload: dict[str, object]) -> None:
     os.replace(temporary, target)
 
 
-def _compose_image_settings(compose_project: str) -> tuple[str, ...]:
+def _compose_image_settings(compose_project: str, *, trusted_release_fingerprint: str = "") -> tuple[str, ...]:
     root = Path(__file__).resolve().parents[2]
     manifest = root / "release-manifest.json"
     if manifest.exists() or manifest.is_symlink() or (root / "SHA256SUMS").exists():
@@ -937,7 +924,15 @@ def _compose_image_settings(compose_project: str) -> tuple[str, ...]:
         try:
             payload = _load_json(_bounded_file(root, "release-manifest.json"), label="release manifest")
             _bounded_file(root, "SHA256SUMS")
-            if payload.get("schema_version") == 3:
+            if payload.get("schema_version") == 4:
+                from nomosmart_release.contract_v4 import validate_manifest as validate_local_manifest
+                validate_local_manifest(payload)
+                if not trusted_release_fingerprint:
+                    raise PackageError("local verified package initialization requires an independently trusted release fingerprint")
+                from nomosmart_release.contract import verify_release_package
+                verify_release_package(root, purpose="local-verified-release", trusted_fingerprint=trusted_release_fingerprint)
+                images = payload["application_images"]
+            elif payload.get("schema_version") == 3:
                 validate_installation_manifest(payload)
                 images = payload["application_images"]
             else:
@@ -962,6 +957,7 @@ def _write_compose_env(
     compose_project: str = "nomosmart",
     http_port: int = 80,
     https_port: int = 443,
+    source_images: tuple[str, ...] | None = None,
 ) -> None:
     docker_dir = Path(__file__).resolve().parents[1] / "docker"
     env_path = docker_dir / "nomosmart.env"
@@ -969,14 +965,15 @@ def _write_compose_env(
         return
     deployment_phase = FACTORY_PROFILE if profile == FACTORY_PROFILE else "onboarding"
     origin = f"https://{public_host}" + (f":{https_port}" if https_port != 443 else "")
-    source_images = _compose_image_settings(compose_project)
+    if source_images is None:
+        source_images = _compose_image_settings(compose_project)
     content = "\n".join(
         (
             "# Generated non-sensitive NomoSmart Compose configuration.",
             "# Raw credentials are mounted from deploy/docker/generated/current.",
             f"COMPOSE_PROJECT_NAME={compose_project}",
             *source_images,
-            "COMPOSE_PROFILES=postgresql,redis,rustfs,opensearch,neo4j,keycloak",
+            "COMPOSE_PROFILES=postgresql,redis,rustfs,opensearch,neo4j",
             f"APP_ENV={app_env}",
             f"DEPLOYMENT_PHASE={deployment_phase}",
             f"LOCAL_CREDENTIAL_MODE={'generated' if random_initial_credentials else 'public-defaults'}",
@@ -987,10 +984,6 @@ def _write_compose_env(
             f"CORS_ALLOWED_ORIGINS={origin}",
             f"FRONTEND_APP_ORIGIN={origin}",
             f"NEXT_PUBLIC_APP_ORIGIN={origin}",
-            f"OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
-            f"NEXT_PUBLIC_OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
-            f"FRONTEND_OIDC_ISSUER_URL={origin}/identity/realms/nomosmart",
-            f"KEYCLOAK_ADMIN_API_URL={origin}/identity",
             "EDGE_HOST_IP=127.0.0.1",
             f"EDGE_HTTP_PORT={http_port}",
             f"EDGE_HTTPS_PORT={https_port}",
@@ -1010,14 +1003,11 @@ def _write_compose_env(
             f"BREAK_GLASS_ALERTING_EVIDENCE={alerting_evidence}",
             "POSTGRES_USER=nomosmart",
             "DATABASE_MIGRATION_USER=nomosmart_migration",
-            "KEYCLOAK_DB_USER=keycloak",
-            "KEYCLOAK_ADMIN=nomosmart",
             "S3_ACCESS_KEY_ID=nomosmart",
             "OPENSEARCH_USERNAME=nomosmart",
             "NEO4J_USERNAME=nomosmart",
             "NEO4J_COMMUNITY_ADMIN_EQUIVALENT_ACCEPTED=true",
             "REDIS_USERNAME=nomosmart",
-            "KEYCLOAK_SYNC_CLIENT_ID=nomosmart-sync",
             "",
         )
     )
@@ -1064,10 +1054,11 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
             raise PackageError("production Compose init requires an HTTPS break-glass runbook and alerting evidence")
     if not args.no_display and not sys.stdout.isatty():
         raise PackageError("one-time credential display requires an interactive TTY; use --no-display for secret-target-only automation")
-    if args.target == "compose" and not args.output_dir:
-        docker_dir = Path(__file__).resolve().parents[1] / "docker"
-        if not (docker_dir / "nomosmart.env").exists():
-            _compose_image_settings(getattr(args, "compose_project", "nomosmart"))
+    source_images = None
+    repository_root = Path(__file__).resolve().parents[2]
+    if (repository_root / "release-manifest.json").exists() or (repository_root / "SHA256SUMS").exists() or (args.target == "compose" and not args.output_dir):
+        source_images = _compose_image_settings(compose_project,
+            trusted_release_fingerprint=getattr(args, "trusted_release_fingerprint", ""))
     root = _output_root(args)
     _ensure_private_directory(root)
     current = root / "current"
@@ -1203,6 +1194,7 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
                 compose_project=compose_project,
                 http_port=http_port,
                 https_port=https_port,
+                source_images=source_images,
             )
         if not args.no_display:
             _display_once(values, args.profile)
@@ -1405,6 +1397,7 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--profile", choices=(FACTORY_PROFILE, PRODUCTION_PROFILE), required=True)
     init_parser.add_argument("--app-env", choices=("development", "production"), required=True)
     init_parser.add_argument("--no-display", action="store_true")
+    init_parser.add_argument("--trusted-release-fingerprint", default="", help="independently trusted OpenPGP signer for a local verified package")
     init_parser.add_argument("--random-initial-credentials", action="store_true",
                              help="generate random first-use local credentials in protected files")
     init_parser.add_argument("--postgresql-standalone", action="store_true",
@@ -1438,6 +1431,7 @@ def _parser() -> argparse.ArgumentParser:
     rotate_parser.add_argument("--profile", choices=(FACTORY_PROFILE, PRODUCTION_PROFILE), required=True)
     rotate_parser.add_argument("--app-env", choices=("development", "production"), required=True)
     rotate_parser.add_argument("--no-display", action="store_true")
+    rotate_parser.add_argument("--trusted-release-fingerprint", default="", help="independently trusted OpenPGP signer for a local verified package")
     rotate_parser.add_argument("--public-host", default=DEFAULT_PUBLIC_HOST)
     rotate_parser.add_argument("--trusted-tls-dir", default="")
     rotate_parser.add_argument(

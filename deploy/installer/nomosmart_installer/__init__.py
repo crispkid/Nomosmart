@@ -1,7 +1,5 @@
-"""Guided, resumable NomoSmart Kubernetes installer."""
+"""Protocol-based NomoSmart installer; historical modules are not startup dependencies."""
 
-from .config import InstallConfig, load_config
+__version__ = "0.2.4"
 
-__version__ = "0.2.1"
-
-__all__ = ["InstallConfig", "load_config"]
+__all__ = ["__version__"]

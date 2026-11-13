@@ -18,7 +18,7 @@ from app.domain.project_archival import archive_impact, begin_project_archive, r
 from app.domain.project_members import lock_project_for_member_mutation as _lock_project_for_member_mutation, reject_protected_owner_mutation as _reject_protected_owner_mutation, search_project_member_candidates as _search_project_member_candidates, validate_project_member_candidates as _validate_project_member_candidates
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission
 from app.security.project_roles import canonical_project_role, project_roles
-from app.domain.project_access import archive_authority
+from app.domain.project_access import archive_authority, project_model_state_expressions
 from app.services.audit import add_audit
 
 
@@ -84,6 +84,7 @@ def list_projects(
     q: str | None = Query(default=None, max_length=100),
     role: list[Literal["owner", "editor", "viewer"]] | None = Query(default=None),
     model_state: Literal["complete", "incomplete"] | None = Query(default=None),
+    pdf_model_state: Literal["configured", "not_configured", "invalid"] | None = Query(default=None),
     sort: Literal["updated_desc", "updated_asc", "name_asc", "name_desc"] = Query(default="updated_desc"),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
@@ -91,7 +92,7 @@ def list_projects(
     session: Session = Depends(get_db),
 ) -> list[Project]:
     require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
-    _reject_repeated_singletons(request, ("status", "q", "model_state", "sort", "offset", "limit"))
+    _reject_repeated_singletons(request, ("status", "q", "model_state", "pdf_model_state", "sort", "offset", "limit"))
     if not context.visible_project_ids:
         response.headers["X-Total-Count"] = "0"
         return []
@@ -127,11 +128,14 @@ def list_projects(
                 .exists()
             )
         conditions.append(or_(*role_conditions))
-    model_complete = Project.llm_model_id.is_not(None) & Project.embedding_model_id.is_not(None) & Project.ocr_model_id.is_not(None)
+    model_complete, pdf_state = project_model_state_expressions(session)
     if model_state == "complete":
         conditions.append(model_complete)
     elif model_state == "incomplete":
         conditions.append(~model_complete)
+
+    if pdf_model_state is not None:
+        conditions.append(pdf_state == pdf_model_state)
 
     total = session.scalar(select(func.count()).select_from(Project).where(*conditions)) or 0
     response.headers["X-Total-Count"] = str(total)
@@ -204,6 +208,8 @@ def list_projects(
             last_activity.label("last_activity_at"),
             archive_cleanup_status.label("archive_cleanup_status"),
             owner_exists.label("is_owner"),
+            model_complete.label("basic_models_ready"),
+            pdf_state.label("pdf_model_state"),
         )
         .where(*conditions)
         .order_by(*order_by)
@@ -225,6 +231,7 @@ def list_projects(
                 visible_project_ids=set(context.visible_project_ids),
                 current_user_project_roles=set(row.current_user_project_roles or []),
                 is_owner=bool(row.is_owner),
+                model_configuration=("ready" if row.basic_models_ready else "incomplete", row.pdf_model_state),
                 grants=context.grants,
             )
         )

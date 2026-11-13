@@ -1,4 +1,4 @@
-"""Single-attempt, cancellable HTTP transport for split-v1 PDF OCR only."""
+"""Single-attempt, bounded HTTP transport for native document OCR."""
 from __future__ import annotations
 
 import asyncio
@@ -61,12 +61,15 @@ def decode_ocr_response(raw: bytes) -> dict[str, object]:
 
 
 async def _request(url: str, headers: dict[str, str], content: bytes,
-                   verify: ssl.SSLContext | bool, window: OCRRequestWindow) -> dict[str, object]:
+                   verify: ssl.SSLContext | bool, window: OCRRequestWindow,
+                   max_request_bytes: int | None = None, max_response_bytes: int | None = None) -> dict[str, object]:
     attempted = False
     response_status = None
     token = _private_request.set(True)
     try:
         window.check(attempted=False)
+        if max_request_bytes is not None and len(content) > max_request_bytes:
+            raise diagnostic_error("ocr_request_too_large", "OCR request exceeds its byte limit", kind="input_limit", attempted=False, status_code=422)
         client = httpx.AsyncClient(verify=verify, timeout=window.remaining(), trust_env=False, follow_redirects=False)
         # Client construction imports its transports; register filters on emitting loggers,
         # not the root logger (ancestor filters do not filter propagated child records).
@@ -99,7 +102,18 @@ async def _request(url: str, headers: dict[str, str], content: bytes,
                                              status_code=502, details=details)
                             error.ocr_diagnostics = {"error_kind": "provider_rejected", "phase": "response", "attempted": True}
                             raise error
-                        raw = await response.aread()
+                        if max_response_bytes is None:
+                            raw = await response.aread()
+                        else:
+                            length = response.headers.get("Content-Length")
+                            if length and length.isdecimal() and int(length) > max_response_bytes:
+                                raise diagnostic_error("ocr_response_too_large", "OCR response exceeds its byte limit", kind="output_limit", attempted=True, status_code=502)
+                            bounded = bytearray()
+                            async for part in response.aiter_bytes(chunk_size=65536):
+                                if len(bounded) + len(part) > max_response_bytes:
+                                    raise diagnostic_error("ocr_response_too_large", "OCR response exceeds its byte limit", kind="output_limit", attempted=True, status_code=502)
+                                bounded.extend(part)
+                            raw = bytes(bounded)
                     window.check(attempted=True)
                     payload = decode_ocr_response(raw)
                     window.check(attempted=True)
@@ -122,7 +136,8 @@ async def _request(url: str, headers: dict[str, str], content: bytes,
 
 
 def post_ocr_json(*, url: str, headers: dict[str, str], body: dict[str, object],
-                  verify: ssl.SSLContext | bool, window: OCRRequestWindow) -> dict[str, object]:
+                  verify: ssl.SSLContext | bool, window: OCRRequestWindow,
+                   max_request_bytes: int | None = None, max_response_bytes: int | None = None) -> dict[str, object]:
     # The only production caller is a synchronous Worker. Never spawn a fallback thread.
     try:
         asyncio.get_running_loop()
@@ -134,4 +149,4 @@ def post_ocr_json(*, url: str, headers: dict[str, str], body: dict[str, object],
     content = json.dumps(body).encode("utf-8")
     window.check(attempted=False)
     with asyncio.Runner() as runner:
-        return runner.run(_request(url, headers, content, verify, window))
+        return runner.run(_request(url, headers, content, verify, window, max_request_bytes, max_response_bytes))

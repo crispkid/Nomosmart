@@ -1,7 +1,8 @@
 """Authenticated local maintenance command; no public settings-write API.
 
 Run with deployment bootstrap configuration already supplied. Private stdin JSON:
-{"access_token": "...", "changes": {...}}. Never pass tokens on the command line.
+{"session_cookie": "...", "changes": {...}} for protocol auth. Never pass secrets
+on the command line. Explicit legacy configurations retain access_token input.
 """
 from __future__ import annotations
 
@@ -11,15 +12,12 @@ from pathlib import Path
 import sys
 from uuid import UUID
 
-from sqlalchemy import select
-
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import IdentitySetting
 from app.db.session import get_session_factory
 from app.domain.file_processing_settings import (ACTIVE_KEYS, DEPRECATED_KEYS, PlatformCapabilities, authorize_maintenance,
     initialize_policy, load_policy, policy_error, update_policy)
-from app.security.auth import build_identity_jwt_validator, is_token_revoked
+from app.security.maintenance_auth import maintenance_principal, validate_maintenance_input
 from app.services.audit import add_audit
 
 
@@ -32,34 +30,29 @@ def main() -> int:
                         help="Optional local deployment ceilings, not DB-policy overrides")
     args = parser.parse_args()
     actor = None
-    factory = get_session_factory()
+    factory = None
     try:
         raw = sys.stdin.buffer.read(65537)
         if len(raw) > 65536:
             raise policy_error("file_processing_cli_input_limit", 422)
         payload = json.loads(raw)
-        if type(payload) is not dict or set(payload) - {"access_token", "changes"}:
+        if type(payload) is not dict or set(payload) - {"session_cookie", "access_token", "changes"}:
             raise policy_error("file_processing_cli_input_invalid", 422)
-        token = payload.get("access_token")
-        if not isinstance(token, str) or not 1 <= len(token) <= 32768:
-            raise policy_error("authentication_required", 401)
+        validate_maintenance_input(payload)
         cap_bytes = args.capabilities_file.read_bytes() if args.capabilities_file else b"{}"
         if len(cap_bytes) > 8192:
             raise policy_error("file_processing_capability_invalid")
         capabilities = PlatformCapabilities(json.loads(cap_bytes))
         settings = get_settings()
+        factory = get_session_factory()
         with factory.begin() as session:
-            identity = session.scalar(select(IdentitySetting).where(IdentitySetting.is_current.is_(True)))
-            validator = build_identity_jwt_validator(settings, identity.configuration if identity else {})
-            principal = validator.validate(token)
-            if is_token_revoked(session, principal, token):
-                raise policy_error("token_revoked", 401)
+            principal = maintenance_principal(session, settings, payload)
             actor = authorize_maintenance(session, principal, write=args.operation != "read")
             if args.operation == "initialize":
                 if args.deployment_id is None or args.expected_revision != 0 or payload.get("changes"):
                     raise policy_error("file_processing_initialization_contract_invalid", 422)
                 snapshot = initialize_policy(session, principal=principal, deployment_id=args.deployment_id,
-                    legacy_timeout_seconds=settings.tesseract_timeout_seconds, legacy_max_pages=settings.tesseract_max_pages,
+                    legacy_timeout_seconds=settings.ocr_document_timeout_seconds, legacy_max_pages=int(payload.get("legacy_max_pages", 200)),
                     legacy_upload_mib=settings.max_upload_size_mb, capabilities=capabilities)
             elif args.operation == "update":
                 snapshot = update_policy(session, principal=principal, expected_revision=args.expected_revision,
@@ -69,7 +62,7 @@ def main() -> int:
                     raise policy_error("file_processing_cli_input_invalid", 422)
                 snapshot = load_policy(session)
                 capabilities.validate(snapshot.settings)
-        print(json.dumps({"revision": snapshot.revision, "content_hash": snapshot.settings.content_hash,
+        print(json.dumps({"schema_version": snapshot.schema_version, "revision": snapshot.revision, "content_hash": snapshot.settings.content_hash,
                           "active_keys": sorted(ACTIVE_KEYS), "deprecated_read_only_keys": sorted(DEPRECATED_KEYS),
                           "values": snapshot.settings.model_dump(mode="json")}, sort_keys=True))
         return 0

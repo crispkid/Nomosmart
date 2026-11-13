@@ -11,10 +11,20 @@ class ORMModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class UserRoleSummary(BaseModel):
+    id: UUID
+    name: str
+    sources: list[str]
+
+
 class UserSummary(ORMModel):
     id: UUID
     employee_id: str | None
-    keycloak_user_id: str
+    keycloak_user_id: str | None
+    directory_source_id: UUID | None = None
+    directory_object_id: str | None = None
+    directory_enabled: bool = True
+    locally_disabled: bool = False
     email: str | None
     given_name: str | None
     family_name: str | None
@@ -24,6 +34,7 @@ class UserSummary(ORMModel):
     auth_source: str
     is_active: bool
     knowledge_owner: bool = False
+    roles: list[UserRoleSummary] = Field(default_factory=list)
     system_notes: str | None = None
     manager_delegate_user_id: UUID | None = None
     manager_delegate_start_at: datetime | None = None
@@ -162,6 +173,8 @@ class ProjectResponse(ORMModel):
     llm_model_id: UUID | None
     embedding_model_id: UUID | None
     ocr_model_id: UUID | None
+    model_configuration_state: Literal["ready", "incomplete"]
+    pdf_model_state: Literal["configured", "not_configured", "invalid"]
     lock_version: int
     archived_at: datetime | None = None
     archived_by: UUID | None = None
@@ -253,9 +266,12 @@ class PipelineStepSummary(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     error_message: str | None = None
-    input_mode: Literal["page_images"] | None = None
+    input_mode: Literal["page_images", "native_pdf"] | None = None
     ocr_call_state: Literal["idle", "in_flight", "unconfirmed"] | None = None
     page_output_token_limit: int | None = None
+    request_output_token_limit: int | None = None
+    page_map_status: Literal["known", "unknown"] | None = None
+    source_precision: Literal["page", "document"] | None = None
     document_output_token_limit: int | None = None
     confirmed_output_tokens: int | None = None
     remaining_output_tokens: int | None = None
@@ -342,6 +358,13 @@ class DocumentSummary(BaseModel):
     capabilities: dict[str, bool] = Field(default_factory=dict)
 
 
+class DocumentSummaryPage(BaseModel):
+    """One page of the project document list (OPT424-016); next_cursor is null on the last page."""
+
+    items: list[DocumentSummary]
+    next_cursor: str | None = None
+
+
 class DocumentUploadResult(BaseModel):
     index: int
     filename: str
@@ -385,6 +408,7 @@ class DocumentReextractResponse(BaseModel):
 
 class DataSourceConnectionOptions(BaseModel):
     credential_modes: list[Literal["secret_reference", "inline"]]
+    default_timezone: str
 
 
 class DataSourceConnectionPayload(BaseModel):
@@ -845,6 +869,17 @@ class ApprovalRequestResponse(ORMModel):
     created_at: datetime
 
 
+class ApprovalFilterOption(BaseModel):
+    id: UUID
+    label: str
+
+
+class ApprovalFilterOptionPage(BaseModel):
+    items: list[ApprovalFilterOption]
+    next_cursor: str | None = None
+    has_more: bool
+
+
 class ApprovalTaskPage(BaseModel):
     items: list[ApprovalTaskResponse]
     next_cursor: str | None = None
@@ -874,6 +909,13 @@ class ApprovalPendingPublishResponse(BaseModel):
     submitter_name: str | None = None
     submitter_email: str | None = None
     approved_at: datetime | None = None
+
+
+class ApprovalPendingPublishPage(BaseModel):
+    items: list[ApprovalPendingPublishResponse]
+    total: int = Field(ge=0)
+    has_more: bool
+    next_cursor: str | None = None
 
 
 class ApprovalTaskDetail(BaseModel):
@@ -912,6 +954,7 @@ class DocumentChatAccess(BaseModel):
 
 
 class KnowledgeDetailResponse(BaseModel):
+    staging_retention: dict[str, Any] | None = None
     document: DocumentSummary
     version: DocumentVersionSummary
     pipeline: PipelineRunDetail | None = None
@@ -1564,21 +1607,30 @@ class NotificationCountResponse(BaseModel):
 
 
 class SystemParametersCorePayload(BaseModel):
-    max_upload_size_mb: int
-    default_timezone: str
-    staging_index_ttl_days: int
-    session_expired_form_draft_ttl_minutes: int = 30
+    max_upload_size_mb: int = Field(strict=True, ge=1, le=10240)
+    default_timezone: str = Field(strict=True, min_length=1)
+    staging_index_ttl_days: int = Field(strict=True, ge=1, le=3650)
+    session_expired_form_draft_ttl_minutes: int = Field(default=30, strict=True)
 
 
 class SystemParametersPayload(SystemParametersCorePayload):
     ocr_page_max_output_tokens: int
+    ocr_request_max_output_tokens: int
+    ocr_token_budget_policy: str
     ocr_document_max_tokens: int
     ocr_token_defaults: dict[str, int]
     ocr_token_settings_hash: str
+    section_revisions: dict[str, str]
+    parameter_defaults: dict[str, Any]
+    parameter_metadata: dict[str, Any]
+    deployment_max_upload_size_mb: int
 
 
 class SystemParametersUpdatePayload(SystemParametersCorePayload):
+    model_config = ConfigDict(extra="forbid")
+    expected_section_revisions: dict[str, str] | None = None
     ocr_page_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
+    ocr_request_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     ocr_document_max_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     expected_ocr_token_settings_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
 
@@ -1586,13 +1638,14 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
     @classmethod
     def reject_explicit_null(cls, value):
         if isinstance(value, dict) and any(key in value and value[key] is None for key in
-                ("ocr_page_max_output_tokens", "ocr_document_max_tokens")):
+                ("ocr_page_max_output_tokens", "ocr_request_max_output_tokens", "ocr_document_max_tokens")):
             raise ValueError("OCR output settings must be positive integers")
         return value
 
 
 class UploadConfigResponse(BaseModel):
     max_upload_size_mb: int
+    deployment_max_upload_size_mb: int
 
 
 class OperationComponentStatus(BaseModel):

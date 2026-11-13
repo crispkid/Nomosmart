@@ -16,6 +16,7 @@ from app.domain.ai_provider import evaluate_rag_answer, generate_rag_answer
 from app.domain.chat_citations import citation_persistence_payload, validate_citation_markers
 from app.domain.chat_conversations import require_conversation_identity
 from app.domain.model_usage import record_model_usage, QUERY_USAGE_STOP_CODES
+from app.domain.project_retrieval import _resolve_document_staging_scope, _resolve_retrieval_scope, _search_document_staging_chunks, _search_published_chunks
 from app.domain.system_prompts import (
     SystemPromptLayer,
     SystemPromptResolution,
@@ -50,7 +51,29 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
     )
     if stopped_item is not None:
         return run
-    _validate_execution_manifest(session, run, project)
+    try:
+        _validate_execution_manifest(session, run, project)
+    except AppError as exc:
+        # This refusal happens before item execution or any Provider call.
+        # Persist its outcome so the UI does not poll a queued run forever.
+        unfinished = session.scalars(
+            select(ValidationRunItem).where(
+                ValidationRunItem.run_id == run.id,
+                ValidationRunItem.is_current.is_(True),
+                ValidationRunItem.status.in_(("pending", "running")),
+            )
+        )
+        for item in unfinished:
+            item.status = "error"
+            item.error_code = exc.code
+            item.error_message = exc.message
+        run.started_at = run.started_at or datetime.now(UTC)
+        session.flush()
+        _refresh_run_counts(session, run)
+        if run.status == "completed":
+            run.status = "failed"
+        session.commit()
+        raise
     pending_items = list(
         session.scalars(
             select(ValidationRunItem)
@@ -86,8 +109,6 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
 
 
 def _execute_item(session: Session, run: ValidationRun, project: Project, item: ValidationRunItem) -> None:
-    from app.api.routes import serving
-
     item.status = "running"
     item.error_message = None
     item.error_code = None
@@ -107,12 +128,12 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
             user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids, unused_only=True)
         if run.run_scope == "document_staging":
-            requested_ids = serving._resolve_document_staging_scope(session, project.id, list(selected_ids))
-            citations = serving._search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            requested_ids = _resolve_document_staging_scope(session, project.id, list(selected_ids))
+            citations = _search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "document_staging"
         else:
-            _manifests, _manifest_ids, requested_ids = serving._resolve_retrieval_scope(session, project.id, list(selected_ids))
-            citations = serving._search_published_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            _manifests, _manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, list(selected_ids))
+            citations = _search_published_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "published"
         chat_model = _manifest_model(session, run, "chat_model_id", "Chat") if citations else None
         chat_prompt = _manifest_prompt(run, "chat_prompt") if chat_model is not None else None
@@ -188,19 +209,16 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         session.commit()
     except AppError as exc:
         if chat_model is not None:
-            record_model_usage(
+            _record_validation_usage(
                 session,
+                run,
+                item,
                 model=chat_model,
                 usage_purpose="validation_answer",
-                source_channel="validation",
                 status="failed",
                 token_usage=provider_result.token_usage if provider_result is not None else None,
                 error_code=exc.code,
                 latency_ms=max(0, int((perf_counter() - started) * 1000)),
-                project_id=project.id,
-                validation_run_id=run.id,
-                validation_run_item_id=item.id,
-                actor_user_id=run.created_by,
             )
         item.status = "error"
         item.error_code = exc.code
@@ -213,6 +231,30 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         item.error_message = "validation_item_failed"
         item.latency_ms = max(0, int((perf_counter() - started) * 1000))
         session.commit()
+
+
+def _record_validation_usage(
+    session: Session, run: ValidationRun, item: ValidationRunItem, *,
+    model: AIModel, usage_purpose: str, status: str,
+    token_usage: dict | None = None, latency_ms: int | None = None,
+    error_code: str | None = None, attempted: bool = True,
+):
+    """Preserve known execution identity; never infer a version from citations."""
+    if item.run_id != run.id:
+        raise AppError("validation_manifest_scope_changed", "Validation item does not belong to this run", status_code=409)
+    version_id = run.document_version_id
+    if version_id is not None and (
+        _uuid_set(run.selected_document_ids) != {version_id}
+        or (_uuid_set(item.selected_document_ids) and _uuid_set(item.selected_document_ids) != {version_id})
+    ):
+        version_id = None
+    return record_model_usage(
+        session, model=model, usage_purpose=usage_purpose, source_channel="validation",
+        status=status, token_usage=token_usage, latency_ms=latency_ms,
+        error_code=error_code, attempted=attempted, project_id=run.project_id,
+        document_version_id=version_id, validation_run_id=run.id,
+        validation_run_item_id=item.id, actor_user_id=run.created_by,
+    )
 
 
 def _score_answer(session: Session, run: ValidationRun, item: ValidationRunItem, citations: list[ProjectChatCitation], answer: str | None) -> tuple[float | None, str, str | None, UUID | None, str | None, list[dict] | None]:
@@ -229,33 +271,27 @@ def _score_answer(session: Session, run: ValidationRun, item: ValidationRunItem,
     try:
         judge_prompt = _manifest_prompt(run, "judge_prompt")
         judged = evaluate_rag_answer(question=item.question, answer=answer, expected_answer=item.expected_answer, expected_keywords=item.expected_keywords, citations=citations, model=judge_model, system_prompt=judge_prompt)
-        record_model_usage(
+        _record_validation_usage(
             session,
+            run,
+            item,
             model=judge_model,
             usage_purpose="validation_judge",
-            source_channel="validation",
             status="success",
             token_usage=judged.token_usage,
             latency_ms=max(0, int((perf_counter() - started) * 1000)),
-            project_id=run.project_id,
-            validation_run_id=run.id,
-            validation_run_item_id=item.id,
-            actor_user_id=run.created_by,
         )
         return judged.score, f"judge_model:{judge_model.id}; {judged.reason}", judged.system_prompt_source, judged.system_prompt_version_id, judged.system_prompt_content_hash, judged.system_prompt_layers
     except AppError as exc:
-        record_model_usage(
+        _record_validation_usage(
             session,
+            run,
+            item,
             model=judge_model,
             usage_purpose="validation_judge",
-            source_channel="validation",
             status="failed",
             error_code=exc.code,
             latency_ms=max(0, int((perf_counter() - started) * 1000)),
-            project_id=run.project_id,
-            validation_run_id=run.id,
-            validation_run_item_id=item.id,
-            actor_user_id=run.created_by,
         )
         return None, f"judge_failed:{exc.code}; unscored", None, None, None, None
 

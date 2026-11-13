@@ -1,4 +1,4 @@
-"""Non-public FILEPROC-042 CLI. Only private stdin carries the OIDC token.
+"""Non-public FILEPROC-042 CLI. Private stdin carries the active session credential.
 
     python -m app.deployment.file_processing_recovery preview|commit
 
@@ -22,13 +22,13 @@ from app.core.config import get_settings
 from app.core.errors import AppError
 from app.db.models import (AuditLog, Document, DocumentVersion, FileProcessingExecution as Execution,
                            FileProcessingTask as Task, FileProcessingPolicy, FileProcessingPolicyRevision,
-                           IdentitySetting, PipelineRun, Project)
+                           PipelineRun, Project)
 from app.db.session import get_session_factory
 from app.domain.document_execution import _pool, release_operator_failed_parser
 from app.domain.file_processing_dispatch import _retry_count, _valid_epilogue_time, finalize_task
 from app.domain.file_processing_settings import (PolicySnapshot, _parameter_rows, _row_values, _validated,
-                                                  authorize_maintenance, load_policy, policy_error)
-from app.security.auth import build_identity_jwt_validator, is_token_revoked
+                                                  authorize_maintenance, load_policy, policy_error, validated_policy)
+from app.security.maintenance_auth import maintenance_principal, validate_maintenance_input
 from app.services.audit import add_audit
 
 Digest = Annotated[str, Field(pattern=r"^[a-f0-9]{64}$")]
@@ -88,12 +88,7 @@ def read_policy_snapshot(session):
     row = session.get(FileProcessingPolicy, 1, populate_existing=True)
     if row is None:
         raise policy_error("file_processing_policy_missing", 503)
-    values = _validated(_row_values(_parameter_rows(session)))
-    history = session.get(FileProcessingPolicyRevision, row.revision, populate_existing=True)
-    if (history is None or values.content_hash != row.content_hash or history.content_hash != row.content_hash
-            or history.snapshot != values.model_dump(mode="json")):
-        raise policy_error("file_processing_policy_revision_mismatch", 503)
-    return PolicySnapshot(row.deployment_id, row.revision, values)
+    return validated_policy(session, row)
 
 
 def check_scope(session, scope: RecoveryScope, actor: UUID, *, lock: bool):
@@ -213,12 +208,10 @@ def main() -> int:
         if len(raw) > 65536:
             raise policy_error("file_processing_cli_input_limit", 422)
         payload = json.loads(raw)
-        keys = {"access_token", "scope"} | ({"evidence"} if args.operation == "commit" else set())
-        if type(payload) is not dict or set(payload) != keys:
+        keys = {"scope"} | ({"evidence"} if args.operation == "commit" else set())
+        if type(payload) is not dict or set(payload) - {"access_token", "session_cookie"} != keys:
             raise policy_error("file_processing_cli_input_invalid", 422)
-        token = payload["access_token"]
-        if not isinstance(token, str) or not 1 <= len(token) <= 32768:
-            raise policy_error("authentication_required", 401)
+        validate_maintenance_input(payload)
         scope = RecoveryScope.model_validate(payload["scope"])
         factory = get_session_factory()
         with factory.begin() as session:
@@ -226,10 +219,7 @@ def main() -> int:
                 session.execute(text("SET TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ ONLY"))
             session.execute(text("SET LOCAL statement_timeout='10s'"))
             session.execute(text("SET LOCAL lock_timeout='5s'"))
-            identity = session.scalar(select(IdentitySetting).where(IdentitySetting.is_current.is_(True)))
-            principal = build_identity_jwt_validator(get_settings(), identity.configuration if identity else {}).validate(token)
-            if is_token_revoked(session, principal, token):
-                raise policy_error("token_revoked", 401)
+            principal = maintenance_principal(session, get_settings(), payload)
             actor = authorize_maintenance(session, principal, write=True)
             if args.operation == "preview":
                 *_, finalized = check_scope(session, scope, actor, lock=False)

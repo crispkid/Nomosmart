@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Any
+from typing import Any, TYPE_CHECKING
 
-from .config import InstallConfig
+if TYPE_CHECKING:
+    from .config import InstallConfig
 from .core import PreconditionError
 
 
@@ -41,7 +42,7 @@ class InstallerReleaseVerifier:
             }
         if (
             release.package_dir is None
-            or (release.purpose == "production" and not release.trusted_signer_fingerprint)
+            or (release.purpose in {"production", "local-verified-release", "local-risk-reviewed-release"} and not release.trusted_signer_fingerprint)
         ):
             raise PreconditionError(
                 "Release package trust configuration is incomplete"

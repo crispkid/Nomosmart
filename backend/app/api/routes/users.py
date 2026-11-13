@@ -1,20 +1,40 @@
 from uuid import UUID
+from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Query, Request, Response
-from sqlalchemy import String, cast, func, or_, select
+from sqlalchemy import String, cast, func, or_, select, update
 from sqlalchemy.orm import Session
 
-from app.api.schemas import UserLocalUpdate, UserStatusUpdate, UserSummary
+from app.api.schemas import UserLocalUpdate, UserRoleSummary, UserStatusUpdate, UserSummary
 from app.core.errors import AppError
 from app.domain.approval_access import eligible_manager_reviewer
-from app.db.models import Role, RolePermission, RoleUser, User
+from app.db.models import AuthSession, IdentityUnlockGrant, Role, RolePermission, RoleUser, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
-from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, MENU_MODULE, MENU_SYSTEM_MANAGEMENT, PermissionAction, require_menu_permission
+from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, MENU_MODULE, MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission, require_menu_permission
 from app.services.audit import add_audit
 
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+def _user_summaries(session: Session, users: list[User], context: IdentityContext) -> list[UserSummary]:
+    summaries = [UserSummary.model_validate(user) for user in users]
+    if not users or not has_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW):
+        return summaries
+    grouped: dict[UUID, dict[UUID, tuple[str, set[str]]]] = {}
+    rows = session.execute(
+        select(RoleUser.user_id, Role.id, Role.name, RoleUser.source)
+        .join(Role, Role.id == RoleUser.role_id)
+        .where(RoleUser.user_id.in_([user.id for user in users]), Role.is_active.is_(True), Role.deleted_at.is_(None))
+    )
+    for user_id, role_id, name, source in rows:
+        roles = grouped.setdefault(user_id, {})
+        roles.setdefault(role_id, (name, set()))[1].add(source)
+    return [summary.model_copy(update={"roles": [
+        UserRoleSummary(id=role_id, name=name, sources=sorted(sources))
+        for role_id, (name, sources) in sorted(grouped.get(summary.id, {}).items(), key=lambda row: (row[1][0].casefold(), str(row[0])))
+    ]}) for summary in summaries]
 
 
 @router.get("", response_model=list[UserSummary])
@@ -28,7 +48,7 @@ def list_users(
     limit: int = Query(default=50, ge=1, le=200),
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
-) -> list[User]:
+) -> list[UserSummary]:
     if scope == "project_members":
         require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
         statement = (
@@ -58,16 +78,17 @@ def list_users(
     if is_active is not None:
         statement = statement.where(User.is_active.is_(is_active))
     response.headers["X-Total-Count"] = str(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
-    return list(session.scalars(statement.order_by(User.display_name, User.id).offset(offset).limit(limit)))
+    users = list(session.scalars(statement.order_by(User.display_name, User.id).offset(offset).limit(limit)))
+    return _user_summaries(session, users, context)
 
 
 @router.get("/{user_id}", response_model=UserSummary)
-def get_user(user_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> User:
+def get_user(user_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> UserSummary:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.VIEW)
     user = session.get(User, user_id)
     if user is None:
         raise AppError("user_not_found", "User was not found", status_code=404)
-    return user
+    return _user_summaries(session, [user], context)[0]
 
 
 @router.put("/{user_id}", response_model=UserSummary)
@@ -77,7 +98,7 @@ def update_user_local_fields(
     request: Request,
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
-) -> User:
+) -> UserSummary:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
     user = session.get(User, user_id)
     if user is None:
@@ -94,7 +115,7 @@ def update_user_local_fields(
     add_audit(session, actor_user_id=context.user_id, action="user.local.update", resource_type="user", resource_id=user.id, result="success", request_id=request.state.request_id, summary=safe_changes)
     session.commit()
     session.refresh(user)
-    return user
+    return _user_summaries(session, [user], context)[0]
 
 
 @router.patch("/{user_id}/status", response_model=UserSummary)
@@ -104,13 +125,20 @@ def update_user_status(
     request: Request,
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
-) -> User:
+) -> UserSummary:
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
     user = session.get(User, user_id)
     if user is None:
         raise AppError("user_not_found", "User was not found", status_code=404)
+    if user.auth_source == "emergency":
+        raise AppError("emergency_deployment_only", "Emergency access is controlled by deployment procedures", status_code=403)
     old = user.is_active
-    user.is_active = payload.is_active
+    user.locally_disabled = not payload.is_active
+    user.is_active = payload.is_active and user.directory_enabled
+    if not user.is_active:
+        now = datetime.now(UTC)
+        session.execute(update(AuthSession).where(AuthSession.user_id == user.id, AuthSession.revoked_at.is_(None)).values(revoked_at=now))
+        session.execute(update(IdentityUnlockGrant).where(IdentityUnlockGrant.user_id == user.id, IdentityUnlockGrant.revoked_at.is_(None)).values(revoked_at=now))
     add_audit(
         session,
         actor_user_id=context.user_id,
@@ -123,4 +151,4 @@ def update_user_status(
     )
     session.commit()
     session.refresh(user)
-    return user
+    return _user_summaries(session, [user], context)[0]

@@ -22,7 +22,7 @@ declare global {
 const defaults: RuntimeConfig = {
   appOrigin: "http://127.0.0.1:3000",
   apiBaseUrl: "/api/backend",
-  oidcIssuerUrl: "http://127.0.0.1:8080/realms/nomosmart",
+  oidcIssuerUrl: "",
   oidcClientId: "nomosmart-frontend",
   oidcAudience: "nomosmart-backend",
 };

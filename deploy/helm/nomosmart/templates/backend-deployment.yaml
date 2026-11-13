@@ -41,6 +41,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        {{- include "nomosmart.authKeyringInit" . | nindent 8 }}
         {{- include "nomosmart.bootstrapInitContainer" . | nindent 8 }}
       {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:

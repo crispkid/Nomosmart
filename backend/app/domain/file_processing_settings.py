@@ -32,7 +32,7 @@ StrictInteger = Annotated[int, Field(strict=True)]
 RetryCode = Literal["parser_capacity_unavailable", "parser_start_failed_confirmed_stopped"]
 
 
-class FileProcessingSettings(BaseModel):
+class LegacyFileProcessingSettings(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
     document_processing_max_concurrent: StrictInteger = Field(ge=1, le=10000)
@@ -57,7 +57,7 @@ class FileProcessingSettings(BaseModel):
         return tuple(sorted(set(value)))
 
     @model_validator(mode="after")
-    def related_limits(self) -> FileProcessingSettings:
+    def related_limits(self) -> LegacyFileProcessingSettings:
         if self.file_processing_background_poll_interval_seconds < self.file_processing_progress_interval_seconds:
             raise ValueError("Background polling must not be faster than foreground polling")
         return self
@@ -68,8 +68,28 @@ class FileProcessingSettings(BaseModel):
         return sha256(material.encode()).hexdigest()
 
 
-# Metadata is part of the policy contract, not inferred from arbitrary stored JSON.
-UNITS = {
+class FileProcessingSettings(BaseModel):
+    """Current document policy. Historical parser policy is decoded separately."""
+    model_config = ConfigDict(extra="forbid", frozen=True)
+    document_processing_max_concurrent: StrictInteger = Field(ge=1, le=10000)
+    document_processing_timeout_seconds: StrictInteger = Field(ge=10, le=1800)
+    document_dispatch_yield_delay_seconds: StrictInteger = Field(ge=1, le=3600)
+    file_processing_progress_interval_seconds: StrictInteger = Field(ge=1, le=60)
+    file_processing_background_poll_interval_seconds: StrictInteger = Field(ge=1, le=300)
+
+    @model_validator(mode="after")
+    def related_limits(self):
+        if self.file_processing_background_poll_interval_seconds < self.file_processing_progress_interval_seconds:
+            raise ValueError("Background polling must not be faster than foreground polling")
+        return self
+
+    @property
+    def content_hash(self) -> str:
+        material = json.dumps(self.model_dump(mode="json"), sort_keys=True, separators=(",", ":"))
+        return sha256(material.encode()).hexdigest()
+
+
+LEGACY_UNITS = {
     "document_processing_max_concurrent": "documents", "pdf_parser_max_concurrent": "workloads",
     "pdf_parser_cpu_millicores": "millicores", "pdf_parser_memory_mib": "MiB",
     "pdf_parser_scratch_mib": "MiB", "pdf_parser_timeout_seconds": "seconds",
@@ -78,69 +98,106 @@ UNITS = {
     "pdf_parser_retryable_error_codes": None, "file_processing_progress_interval_seconds": "seconds",
     "file_processing_background_poll_interval_seconds": "seconds",
 }
-CAPABILITY_KEYS = frozenset({
-    "document_processing_max_concurrent", "pdf_parser_max_concurrent", "pdf_parser_cpu_millicores",
-    "pdf_parser_memory_mib", "pdf_parser_scratch_mib", "pdf_parser_timeout_seconds",
-    "pdf_parser_max_pages", "pdf_parser_max_output_mib",
-})
-DEPRECATED_KEYS = frozenset({"pdf_parser_cpu_millicores", "pdf_parser_memory_mib"})
-ACTIVE_KEYS = frozenset(UNITS) - DEPRECATED_KEYS
+UNITS = {"document_processing_max_concurrent": "documents", "document_processing_timeout_seconds": "seconds",
+         "document_dispatch_yield_delay_seconds": "seconds", "file_processing_progress_interval_seconds": "seconds",
+         "file_processing_background_poll_interval_seconds": "seconds"}
+ACTIVE_KEYS = frozenset(UNITS)
+DEPRECATED_KEYS = frozenset(LEGACY_UNITS) - ACTIVE_KEYS
+CAPABILITY_KEYS = frozenset({"document_processing_max_concurrent", "document_processing_timeout_seconds"})
+_LEGACY_CAPABILITY_KEYS = frozenset({"document_processing_max_concurrent", "pdf_parser_max_concurrent",
+    "pdf_parser_cpu_millicores", "pdf_parser_memory_mib", "pdf_parser_scratch_mib", "pdf_parser_timeout_seconds",
+    "pdf_parser_max_pages", "pdf_parser_max_output_mib"})
+
+
+def _validated(values: dict, *, schema_version: int = 2):
+    if type(schema_version) is not int or schema_version not in {1, 2}:
+        raise policy_error("file_processing_policy_version_invalid", 422)
+    try:
+        return (LegacyFileProcessingSettings if schema_version == 1 else FileProcessingSettings).model_validate(values)
+    except ValidationError as exc:
+        raise policy_error("file_processing_policy_invalid", 422) from exc
+
+
+def settings_from_snapshot(snapshot: dict):
+    if type(snapshot) is not dict:
+        raise policy_error("file_processing_policy_invalid", 422)
+    version = snapshot.get("_schema_version", 1)
+    return _validated({k: v for k, v in snapshot.items() if k != "_schema_version"}, schema_version=version)
+
+
+def snapshot_setting(snapshot: dict, key: str) -> int:
+    values = settings_from_snapshot(snapshot)
+    alias = {"document_processing_timeout_seconds": "pdf_parser_timeout_seconds",
+             "document_dispatch_yield_delay_seconds": "pdf_parser_retry_delay_seconds"}
+    return getattr(values, alias.get(key, key) if isinstance(values, LegacyFileProcessingSettings) else key)
 
 
 @dataclass(frozen=True)
 class PlatformCapabilities:
-    """Trusted deployment maximums, never DB overrides or silently clamped values."""
     maxima: dict[str, int]
 
-    def validate(self, values: FileProcessingSettings) -> None:
-        if (set(self.maxima) not in (set(), CAPABILITY_KEYS, CAPABILITY_KEYS - DEPRECATED_KEYS)
-                or any(type(v) is not int or v <= 0 for v in self.maxima.values())):
+    def validate(self, values) -> None:
+        keys = set(self.maxima)
+        accepted = (set(), CAPABILITY_KEYS, _LEGACY_CAPABILITY_KEYS,
+                    _LEGACY_CAPABILITY_KEYS - {"pdf_parser_cpu_millicores", "pdf_parser_memory_mib"},
+                    {"document_processing_max_concurrent", "pdf_parser_timeout_seconds"})
+        if keys not in accepted or any(type(v) is not int or v <= 0 for v in self.maxima.values()):
             raise policy_error("file_processing_capability_invalid")
-        if any(getattr(values, key) > maximum for key, maximum in self.maxima.items() if key not in DEPRECATED_KEYS):
-            raise policy_error("file_processing_capability_exceeded", 422)
+        for key, maximum in self.maxima.items():
+            effective = "document_processing_timeout_seconds" if key == "pdf_parser_timeout_seconds" else key
+            if effective not in CAPABILITY_KEYS:
+                continue  # Historical parser resource caps are not document runtime settings.
+            name = "pdf_parser_timeout_seconds" if isinstance(values, LegacyFileProcessingSettings) and effective == "document_processing_timeout_seconds" else effective
+            if getattr(values, name) > maximum:
+                raise policy_error("file_processing_capability_exceeded", 422)
 
 
 @dataclass(frozen=True)
 class PolicySnapshot:
     deployment_id: UUID
     revision: int
-    settings: FileProcessingSettings
+    settings: FileProcessingSettings | LegacyFileProcessingSettings
+
+    @property
+    def schema_version(self) -> int:
+        return 1 if isinstance(self.settings, LegacyFileProcessingSettings) else 2
+
+    def execution_values(self) -> dict:
+        values = self.settings.model_dump(mode="json")
+        return values if self.schema_version == 1 else {**values, "_schema_version": 2}
 
 
-def _validated(values: dict) -> FileProcessingSettings:
-    try:
-        return FileProcessingSettings.model_validate(values)
-    except ValidationError as exc:
-        # Do not echo arbitrary untrusted keys/values into logs or user errors.
-        raise policy_error("file_processing_policy_invalid", 422) from exc
+def _parameter_rows(session: Session, *, schema_version: int = 2):
+    units = LEGACY_UNITS if schema_version == 1 else UNITS
+    return {r.key: r for r in session.scalars(select(SystemParameter).where(SystemParameter.key.in_(units))
+            .execution_options(populate_existing=True))}
 
 
-def _parameter_rows(session: Session) -> dict[str, SystemParameter]:
-    return {row.key: row for row in session.scalars(
-        select(SystemParameter).where(SystemParameter.key.in_(UNITS)).execution_options(populate_existing=True)
-    )}
-
-
-def _row_values(rows: dict[str, SystemParameter]) -> dict:
+def _row_values(rows: dict, *, schema_version: int = 2) -> dict:
+    units = LEGACY_UNITS if schema_version == 1 else UNITS
     for key, row in rows.items():
         expected_type = "array" if key == "pdf_parser_retryable_error_codes" else "integer"
-        if row.unit != UNITS[key] or row.value_type != expected_type:
+        if key not in units or row.unit != units[key] or row.value_type != expected_type:
             raise policy_error("file_processing_parameter_metadata_invalid")
-    return {key: row.value for key, row in rows.items()}
+    return {k: r.value for k, r in rows.items()}
+
+
+def validated_policy(session, row) -> PolicySnapshot:
+    version = row.schema_version
+    values = _validated(_row_values(_parameter_rows(session, schema_version=version), schema_version=version), schema_version=version)
+    history = session.get(FileProcessingPolicyRevision, row.revision, populate_existing=True)
+    if (history is None or history.schema_version != version or values.content_hash != row.content_hash
+            or history.content_hash != row.content_hash or history.snapshot != values.model_dump(mode="json")):
+        raise policy_error("file_processing_policy_revision_mismatch", 503)
+    return PolicySnapshot(row.deployment_id, row.revision, values)
 
 
 def load_policy(session: Session, *, lock: bool = False) -> PolicySnapshot:
-    query = select(FileProcessingPolicy).where(FileProcessingPolicy.id == 1).execution_options(populate_existing=True)
-    # Share lock protects a consistent policy+catalog read against approved writers.
-    row = session.scalar(query.with_for_update(read=not lock))
+    row = session.scalar(select(FileProcessingPolicy).where(FileProcessingPolicy.id == 1)
+        .execution_options(populate_existing=True).with_for_update(read=not lock))
     if row is None:
         raise policy_error("file_processing_policy_missing", 503)
-    settings = _validated(_row_values(_parameter_rows(session)))
-    history = session.get(FileProcessingPolicyRevision, row.revision, populate_existing=True)
-    if (history is None or settings.content_hash != row.content_hash
-            or history.content_hash != row.content_hash or history.snapshot != settings.model_dump(mode="json")):
-        raise policy_error("file_processing_policy_revision_mismatch", 503)
-    return PolicySnapshot(row.deployment_id, row.revision, settings)
+    return validated_policy(session, row)
 
 
 def authorize_maintenance(session: Session, principal: IdentityPrincipal, *, write: bool) -> UUID:
@@ -153,13 +210,10 @@ def authorize_maintenance(session: Session, principal: IdentityPrincipal, *, wri
     return context.user_id
 
 
-def initialize_policy(
-    session: Session, *, principal: IdentityPrincipal, deployment_id: UUID,
-    legacy_timeout_seconds: int, legacy_max_pages: int, legacy_upload_mib: int,
-    capabilities: PlatformCapabilities,
-) -> PolicySnapshot:
+def initialize_policy(session: Session, *, principal: IdentityPrincipal, deployment_id: UUID,
+                      legacy_timeout_seconds: int, legacy_max_pages: int, legacy_upload_mib: int,
+                      capabilities: PlatformCapabilities) -> PolicySnapshot:
     actor = authorize_maintenance(session, principal, write=True)
-    # Serialize the absent-singleton case as well as repeat initialization.
     session.execute(text("SELECT pg_advisory_xact_lock(305, 1)"))
     if session.get(FileProcessingPolicy, 1) is not None:
         existing = load_policy(session, lock=True)
@@ -167,61 +221,57 @@ def initialize_policy(
             raise policy_error("file_processing_deployment_mismatch")
         capabilities.validate(existing.settings)
         return existing
-    if type(legacy_upload_mib) is not int or not 1 <= legacy_upload_mib <= 10240:
-        raise policy_error("file_processing_legacy_source_invalid", 422)
-    defaults = {
-        "document_processing_max_concurrent": 10, "pdf_parser_max_concurrent": 10,
-        "pdf_parser_cpu_millicores": 1000, "pdf_parser_memory_mib": 768, "pdf_parser_scratch_mib": 256,
-        "pdf_parser_timeout_seconds": legacy_timeout_seconds, "pdf_parser_max_pages": legacy_max_pages,
-        "pdf_parser_max_output_mib": legacy_upload_mib * 4, "pdf_parser_retry_max_attempts": 1,
-        "pdf_parser_retry_delay_seconds": 5, "pdf_parser_retryable_error_codes": [],
-        "file_processing_progress_interval_seconds": 2, "file_processing_background_poll_interval_seconds": 15,
-    }
-    _validated(defaults)  # Even pre-existing keys cannot hide an invalid legacy receipt.
+    # Explicit operator initialization only; load_policy has no fallback defaults.
+    defaults = {"document_processing_max_concurrent": 10, "document_processing_timeout_seconds": legacy_timeout_seconds,
+                "document_dispatch_yield_delay_seconds": 5, "file_processing_progress_interval_seconds": 2,
+                "file_processing_background_poll_interval_seconds": 15}
     rows = _parameter_rows(session)
     values = _validated(defaults | _row_values(rows))
     capabilities.validate(values)
     now = datetime.now(UTC)
     for key, value in values.model_dump(mode="json").items():
         if key not in rows:
-            session.add(SystemParameter(
-                key=key, value=value, default_value=defaults[key], unit=UNITS[key],
-                value_type="array" if key == "pdf_parser_retryable_error_codes" else "integer",
-                description=f"CHG-305 file-processing policy: {key}", updated_by=actor,
-            ))
-    provenance = {"operation": "initialize_missing_only", "preserved_keys": sorted(rows),
-                  "legacy_timeout_seconds": legacy_timeout_seconds, "legacy_max_pages": legacy_max_pages,
-                  "legacy_upload_mib": legacy_upload_mib, "output_formula": "upload_mib * 4 * 1048576 bytes"}
-    session.add(FileProcessingPolicy(id=1, deployment_id=deployment_id, revision=1, content_hash=values.content_hash, updated_at=now))
-    _record_revision(session, values, 1, actor, provenance, {}, now)
+            session.add(SystemParameter(key=key, value=value, default_value=defaults[key], unit=UNITS[key],
+                value_type="integer", description=f"Document-processing policy: {key}", updated_by=actor))
+    policy = FileProcessingPolicy(id=1, schema_version=2, deployment_id=deployment_id, revision=1,
+                                 content_hash=values.content_hash, updated_at=now)
+    session.add(policy)
+    _record_revision(session, values, 1, actor, {"operation": "initialize_missing_only", "preserved_keys": sorted(rows)}, {}, now)
     session.flush()
     return PolicySnapshot(deployment_id, 1, values)
 
 
-def _record_revision(session, settings, revision, actor, provenance, previous, now) -> None:
+def _record_revision(session, settings, revision, actor, provenance, previous, now):
     snapshot = settings.model_dump(mode="json")
-    session.add(FileProcessingPolicyRevision(revision=revision, snapshot=snapshot,
+    version = 1 if isinstance(settings, LegacyFileProcessingSettings) else 2
+    session.add(FileProcessingPolicyRevision(revision=revision, schema_version=version, snapshot=snapshot,
         content_hash=settings.content_hash, provenance=provenance, created_by=actor, created_at=now))
     add_audit(session, actor_user_id=actor, action="file_processing.policy.updated", resource_type="file_processing_policy",
-              resource_id=None, result="success", request_id=None,
-              summary={"revision": revision, "previous": previous, "current": snapshot, "provenance": provenance})
+        resource_id=None, result="success", request_id=None,
+        summary={"schema_version": version, "revision": revision, "previous": previous, "current": snapshot, "provenance": provenance})
 
 
-def update_policy(
-    session: Session, *, principal: IdentityPrincipal, expected_revision: int,
-    changes: dict, capabilities: PlatformCapabilities,
-) -> PolicySnapshot:
+def update_policy(session: Session, *, principal: IdentityPrincipal, expected_revision: int,
+                  changes: dict, capabilities: PlatformCapabilities) -> PolicySnapshot:
     actor = authorize_maintenance(session, principal, write=True)
-    if type(expected_revision) is not int or type(changes) is not dict or not changes or set(changes) - UNITS.keys():
+    if type(expected_revision) is not int or type(changes) is not dict or not changes or set(changes) - (UNITS.keys() | LEGACY_UNITS.keys()):
         raise policy_error("file_processing_update_invalid", 422)
     current = load_policy(session, lock=True)
     if current.revision != expected_revision:
         raise policy_error("file_processing_policy_conflict")
+    if current.schema_version != 2:
+        raise policy_error("file_processing_policy_migration_required", 409)
     previous = current.settings.model_dump(mode="json")
-    if any(key in changes and (type(changes[key]) is not int or changes[key] != previous[key]) for key in DEPRECATED_KEYS):
-        raise AppError("file_processing_parameter_deprecated",
-                       "Per-parser CPU and memory settings are read-only; configure Worker deployment resources", status_code=422)
-    values = _validated(previous | changes)
+    legacy = _parameter_rows(session, schema_version=1)
+    aliases = {"pdf_parser_timeout_seconds": "document_processing_timeout_seconds",
+               "pdf_parser_retry_delay_seconds": "document_dispatch_yield_delay_seconds"}
+    for key in set(changes) & DEPRECATED_KEYS:
+        if key in aliases and aliases[key] in changes and changes[key] != changes[aliases[key]]:
+            raise policy_error("file_processing_alias_conflict", 422)
+        if key not in legacy or changes[key] != legacy[key].value:
+            raise policy_error("file_processing_parameter_deprecated", 422)
+    updates = {k: v for k, v in changes.items() if k in ACTIVE_KEYS}
+    values = _validated(previous | updates)
     capabilities.validate(values)
     if values == current.settings:
         return current

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Check or mechanically synchronize chart-owned SQL/theme source copies."""
+"""Check or mechanically synchronize chart-owned SQL and plugin source copies."""
 from __future__ import annotations
 
 import argparse
@@ -17,8 +17,9 @@ def main() -> None:
     args = parser.parse_args()
     sources = {
         "sql": ROOT / "sql/migrations",
-        "theme": ROOT / "deploy/keycloak/themes/nomosmart",
     }
+    if (CHART / "files/theme").exists():
+        raise ValueError("retired identity theme assets must be removed from the current chart")
     inventory = {}
     for group, source in sources.items():
         for path in sorted(source.rglob("*")):

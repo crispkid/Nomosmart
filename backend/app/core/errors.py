@@ -32,6 +32,13 @@ class AppError(Exception):
         self.details = details or {}
 
 
+def unhandled_error_response(request: Request) -> JSONResponse:
+    """A pre-response failure must never expose a server exception or SQL."""
+    request_id = getattr(request.state, "request_id", "unknown")
+    payload = ErrorBody(code="unhandled_exception", message="Request failed", request_id=request_id)
+    return JSONResponse(status_code=500, content=payload.model_dump(), headers={"X-Request-Id": request_id})
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
     payload = ErrorBody(

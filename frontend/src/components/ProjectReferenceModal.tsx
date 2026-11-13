@@ -1,5 +1,6 @@
 "use client";
 
+import { useModalFocus } from "./useModalFocus";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, FileText, FolderKanban, Layers3, LoaderCircle, RefreshCcw, Search, Trash2, X } from "lucide-react";
@@ -35,6 +36,7 @@ export function ProjectReferenceModal({
   onCreate: (mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) => Promise<ImportResult>;
 }) {
   const { t, format, localize } = useI18n();
+  const dialogRef = useModalFocus(true, onClose);
   const [mode, setMode] = useState<"reference" | "copy">("reference");
   const [projectId, setProjectId] = useState<string>(() => sources[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -96,7 +98,7 @@ export function ProjectReferenceModal({
 
   return (
     <div className="modal-backdrop" role="presentation">
-      <section aria-labelledby="reference-project-title" aria-modal="true" className="modal-panel reference-picker-modal" role="dialog">
+      <section ref={dialogRef} tabIndex={-1} aria-labelledby="reference-project-title" aria-modal="true" className="modal-panel reference-picker-modal" role="dialog">
         <div className="modal-header">
           <div><p className="eyebrow">{t("referenceModalEyebrow")}</p><h2 id="reference-project-title">{t("referenceModalTitle")}</h2></div>
           <button aria-label={t("referenceModalClose")} className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
@@ -121,7 +123,7 @@ export function ProjectReferenceModal({
               ))}
             </aside>
             <div className="reference-documents">
-              <label className="reference-search"><Search size={15} /><input onChange={(event) => setQuery(event.target.value)} placeholder={t("referenceSearchPlaceholder")} value={query} /></label>
+              <label className="reference-search"><Search size={15} /><input aria-label={t("referenceSearchPlaceholder")} onChange={(event) => setQuery(event.target.value)} placeholder={t("referenceSearchPlaceholder")} value={query} /></label>
               <div className="reference-document-list">
                 {documents.map((document) => {
                   const key = selectionKey(activeProject.id, document.id);

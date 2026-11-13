@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Document, DocumentVersion, FileProcessingExecution as Execution, FileProcessingTask as Task, OutboxEvent, PipelineRun, PipelineRunStep, Project
 from app.domain.document_execution import _locked, begin_execution, claim_execution, release_execution, transition_execution
-from app.domain.file_processing_settings import PlatformCapabilities, load_policy, policy_error
+from app.domain.file_processing_settings import PlatformCapabilities, load_policy, policy_error, snapshot_setting
 
 TOPIC = "document.extraction.requested"
 
@@ -251,7 +251,7 @@ def finalize_task(session: Session, task_id: UUID) -> bool:
         if event is None:
             raise policy_error("file_processing_outbox_missing")
         event.status, event.available_at, event.processed_at = "pending", (
-            datetime.now(UTC) + timedelta(seconds=execution.policy_snapshot["pdf_parser_retry_delay_seconds"])), None
+            datetime.now(UTC) + timedelta(seconds=snapshot_setting(execution.policy_snapshot, "document_dispatch_yield_delay_seconds"))), None
         event.task_id = None
         event.claim_token = event.claimed_at = event.lease_expires_at = None
         event.last_error = None

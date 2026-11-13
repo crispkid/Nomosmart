@@ -31,13 +31,12 @@ class ConnectionProbeResult:
 def probe_ai_model(settings: Settings, model: AIModel) -> ConnectionProbeResult:
     started = time.monotonic()
     provider = model.provider.strip().lower()
-    if provider == "tesseract":
-        _probe_local_command(["tesseract", "--version"], timeout_seconds=10)
-        detail = "local_provider_ready"
-    else:
-        api_key = _resolve_model_credential(settings, model)
-        _probe_http_model(model, api_key)
-        detail = "provider_model_ready"
+    if model.model_type == "OCR":
+        from app.domain.ocr_capabilities import require_native_capabilities
+        require_native_capabilities(model)
+    api_key = _resolve_model_credential(settings, model)
+    _probe_http_model(model, api_key, settings)
+    detail = "provider_model_ready"
     return ConnectionProbeResult(ai_model_connection_fingerprint(model), _latency_ms(started), detail)
 
 
@@ -99,7 +98,7 @@ def _probe_file_protocol(service_type: str, host: str, port: int, username: str,
         raise AppError("unsupported_protocol", "Data source protocol is not supported", status_code=422)
 
 
-def _probe_http_model(model: AIModel, api_key: str | None) -> None:
+def _probe_http_model(model: AIModel, api_key: str | None, settings: Settings) -> None:
     config = model.config or {}
     provider = model.provider.strip().lower()
     model_name = str(config.get("model_name") or model.name).strip()
@@ -108,15 +107,16 @@ def _probe_http_model(model: AIModel, api_key: str | None) -> None:
     if provider == "gemini":
         if not api_key:
             raise AppError("model_credential_required", "Model provider credential is required", status_code=422)
-        base = _model_base_url(str(config.get("base_url") or model.endpoint or "https://generativelanguage.googleapis.com"))
-        url = f"{base}/v1beta/models/{quote(model_name, safe='')}"
+        version = settings.provider_gemini_api_version.strip("/")
+        base = _model_base_url(str(config.get("base_url") or model.endpoint or _provider_root(settings.provider_gemini_base_url, version)))
+        url = f"{base}/{version}/models/{quote(model_name, safe='')}"
         headers = {"x-goog-api-key": api_key}
     elif provider == "claude":
         if not api_key:
             raise AppError("model_credential_required", "Model provider credential is required", status_code=422)
-        base = _model_base_url(str(config.get("base_url") or model.endpoint or "https://api.anthropic.com"))
+        base = _model_base_url(str(config.get("base_url") or model.endpoint or _provider_root(settings.provider_anthropic_base_url, "v1")))
         url = f"{base}/v1/models/{quote(model_name, safe='')}"
-        headers = {"x-api-key": api_key, "anthropic-version": str(config.get("anthropic_version") or "2023-06-01")}
+        headers = {"x-api-key": api_key, "anthropic-version": str(config.get("anthropic_version") or settings.provider_anthropic_version)}
     elif provider == "ollama":
         base = _model_base_url(str(config.get("base_url") or model.endpoint or ""))
         if not base:
@@ -163,6 +163,12 @@ def _model_exists(payload: object, model_name: str, provider: str) -> bool:
         return False
     names = {str(row.get("name") or row.get("model") or row.get("id") or "") for row in rows if isinstance(row, dict)}
     return model_name in names
+
+
+def _provider_root(base_url: str, version: str) -> str:
+    """Strip a trailing API version segment from a configured provider default base URL."""
+    root = base_url.rstrip("/")
+    return root[: -len(version) - 1] if version and root.endswith("/" + version) else root
 
 
 def _model_base_url(value: str) -> str:
@@ -216,13 +222,6 @@ def _object_key(remote_path: str, file_name: str) -> str:
     return str(PurePosixPath(remote_path.strip("/") or ".") / file_name).removeprefix("./")
 
 
-def _probe_local_command(command: list[str], *, timeout_seconds: int) -> None:
-    try:
-        result = subprocess.run(command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout_seconds, check=False)
-    except (FileNotFoundError, subprocess.TimeoutExpired) as exc:
-        raise AppError("local_model_provider_unavailable", "Local model provider is unavailable", status_code=503) from exc
-    if result.returncode != 0:
-        raise AppError("local_model_provider_unavailable", "Local model provider readiness check failed", status_code=503)
 
 
 def _latency_ms(started: float) -> int:

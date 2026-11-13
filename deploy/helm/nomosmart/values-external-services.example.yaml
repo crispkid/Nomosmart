@@ -1,9 +1,9 @@
 # Recommended app-only profile overlay.
 # Layer this after values-prod.yaml and replace every example endpoint/Secret
 # reference with operator-owned values. Kubernetes still runs Frontend,
-# Backend, Worker, Beat, migration and bootstrap/finalize Jobs; PostgreSQL,
-# Redis, RustFS/S3, OpenSearch, Neo4j and Keycloak are external.
-#
+# Backend, Worker, Beat, migration and bootstrap/finalize Jobs. PostgreSQL,
+# Redis, RustFS/S3, OpenSearch and Neo4j remain operator-managed.
+# Authentication uses the separate protocol bootstrap configuration.
 # The runtime Secret must already contain all keys required by the chart and
 # must use the same credentials configured in the external services. It is an
 # input Secret, not a value to commit to this repository.
@@ -62,22 +62,8 @@ neo4j:
     caSecretName: external-neo4j-ca
     caKey: ca.crt
 
-keycloak:
-  mode: external
-  external:
-    issuerUrl: https://identity.external.example.test/realms/nomosmart
-    # Optional for a private CA; supply a complete operator trust bundle.
-    caSecretName: ""
-    caKey: ca.crt
-    internalIssuerUrl: https://identity.external.example.test/realms/nomosmart
-    adminApiUrl: https://identity.external.example.test
-    discoveryUrl: https://identity.external.example.test/realms/nomosmart/.well-known/openid-configuration
-    jwksUrl: https://identity.external.example.test/realms/nomosmart/protocol/openid-connect/certs
-  adminIngress:
-    enabled: false
-
 bootstrap:
-  keycloakMode: verify
+  deploymentPhase: onboarding
 
 backend:
   env:

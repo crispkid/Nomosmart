@@ -92,38 +92,6 @@ spec:
   databaseRoleReclaimPolicy: retain
   passwordSecret: {name: {{ .Values.postgresql.auth.appSecretName }}}
 ---
-apiVersion: postgresql.cnpg.io/v1
-kind: DatabaseRole
-metadata:
-  name: {{ $name }}-keycloak
-  labels:
-    {{- include "nomosmart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: postgresql
-spec:
-  cluster: {name: {{ $name }}}
-  name: {{ .Values.postgresql.auth.keycloakUsername | quote }}
-  login: true
-  superuser: false
-  createdb: false
-  createrole: false
-  inherit: true
-  databaseRoleReclaimPolicy: retain
-  passwordSecret: {name: {{ .Values.postgresql.auth.keycloakSecretName }}}
----
-apiVersion: postgresql.cnpg.io/v1
-kind: Database
-metadata:
-  name: {{ $name }}-keycloak
-  labels:
-    {{- include "nomosmart.labels" . | nindent 4 }}
-    app.kubernetes.io/component: postgresql
-spec:
-  cluster: {name: {{ $name }}}
-  name: {{ .Values.postgresql.auth.keycloakDatabase | quote }}
-  owner: {{ .Values.postgresql.auth.keycloakUsername | quote }}
-  ensure: present
-  databaseReclaimPolicy: retain
----
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:

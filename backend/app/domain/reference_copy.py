@@ -4,28 +4,96 @@ from datetime import UTC, datetime
 from hashlib import sha256
 import json
 from typing import NoReturn
-from uuid import uuid5
+from uuid import UUID, uuid5
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import Chunk, Document, DocumentVersion, EmbeddingProfile, PipelineRun, PipelineRunStep
+from app.core.config import Settings
+from app.db.models import Chunk, Document, DocumentVersion, EmbeddingProfile, PipelineRun, PipelineRunStep, Project
 from app.domain.chunk_representations import chunking_config_from_snapshot
 from app.domain.document_layout import build_document_layout
-from app.domain.embeddings import resolve_index_retrieval_text
+from app.domain.embedding_capacity import EmbeddingInputContract, chunking_error, resolve_input_contract
+from app.domain.embeddings import _active_embedding_model, resolve_index_retrieval_text
 from app.domain.markdown_artifacts import markdown_artifact_ref, normalize_source_mappings, resolve_markdown_artifact
 from app.domain.markdown_structure import MarkdownStructureParser
 from app.domain.retrieval_text import RetrievalTextNormalizer, provisional_retrieval_hash
-from app.domain.structure_chunking import ChunkDraft
-from app.domain.tokenization import UnicodeTokenCounter
+from app.domain.model_tokenization import ModelTokenCounter
+from app.domain.structure_chunking import ChunkDraft, ChunkingConfig
+from app.domain.tokenization import TokenCounter, UnicodeTokenCounter
 
 
 def _invalid() -> NoReturn:
     raise AppError("source_version_no_extractable_text", "Source version copy evidence is unavailable or invalid", status_code=409)
 
 
-def copy_chunks(session: Session, *, source: DocumentVersion, target: DocumentVersion) -> list[Chunk]:
+def _source_counter(*, version_strategy: dict, chunk_strategies: list[dict], model_id: UUID) -> TokenCounter:
+    """Reconstruct source preprocessing without substituting today's model config."""
+    if not isinstance(version_strategy, dict) or not chunk_strategies or any(
+            not isinstance(item, dict) for item in chunk_strategies):
+        _invalid()
+    snapshot = version_strategy.get("embedding_input_contract")
+    unicode_counter = UnicodeTokenCounter()
+    if snapshot is None:
+        # Only explicitly versioned legacy evidence may use the historical counter.
+        if (version_strategy.get("chunker_version") == "structure-chunker-v3"
+                or version_strategy.get("tokenizer_version") not in (None, unicode_counter.version)
+                or any(item.get("embedding_input_contract") is not None
+                       or item.get("tokenizer_version") != unicode_counter.version for item in chunk_strategies)):
+            _invalid()
+        return unicode_counter
+    fields = {"version", "model_id", "model_name", "provider", "config_version", "input_token_limit",
+              "model_input_token_limit", "tokenizer_encoding", "tokenizer_asset_version", "capacity_source",
+              "catalog_sha256", "contract_sha256", "tokenizer_version"}
+    if not isinstance(snapshot, dict) or set(snapshot) != fields:
+        _invalid()
+    if (type(snapshot["version"]) is not int or snapshot["version"] != 1
+            or snapshot["model_id"] != str(model_id)
+            or type(snapshot["config_version"]) is not int or snapshot["config_version"] < 1
+            or type(snapshot["input_token_limit"]) is not int or snapshot["input_token_limit"] < 1
+            or snapshot["capacity_source"] not in ("catalog", "model_config")):
+        _invalid()
+    if any(not isinstance(snapshot[key], str) or not snapshot[key].strip()
+           for key in ("model_name", "provider", "tokenizer_encoding", "tokenizer_asset_version",
+                       "catalog_sha256", "contract_sha256", "tokenizer_version")):
+        _invalid()
+    for key in ("catalog_sha256", "contract_sha256"):
+        if len(snapshot[key]) != 64 or any(char not in "0123456789abcdef" for char in snapshot[key]):
+            _invalid()
+    official_limit = snapshot["model_input_token_limit"]
+    if snapshot["capacity_source"] == "catalog" and official_limit is None:
+        _invalid()
+    if official_limit is not None and (type(official_limit) is not int
+            or official_limit < snapshot["input_token_limit"]):
+        _invalid()
+    try:
+        contract = EmbeddingInputContract({key: value for key, value in snapshot.items()
+                                          if key not in {"contract_sha256", "tokenizer_version"}})
+        asset_version = ModelTokenCounter(snapshot["tokenizer_encoding"]).version
+        if (snapshot != contract.snapshot() or snapshot["tokenizer_asset_version"] != asset_version
+                or version_strategy.get("tokenizer_version") != contract.counter.version
+                or any(item.get("embedding_input_contract") != snapshot
+                       or item.get("tokenizer_version") != contract.counter.version for item in chunk_strategies)):
+            _invalid()
+        return contract.counter
+    except (AppError, KeyError, TypeError, ValueError) as exc:
+        raise AppError("source_version_no_extractable_text",
+                       "Source version copy evidence is unavailable or invalid", status_code=409) from exc
+
+
+def _target_retrieval(draft: ChunkDraft, *, config: ChunkingConfig,
+                      contract: EmbeddingInputContract, document_title: str) -> tuple[str, int]:
+    normalizer = RetrievalTextNormalizer(config=config, token_counter=contract.counter)
+    retrieval = normalizer.normalize(draft, document_title=document_title)
+    count = contract.counter.count(retrieval)
+    if count > contract.limit:
+        raise chunking_error("chunk_atomic_unit_too_large", contract=contract, input_tokens=count)
+    return retrieval, count
+
+
+def copy_chunks(session: Session, *, source: DocumentVersion, target: DocumentVersion,
+                target_project: Project, settings: Settings) -> list[Chunk]:
     artifact = resolve_markdown_artifact(session, source, require_fingerprint=True)
     if artifact.status != "available" or not artifact.text:
         _invalid()
@@ -40,12 +108,28 @@ def copy_chunks(session: Session, *, source: DocumentVersion, target: DocumentVe
         _invalid()
     if (source_document.project_id != source.project_id
             or target_document.project_id != target.project_id
+            or target_project.id != target.project_id
             or profile.model_id != source.embedding_model_id
             or (target.chunk_strategy or {}).get("source_text") != markdown):
         _invalid()
     copied = []
     ids = {chunk.id: uuid5(target.id, str(chunk.id)) for chunk in chunks}
-    counter = UnicodeTokenCounter()
+    source_strategy = source.chunk_strategy or {}
+    source_snapshot = source_strategy.get("embedding_input_contract")
+    if isinstance(source_snapshot, dict) and source_snapshot.get("model_name") != profile.model_version:
+        _invalid()
+    counter = _source_counter(version_strategy=source_strategy,
+        chunk_strategies=[chunk.chunk_strategy or {} for chunk in chunks], model_id=source.embedding_model_id)
+    if source_strategy.get("normalizer_version", RetrievalTextNormalizer().version) != RetrievalTextNormalizer().version:
+        _invalid()
+    try:
+        target_model = _active_embedding_model(session, target_project, target)
+    except AppError as exc:
+        if exc.code == "embedding_model_required":
+            raise chunking_error("chunk_model_capacity_unavailable") from exc
+        raise
+    target_contract = resolve_input_contract(target_model, settings)
+    target_snapshot = target_contract.snapshot()
     now = datetime.now(UTC)
     # Validate every source before writing target chunks. Caller owns the item transaction.
     for index, chunk in enumerate(chunks, 1):
@@ -78,12 +162,15 @@ def copy_chunks(session: Session, *, source: DocumentVersion, target: DocumentVe
                 or metadata.get("tokenizer_version") != counter.version
                 or normalizer.normalize(draft, document_title=source_document.title) != source_retrieval):
             _invalid()
-        retrieval = normalizer.normalize(draft, document_title=target_document.title)
+        retrieval, token_count = _target_retrieval(draft, config=config,
+            contract=target_contract, document_title=target_document.title)
         stable_key = sha256(json.dumps({"document_id": str(target.document_id), "source_chunk_id": str(chunk.id),
             "raw_hash": sha256(draft.raw_markdown.encode()).hexdigest(), "retrieval_text": retrieval,
-            "sequence": index}, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
+            "sequence": index, "normalizer_version": normalizer.version,
+            "tokenizer_version": target_contract.counter.version}, sort_keys=True, ensure_ascii=False).encode()).hexdigest()
         metadata = {key: value for key, value in metadata.items() if not key.startswith("embedding_")}
         metadata.update(source="copied", structure_aware=True,
+            tokenizer_version=target_contract.counter.version, embedding_input_contract=deepcopy(target_snapshot),
             copied_from_chunk_id=str(chunk.id), copied_from_version_id=str(source.id),
             copied_from_project_id=str(source.project_id), copied_from_document_id=str(source.document_id),
             previous_chunk_id=str(ids[chunks[index - 2].id]) if index > 1 else None,
@@ -92,21 +179,22 @@ def copy_chunks(session: Session, *, source: DocumentVersion, target: DocumentVe
             document_version_id=target.id, chunk_index=index, title=chunk.title, content=chunk.content,
             markdown_content=chunk.markdown_content, display_markdown=chunk.display_markdown,
             retrieval_text=retrieval, embedding_content_hash=provisional_retrieval_hash(retrieval_text=retrieval,
-                normalizer_version=normalizer.version, tokenizer_version=counter.version),
+                normalizer_version=normalizer.version, tokenizer_version=target_contract.counter.version),
             content_type=chunk.content_type, content_hash=chunk.content_hash, section_path=chunk.section_path,
             heading_path=deepcopy(chunk.heading_path), heading_level=chunk.heading_level,
             page_start=chunk.page_start, page_end=chunk.page_end, sequence=index, stable_chunk_key=stable_key,
             start_offset=start, end_offset=end, source_mapping=mappings, chunk_strategy=metadata,
-            embedding_model_id=target.embedding_model_id, token_count=counter.count(retrieval),
+            embedding_model_id=target_model.id, token_count=token_count,
             confidence_score=chunk.confidence_score, status="active", is_manual_edited=False,
             created_at=now, updated_at=now))
-    source_strategy = source.chunk_strategy or {}
     inherited = {key: deepcopy(source_strategy[key]) for key in (
         "page_ranges", "parser_version", "chunker_version", "normalizer_version", "tokenizer_version",
         "effective_chunk_config", "document_structure", "document_layout") if key in source_strategy}
     if "document_layout" not in inherited:
         inherited["document_layout"] = build_document_layout(MarkdownStructureParser().parse(markdown))
-    target.chunk_strategy = {**(target.chunk_strategy or {}), **inherited, "structure_aware": True}
+    target.chunk_strategy = {**(target.chunk_strategy or {}), **inherited, "structure_aware": True,
+        "tokenizer_version": target_contract.counter.version, "embedding_input_contract": deepcopy(target_snapshot)}
+    target.embedding_model_id = target_model.id
     target.chunk_size, target.chunk_overlap = source.chunk_size, source.chunk_overlap
     target.markdown_artifact_uri = markdown_artifact_ref(target.id)
     session.add_all(copied)

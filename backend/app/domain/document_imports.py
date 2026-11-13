@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -14,9 +14,9 @@ from app.core.errors import AppError
 from app.db.models import AIModel, Document, DocumentContentState, DocumentVersion, OutboxEvent, PipelineRun, Project
 from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize_pipeline_steps
 from app.domain.document_codes import allocate_document_code
-from app.domain.ocr_timeout_policy import split_snapshot
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension, require_extractable_source
 from app.domain.upload_content import UploadContent, as_content
+from app.domain.system_parameter_store import intake_settings
 
 
 MAX_TITLE_LENGTH = 500
@@ -100,6 +100,8 @@ def resolve_ocr_model(session: Session, project: Project, requested_ocr_model_id
 
 
 def _require_ocr_model_credential(model: AIModel) -> AIModel:
+    from app.domain.ocr_capabilities import require_native_capabilities
+    require_native_capabilities(model)
     if model.provider.strip().lower() in {"openai", "gemini", "google", "claude", "anthropic"} and not model.api_key_configured:
         raise AppError(
             "ocr_model_credential_required",
@@ -109,31 +111,27 @@ def _require_ocr_model_credential(model: AIModel) -> AIModel:
     return model
 
 
-def ocr_execution_snapshot(model: AIModel, *, force_ocr: bool, canonical_extension: str | None = None, settings: Settings | None = None, session: Session | None = None) -> dict[str, object]:
+def ocr_execution_snapshot(model: AIModel | None, *, force_ocr: bool, canonical_extension: str | None = None,
+                           settings: Settings | None = None, session: Session | None = None) -> dict[str, object]:
+    if (canonical_extension or "").lower() != ".pdf":
+        return {"input_mode": "direct_text", "force_ocr": False, "retry_count": 0}
+    if model is None or session is None:
+        raise AppError("ocr_model_required", "A native PDF model is required", status_code=422)
+    from app.domain.ocr_capabilities import require_native_capabilities
+    from app.domain.ocr_token_settings import load_native_settings
+    from app.domain.file_processing_settings import load_policy
+    profile = require_native_capabilities(model)
+    policy = load_policy(session)
+    timeout = (policy.settings.document_processing_timeout_seconds if policy.schema_version == 2
+               else policy.settings.pdf_parser_timeout_seconds)
     config = model.config or {}
-    pdf_policy = split_snapshot(config) if model.provider.strip().lower() == "openai" and (canonical_extension or "").lower() == ".pdf" else {}
-    token_snapshot = {}
-    if pdf_policy:
-        from app.domain.ocr_token_settings import load_settings
-        if session is None:
-            raise AppError("ocr_token_settings_missing", "OCR output settings must be initialized", status_code=503)
-        token_snapshot = load_settings(session).snapshot()
-    return {
-        "model_id": str(model.id),
-        "config_version": model.config_version,
-        "provider": model.provider,
-        "endpoint_configured": bool(model.endpoint),
-        "languages": config.get("languages") or config.get("language") or [],
-        "timeout_seconds": config.get("timeout_seconds", config.get("timeout", 30)),
-        "retry_count": config.get("retry_count", config.get("retries", 1)),
-        "concurrency": config.get("concurrency", 1),
-        "force_ocr": force_ocr,
-        "force_ocr_confirmed": force_ocr,
-        **({"pdf_input_mode": "page_images", "pdf_ocr_dpi": (settings or Settings()).pdf_ocr_dpi}
-           if model.provider.strip().lower() == "openai" and (canonical_extension or "").lower() == ".pdf" else {}),
-        **pdf_policy,
-        **token_snapshot,
-    }
+    configured = config.get("timeout_seconds", config.get("timeout", timeout))
+    if type(configured) is not int or configured < 1:
+        raise AppError("ocr_timeout_config_invalid", "Document timeout must be positive", status_code=422)
+    return {"model_id": str(model.id), "config_version": model.config_version,
+            "provider": model.provider, "pdf_input_mode": "native_pdf", "input_mode": "native_pdf",
+            "retry_count": 0, "force_ocr": True, "ocr_document_timeout_seconds": min(timeout, configured, (settings or Settings()).ocr_document_timeout_seconds),
+            "native_pdf": profile.profile, **load_native_settings(session).snapshot()}
 
 
 def source_text_snapshot(file: UploadedFilePayload, extension: str) -> str | None:
@@ -175,10 +173,13 @@ def create_uploaded_document(
     force_ocr: bool,
     start_extraction: bool,
 ) -> tuple[Document, DocumentVersion, PipelineRun | None]:
+    if not getattr(settings, "_intake_snapshot", False):
+        settings = intake_settings(session, settings)
     original_name, _ = validate_file_payload(file, settings)
     identity = build_storage_identity(file.content, original_name)
+    force_ocr = identity.canonical_extension == ".pdf"
     source_text = source_text_snapshot(file, identity.canonical_extension)
-    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
+    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id) if identity.canonical_extension == ".pdf" else None
     ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension, settings=settings, session=session)
     now = datetime.now(UTC)
     document_id = uuid4()
@@ -218,8 +219,8 @@ def create_uploaded_document(
         storage_etag=stored.etag,
         uploaded_at=now,
         original_snapshot_uri=f"s3://{stored.bucket}/{stored.key}",
-        ocr_model_id=ocr_model.id,
-        ocr_config_version=ocr_model.config_version,
+        ocr_model_id=(ocr_model.id if ocr_model else None),
+        ocr_config_version=(ocr_model.config_version if ocr_model else None),
         chunk_strategy={
             "source": "project_default",
             "version_created_by": str(actor_user_id),
@@ -265,6 +266,8 @@ def create_updated_file_version(
 ) -> tuple[DocumentVersion, PipelineRun | None, bool]:
     if document.project_id != project.id or document.source_type != "file_upload":
         raise AppError("document_update_not_supported", "Only uploaded files can be updated with a replacement file", status_code=409)
+    if not getattr(settings, "_intake_snapshot", False):
+        settings = intake_settings(session, settings)
     original_name, _ = validate_file_payload(file, settings)
     identity = build_storage_identity(file.content, original_name)
     latest = _latest_document_version(session, document.id)
@@ -280,8 +283,9 @@ def create_updated_file_version(
     )
     if working is not None:
         raise AppError("document_update_working_version_exists", "A working version already exists for this document", status_code=409)
+    force_ocr = identity.canonical_extension == ".pdf"
     source_text = source_text_snapshot(file, identity.canonical_extension)
-    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
+    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id) if identity.canonical_extension == ".pdf" else None
     ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=identity.canonical_extension, settings=settings, session=session)
     now = datetime.now(UTC)
     major = (latest.version_major if latest else 0) + 1
@@ -308,8 +312,8 @@ def create_updated_file_version(
         storage_etag=stored.etag,
         uploaded_at=now,
         original_snapshot_uri=f"s3://{stored.bucket}/{stored.key}",
-        ocr_model_id=ocr_model.id,
-        ocr_config_version=ocr_model.config_version,
+        ocr_model_id=(ocr_model.id if ocr_model else None),
+        ocr_config_version=(ocr_model.config_version if ocr_model else None),
         chunk_strategy={
             "source": "file_update",
             "version_created_by": str(actor_user_id),
@@ -355,17 +359,18 @@ def start_document_extraction(
     from app.domain.embedding_attempts import require_no_pending_embedding_attempt
     require_no_pending_embedding_attempt(version)
     require_extractable_source(version.canonical_extension, http_response=document.source_type == "http_api_service")
+    force_ocr = (version.canonical_extension or "").lower() == ".pdf"
     if version.status not in {"draft", "ready_for_extraction"}:
         raise AppError("document_version_not_ready", "Document version is not ready for extraction", status_code=409)
     ensure_no_active_pipeline(session, version.id)
-    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id)
+    ocr_model = resolve_ocr_model(session, project, requested_ocr_model_id) if (version.canonical_extension or "").lower() == ".pdf" else None
     ocr_snapshot = ocr_execution_snapshot(ocr_model, force_ocr=force_ocr, canonical_extension=version.canonical_extension, settings=settings, session=session)
     if not version.storage_bucket or not version.storage_key:
         raise AppError("document_source_unavailable", "Document source object is unavailable", status_code=409)
     now = datetime.now(UTC)
     version.status = "queued"
-    version.ocr_model_id = ocr_model.id
-    version.ocr_config_version = ocr_model.config_version
+    version.ocr_model_id = (ocr_model.id if ocr_model else None)
+    version.ocr_config_version = (ocr_model.config_version if ocr_model else None)
     version.chunk_strategy = {**(version.chunk_strategy or {}), "force_ocr": force_ocr, "adapter_source": "live-only-required", "ocr_snapshot": ocr_snapshot}
     version.updated_at = now
     pipeline = PipelineRun(
@@ -383,7 +388,7 @@ def start_document_extraction(
     )
     session.add(pipeline)
     session.flush()
-    initialize_pipeline_steps(session, pipeline, ocr_model_id=ocr_model.id, ocr_name=ocr_model.name, force_ocr=force_ocr)
+    initialize_pipeline_steps(session, pipeline, ocr_model_id=(ocr_model.id if ocr_model else None), ocr_name=(ocr_model.name if ocr_model else "Direct text"), force_ocr=force_ocr)
     session.flush()
     enqueue_outbox(session, project=project, topic="document.extraction.requested", aggregate_type="pipeline_run", aggregate_id=pipeline.id, payload={"pipeline_run_id": str(pipeline.id)})
     return pipeline
@@ -415,6 +420,7 @@ def create_reextraction_revision(
     if not source.content_sha256 or source.content_sha256.lower() != source_content_sha256.lower():
         raise AppError("source_fingerprint_conflict", "Source content changed; reload before re-extraction", status_code=409)
     require_extractable_source(source.canonical_extension, http_response=document.source_type == "http_api_service")
+    force_ocr = (source.canonical_extension or "").lower() == ".pdf"
     if source.status not in {"active", "inactive", "submission_ready", "approved"}:
         raise AppError("reextraction_source_not_ready", "Source version is not eligible for re-extraction", status_code=409)
     existing_work = session.scalar(
@@ -536,19 +542,53 @@ def _title_from_filename(filename: str) -> str:
     return title[:MAX_TITLE_LENGTH]
 
 
-def latest_versions(session: Session, project_id: UUID) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
-    documents = list(session.scalars(select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False)).order_by(desc(Document.updated_at), Document.title)))
+@dataclass(frozen=True)
+class DocumentListPosition:
+    """Keyset position after a document in list order (updated_at newest first, title, id)."""
+
+    updated_at: datetime
+    title: str
+    document_id: UUID
+
+
+def latest_versions(
+    session: Session,
+    project_id: UUID,
+    *,
+    after: DocumentListPosition | None = None,
+    limit: int | None = None,
+) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
+    statement = select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False))
+    if after is not None:
+        # OPT424-016: keyset over (updated_at DESC, title ASC, id ASC) for the paged list.
+        statement = statement.where(or_(
+            Document.updated_at < after.updated_at,
+            and_(Document.updated_at == after.updated_at, or_(
+                Document.title > after.title,
+                and_(Document.title == after.title, Document.id > after.document_id),
+            )),
+        ))
+    statement = statement.order_by(desc(Document.updated_at), Document.title, Document.id)
+    if limit is not None:
+        statement = statement.limit(limit)
+    documents = list(session.scalars(statement))
+    if not documents:
+        return []
+    # One DISTINCT ON query per relation instead of two queries per document.
+    versions = {version.document_id: version for version in session.scalars(
+        select(DocumentVersion).where(DocumentVersion.document_id.in_([document.id for document in documents]),
+            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
+        .distinct(DocumentVersion.document_id)
+        .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)))}
+    pipelines = {pipeline.document_version_id: pipeline for pipeline in session.scalars(
+        select(PipelineRun).where(PipelineRun.document_version_id.in_([version.id for version in versions.values()]),
+            ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+        .distinct(PipelineRun.document_version_id)
+        .order_by(PipelineRun.document_version_id, desc(PipelineRun.created_at)))} if versions else {}
     rows: list[tuple[Document, DocumentVersion | None, PipelineRun | None]] = []
     for document in documents:
-        version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id,
-            DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true"))
-            .order_by(desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)).limit(1))
-        pipeline = None
-        if version is not None:
-            pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_version_id == version.id,
-                ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
-                .order_by(desc(PipelineRun.created_at)).limit(1))
-        rows.append((document, version, pipeline))
+        version = versions.get(document.id)
+        rows.append((document, version, pipelines.get(version.id) if version is not None else None))
     return rows
 
 

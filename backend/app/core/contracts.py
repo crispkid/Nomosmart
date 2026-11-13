@@ -29,6 +29,7 @@ STABLE_ERROR_STATUS: dict[StableErrorCode, int] = {
 
 
 class AuditAction(StrEnum):
+    APP_ENCRYPTION_ROTATE = "security.app_encryption.rotate"
     REPORT_CSV_EXPORT = "report.csv.export"
     PROJECT_ARCHIVE_REQUESTED = "project.archive.requested"
     PROJECT_ARCHIVE_COMPLETED = "project.archive.cleanup.completed"

@@ -250,7 +250,7 @@ class Workflow:
             data = path.read_bytes()
             if hashlib.sha256(data).hexdigest() != entry.get("sha256"):
                 raise WorkflowError(2, "SECRET_MISMATCH", "Restore the matching secret files; rotate only through the explicit package workflow.")
-            if name not in {"s3_access_key_id", "keycloak_bootstrap_admin_username", "database_migration_user", "flyway_jdbc_url"}:
+            if name not in {"s3_access_key_id", "database_migration_user", "flyway_jdbc_url"}:
                 self.secret_values.append(data.decode().strip())
         if self.state_path.exists() or self.state_path.is_symlink():
             private_file(self.state_path)
@@ -274,28 +274,33 @@ class Workflow:
         required = {"migration", "deployment-bootstrap", "backend", "frontend", "edge", "celery-worker", "celery-beat"}
         if not required <= services.keys() or self.model.get("name") != self.settings["project"]:
             raise WorkflowError(2, "INCOMPLETE_SERVICE_SET", "Use the supplied Compose file with explicit installation profiles.")
-        origin, issuer = self.settings["origin"], self.settings["origin"] + "/identity/realms/nomosmart"
-        checks = {"frontend": {"FRONTEND_APP_ORIGIN": origin, "NEXT_PUBLIC_APP_ORIGIN": origin,
-                               "FRONTEND_OIDC_ISSUER_URL": issuer, "NEXT_PUBLIC_OIDC_ISSUER_URL": issuer},
-                  "backend": {"FRONTEND_APP_ORIGIN": origin, "OIDC_ISSUER_URL": issuer},
-                  "edge": {"NOMOSMART_PUBLIC_ORIGIN": origin, "EDGE_HTTPS_PORT": str(self.settings["https"])}}
-        if "keycloak" in services:
-            checks["keycloak"] = {"KC_HOSTNAME": origin + "/identity"}
+        origin = self.settings["origin"]
+        checks = {
+            "frontend": {"FRONTEND_APP_ORIGIN": origin, "NEXT_PUBLIC_APP_ORIGIN": origin},
+            "backend": {"FRONTEND_APP_ORIGIN": origin},
+            "edge": {"NOMOSMART_PUBLIC_ORIGIN": origin, "EDGE_HTTPS_PORT": str(self.settings["https"])},
+        }
         for service, expected in checks.items():
             env = services[service].get("environment", {})
             if any(str(env.get(k)) != v for k, v in expected.items()):
-                raise WorkflowError(2, "ORIGIN_MISMATCH", f"Align the public origin/issuer configuration for {service}.")
+                raise WorkflowError(2, "ORIGIN_MISMATCH", f"Align the public origin configuration for {service}.")
         cors = services["backend"].get("environment", {}).get("CORS_ALLOWED_ORIGINS", "")
         if origin not in [s.strip() for s in cors.split(",")]:
             raise WorkflowError(2, "ORIGIN_MISMATCH", "Include the exact public origin in CORS_ALLOWED_ORIGINS.")
-        for entry in self.model.get("secrets", {}).values():
+        authentication_secrets = {
+            "auth_encryption_key", "auth_previous_keys", "directory_bind_password", "oidc_client_secret",
+        }
+        for name, entry in self.model.get("secrets", {}).items():
             path = Path(entry.get("file", ""))
-            if path.parent != self.current or path.name not in self.manifest["secrets"]:
+            if path.parent == self.current and path.name in self.manifest["secrets"]:
+                continue
+            if name not in authentication_secrets:
                 raise WorkflowError(2, "SECRET_MOUNT_MISMATCH", "Use the verified generated/current secret mounts.")
+            self.validate_authentication_secret(name, path)
         for service in services.values():
             for mount in service.get("volumes", []):
                 if mount.get("type") == "bind" and not Path(mount["source"]).is_file():
-                    # The only supported directory bind is the reviewed theme/SQL.
+                    # Directory binds must stay within this reviewed deployment tree.
                     path = Path(mount["source"])
                     if not path.is_dir() or not path.is_relative_to(self.root):
                         raise WorkflowError(2, "MISSING_MOUNT", "Restore the required Compose bind file/directory before startup.")
@@ -308,6 +313,31 @@ class Workflow:
             ssl.create_default_context(cafile=str(ca))
         except (KeyError, OSError, ssl.SSLError, package.PackageError):
             raise WorkflowError(2, "INVALID_TLS", "Restore matching edge certificate/key/CA covering the public hostname; do not disable verification.") from None
+
+    def validate_authentication_secret(self, name: str, path: Path) -> None:
+        # Only the exact committed empty keyring may be public. Real keys and
+        # operator-supplied connection credentials require private regular files.
+        empty_example = self.root / "deploy/docker/auth-previous-keys.example.json"
+        if name == "auth_previous_keys" and not path.is_symlink() and path.resolve() == empty_example:
+            try:
+                if json.loads(path.read_text()) == {}:
+                    return
+            except (OSError, ValueError):
+                pass
+            raise WorkflowError(2, "INVALID_AUTH_KEYRING", "Keep the public keyring empty; mount real previous keys from a private file.")
+        private_file(path)
+        data = path.read_text().strip()
+        if not data:
+            raise WorkflowError(2, "EMPTY_AUTH_SECRET", "Provide the operator-managed authentication credential.")
+        self.secret_values.append(data)
+        if name == "auth_previous_keys":
+            try:
+                keys = json.loads(data)
+                if not isinstance(keys, dict) or not all(isinstance(value, str) for value in keys.values()):
+                    raise ValueError()
+                self.secret_values.extend(keys.values())
+            except ValueError:
+                raise WorkflowError(2, "INVALID_AUTH_KEYRING", "Use a private JSON mapping of previous key IDs to encryption keys.") from None
 
     def inventory(self) -> dict[str, dict]:
         _, ids = self.docker("ps", "-aq", "--filter", "label=com.docker.compose.project=" + self.settings["project"])
@@ -424,10 +454,9 @@ class Workflow:
                 with opener.open(self.settings["origin"] + path, timeout=self.remaining(3)) as response:
                     if response.status != 200:
                         return False
-            issuer = self.settings["origin"] + "/identity/realms/nomosmart"
-            with opener.open(issuer + "/.well-known/openid-configuration", timeout=self.remaining(3)) as response:
-                discovery = json.loads(response.read(256 * 1024))
-                return discovery.get("issuer") == issuer
+            with opener.open(self.settings["origin"] + "/api/backend/auth/config", timeout=self.remaining(3)) as response:
+                configuration = json.loads(response.read(256 * 1024))
+                return response.status == 200 and configuration.get("mode") in {"ldap", "oidc"}
         except (OSError, URLError, HTTPError, ValueError, ssl.SSLError):
             return False
 
@@ -597,10 +626,9 @@ class Workflow:
 
     def summary(self, status: str) -> dict:
         value = {"status": status, "project": self.settings["project"], "url": self.settings["origin"],
-                 "initial_username": "nomosmart", "credential_file": str(self.current / "break_glass_initial_password"),
                  "ca_file": str(self.current / "tls/active/edge-ca.crt"),
                  "next_steps": ["Trust the local CA explicitly in your browser when using generated TLS.",
-                                "Change the temporary password at first login; configure enterprise identity and AI models as needed."]}
+                                "Sign in as a synchronized directory administrator using the configured LDAP or external OIDC mode; complete normal-administrator finalization."]}
         print(json.dumps(value, ensure_ascii=False), flush=True)
         return value
 

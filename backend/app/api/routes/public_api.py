@@ -284,8 +284,11 @@ def create_public_feedback(
         fail_idempotent_operation(operation, exc)
         session.commit()
         raise exc
+    # The event is durable; a replay-cache operation can be removed after TTL.
+    # Bind the encrypted caller metadata to the event, not the temporary row.
+    event_id = uuid4()
     event = ChatFeedbackEvent(
-        id=uuid4(),
+        id=event_id,
         project_id=log.project_id,
         public_response_id=log.id,
         source="api",
@@ -296,7 +299,7 @@ def create_public_feedback(
         end_user_employee_name=None,
         end_user_department=None,
         end_user_identity_hash=identity_hash,
-        end_user_metadata_encrypted=encrypt_payload(settings, log.id, f"feedback:{operation.id}:end-user", payload.end_user.model_dump(mode="json")),
+        end_user_metadata_encrypted=encrypt_payload(settings, log.id, f"feedback:{event_id}:end-user", payload.end_user.model_dump(mode="json")),
         idempotency_key_hash=operation.key,
         request_id=getattr(request.state, "request_id", None),
         created_at=datetime.now(UTC),

@@ -35,13 +35,16 @@ async function proxy(request: NextRequest, context: { params: Promise<{ path: st
       duplex: "half",
       signal: transfer?.signal ?? request.signal,
       cache: "no-store",
+      // Forward explicit session headers without Fetch retrying streamed 401 bodies.
+      credentials: "omit",
       redirect: "manual"
     };
     const upstream = await fetch(upstreamUrl, options);
     const responseHeaders = new Headers();
     upstream.headers.forEach((value, key) => {
-      if (!hopByHopHeaders.has(key.toLowerCase())) responseHeaders.set(key, value);
+      if (!hopByHopHeaders.has(key.toLowerCase()) && key.toLowerCase() !== "set-cookie") responseHeaders.set(key, value);
     });
+    for (const cookie of upstream.headers.getSetCookie()) responseHeaders.append("set-cookie", cookie);
     responseHeaders.set("cache-control", "no-store");
     return new Response(upstream.body, { status: upstream.status, statusText: upstream.statusText, headers: responseHeaders });
   } catch (error) {

@@ -3,11 +3,11 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, Query, Request
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, func, or_, select, true, tuple_
 from sqlalchemy.orm import Session
 
 from app.api.schemas import (
@@ -16,15 +16,17 @@ from app.api.schemas import (
     ApprovalChunkEvidence,
     ApprovalRejectPayload,
     ApprovalPendingPublishResponse,
+    ApprovalPendingPublishPage,
     ApprovalRequestResponse,
     ApprovalRequestPage,
     ApprovalSummary,
     ApprovalTaskDetail,
     ApprovalTaskResponse,
     ApprovalTaskPage,
+    ApprovalFilterOption,
+    ApprovalFilterOptionPage,
     DocumentSummary,
     DocumentVersionSummary,
-    KnowledgeTagResponse,
     OriginalFileViewerMetadata,
     PublishResult,
     PublishVersionPayload,
@@ -35,8 +37,9 @@ from app.domain.approval_access import approval_request_read_predicate, can_deci
 from app.domain.document_layout import project_document_layout as _document_layout
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
-from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, IdempotencyKey, Project, ProjectOwner, ReviewRecord, Tag, User
+from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, Document, DocumentVersion, IdempotencyKey, Project, ProjectOwner, ReviewRecord, User
 from app.db.session import get_db
+from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation
 from app.domain.markdown_artifacts import normalize_source_mappings, resolve_markdown_artifact
 from app.domain.review_publish import LiveNeo4jGraphSyncAdapter, LiveOpenSearchPublishedAdapter, approve_task, publish_version, reject_task, switch_active_version
@@ -45,6 +48,107 @@ from app.security.permissions import require_project_scope
 
 
 router = APIRouter(tags=["approvals"])
+
+
+def _validated_filters(request: Request, *, q: str | None = None, stage: str | None = None,
+                       date_from: datetime | None = None, date_to: datetime | None = None) -> str | None:
+    for name in ("q", "project_id", "document_id", "submitter_id", "editor_id", "stage", "result", "priority", "source_type", "date_from", "date_to", "cursor", "limit", "kind", "tab"):
+        if len(request.query_params.getlist(name)) > 1:
+            raise AppError("approval_filter_invalid", "Approval filter must not be repeated", status_code=422)
+    if stage and stage not in ("manager_review", "owner_review"):
+        raise AppError("approval_filter_invalid", "Approval stage is invalid", status_code=422)
+    if date_from is not None and date_to is not None:
+        try:
+            invalid = date_from > date_to
+        except TypeError:
+            invalid = True
+        if invalid:
+            raise AppError("approval_filter_invalid", "Approval date range is invalid", status_code=422)
+    return q.strip() or None if q is not None else None
+
+
+def _name_pattern(value: str) -> str:
+    return "%" + value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
+def _completed_query(session: Session, context: IdentityContext, *, rejected: bool = False):
+    owner_project_ids = select(ProjectOwner.project_id).where(ProjectOwner.user_id == context.user_id)
+    statement = (
+        select(ApprovalTask)
+        .join(Project, Project.id == ApprovalTask.project_id)
+        .join(Document, Document.id == ApprovalTask.document_id)
+        .join(ApprovalRequest, ApprovalRequest.id == ApprovalTask.approval_request_id)
+        .where(
+            Project.status == "active",
+            ApprovalTask.project_id.in_(context.visible_project_ids),
+            ApprovalTask.status.in_(("approved", "rejected", "cancelled")),
+            or_(
+                ApprovalTask.submitter_id == context.user_id,
+                ApprovalTask.assignee_user_id == context.user_id,
+                ApprovalTask.project_id.in_(owner_project_ids),
+            ),
+        )
+    )
+    return statement.where(ApprovalTask.status == "rejected") if rejected else statement
+
+
+def _submission_query(context: IdentityContext):
+    statement = (
+        select(ApprovalRequest)
+        .join(Project, Project.id == ApprovalRequest.project_id)
+        .join(Document, Document.id == ApprovalRequest.document_id)
+        .where(
+            Project.status == "active",
+            ApprovalRequest.project_id.in_(context.visible_project_ids),
+            ApprovalRequest.submitter_id == context.user_id,
+        )
+    )
+    return statement
+
+
+@router.get("/approvals/filter-options", response_model=ApprovalFilterOptionPage)
+def approval_filter_options(
+    request: Request,
+    kind: Literal["project", "submitter"],
+    tab: Literal["pending", "mine", "history", "rejected"],
+    project_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
+    cursor: str | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> ApprovalFilterOptionPage:
+    q = _validated_filters(request, q=q)
+    model = ApprovalRequest if tab == "mine" else ApprovalTask
+    scope = _submission_query(context) if tab == "mine" else _pending_query(session, context) if tab == "pending" else _completed_query(session, context, rejected=tab == "rejected")
+    if project_id is not None:
+        require_project_scope(project_id, set(context.visible_project_ids))
+        scope = scope.where(model.project_id == project_id)
+    entity, label, key = (Project, Project.name, model.project_id) if kind == "project" else (User, User.display_name, model.submitter_id)
+    normalized_label = func.lower(label)
+    statement = select(entity.id, label.label("label"), normalized_label.label("sort_label")).where(entity.id.in_(scope.with_only_columns(key)))
+    if q:
+        statement = statement.where(label.ilike(_name_pattern(q), escape="\\"))
+    filter_hash = cursor_filter_hash({"actor": context.user_id, "kind": kind, "tab": tab, "project_id": project_id, "q": q})
+    if cursor:
+        payload = decode_cursor(request.app.state.settings, namespace="approval-filter-options", value=cursor)
+        if payload.get("filter") != filter_hash:
+            raise AppError("cursor_scope_mismatch", "Cursor does not match the current approval filters", status_code=422)
+        try:
+            cursor_label, cursor_id = payload["label"], UUID(str(payload["id"]))
+            if not isinstance(cursor_label, str):
+                raise ValueError("invalid label")
+        except (KeyError, ValueError, TypeError) as exc:
+            raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
+        statement = statement.where(or_(normalized_label > cursor_label, and_(normalized_label == cursor_label, entity.id > cursor_id)))
+    rows = list(session.execute(statement.order_by(normalized_label, entity.id).limit(limit + 1)))
+    has_more = len(rows) > limit
+    rows = rows[:limit]
+    next_cursor = None
+    if has_more and rows:
+        last = rows[-1]
+        next_cursor = encode_cursor(request.app.state.settings, namespace="approval-filter-options", payload={"filter": filter_hash, "label": last.sort_label, "id": str(last.id)})
+    return ApprovalFilterOptionPage(items=[ApprovalFilterOption(id=row.id, label=row.label) for row in rows], next_cursor=next_cursor, has_more=has_more)
 
 
 @router.get("/approvals/summary", response_model=ApprovalSummary)
@@ -65,7 +169,9 @@ def pending_approvals(
     request: Request,
     project_id: UUID | None = None,
     document_id: UUID | None = None,
-    editor_id: UUID | None = None,
+    editor_id: UUID | None = Query(default=None, deprecated=True),
+    submitter_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
     priority: str | None = Query(default=None, max_length=32),
     source_type: str | None = Query(default=None, max_length=50),
     stage: str | None = Query(default=None, max_length=32),
@@ -85,6 +191,8 @@ def pending_approvals(
         project_id=project_id,
         document_id=document_id,
         editor_id=editor_id,
+        submitter_id=submitter_id,
+        q=q,
         priority=priority,
         source_type=source_type,
         stage=stage,
@@ -101,7 +209,9 @@ def approval_history(
     request: Request,
     project_id: UUID | None = None,
     document_id: UUID | None = None,
-    editor_id: UUID | None = None,
+    editor_id: UUID | None = Query(default=None, deprecated=True),
+    submitter_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
     priority: str | None = Query(default=None, max_length=32),
     source_type: str | None = Query(default=None, max_length=50),
     stage: str | None = Query(default=None, max_length=32),
@@ -113,23 +223,7 @@ def approval_history(
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> ApprovalTaskPage:
-    owner_project_ids = select(ProjectOwner.project_id).where(ProjectOwner.user_id == context.user_id)
-    statement = (
-        select(ApprovalTask)
-        .join(Project, Project.id == ApprovalTask.project_id)
-        .join(Document, Document.id == ApprovalTask.document_id)
-        .join(ApprovalRequest, ApprovalRequest.id == ApprovalTask.approval_request_id)
-        .where(
-            Project.status == "active",
-            ApprovalTask.project_id.in_(context.visible_project_ids),
-            ApprovalTask.status.in_(("approved", "rejected", "cancelled")),
-            or_(
-                ApprovalTask.submitter_id == context.user_id,
-                ApprovalTask.assignee_user_id == context.user_id,
-                ApprovalTask.project_id.in_(owner_project_ids),
-            ),
-        )
-    )
+    statement = _completed_query(session, context)
     return _task_page(
         session,
         request,
@@ -139,6 +233,8 @@ def approval_history(
         project_id=project_id,
         document_id=document_id,
         editor_id=editor_id,
+        submitter_id=submitter_id,
+        q=q,
         priority=priority,
         source_type=source_type,
         stage=stage,
@@ -155,7 +251,9 @@ def rejected_approvals(
     request: Request,
     project_id: UUID | None = None,
     document_id: UUID | None = None,
-    editor_id: UUID | None = None,
+    editor_id: UUID | None = Query(default=None, deprecated=True),
+    submitter_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
     priority: str | None = Query(default=None, max_length=32),
     source_type: str | None = Query(default=None, max_length=50),
     stage: str | None = Query(default=None, max_length=32),
@@ -166,23 +264,7 @@ def rejected_approvals(
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> ApprovalTaskPage:
-    owner_project_ids = select(ProjectOwner.project_id).where(ProjectOwner.user_id == context.user_id)
-    statement = (
-        select(ApprovalTask)
-        .join(Project, Project.id == ApprovalTask.project_id)
-        .join(Document, Document.id == ApprovalTask.document_id)
-        .join(ApprovalRequest, ApprovalRequest.id == ApprovalTask.approval_request_id)
-        .where(
-            Project.status == "active",
-            ApprovalTask.project_id.in_(context.visible_project_ids),
-            ApprovalTask.status == "rejected",
-            or_(
-                ApprovalTask.submitter_id == context.user_id,
-                ApprovalTask.assignee_user_id == context.user_id,
-                ApprovalTask.project_id.in_(owner_project_ids),
-            ),
-        )
-    )
+    statement = _completed_query(session, context, rejected=True)
     return _task_page(
         session,
         request,
@@ -192,6 +274,8 @@ def rejected_approvals(
         project_id=project_id,
         document_id=document_id,
         editor_id=editor_id,
+        submitter_id=submitter_id,
+        q=q,
         priority=priority,
         source_type=source_type,
         stage=stage,
@@ -208,6 +292,8 @@ def my_submissions(
     request: Request,
     project_id: UUID | None = None,
     document_id: UUID | None = None,
+    q: str | None = Query(default=None, max_length=100),
+    stage: str | None = Query(default=None, max_length=32),
     priority: str | None = Query(default=None, max_length=32),
     source_type: str | None = Query(default=None, max_length=50),
     result: str | None = Query(default=None, max_length=32),
@@ -218,16 +304,7 @@ def my_submissions(
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> ApprovalRequestPage:
-    statement = (
-        select(ApprovalRequest)
-        .join(Project, Project.id == ApprovalRequest.project_id)
-        .join(Document, Document.id == ApprovalRequest.document_id)
-        .where(
-            Project.status == "active",
-            ApprovalRequest.project_id.in_(context.visible_project_ids),
-            ApprovalRequest.submitter_id == context.user_id,
-        )
-    )
+    statement = _submission_query(context)
     return _request_page(
         session,
         request,
@@ -235,6 +312,8 @@ def my_submissions(
         statement=statement,
         project_id=project_id,
         document_id=document_id,
+        q=q,
+        stage=stage,
         priority=priority,
         source_type=source_type,
         result=result,
@@ -267,6 +346,104 @@ def pending_publish_versions(context: IdentityContext = Depends(get_identity_con
         .limit(100)
     )
     return [_pending_publish_response(version, document, project, request, submitter, owner_task_id) for version, document, project, request, submitter, owner_task_id in rows]
+
+
+@router.get("/approvals/pending-publish/page", response_model=ApprovalPendingPublishPage)
+def pending_publish_versions_page(
+    request: Request,
+    cursor: str | None = None,
+    limit: int = Query(default=20, ge=1, le=100),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> ApprovalPendingPublishPage:
+    _validated_filters(request)
+    owner_projects = set(session.scalars(select(ProjectOwner.project_id).where(ProjectOwner.user_id == context.user_id)))
+    scope_hash = cursor_filter_hash({
+        "actor": context.user_id,
+        "visible": sorted(str(value) for value in context.visible_project_ids),
+        "owner": sorted(str(value) for value in owner_projects),
+    })
+    latest_request = (
+        select(ApprovalRequest.id, ApprovalRequest.submitter_id, ApprovalRequest.approved_at)
+        .where(ApprovalRequest.document_version_id == DocumentVersion.id, ApprovalRequest.status == "approved")
+        .order_by(ApprovalRequest.approved_at.desc().nullslast(), ApprovalRequest.created_at.desc(), ApprovalRequest.id.desc())
+        .limit(1).correlate(DocumentVersion).lateral("pending_publish_request")
+    )
+    owner_task_id = (
+        select(ApprovalTask.id)
+        .where(ApprovalTask.approval_request_id == latest_request.c.id,
+               ApprovalTask.review_stage == "owner_review", ApprovalTask.status == "approved")
+        .order_by(ApprovalTask.completed_at.desc().nullslast(), ApprovalTask.submitted_at.desc(), ApprovalTask.id.desc())
+        .limit(1).correlate(latest_request).scalar_subquery()
+    )
+    active_manifest_exists = select(ActiveVersionManifest.id).where(ActiveVersionManifest.document_version_id == DocumentVersion.id).exists()
+    owner_exists = select(ProjectOwner.project_id).where(
+        ProjectOwner.project_id == DocumentVersion.project_id, ProjectOwner.user_id == context.user_id,
+    ).exists()
+    eligible = (
+        select(
+            latest_request.c.id.label("approval_request_id"), owner_task_id.label("approval_task_id"),
+            DocumentVersion.project_id, Project.name.label("project_name"),
+            DocumentVersion.document_id, Document.title.label("document_title"),
+            DocumentVersion.id.label("document_version_id"), DocumentVersion.version_label,
+            DocumentVersion.status.label("version_status"), DocumentVersion.lock_version,
+            latest_request.c.submitter_id, User.given_name.label("submitter_given_name"),
+            User.family_name.label("submitter_family_name"), User.display_name.label("submitter_name"),
+            User.email.label("submitter_email"), latest_request.c.approved_at,
+            DocumentVersion.updated_at.label("sort_updated_at"), DocumentVersion.created_at.label("sort_created_at"),
+        )
+        .select_from(DocumentVersion)
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .join(Project, Project.id == DocumentVersion.project_id)
+        .outerjoin(latest_request, true()).outerjoin(User, User.id == latest_request.c.submitter_id)
+        .where(Project.status == "active", DocumentVersion.project_id.in_(context.visible_project_ids),
+               DocumentVersion.project_id.in_(owner_projects), owner_exists,
+               DocumentVersion.status == "approved", DocumentVersion.published_at.is_(None), ~active_manifest_exists)
+        .cte("pending_publish_eligible")
+    )
+    page = select(eligible)
+    if cursor:
+        payload = decode_cursor(request.app.state.settings, namespace="approval-pending-publish", value=cursor)
+        if payload.get("filter") != scope_hash:
+            raise AppError("cursor_scope_mismatch", "Cursor does not match the current approval scope", status_code=422)
+        try:
+            approved = datetime.fromisoformat(payload["approved_at"]) if payload["approved_at"] is not None else None
+            updated = datetime.fromisoformat(payload["updated_at"])
+            created = datetime.fromisoformat(payload["created_at"])
+            version_id = UUID(payload["id"])
+            if any(value.tzinfo is None for value in (updated, created, approved) if value is not None):
+                raise ValueError("timezone required")
+        except (KeyError, ValueError, TypeError) as exc:
+            raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
+        tail = tuple_(eligible.c.sort_updated_at, eligible.c.sort_created_at, eligible.c.document_version_id) < tuple_(updated, created, version_id)
+        boundary = and_(eligible.c.approved_at.is_(None), tail) if approved is None else or_(
+            eligible.c.approved_at < approved, eligible.c.approved_at.is_(None),
+            and_(eligible.c.approved_at == approved, tail),
+        )
+        page = page.where(boundary)
+    def ordering(columns):
+        return (columns.approved_at.desc().nullslast(), columns.sort_updated_at.desc(),
+                columns.sort_created_at.desc(), columns.document_version_id.desc())
+    paged = page.order_by(*ordering(eligible.c)).limit(limit + 1).subquery("pending_publish_page")
+    count = select(func.count().label("total")).select_from(eligible).subquery("pending_publish_count")
+    # The outer join preserves total even when the cursor now points beyond the last row.
+    rows = list(session.execute(
+        select(count.c.total, *paged.c).select_from(count.outerjoin(paged, true())).order_by(*ordering(paged.c))
+    ).mappings())
+    total = rows[0]["total"]
+    items = [row for row in rows if row["document_version_id"] is not None]
+    has_more = len(items) > limit
+    items = items[:limit]
+    next_cursor = None
+    if has_more:
+        last = items[-1]
+        next_cursor = encode_cursor(request.app.state.settings, namespace="approval-pending-publish", payload={
+            "filter": scope_hash, "approved_at": last["approved_at"].isoformat() if last["approved_at"] else None,
+            "updated_at": last["sort_updated_at"].isoformat(), "created_at": last["sort_created_at"].isoformat(),
+            "id": str(last["document_version_id"]),
+        })
+    return ApprovalPendingPublishPage(items=[ApprovalPendingPublishResponse.model_validate(dict(row)) for row in items],
+                                      total=total, has_more=has_more, next_cursor=next_cursor)
 
 
 @router.get("/approval-requests", response_model=list[ApprovalRequestResponse])
@@ -635,6 +812,8 @@ def _task_page(
     project_id: UUID | None,
     document_id: UUID | None,
     editor_id: UUID | None,
+    submitter_id: UUID | None,
+    q: str | None,
     priority: str | None,
     source_type: str | None,
     stage: str | None,
@@ -644,13 +823,19 @@ def _task_page(
     cursor: str | None,
     limit: int,
 ) -> ApprovalTaskPage:
+    q = _validated_filters(request, q=q, stage=stage, date_from=date_from, date_to=date_to)
+    if editor_id is not None and submitter_id is not None and editor_id != submitter_id:
+        raise AppError("approval_filter_conflict", "Submitter filters conflict", status_code=422)
+    submitter_id = submitter_id if submitter_id is not None else editor_id
+    if q:
+        statement = statement.where(Document.title.ilike(_name_pattern(q), escape="\\"))
     if project_id is not None:
         require_project_scope(project_id, set(context.visible_project_ids))
         statement = statement.where(ApprovalTask.project_id == project_id)
     if document_id is not None:
         statement = statement.where(ApprovalTask.document_id == document_id)
-    if editor_id is not None:
-        statement = statement.where(ApprovalTask.submitter_id == editor_id)
+    if submitter_id is not None:
+        statement = statement.where(ApprovalTask.submitter_id == submitter_id)
     if priority:
         statement = statement.where(ApprovalRequest.priority == priority)
     if source_type:
@@ -668,7 +853,8 @@ def _task_page(
             "actor": context.user_id,
             "project_id": project_id,
             "document_id": document_id,
-            "editor_id": editor_id,
+            "submitter_id": submitter_id,
+            "q": q,
             "priority": priority,
             "source_type": source_type,
             "stage": stage,
@@ -714,6 +900,8 @@ def _request_page(
     statement,
     project_id: UUID | None,
     document_id: UUID | None,
+    q: str | None,
+    stage: str | None,
     priority: str | None,
     source_type: str | None,
     result: str | None,
@@ -722,6 +910,12 @@ def _request_page(
     cursor: str | None,
     limit: int,
 ) -> ApprovalRequestPage:
+    q = _validated_filters(request, q=q, stage=stage, date_from=date_from, date_to=date_to)
+    if q:
+        statement = statement.where(Document.title.ilike(_name_pattern(q), escape="\\"))
+    if stage:
+        current_task = select(ApprovalTask.id).where(ApprovalTask.id == ApprovalRequest.current_task_id, ApprovalTask.status == "pending", ApprovalTask.review_stage == stage).exists()
+        statement = statement.where(current_task)
     if project_id is not None:
         require_project_scope(project_id, set(context.visible_project_ids))
         statement = statement.where(ApprovalRequest.project_id == project_id)
@@ -742,6 +936,8 @@ def _request_page(
             "actor": context.user_id,
             "project_id": project_id,
             "document_id": document_id,
+            "q": q,
+            "stage": stage,
             "priority": priority,
             "source_type": source_type,
             "result": result,
@@ -1000,36 +1196,6 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
         download_url=original_url,
         markdown_source_mode=markdown_source_mode,
     )
-
-
-
-
-
-
-
-
-def _tag_details_query(session: Session, source_model, link_filter) -> list[KnowledgeTagResponse]:
-    rows = session.execute(select(source_model, Tag).join(Tag, source_model.tag_id == Tag.id).where(link_filter, source_model.source != "rule").order_by(Tag.name)).all()
-    return [
-        KnowledgeTagResponse(
-            tag_id=tag.id,
-            tag_text=tag.name,
-            source=link.source,
-            confidence_score=float(link.confidence_score) if link.confidence_score is not None else None,
-            metadata=link.metadata_ or {},
-            created_by=link.created_by,
-            created_at=link.created_at,
-        )
-        for link, tag in rows
-    ]
-
-
-def _chunk_tag_details(session: Session, chunk_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, ChunkTag, ChunkTag.chunk_id == chunk_id)
-
-
-def _document_tag_details(session: Session, version_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, DocumentVersionTag, DocumentVersionTag.document_version_id == version_id)
 
 
 def _chunk_evidence(session: Session, chunk: Chunk) -> ApprovalChunkEvidence:

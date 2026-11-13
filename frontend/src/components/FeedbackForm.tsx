@@ -6,11 +6,19 @@ import { FeedbackField, FeedbackMessage } from "./FeedbackMessage";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 
 type Control = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
-type Issue = { control: Control; host: HTMLSpanElement; key: TranslationKey; originalDescription: string | null; originalInvalid: string | null };
+type Annotation = { control: HTMLElement; description: string | null; invalid: string | null };
+type Issue = { control: Control; host: HTMLSpanElement; key: TranslationKey; annotations: Annotation[] };
+function focusControl(control: Control) {
+  const target = control instanceof HTMLSelectElement && control.dataset.appSelectBridge
+    ? document.getElementById(control.dataset.appSelectBridge) : control;
+  (target ?? control).focus();
+}
 function removeIssue(issue: Issue) {
   issue.host.remove();
-  if (issue.originalDescription === null) issue.control.removeAttribute("aria-describedby"); else issue.control.setAttribute("aria-describedby", issue.originalDescription);
-  if (issue.originalInvalid === null) issue.control.removeAttribute("aria-invalid"); else issue.control.setAttribute("aria-invalid", issue.originalInvalid);
+  for (const item of issue.annotations) {
+    if (item.description === null) item.control.removeAttribute("aria-describedby"); else item.control.setAttribute("aria-describedby", item.description);
+    if (item.invalid === null) item.control.removeAttribute("aria-invalid"); else item.control.setAttribute("aria-invalid", item.invalid);
+  }
 }
 
 /** Native browser validity drives feedback; field values never enter message state. */
@@ -30,20 +38,23 @@ export function FeedbackForm({ children, onSubmit, onChange, outcomeUnknown = fa
     const next = invalid.map(control => {
       const host = document.createElement("span"); host.id = `feedback-field-${crypto.randomUUID()}`; host.className = "feedback-field-host";
       host.setAttribute("aria-hidden", "true"); // The explicit description reference reads it without changing the label.
-      const originalDescription = control.getAttribute("aria-describedby"), originalInvalid = control.getAttribute("aria-invalid");
+      const visible = control instanceof HTMLSelectElement && control.dataset.appSelectBridge ? document.getElementById(control.dataset.appSelectBridge) : null;
+      const annotations = [control, ...(visible ? [visible] : [])].map(element => ({ control: element, description: element.getAttribute("aria-describedby"), invalid: element.getAttribute("aria-invalid") }));
       control.insertAdjacentElement("afterend", host);
-      control.setAttribute("aria-invalid", "true"); control.setAttribute("aria-describedby", [originalDescription, host.id].filter(Boolean).join(" "));
+      for (const item of annotations) {
+        item.control.setAttribute("aria-invalid", "true"); item.control.setAttribute("aria-describedby", [item.description, host.id].filter(Boolean).join(" "));
+      }
       const key: TranslationKey = control.validity.valueMissing ? "feedbackFieldRequired" : control.validity.typeMismatch ? "feedbackFieldType" : "feedbackFieldInvalid";
-      return { control, host, key, originalDescription, originalInvalid };
+      return { control, host, key, annotations };
     });
-    issueRef.current = next; setIssues(next); invalid[0].focus();
+    issueRef.current = next; setIssues(next); focusControl(invalid[0]);
   }} onChange={event => {
     const control: EventTarget = event.target;
     const cleared = issueRef.current.filter(item => item.control === control && item.control.validity.valid);
     if (cleared.length) { cleared.forEach(removeIssue); issueRef.current = issueRef.current.filter(item => !cleared.includes(item)); setIssues([...issueRef.current]); }
     onChange?.(event);
   }}>
-    {issues.length ? <FeedbackMessage className="feedback-form-summary" title={format("feedbackFieldSummary", { count: issues.length })} actions={<button type="button" className="action-button secondary" onClick={() => issues[0]?.control.focus()}>{t("feedbackGoToField")}</button>} /> : null}
+    {issues.length ? <FeedbackMessage className="feedback-form-summary" title={format("feedbackFieldSummary", { count: issues.length })} actions={<button type="button" className="action-button secondary" onClick={() => { if (issues[0]) focusControl(issues[0].control); }}>{t("feedbackGoToField")}</button>} /> : null}
     <fieldset className="feedback-form-fields" disabled={outcomeUnknown}>{children}</fieldset>
     {issues.map(issue => createPortal(<FeedbackField>{t(issue.key)}</FeedbackField>, issue.host, issue.host.id))}
   </form>;

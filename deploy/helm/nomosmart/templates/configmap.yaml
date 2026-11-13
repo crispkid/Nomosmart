@@ -3,6 +3,9 @@
 {{- end }}
 {{- range $env := list .Values.backend.env .Values.frontend.env }}
 {{- range $name, $_ := $env }}
+{{- if eq (upper $name) "DEPLOYMENT_PROFILE" }}
+{{- fail "DEPLOYMENT_PROFILE is chart-managed; configure deploymentProfile instead" }}
+{{- end }}
 {{- if has (upper $name) (list "MIGRATION_REQUIRED_VERSION" "MIGRATION_REQUIRED_CHECKSUM" "MIGRATION_BASELINE_CHECKSUM" "MIGRATION_CHECK_TIMEOUT_SECONDS") }}
 {{- fail (printf "%s is chart-managed; configure migration.* instead" $name) }}
 {{- end }}
@@ -33,6 +36,7 @@ data:
   {{ $key }}: {{ $value | quote }}
   {{- end }}
   INSTALLER_DEPLOYMENT_STAGE: {{ .Values.installer.deploymentStage | quote }}
+  DEPLOYMENT_PROFILE: {{ .Values.deploymentProfile | quote }}
   INSTALLER_FINALIZATION_ENABLED: {{ .Values.bootstrap.finalize.enabled | quote }}
   DEPLOYMENT_BOOTSTRAP_RELEASE: {{ $bootstrapEvidenceRelease | quote }}
   MIGRATION_REQUIRED_VERSION: {{ .Values.migration.requiredVersion | quote }}
@@ -46,7 +50,7 @@ data:
   ONBOARDING_ADMIN_ALLOW_CIDR: {{ .Values.bootstrap.onboardingAdminAllowCidr | quote }}
   NEO4J_COMMUNITY_ADMIN_EQUIVALENT_ACCEPTED: {{ .Values.acceptedRisks.neo4jCommunityAdminEquivalent | quote }}
   KUBERNETES_SECRET_MOUNT_ROOT: "/var/run/nomosmart-secrets"
-  {{- $generatedBackend := list "REDIS_URL" "REDIS_SENTINEL_NODES" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ENDPOINT_URL" "S3_CA_CERT_PATH" "OPENSEARCH_URL" "OPENSEARCH_CA_CERT_PATH" "NEO4J_URI" "NEO4J_CA_CERT_PATH" "OIDC_ISSUER_URL" "OIDC_DISCOVERY_URL" "OIDC_JWKS_URL" "KEYCLOAK_ADMIN_API_URL" "KEYCLOAK_ADMIN_INTERNAL_URL" }}
+  {{- $generatedBackend := list "REDIS_URL" "REDIS_SENTINEL_NODES" "CELERY_BROKER_URL" "CELERY_RESULT_BACKEND" "S3_ENDPOINT_URL" "S3_CA_CERT_PATH" "OPENSEARCH_URL" "OPENSEARCH_CA_CERT_PATH" "NEO4J_URI" "NEO4J_CA_CERT_PATH" "OIDC_ISSUER_URL" "OIDC_DISCOVERY_URL" "OIDC_JWKS_URL" }}
   {{- range $key, $value := .Values.backend.env }}
   {{- if and (ne $key "FTPS_CA_CERT_PATH") (not (has $key $generatedBackend)) (not (hasKey $uploadSettings $key)) }}
   {{ $key }}: {{ $value | quote }}
@@ -62,28 +66,16 @@ data:
   NEXT_PUBLIC_APP_ORIGIN: {{ .Values.global.publicOrigin | quote }}
   FRONTEND_APP_ORIGIN: {{ .Values.global.publicOrigin | quote }}
   BACKEND_INTERNAL_API_BASE_URL: {{ printf "http://%s-backend:%v/api/v1" (include "nomosmart.fullname" .) .Values.backend.service.port | quote }}
-  {{- if eq .Values.keycloak.mode "bundled" }}
-  NEXT_PUBLIC_OIDC_ISSUER_URL: {{ printf "%s%s/realms/nomosmart" .Values.global.publicOrigin .Values.global.keycloakPath | quote }}
-  FRONTEND_OIDC_ISSUER_URL: {{ printf "%s%s/realms/nomosmart" .Values.global.publicOrigin .Values.global.keycloakPath | quote }}
-  FRONTEND_OIDC_INTERNAL_ISSUER_URL: {{ printf "http://%s-keycloak:%v%s/realms/nomosmart" (include "nomosmart.fullname" .) .Values.keycloak.service.httpPort .Values.global.keycloakPath | quote }}
-  OIDC_ISSUER_URL: {{ printf "%s%s/realms/nomosmart" .Values.global.publicOrigin .Values.global.keycloakPath | quote }}
-  OIDC_DISCOVERY_URL: {{ printf "http://%s-keycloak:%v%s/realms/nomosmart/.well-known/openid-configuration" (include "nomosmart.fullname" .) .Values.keycloak.service.httpPort .Values.global.keycloakPath | quote }}
-  OIDC_JWKS_URL: {{ printf "http://%s-keycloak:%v%s/realms/nomosmart/protocol/openid-connect/certs" (include "nomosmart.fullname" .) .Values.keycloak.service.httpPort .Values.global.keycloakPath | quote }}
-  KEYCLOAK_ADMIN_API_URL: {{ printf "%s%s" .Values.global.publicOrigin .Values.global.keycloakPath | quote }}
-  KEYCLOAK_ADMIN_INTERNAL_URL: {{ printf "http://%s-keycloak:%v%s" (include "nomosmart.fullname" .) .Values.keycloak.service.httpPort .Values.global.keycloakPath | quote }}
-  {{- else }}
-  NEXT_PUBLIC_OIDC_ISSUER_URL: {{ .Values.keycloak.external.issuerUrl | quote }}
-  FRONTEND_OIDC_ISSUER_URL: {{ .Values.keycloak.external.issuerUrl | quote }}
-  FRONTEND_OIDC_INTERNAL_ISSUER_URL: {{ .Values.keycloak.external.internalIssuerUrl | default .Values.keycloak.external.issuerUrl | quote }}
-  OIDC_ISSUER_URL: {{ .Values.keycloak.external.issuerUrl | quote }}
-  OIDC_DISCOVERY_URL: {{ .Values.keycloak.external.discoveryUrl | quote }}
-  OIDC_JWKS_URL: {{ .Values.keycloak.external.jwksUrl | quote }}
-  KEYCLOAK_ADMIN_API_URL: {{ .Values.keycloak.external.adminApiUrl | quote }}
-  KEYCLOAK_ADMIN_INTERNAL_URL: {{ .Values.keycloak.external.adminApiUrl | quote }}
-  {{- if .Values.keycloak.external.caSecretName }}
-  SSL_CERT_FILE: "/etc/nomosmart/tls/keycloak-ca.crt"
-  NODE_EXTRA_CA_CERTS: "/etc/nomosmart/tls/keycloak-ca.crt"
+  AUTH_SESSION_IDLE_SECONDS: "1800"
+  AUTH_ENDPOINT_ALLOWED_HOSTS: {{ .Values.authentication.endpointAllowedHosts | quote }}
+  AUTH_ENDPOINT_ALLOWED_CIDRS: {{ .Values.authentication.endpointAllowedCidrs | quote }}
+  AUTH_TRUST_ROOT: "/etc/nomosmart/auth-ca"
+  AUTH_ENCRYPTION_KEY_ID: {{ .Values.authentication.encryptionKeyId | quote }}
+  {{- if .Values.authentication.previousKeysSecretName }}
+  AUTH_ENCRYPTION_PREVIOUS_KEYS_FILE: "/run/nomosmart-auth-keys/keys.json"
   {{- end }}
+  {{- if .Values.authentication.bootstrapConfiguration }}
+  AUTH_BOOTSTRAP_CONFIGURATION: "/etc/nomosmart/auth-bootstrap/config.json"
   {{- end }}
   {{- if eq .Values.rustfs.mode "bundled" }}
   S3_ENDPOINT_URL: {{ printf "https://%s-rustfs:%v" (include "nomosmart.fullname" .) .Values.rustfs.service.port | quote }}

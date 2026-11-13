@@ -1,24 +1,11 @@
 "use client";
-
-import { useEffect, useRef } from "react";
-import { useAuth } from "@/components/AuthProvider";
-
+import { useEffect } from "react";
+import { useAuth } from "./AuthProvider";
+import { safeReturnPath } from "@/lib/oidc";
 export default function LoginSessionRedirect({ shouldProbe }: { shouldProbe: boolean }) {
-  const { tokens, currentUser } = useAuth();
-  const started = useRef(false);
-
+  const { currentUser, authReady } = useAuth();
   useEffect(() => {
-    if (started.current) return;
-    if (tokens && currentUser) {
-      started.current = true;
-      window.location.replace("/api/auth/continue");
-      return;
-    }
-    if (shouldProbe && !tokens) {
-      started.current = true;
-      window.location.replace("/api/auth/start?prompt=none");
-    }
-  }, [currentUser, shouldProbe, tokens]);
-
+    if (authReady && currentUser && shouldProbe) window.location.replace(safeReturnPath(new URL(window.location.href).searchParams.get("returnTo") || "/"));
+  }, [currentUser, authReady, shouldProbe]);
   return null;
 }

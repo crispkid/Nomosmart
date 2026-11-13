@@ -13,8 +13,8 @@ from typing import Protocol, TypeVar
 logger = logging.getLogger("nomosmart.readiness")
 CHECK_NAMES = (
     "postgresql", "redis", "celery_broker", "celery_result_backend", "s3",
-    "opensearch", "neo4j", "keycloak", "celery_worker", "deployment.evidence",
-    "deployment.database", "deployment.s3", "deployment.oidc",
+    "opensearch", "neo4j", "authentication", "celery_worker", "deployment.evidence",
+    "deployment.database", "deployment.s3", "deployment.authentication", "deployment.onboarding",
 )
 OUTCOMES = frozenset(("healthy", "unhealthy", "error"))
 

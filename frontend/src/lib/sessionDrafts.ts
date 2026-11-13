@@ -24,6 +24,10 @@ export function captureSessionDraft(): CapturedSessionDraft | null {
       payload[key] = field.checked;
       return;
     }
+    if (field.hasAttribute("data-session-draft-raw")) {
+      payload[key] = field.value;
+      return;
+    }
     if (field instanceof HTMLInputElement && field.type === "number") {
       payload[key] = Number(field.value);
       return;

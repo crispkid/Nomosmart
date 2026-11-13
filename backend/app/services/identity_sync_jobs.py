@@ -11,16 +11,17 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.db.models import IdentitySetting, IdentitySyncProviderResult, IdentitySyncRun, OutboxEvent
-from app.integrations.redis_ha import redis_client
+from app.integrations.redis_ha import shared_redis_client
 from app.services.audit import add_audit
 
 
-WORKER_HEARTBEAT_KEY = "nomosmart:runtime:celery-worker"
-BEAT_HEARTBEAT_KEY = "nomosmart:runtime:celery-beat"
+WORKER_HEARTBEAT_KEY = "nomosmart:runtime:celery-worker:auth-v2"
+BEAT_HEARTBEAT_KEY = "nomosmart:runtime:celery-beat:auth-v2"
 
 
 def _redis(settings: Settings) -> Redis:
-    return redis_client(
+    # Shared per process (OPT424-019); callers must not close it.
+    return shared_redis_client(
         settings,
         url=settings.celery_broker_url.get_secret_value(),
     )
@@ -28,31 +29,21 @@ def _redis(settings: Settings) -> Redis:
 
 def record_worker_heartbeat(settings: Settings) -> None:
     ttl = max(60, settings.identity_sync_heartbeat_seconds * 3)
-    client = _redis(settings)
-    try:
-        client.set(WORKER_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
-    finally:
-        client.close()
+    _redis(settings).set(settings.celery_global_keyprefix + WORKER_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
 
 
 def record_beat_heartbeat(settings: Settings) -> None:
     ttl = max(60, settings.identity_sync_heartbeat_seconds * 3)
-    client = _redis(settings)
-    try:
-        client.set(BEAT_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
-    finally:
-        client.close()
+    _redis(settings).set(settings.celery_global_keyprefix + BEAT_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
 
 
 def identity_runtime_status(settings: Settings) -> dict[str, bool]:
     client = _redis(settings)
     try:
-        values = client.mget(WORKER_HEARTBEAT_KEY, BEAT_HEARTBEAT_KEY)
+        values = client.mget(settings.celery_global_keyprefix + WORKER_HEARTBEAT_KEY, settings.celery_global_keyprefix + BEAT_HEARTBEAT_KEY)
         return {"worker_available": values[0] is not None, "beat_available": values[1] is not None}
     except RedisError:
         return {"worker_available": False, "beat_available": False}
-    finally:
-        client.close()
 
 
 def recover_stale_identity_runs(
@@ -153,8 +144,11 @@ def create_identity_sync_run(
             details={"run_id": str(existing.id), "status": existing.status},
         )
     lease_token = uuid4()
+    from app.security.auth_configuration import configuration, current_setting
+    setting = current_setting(session)
     run = IdentitySyncRun(
-        source="keycloak",
+        source=configuration(setting).directory.schema_type,
+        configuration_revision=setting.revision,
         trigger_type=trigger_type,
         status="queued",
         requested_scope=requested_scope,
@@ -174,7 +168,7 @@ def create_identity_sync_run(
     session.flush()
     session.add(
         OutboxEvent(
-            topic="identity.sync.requested",
+            topic="identity.directory-sync.v2.requested",
             aggregate_type="identity_sync_run",
             aggregate_id=run.id,
             payload={"run_id": str(run.id), "lease_token": str(lease_token)},

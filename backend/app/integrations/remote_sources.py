@@ -32,23 +32,30 @@ class HTTPRemoteSourceClient:
         request_headers = {**(headers or {}), "host": host_header}
         try:
             with httpx.Client(verify=verify_tls, timeout=timeout_seconds, follow_redirects=False, trust_env=False) as client:
-                response = client.get(pinned_url, headers=request_headers, extensions={"sni_hostname": sni_hostname})
+                with client.stream("GET", pinned_url, headers=request_headers, extensions={"sni_hostname": sni_hostname}) as response:
+                    if 300 <= response.status_code < 400:
+                        raise AppError("http_redirect_not_allowed", "HTTP/API source redirects are not allowed", status_code=422)
+                    if response.status_code == 404:
+                        raise AppError("remote_file_not_found", "HTTP/API source was not found", status_code=404)
+                    if response.status_code in {401, 403}:
+                        raise AppError("authentication_failed", "HTTP/API source authentication failed", status_code=503)
+                    if response.status_code >= 400:
+                        raise AppError("connection_failed", "HTTP/API source fetch failed", status_code=503, details={"status_code": response.status_code})
+                    length_header = response.headers.get("content-length")
+                    content_length = int(length_header) if length_header and length_header.isdigit() else None
+                    if max_bytes is not None and content_length is not None and content_length > max_bytes:
+                        raise AppError("sync_file_too_large", "HTTP/API source exceeds the configured size limit", status_code=413)
+                    body = bytearray()
+                    chunk_size = min(65536, max_bytes + 1) if max_bytes is not None else 65536
+                    for chunk in response.iter_bytes(chunk_size=max(1, chunk_size)):
+                        if max_bytes is not None and len(body) + len(chunk) > max_bytes:
+                            raise AppError("sync_file_too_large", "HTTP/API source exceeds the configured size limit", status_code=413)
+                        body.extend(chunk)
+                    return RemoteObject(body=bytes(body), etag=response.headers.get("etag"), content_type=response.headers.get("content-type"), content_length=content_length if content_length is not None else len(body))
         except httpx.TimeoutException as exc:
             raise AppError("connection_timeout", "HTTP/API source timed out", status_code=503) from exc
         except httpx.HTTPError as exc:
             raise AppError("connection_failed", "HTTP/API source fetch failed", status_code=503) from exc
-        if 300 <= response.status_code < 400:
-            raise AppError("http_redirect_not_allowed", "HTTP/API source redirects are not allowed", status_code=422)
-        if response.status_code == 404:
-            raise AppError("remote_file_not_found", "HTTP/API source was not found", status_code=404)
-        if response.status_code in {401, 403}:
-            raise AppError("authentication_failed", "HTTP/API source authentication failed", status_code=503)
-        if response.status_code >= 400:
-            raise AppError("connection_failed", "HTTP/API source fetch failed", status_code=503, details={"status_code": response.status_code})
-        if max_bytes is not None and len(response.content) > max_bytes:
-            raise AppError("sync_file_too_large", "HTTP/API source exceeds the configured size limit", status_code=413)
-        content_length = response.headers.get("content-length")
-        return RemoteObject(body=response.content, etag=response.headers.get("etag"), content_type=response.headers.get("content-type"), content_length=int(content_length) if content_length and content_length.isdigit() else len(response.content))
 
     def probe(
         self,

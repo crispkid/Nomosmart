@@ -10,7 +10,7 @@
         "namespace": "<dedicated-dependency-namespace>"
       },
       "data": {
-        "nginx.conf": "pid /tmp/nginx.pid;\nevents {}\nstream {\n error_log /dev/stderr;\nserver { listen 15432; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <postgresql-ip>:5432; }\nserver { listen 16379; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <redis-primary-ip>:6379; }\nserver { listen 19000; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <rustfs-ip>:9000; }\nserver { listen 19200; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <opensearch-ip>:9200; }\nserver { listen 17687; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <neo4j-ip>:7687; }\nserver { listen 18443; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <keycloak-ip>:443; }\n}\n"
+        "nginx.conf": "pid /tmp/nginx.pid;\nevents {}\nstream {\n error_log /dev/stderr;\nserver { listen 15432; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <postgresql-ip>:5432; }\nserver { listen 16379; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <redis-primary-ip>:6379; }\nserver { listen 19000; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <rustfs-ip>:9000; }\nserver { listen 19200; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <opensearch-ip>:9200; }\nserver { listen 17687; proxy_connect_timeout 10s; proxy_timeout 600s; proxy_pass <neo4j-ip>:7687; }\n}\n"
       }
     },
     {

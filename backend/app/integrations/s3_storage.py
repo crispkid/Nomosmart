@@ -46,8 +46,11 @@ class S3ClientConfig:
 class S3ObjectStorage(ObjectStorage):
     def __init__(self, settings: Settings | S3ClientConfig) -> None:
         self.config = settings if isinstance(settings, S3ClientConfig) else S3ClientConfig.from_settings(settings)
+        self.object_prefix = "" if isinstance(settings, S3ClientConfig) else settings.s3_object_prefix
 
     def put_object(self, *, bucket: str, key: str, body: bytes | UploadContent, content_type: str | None) -> StoredObject:
+        if self.object_prefix and not key.startswith(self.object_prefix):
+            key = self.object_prefix + key.lstrip("/")
         if not self.config.access_key or not self.config.secret_key:
             raise AppError("s3_credentials_missing", "S3 credentials are not configured", status_code=503)
         endpoint = self.config.endpoint_url.rstrip("/") + "/"
@@ -70,25 +73,42 @@ class S3ObjectStorage(ObjectStorage):
     def get_object(self, *, bucket: str, key: str, max_bytes: int | None = None) -> RemoteObject:
         if not self.config.access_key or not self.config.secret_key:
             raise AppError("s3_credentials_missing", "S3 credentials are not configured", status_code=503)
-        endpoint = self.config.endpoint_url.rstrip("/") + "/"
-        encoded_key = "/".join(quote(part, safe="") for part in key.split("/"))
-        url = urljoin(endpoint, f"{quote(bucket, safe='')}/{encoded_key}")
-        now = datetime.now(UTC)
-        headers = self._signed_headers("GET", url, b"", now, None)
+        if max_bytes is not None and (type(max_bytes) is not int or max_bytes < 1):
+            raise AppError("s3_read_limit_invalid", "Remote object read limit must be positive", status_code=422)
+        url = self._object_url(bucket, key)
+        headers = self._signed_headers("GET", url, b"", datetime.now(UTC), None)
+        def check_status(status):
+            if status == 404:
+                raise AppError("remote_file_not_found", "Remote file was not found", status_code=404)
+            if status in {401, 403}:
+                raise AppError("authentication_failed", "Remote authentication failed", status_code=503)
+            if status >= 400:
+                raise AppError("connection_failed", "Remote object fetch failed", status_code=503, details={"status_code": status})
         try:
-            response = httpx.get(url, headers=headers, timeout=30, verify=self.config.verify_tls)
+            if max_bytes is None:
+                # Preserve existing unlimited callers; native OCR always supplies
+                # its validated effective cap and uses the streaming branch.
+                response = httpx.get(url, headers=headers, timeout=30, verify=self.config.verify_tls)
+                check_status(response.status_code)
+                body, metadata = response.content, response.headers
+            else:
+                with httpx.stream("GET", url, headers=headers, timeout=30, verify=self.config.verify_tls) as response:
+                    check_status(response.status_code)
+                    metadata = response.headers
+                    length = metadata.get("content-length")
+                    if length and length.isdigit() and int(length) > max_bytes:
+                        raise AppError("sync_file_too_large", "Remote file exceeds the configured size limit", status_code=413)
+                    bounded = bytearray()
+                    for part in response.iter_bytes(chunk_size=min(65536, max_bytes + 1)):
+                        if len(part) > max_bytes - len(bounded):
+                            raise AppError("sync_file_too_large", "Remote file exceeds the configured size limit", status_code=413)
+                        bounded.extend(part)
+                    body = bytes(bounded)
         except httpx.HTTPError as exc:
             raise AppError("connection_failed", "Remote object fetch failed", status_code=503) from exc
-        if response.status_code == 404:
-            raise AppError("remote_file_not_found", "Remote file was not found", status_code=404)
-        if response.status_code in {401, 403}:
-            raise AppError("authentication_failed", "Remote authentication failed", status_code=503)
-        if response.status_code >= 400:
-            raise AppError("connection_failed", "Remote object fetch failed", status_code=503, details={"status_code": response.status_code})
-        if max_bytes is not None and len(response.content) > max_bytes:
-            raise AppError("sync_file_too_large", "Remote file exceeds the configured size limit", status_code=413)
-        content_length = response.headers.get("content-length")
-        return RemoteObject(body=response.content, etag=response.headers.get("etag"), content_type=response.headers.get("content-type"), content_length=int(content_length) if content_length and content_length.isdigit() else len(response.content))
+        length = metadata.get("content-length")
+        return RemoteObject(body=body, etag=metadata.get("etag"), content_type=metadata.get("content-type"),
+                            content_length=int(length) if length and length.isdigit() else len(body))
 
     def delete_object(self, *, bucket: str, key: str) -> None:
         url = self._object_url(bucket, key)

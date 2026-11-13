@@ -14,7 +14,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Document, DocumentVersion, FileProcessingExecution as Execution, FileProcessingPool, PipelineRun, Project
-from app.domain.file_processing_settings import FileProcessingSettings, PlatformCapabilities, load_policy, policy_error
+from app.domain.file_processing_settings import PlatformCapabilities, load_policy, policy_error, snapshot_setting
 
 
 ACTIVE_STATES = frozenset({"reserved", "starting", "running", "stopping", "recovery_required"})
@@ -51,6 +51,8 @@ def claim_execution(
     session: Session, *, run_id: UUID, kind: str, capabilities: PlatformCapabilities,
     parent_generation: UUID | None = None, retry_authorized: bool = False,
 ) -> Admission | None:
+    if kind != "document":
+        raise policy_error("file_processing_parser_retired", 422)
     policy = load_policy(session, lock=True)
     capabilities.validate(policy.settings)
     _pool(session, kind)
@@ -63,8 +65,7 @@ def claim_execution(
         return None
     occupied = session.scalar(select(func.count()).select_from(Execution).where(
         Execution.kind == kind, Execution.released_at.is_(None)))
-    maximum = (policy.settings.document_processing_max_concurrent if kind == "document"
-               else policy.settings.pdf_parser_max_concurrent)
+    maximum = policy.settings.document_processing_max_concurrent
     if occupied >= maximum:
         return None
     pipeline = session.get(PipelineRun, run_id)
@@ -79,29 +80,20 @@ def claim_execution(
         raise policy_error("file_processing_scope_stale")
     if not isinstance(version.content_sha256, str) or not re.fullmatch(r"[0-9a-f]{64}", version.content_sha256):
         raise policy_error("file_processing_input_identity_missing")
-    parent = None
-    if kind == "parser":
-        parent = _active(session, run_id, "document")
-        if parent is None or parent.generation != parent_generation or parent.state != "running":
-            raise policy_error("file_processing_parent_stale")
-        if parent.input_hash != version.content_sha256:
-            raise policy_error("file_processing_input_changed")
     previous = session.scalar(select(Execution).where(Execution.run_id == run_id, Execution.kind == kind)
                               .order_by(Execution.attempt.desc()).limit(1))
-    first_child_of_authorized_attempt = parent is not None and previous is not None and previous.parent_id != parent.id
-    if previous is not None and not retry_authorized and not first_child_of_authorized_attempt:
+    if previous is not None and not retry_authorized:
         raise policy_error("file_processing_retry_requires_authorization")
-    # Parser resource policy inherits the document attempt, not a mid-flight update.
-    values = FileProcessingSettings.model_validate(parent.policy_snapshot) if parent else policy.settings
+    values = policy.settings
     capabilities.validate(values)
     now = datetime.now(UTC)
     row = Execution(
         id=uuid4(), run_id=run_id, document_version_id=version.id, kind=kind,
-        parent_id=parent.id if parent else None, attempt=1 if previous is None else previous.attempt + 1,
+        parent_id=None, attempt=1 if previous is None else previous.attempt + 1,
         generation=uuid4(), deployment_id=policy.deployment_id, project_generation=project.work_generation,
-        state="reserved", policy_revision=parent.policy_revision if parent else policy.revision,
-        policy_snapshot=values.model_dump(mode="json"), policy_hash=values.content_hash,
-        input_hash=version.content_sha256, phase="starting_parser" if kind == "parser" else "waiting_worker",
+        state="reserved", policy_revision=policy.revision,
+        policy_snapshot=policy.execution_values(), policy_hash=values.content_hash,
+        input_hash=version.content_sha256, phase="waiting_worker",
         progress_revision=0, completed_units=0, created_at=now, updated_at=now,
     )
     session.add(row)
@@ -125,6 +117,8 @@ def _locked(session: Session, execution_id: UUID, generation: UUID) -> Execution
 
 def begin_execution(session: Session, *, execution_id: UUID, generation: UUID) -> bool:
     row = _locked(session, execution_id, generation)
+    if row.kind != "document":
+        raise policy_error("file_processing_parser_retired", 422)
     if row.state != "reserved":
         return False  # At-most-one worker may cross this durable start fence.
     now = datetime.now(UTC)
@@ -132,46 +126,12 @@ def begin_execution(session: Session, *, execution_id: UUID, generation: UUID) -
     row.phase = "starting_parser" if row.kind == "parser" else "processing"
     row.updated_at = row.heartbeat_at = now
     if row.kind == "parser":
-        row.deadline_at = now + timedelta(seconds=row.policy_snapshot["pdf_parser_timeout_seconds"])
+        row.deadline_at = now + timedelta(seconds=snapshot_setting(row.policy_snapshot, "document_processing_timeout_seconds"))
     return True
 
 
-def bind_workload(session: Session, *, execution_id: UUID, generation: UUID,
-                  workload_id: str, workload_uid: str, image_digest: str, profile: str) -> None:
-    row = _locked(session, execution_id, generation)
-    if row.kind != "parser" or row.state not in {"starting", "recovery_required"}:
-        raise policy_error("file_processing_workload_state_invalid")
-    if not all(isinstance(v, str) and re.fullmatch(r"[A-Za-z0-9_.:/@-]{1,255}", v)
-               for v in (workload_id, workload_uid, image_digest)) or not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", profile):
-        raise policy_error("file_processing_workload_identity_invalid")
-    if not re.search(r"sha256:[a-f0-9]{64}$", image_digest):
-        raise policy_error("file_processing_image_unpinned")
-    identity = (workload_id, workload_uid, image_digest, profile)
-    existing = (row.workload_id, row.workload_uid, row.image_digest, row.profile)
-    if row.workload_uid is not None and existing != identity:
-        raise policy_error("file_processing_workload_identity_changed")
-    row.workload_id, row.workload_uid, row.image_digest, row.profile = identity
-    if row.state == "starting":
-        row.state, row.phase = "running", "parsing"
-    row.updated_at = datetime.now(UTC)
 
 
-def bind_local_workload(session: Session, *, execution_id: UUID, generation: UUID,
-                        worker_identity: str, worker_pid: int, launch_uid: str) -> None:
-    row = _locked(session, execution_id, generation)
-    if (row.kind != "parser" or row.state != "starting" or row.workload_uid is not None
-            or not isinstance(worker_identity, str) or not re.fullmatch(r"[A-Za-z0-9_.:/@-]{1,160}", worker_identity)
-            or type(worker_pid) is not int or worker_pid <= 0):
-        raise policy_error("file_processing_workload_identity_invalid")
-    try:
-        if str(UUID(launch_uid)) != launch_uid:
-            raise ValueError()
-    except (ValueError, TypeError, AttributeError):
-        raise policy_error("file_processing_workload_identity_invalid") from None
-    row.workload_id = f"{worker_identity}/{worker_pid}/{launch_uid}"
-    row.workload_uid, row.profile, row.image_digest = launch_uid, "worker-local-v1", None
-    row.state, row.phase, row.updated_at = "running", "parsing", datetime.now(UTC)
-    session.flush()
 
 
 def transition_execution(session: Session, *, execution_id: UUID, generation: UUID, state: str, error_code: str | None = None) -> None:
@@ -195,7 +155,9 @@ def record_progress(session: Session, *, execution_id: UUID, generation: UUID, s
         raise policy_error("file_processing_progress_invalid", 422)
     if sequence <= row.progress_revision:
         return False
-    allowed_phases = {"parsing", "rendering_images"} if row.kind == "parser" else {"processing"}
+    if row.kind != "document":
+        raise policy_error("file_processing_parser_retired", 422)
+    allowed_phases = {"processing"}
     if row.state != "running" or phase not in allowed_phases:
         raise policy_error("file_processing_progress_state_invalid")
     if row.progress_revision and row.unit != unit:

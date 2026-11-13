@@ -11,7 +11,7 @@
 
 /** @type {VisibleTextAllowlist} */
 export const visibleTextAllowlist = Object.freeze({
-  externalBrand: Object.freeze(["Keycloak OIDC", "NomoSmart"]),
+  externalBrand: Object.freeze(["NomoSmart"]),
   protocol: Object.freeze([
     "API",
     "CSV",

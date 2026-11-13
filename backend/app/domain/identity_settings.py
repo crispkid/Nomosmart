@@ -53,7 +53,7 @@ def validate_identity_candidate_live(candidate: IdentitySettingsCandidate, *, al
 def require_fresh_auth(auth_time: int | None, session_id: str | None, *, now: datetime | None = None) -> None:
     effective_now = now or datetime.now(UTC)
     if auth_time is None or not session_id:
-        raise AppError("fresh_authentication_required", "Fresh Keycloak authentication is required", status_code=401)
+        raise AppError("fresh_authentication_required", "Fresh authentication is required", status_code=401)
     age = effective_now.timestamp() - auth_time
     if age < 0 or age > 300:
-        raise AppError("fresh_authentication_required", "Fresh Keycloak authentication is required", status_code=401)
+        raise AppError("fresh_authentication_required", "Fresh authentication is required", status_code=401)

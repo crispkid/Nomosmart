@@ -1,11 +1,20 @@
 import type { ApiError } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18n";
+import { OCR_NATIVE_ERROR_KEYS } from "./ocrPresentation.ts";
 import { MutationOutcomeUnknown, TransportError, UiValidationError } from "./transportError.ts";
 
 type Translate = (key: TranslationKey) => string;
 type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 
 const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
+  ...OCR_NATIVE_ERROR_KEYS,
+  archive_work_stop_unconfirmed: "archiveWorkStopUnconfirmed",
+  archive_work_scope_changed: "archiveWorkStopUnconfirmed",
+  file_processing_policy_version_invalid: "fileProcessingPolicyInvalid",
+  file_processing_alias_conflict: "fileProcessingPolicyInvalid",
+  file_processing_policy_migration_required: "fileProcessingPolicyInvalid",
+  approval_filter_invalid: "approvalFilterInvalid",
+  approval_filter_conflict: "approvalFilterConflict",
   unsupported_upload_type: "uploadModalHelp",
   ftps_tls_verification_required: "ftpsTlsVerificationRequired",
   ftps_ca_unavailable: "ftpsCaUnavailable",
@@ -69,6 +78,7 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   project_owner_required: "apiForbidden",
   stale_project_version: "apiConflict",
   validation_error: "apiValidation",
+  validation_execution_configuration_changed: "validationExecutionConfigurationChanged",
 };
 
 function asApiError(error: unknown): ApiError | null {

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 from functools import lru_cache
+import hashlib
 import json
 from ipaddress import IPv4Network, IPv6Network, ip_network
 import os
 from pathlib import Path
 import ssl
 import stat
+import threading
 from typing import Annotated, Any
 from typing import Literal, Self
 from urllib.parse import urlparse
@@ -19,11 +21,11 @@ from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource
 SECRET_FILE_FIELDS = frozenset(
     {
         "app_encryption_key",
+        "auth_encryption_key",
+        "directory_bind_password",
         "celery_broker_url",
         "celery_result_backend",
         "database_url",
-        "keycloak_bootstrap_admin_password",
-        "keycloak_sync_client_secret",
         "neo4j_admin_password",
         "neo4j_password",
         "oidc_client_secret",
@@ -135,6 +137,14 @@ class Settings(MigrationProbeSettings):
 
     database_url: SecretStr = SecretStr("postgresql+psycopg2://postgres:postgres@127.0.0.1:5432/nomosmart")
     model_usage_write_timeout_seconds: int = Field(default=10, ge=1, le=60, validation_alias="NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS")
+    db_pool_size: int = Field(default=10, ge=1, le=200, validation_alias="NOMOSMART_DB_POOL_SIZE")
+    db_max_overflow: int = Field(default=20, ge=0, le=400, validation_alias="NOMOSMART_DB_MAX_OVERFLOW")
+    db_pool_timeout_seconds: int = Field(default=30, ge=1, le=600, validation_alias="NOMOSMART_DB_POOL_TIMEOUT_SECONDS")
+    # 0 keeps the PostgreSQL server default (no limit). Chat turns intentionally
+    # hold a transaction-scoped advisory lock across the provider call, so an
+    # idle-in-transaction limit must exceed the longest provider timeout.
+    db_statement_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_STATEMENT_TIMEOUT_MS")
+    db_idle_in_transaction_timeout_ms: int = Field(default=0, ge=0, le=86400000, validation_alias="NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS")
     redis_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_broker_url: SecretStr = SecretStr("redis://127.0.0.1:6379/0")
     celery_result_backend: SecretStr = SecretStr("redis://127.0.0.1:6379/1")
@@ -148,6 +158,7 @@ class Settings(MigrationProbeSettings):
     s3_endpoint_url: str = "http://127.0.0.1:9000"
     s3_region: str = "us-east-1"
     s3_bucket: str = "nomosmart"
+    s3_object_prefix: str = ""
     s3_access_key_id: SecretStr = SecretStr("")
     s3_secret_access_key: SecretStr = SecretStr("")
     s3_use_ssl: bool = False
@@ -175,13 +186,27 @@ class Settings(MigrationProbeSettings):
     oidc_jwks_url: str = ""
     oidc_client_id: str = "nomosmart-backend"
     oidc_client_secret: SecretStr = SecretStr("")
+    deployment_phase: Literal["onboarding", "operational", "factory_acceptance"] = "operational"
+    auth_mode: Literal["oidc", "ldap"] = "oidc"
+    auth_display_name: str = "Enterprise sign-in"
+    auth_bootstrap_configuration: str = ""
+    directory_bind_password: SecretStr = SecretStr("")
+    auth_endpoint_allowed_hosts: str = ""
+    auth_endpoint_allowed_cidrs: str = ""
+    auth_trust_root: str = "/run/nomosmart-ca"
+    auth_encryption_key_id: str = "primary"
+    auth_encryption_key: SecretStr = SecretStr("")
+    auth_encryption_previous_keys_file: str = ""
+    auth_session_idle_seconds: Literal[1800] = 1800
+    auth_activity_interval_seconds: int = Field(default=15, ge=1, le=15)
+    auth_flow_ttl_seconds: Literal[300] = 300
+    auth_emergency_ttl_seconds: Literal[900] = 900
+    auth_ingress_attempts_per_minute: int = Field(default=1000, ge=20, le=10000)
+    auth_login_attempts_per_minute: int = Field(default=10, ge=1, le=100)
+    auth_network_timeout_seconds: int = Field(default=10, ge=1, le=60)
+    auth_emergency_username: str = "nomosmart-emergency"
     oidc_audience: str = "nomosmart-backend"
     oidc_frontend_client_id: str = "nomosmart-frontend"
-    keycloak_admin_api_url: str = "http://127.0.0.1:8080"
-    keycloak_admin_internal_url: str = ""
-    keycloak_sync_client_id: str = "nomosmart-sync"
-    keycloak_sync_client_secret: SecretStr = SecretStr("")
-    keycloak_ldap_group_path: str = "/ldap"
     break_glass_username: str = ""
     break_glass_system_admin_group: str = "system-admin"
     break_glass_runbook_uri: str = ""
@@ -193,7 +218,6 @@ class Settings(MigrationProbeSettings):
     identity_sync_queue_timeout_seconds: int = Field(default=300, ge=30, le=3600)
     identity_sync_run_timeout_seconds: int = Field(default=1800, ge=300, le=86400)
     identity_sync_heartbeat_seconds: int = Field(default=30, ge=10, le=300)
-    identity_sync_keycloak_provider_timeout_seconds: int = Field(default=600, ge=30, le=1800)
 
     app_encryption_key: SecretStr = SecretStr("0" * 64)
     default_timezone: str = "Asia/Taipei"
@@ -205,6 +229,17 @@ class Settings(MigrationProbeSettings):
     )
     content_edit_max_utf8_bytes: int = Field(default=10485760, ge=1024, le=1073741824, validation_alias="NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES")
     staging_index_ttl_days: int = Field(default=7, ge=1, le=3650)
+    staging_retention_lease_seconds: int = Field(default=300, ge=30, le=3600)
+    staging_retention_retry_seconds: int = Field(default=300, ge=30, le=86400)
+    staging_retention_batch_size: int = Field(default=100, ge=1, le=1000)
+    staging_retention_recovery_seconds: int = Field(default=60, ge=10, le=3600)
+    @field_validator("staging_retention_lease_seconds", "staging_retention_retry_seconds", "staging_retention_batch_size", "staging_retention_recovery_seconds", mode="before")
+    @classmethod
+    def validate_retention_integer(cls, value: Any) -> Any:
+        if isinstance(value, bool) or not (isinstance(value, int) or isinstance(value, str) and value.isascii() and value.isdecimal()):
+            raise ValueError("Retention operation limits must be finite integers")
+        return value
+
     upload_request_max_size_mb: int | None = Field(default=None, ge=2, le=10241, validation_alias="DOCUMENT_UPLOAD_REQUEST_MAX_SIZE_MB")
     upload_max_inflight: int = Field(default=2, ge=1, le=16, validation_alias="NOMOSMART_UPLOAD_MAX_INFLIGHT")
     upload_io_chunk_kib: int = Field(default=64, ge=4, le=1024, validation_alias="NOMOSMART_UPLOAD_IO_CHUNK_KIB")
@@ -251,24 +286,32 @@ class Settings(MigrationProbeSettings):
     document_title_context_enabled: bool = True
     table_chunk_max_rows: int = Field(default=10, ge=1, le=1000)
     remove_repeated_header_footer: bool = True
-    tesseract_command: str = "tesseract"
-    tesseract_pdf_command: str = "pdftoppm"
-    pdf_info_command: str = "pdfinfo"
-    pdf_text_command: str = "pdftotext"
-    pdf_separate_command: str = "pdfseparate"
-    pdf_ocr_dpi: int = Field(default=200, ge=100, le=300, validation_alias=AliasChoices("NOMOSMART_PDF_OCR_DPI", "pdf_ocr_dpi"))
-    tesseract_sandbox_command: str = "bwrap"
-    tesseract_sandbox_read_only_paths: Annotated[list[str], NoDecode] = Field(default_factory=list)
-    tesseract_timeout_seconds: int = Field(default=120, ge=10, le=1800)
-    tesseract_max_memory_mb: int = Field(default=512, ge=128, le=8192)
-    tesseract_max_pages: int = Field(default=200, ge=1, le=2000)
+    ocr_max_input_bytes: int = Field(default=45000000, ge=1, le=1024**3, validation_alias="NOMOSMART_OCR_MAX_INPUT_BYTES")
+    ocr_max_request_bytes: int = Field(default=67108864, ge=1, le=2**31-1, validation_alias="NOMOSMART_OCR_MAX_REQUEST_BYTES")
+    ocr_max_response_bytes: int = Field(default=8388608, ge=1, le=2**31-1, validation_alias="NOMOSMART_OCR_MAX_RESPONSE_BYTES")
+    ocr_document_timeout_seconds: int = Field(default=120, ge=1, le=1800, validation_alias="NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS")
+    celery_global_keyprefix: str = ""
+    celery_visibility_timeout_seconds: int = Field(default=3600, ge=300, le=172800, validation_alias="NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS")
+    # Scheduling/maintenance tasks finish in seconds; long work tasks (OCR,
+    # directory sync, validation, graph sync...) are unlimited unless set (0).
+    celery_short_task_soft_time_limit_seconds: int = Field(default=300, ge=0, le=86400, validation_alias="NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS")
+    celery_long_task_soft_time_limit_seconds: int = Field(default=0, ge=0, le=172800, validation_alias="NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS")
+    # OPT424-019: Celery beat intervals (seconds) for the periodic scheduling and maintenance tasks.
+    beat_directory_schedule_check_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DIRECTORY_SCHEDULE_CHECK_SECONDS")
+    beat_data_source_sync_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DATA_SOURCE_SYNC_SECONDS")
+    beat_outbox_dispatch_seconds: int = Field(default=10, ge=1, le=600, validation_alias="NOMOSMART_BEAT_OUTBOX_DISPATCH_SECONDS")
+    beat_archive_recovery_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_ARCHIVE_RECOVERY_SECONDS")
+    beat_auth_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_AUTH_RETENTION_CLEANUP_SECONDS")
+    beat_public_api_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_PUBLIC_API_RETENTION_CLEANUP_SECONDS")
+    # OPT424-019: provider defaults used when a model has no endpoint/base_url or version of its own.
+    provider_openai_base_url: str = Field(default="https://api.openai.com/v1", validation_alias="NOMOSMART_PROVIDER_OPENAI_BASE_URL")
+    provider_gemini_base_url: str = Field(default="https://generativelanguage.googleapis.com/v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_BASE_URL")
+    provider_gemini_api_version: str = Field(default="v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_API_VERSION")
+    provider_anthropic_base_url: str = Field(default="https://api.anthropic.com/v1", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL")
+    provider_anthropic_version: str = Field(default="2023-06-01", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_VERSION")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""
-    pdf_scratch_dir: str = "/tmp/nomosmart-pdf"
-    pdf_encoding_data_dir: str = "/usr/share/poppler"
-    pdf_max_page_bytes: int = Field(default=67108864, ge=1, le=1024**3)
-    pdf_max_pixels: int = Field(default=40000000, ge=1, le=2**31-1)
     http_source_allowed_hosts: str = ""
     http_source_allowed_cidrs: str = ""
     sftp_known_hosts_path: str = "/etc/nomosmart/ssh_known_hosts"
@@ -287,18 +330,6 @@ class Settings(MigrationProbeSettings):
     compose_secret_mount_root: str = "/run/secrets"
     runtime_secret_allowed_refs: str = ""
 
-    @field_validator("tesseract_sandbox_read_only_paths", mode="before")
-    @classmethod
-    def parser_runtime_paths(cls, value: Any) -> list[str]:
-        # A malformed optional parser setting must not prevent application boot.
-        # The parser itself fails closed on an empty/invalid asset manifest.
-        if isinstance(value, str):
-            try:
-                value = json.loads(value)
-            except ValueError:
-                return []
-        return value if isinstance(value, list) and all(isinstance(item, str) for item in value) else []
-
     @field_validator("app_encryption_key")
     @classmethod
     def validate_encryption_key(cls, value: SecretStr) -> SecretStr:
@@ -311,6 +342,21 @@ class Settings(MigrationProbeSettings):
             raise ValueError("APP_ENCRYPTION_KEY must be valid hexadecimal") from exc
         return value
 
+    @field_validator("auth_encryption_key")
+    @classmethod
+    def validate_auth_encryption_key(cls, value: SecretStr) -> SecretStr:
+        if value.get_secret_value():
+            return cls.validate_encryption_key(value)
+        return value
+
+    @field_validator("auth_session_idle_seconds", "auth_flow_ttl_seconds", "auth_emergency_ttl_seconds", mode="before")
+    @classmethod
+    def parse_fixed_auth_seconds(cls, value: Any) -> Any:
+        # Environment variables are strings; the Literal still enforces policy.
+        if isinstance(value, str) and value.isascii() and value.isdecimal():
+            return int(value)
+        return value
+
     @field_validator("identity_sync_schedule")
     @classmethod
     def validate_identity_sync_schedule(cls, value: str) -> str:
@@ -318,16 +364,6 @@ class Settings(MigrationProbeSettings):
             raise ValueError("IDENTITY_SYNC_SCHEDULE must be a five-field cron expression")
         return value
 
-    @field_validator("keycloak_ldap_group_path")
-    @classmethod
-    def validate_keycloak_ldap_group_path(cls, value: str) -> str:
-        path = value.strip().rstrip("/")
-        if not path.startswith("/") or path == "/" or "//" in path:
-            raise ValueError("KEYCLOAK_LDAP_GROUP_PATH must be a non-root absolute Keycloak group path")
-        segments = path[1:].split("/")
-        if any(not segment or segment in {".", ".."} for segment in segments):
-            raise ValueError("KEYCLOAK_LDAP_GROUP_PATH contains an invalid segment")
-        return path
 
     @field_validator("http_source_allowed_cidrs")
     @classmethod
@@ -351,8 +387,6 @@ class Settings(MigrationProbeSettings):
     @model_validator(mode="after")
     def validate_production_security(self) -> Self:
         _neo4j_transport(self.neo4j_uri, self.neo4j_ca_cert_path)
-        if self.identity_sync_keycloak_provider_timeout_seconds > self.identity_sync_run_timeout_seconds:
-            raise ValueError("IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS must not exceed IDENTITY_SYNC_RUN_TIMEOUT_SECONDS")
         if not self.min_chunk_tokens <= self.target_chunk_tokens <= self.max_chunk_tokens:
             raise ValueError("Chunk token limits must satisfy MIN_CHUNK_TOKENS <= TARGET_CHUNK_TOKENS <= MAX_CHUNK_TOKENS")
         if self.chunk_overlap_tokens >= self.max_chunk_tokens:
@@ -384,8 +418,6 @@ class Settings(MigrationProbeSettings):
         if not self.break_glass_alerting_evidence.strip() or "CHANGE_ME" in self.break_glass_alerting_evidence.upper():
             errors.append("BREAK_GLASS_ALERTING_EVIDENCE must identify a real production alert route")
 
-        self._require_production_https("OIDC_ISSUER_URL", self.oidc_issuer_url, errors)
-        self._require_production_https("KEYCLOAK_ADMIN_API_URL", self.keycloak_admin_api_url, errors)
         self._require_production_https("FRONTEND_APP_ORIGIN", self.frontend_app_origin, errors)
         self._require_production_https("BREAK_GLASS_RUNBOOK_URI", self.break_glass_runbook_uri, errors)
         self._require_production_https("S3_ENDPOINT_URL", self.s3_endpoint_url, errors)
@@ -408,8 +440,6 @@ class Settings(MigrationProbeSettings):
             "S3_SECRET_ACCESS_KEY": self.s3_secret_access_key,
             "OPENSEARCH_PASSWORD": self.opensearch_password,
             "NEO4J_PASSWORD": self.neo4j_password,
-            "OIDC_CLIENT_SECRET": self.oidc_client_secret,
-            "KEYCLOAK_SYNC_CLIENT_SECRET": self.keycloak_sync_client_secret,
         }
         for name, secret in required_secrets.items():
             raw = secret.get_secret_value().strip()
@@ -449,6 +479,10 @@ class Settings(MigrationProbeSettings):
     def encryption_key_bytes(self) -> bytes:
         return bytes.fromhex(self.app_encryption_key.get_secret_value())
 
+    @property
+    def auth_encryption_key_bytes(self) -> bytes:
+        return bytes.fromhex(self.auth_encryption_key.get_secret_value()) if self.auth_encryption_key.get_secret_value() else self.encryption_key_bytes
+
     def safe_summary(self) -> dict[str, object]:
         return {
             "app_env": self.app_env,
@@ -462,7 +496,7 @@ class Settings(MigrationProbeSettings):
             "neo4j_uri": self.neo4j_uri,
             "oidc_issuer_url": self.oidc_issuer_url,
             "oidc_internal_transport_configured": bool(
-                self.oidc_discovery_url or self.oidc_jwks_url or self.keycloak_admin_internal_url
+                self.oidc_discovery_url or self.oidc_jwks_url
             ),
         }
 
@@ -474,9 +508,6 @@ class Settings(MigrationProbeSettings):
     def oidc_jwks_endpoint(self) -> str:
         return self.oidc_jwks_url.strip() or f"{self.oidc_issuer_url.rstrip('/')}/protocol/openid-connect/certs"
 
-    @property
-    def keycloak_admin_endpoint(self) -> str:
-        return self.keycloak_admin_internal_url.strip() or self.keycloak_admin_api_url
 
     @property
     def opensearch_ssl_context(self) -> ssl.SSLContext | None:
@@ -550,6 +581,26 @@ def create_neo4j_driver(settings: Settings, *, auth=None, **options):
     if auth is None:
         auth = (settings.neo4j_username.get_secret_value(), settings.neo4j_password.get_secret_value())
     return GraphDatabase.driver(uri, auth=auth, **neo4j_driver_options(settings), **options)
+
+
+_SHARED_NEO4J_DRIVERS: dict[tuple, Any] = {}
+_SHARED_NEO4J_LOCK = threading.Lock()
+
+
+def shared_neo4j_driver(settings: Settings):
+    """Process-wide application driver; a driver owns a connection pool.
+
+    Keyed by process id so forked workers never reuse a parent's sockets, and by
+    the credential digest so a settings change gets a new driver.
+    """
+    credential = hashlib.sha256(settings.neo4j_password.get_secret_value().encode("utf-8")).hexdigest()
+    key = (os.getpid(), settings.neo4j_uri, settings.neo4j_username.get_secret_value(), credential, settings.neo4j_ca_cert_path)
+    with _SHARED_NEO4J_LOCK:
+        driver = _SHARED_NEO4J_DRIVERS.get(key)
+        if driver is None:
+            driver = create_neo4j_driver(settings)
+            _SHARED_NEO4J_DRIVERS[key] = driver
+        return driver
 
 
 @lru_cache(maxsize=1)

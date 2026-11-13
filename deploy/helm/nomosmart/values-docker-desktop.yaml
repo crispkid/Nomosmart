@@ -30,9 +30,9 @@ productionCapacity:
 
 image:
   frontend:
-    tag: "0.2.1"
+    tag: "0.2.3"
   backend:
-    tag: "0.2.1"
+    tag: "0.2.3"
 
 backend:
   env:
@@ -46,7 +46,6 @@ migration:
   jdbcUrl: jdbc:postgresql://nomosmart-local-postgresql:5432/nomosmart
 
 bootstrap:
-  keycloakMode: manage
   deploymentPhase: factory_acceptance
   onboardingAdminAllowCidr: 127.0.0.1/32,10.244.0.0/16
 
@@ -116,18 +115,6 @@ neo4j:
   persistence:
     enabled: true
     size: 5Gi
-
-keycloak:
-  adminIngress:
-    annotations:
-      nginx.ingress.kubernetes.io/whitelist-source-range: 127.0.0.1/32,10.244.0.0/16
-  cache:
-    mode: local
-    stack: ""
-  cluster:
-    replicas: 1
-    podDisruptionBudget:
-      minAvailable: 1
 
 beat:
   haEnabled: false

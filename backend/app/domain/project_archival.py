@@ -20,6 +20,7 @@ from app.db.models import (
     DataConnection,
     DataSyncRun,
     Document,
+    DocumentContentState,
     DocumentReference,
     DocumentReferenceEvent,
     DocumentVersion,
@@ -27,6 +28,9 @@ from app.db.models import (
     EmbeddingBuild,
     EmbeddingBuildVector,
     FileScanRun,
+    FileProcessingExecution,
+    FileProcessingTask,
+    OCRDocumentReceipt,
     GraphSyncJob,
     IntegrationClientProjectScope,
     OutboxEvent,
@@ -35,6 +39,7 @@ from app.db.models import (
     Project,
     ProjectArchiveRun,
     ReviewRecord,
+    StagingRetentionJob,
     Tag,
     ValidationRun,
     ValidationRunItem,
@@ -150,6 +155,9 @@ def begin_project_archive(
     project.lock_version += 1
     project.updated_at = now
 
+    from app.domain.staging_retention import cancel_project_jobs
+    cancel_project_jobs(session, project.id)
+
     session.execute(
         update(DataConnection)
         .where(DataConnection.project_id == project.id)
@@ -238,10 +246,11 @@ def execute_project_archive_cleanup(session: Session, *, settings: Settings, run
     unfinished_versions = _unfinished_versions(session, project.id)
     retained_versions = _retained_versions(session, unfinished_versions)
     try:
+        _assert_archive_cleanup_safe(session, project.id, unfinished_versions, cleanup_run_id=run_id)
         deleted_s3 = _delete_unfinished_s3_objects(settings, session, unfinished_versions, retained_versions)
         deleted_search = _delete_unfinished_search_artifacts(settings, unfinished_versions, retained_versions)
         deleted_graph = _delete_unfinished_graph_artifacts(settings, unfinished_versions)
-        counts = _purge_unfinished_database_rows(session, project.id, unfinished_versions)
+        counts = _purge_unfinished_database_rows(session, project.id, unfinished_versions, cleanup_run_id=run_id)
         run = session.scalar(select(ProjectArchiveRun).where(ProjectArchiveRun.id == run_id).with_for_update())
         if run is None:
             session.rollback()
@@ -322,6 +331,12 @@ def _object_references(session: Session, versions: list[DocumentVersion]) -> set
             parsed = _s3_uri(uri)
             if parsed:
                 refs.add(parsed)
+    for receipt in session.scalars(select(OCRDocumentReceipt).where(
+            OCRDocumentReceipt.document_version_id.in_(version_ids), OCRDocumentReceipt.content_removed_at.is_(None))):
+        for uri in (receipt.response_artifact_uri, receipt.output_artifact_uri):
+            parsed = _s3_uri(uri)
+            if parsed:
+                refs.add(parsed)
     return refs
 
 
@@ -366,7 +381,54 @@ def _delete_unfinished_graph_artifacts(settings: Settings, unfinished: list[Docu
     return len(unfinished)
 
 
-def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions: list[DocumentVersion]) -> dict[str, int]:
+def _assert_archive_cleanup_safe(session: Session, project_id: UUID, versions: list[DocumentVersion],
+                                 *, cleanup_run_id: UUID) -> list[FileProcessingExecution]:
+    """Fence all destructive IO with durable business and paid-call stop evidence."""
+    project = session.scalar(select(Project).where(Project.id == project_id).with_for_update()
+                             .execution_options(populate_existing=True))
+    cleanup = session.get(ProjectArchiveRun, cleanup_run_id, populate_existing=True)
+    if (project is None or project.status != "archived" or cleanup is None
+            or cleanup.project_id != project_id or cleanup.project_generation != project.work_generation
+            or cleanup.status not in {"queued", "running"}):
+        raise AppError("archive_project_state_invalid", "Archive ownership changed", status_code=409)
+    version_ids = [v.id for v in versions]
+    actual = list(session.scalars(select(DocumentVersion).where(DocumentVersion.id.in_(version_ids))
+                                 .order_by(DocumentVersion.id).with_for_update().execution_options(populate_existing=True)))
+    if (len(actual) != len(version_ids) or any(v.project_id != project_id or
+            (v.published_at is not None and v.status in COMPLETED_VERSION_STATUSES) for v in actual)):
+        raise AppError("archive_content_scope_changed", "Archive content scope changed", status_code=409)
+    from app.domain.ocr_document_receipts import require_no_unknown_call
+    for version in actual:
+        require_no_unknown_call(session, version.id)
+    executions = list(session.scalars(select(FileProcessingExecution).where(
+        FileProcessingExecution.document_version_id.in_(version_ids)).order_by(FileProcessingExecution.id)
+        .with_for_update().execution_options(populate_existing=True)))
+    execution_ids = {e.id for e in executions}
+    for row in executions:
+        proof = row.stop_evidence or {}
+        expected_source = "worker" if row.kind == "document" else "local_process" if row.profile == "worker-local-v1" else "runtime"
+        if (row.released_at is None or row.state not in {"completed", "failed", "cancelled"}
+                or proof.get("generation") != str(row.generation) or proof.get("stopped") is not True
+                or proof.get("cleanup_confirmed") is not True or proof.get("source") != expected_source
+                or (row.parent_id is not None and row.parent_id not in execution_ids)):
+            raise AppError("archive_work_stop_unconfirmed", "Document work is not confirmed stopped", status_code=409)
+    if execution_ids and session.scalar(select(FileProcessingExecution.id).where(
+            FileProcessingExecution.parent_id.in_(execution_ids), FileProcessingExecution.id.not_in(execution_ids)).limit(1)):
+        raise AppError("archive_work_scope_changed", "A child execution belongs to another scope", status_code=409)
+    tasks = list(session.scalars(select(FileProcessingTask).where(FileProcessingTask.execution_id.in_(execution_ids))
+                                .with_for_update().execution_options(populate_existing=True)))
+    if any(t.state != "finalized" or t.finished_at is None or not t.completion_receipt for t in tasks):
+        raise AppError("archive_work_stop_unconfirmed", "A document task is not finalized", status_code=409)
+    active_without_execution = session.scalar(select(PipelineRun.id).where(
+        PipelineRun.document_version_id.in_(version_ids), PipelineRun.status == "running",
+        PipelineRun.id.not_in({e.run_id for e in executions})).limit(1))
+    if active_without_execution is not None:
+        raise AppError("archive_work_stop_unconfirmed", "Historical work is not confirmed stopped", status_code=409)
+    return executions
+
+
+def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions: list[DocumentVersion], *, cleanup_run_id: UUID) -> dict[str, int]:
+    executions = _assert_archive_cleanup_safe(session, project_id, versions, cleanup_run_id=cleanup_run_id)
     version_ids = [version.id for version in versions]
     document_ids = {version.document_id for version in versions}
 
@@ -385,6 +447,17 @@ def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions
         sync_ids=sync_ids,
         validation_ids=validation_ids,
     )
+    # Paid-call identity/accounting is independent of the removable content FK.
+    session.execute(update(OCRDocumentReceipt).where(OCRDocumentReceipt.project_id == project_id,
+        OCRDocumentReceipt.document_version_id.in_(version_ids)).values(document_id=None,
+        document_version_id=None, run_id=None, step_id=None, content_removed_at=datetime.now(UTC),
+        content_cleanup_run_id=cleanup_run_id))
+    execution_ids = [e.id for e in executions]
+    if execution_ids:
+        session.execute(delete(FileProcessingTask).where(FileProcessingTask.execution_id.in_(execution_ids)))
+        session.execute(delete(FileProcessingExecution).where(FileProcessingExecution.id.in_(execution_ids),
+            FileProcessingExecution.parent_id.is_not(None)))
+        session.execute(delete(FileProcessingExecution).where(FileProcessingExecution.id.in_(execution_ids)))
     usage_filter = or_(
         AIModelUsageEvent.document_version_id.in_(version_ids),
         AIModelUsageEvent.pipeline_run_id.in_(pipeline_ids) if pipeline_ids else False,
@@ -405,6 +478,10 @@ def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions
         session.execute(delete(DocumentReferenceEvent).where(DocumentReferenceEvent.reference_id.in_(source_reference_ids)))
         session.execute(delete(DocumentReference).where(DocumentReference.id.in_(source_reference_ids)))
     session.execute(delete(ReviewRecord).where(ReviewRecord.document_version_id.in_(version_ids)))
+    retention_job_ids = select(StagingRetentionJob.id).where(StagingRetentionJob.document_version_id.in_(version_ids))
+    session.execute(delete(OutboxEvent).where(OutboxEvent.aggregate_type == "staging_retention_job",
+        OutboxEvent.aggregate_id.in_(retention_job_ids)))
+    session.execute(delete(StagingRetentionJob).where(StagingRetentionJob.document_version_id.in_(version_ids)))
     session.execute(update(ApprovalRequest).where(ApprovalRequest.document_version_id.in_(version_ids)).values(current_task_id=None))
     session.execute(delete(ValidationRun).where(ValidationRun.approval_task_id.in_(select(ApprovalTask.id).where(ApprovalTask.document_version_id.in_(version_ids)))))
     session.execute(delete(ApprovalTask).where(ApprovalTask.document_version_id.in_(version_ids)))
@@ -420,6 +497,9 @@ def _purge_unfinished_database_rows(session: Session, project_id: UUID, versions
         session.execute(delete(EmbeddingBuildVector).where(EmbeddingBuildVector.embedding_build_id.in_(build_ids)))
     session.execute(delete(EmbeddingBuild).where(EmbeddingBuild.document_version_id.in_(version_ids)))
     session.execute(delete(Chunk).where(Chunk.document_version_id.in_(version_ids)))
+    session.execute(delete(DocumentContentState).where(
+        DocumentContentState.project_id == project_id,
+        DocumentContentState.document_version_id.in_(version_ids)))
     session.execute(update(DocumentVersion).where(DocumentVersion.source_version_id.in_(version_ids)).values(source_version_id=None))
     session.execute(delete(DocumentVersion).where(DocumentVersion.id.in_(version_ids)))
 

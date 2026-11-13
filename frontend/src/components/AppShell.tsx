@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   BookOpenText,
   ChevronDown,
@@ -11,7 +12,6 @@ import {
   LayoutDashboard,
   LogOut,
   Languages,
-  Search,
   Settings,
   ShieldCheck,
 } from "lucide-react";
@@ -19,13 +19,42 @@ import { useAuth } from "@/components/AuthProvider";
 import { NotificationCenter } from "./NotificationCenter";
 import { FeedbackMessage, feedbackIcons } from "./FeedbackMessage";
 import { isSupportedLocale, supportedLocales, useI18n } from "@/lib/i18nClient";
+import { workspaceArea } from "@/lib/workspaceNavigation";
+import { BrowserTitle } from "@/lib/browserTitle";
+import WorkspaceNavigation from "./WorkspaceNavigation";
 
-export function AppShell({ children, title }: { children: React.ReactNode; title: string }) {
+const WorkspaceChromeContext = createContext(false);
+
+/**
+ * Workspace page header: browser title and the page heading (OPT424-035). Inside the
+ * (workspace) route-group layout the navigation chrome is already mounted and persists across
+ * navigation; rendered anywhere else, the page brings its own chrome as before.
+ */
+export function AppShell({ children, title, browserTitle }: { children: React.ReactNode; title: string; browserTitle?: string }) {
+  const insideChrome = useContext(WorkspaceChromeContext);
+  const { authReady } = useAuth();
+  const { t } = useI18n();
+  const page = <><BrowserTitle label={authReady ? browserTitle ?? title : t("brandKnowledgeOps")} />
+    <header className="topbar">
+      <div>
+        <h1>{title}</h1>
+      </div>
+    </header>
+    {children}</>;
+  return insideChrome ? page : <WorkspaceChrome>{page}</WorkspaceChrome>;
+}
+
+/** Header, navigation, language, notifications, account menu and the main landmark (OPT424-035). */
+export function WorkspaceChrome({ children }: { children: React.ReactNode }) {
   const { can, logout, userDisplayName } = useAuth();
+  const pathname = usePathname();
+  const activeArea = workspaceArea(pathname);
+  const shellRef = useRef<HTMLDivElement>(null);
+  const mainRef = useRef<HTMLElement>(null);
   const [languageMenuOpen, setLanguageMenuOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
-  const { locale, setLocale, t } = useI18n();
+  const { locale, setLocale, t, format } = useI18n();
   const languageMenuRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -73,36 +102,23 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
   const activeLocale = supportedLocales.find((item) => item.code === locale) ?? supportedLocales[0];
 
   return (
-    <div className="app-shell">
-      <header className="app-header">
-        <Link className="brand" href="/">
+    <WorkspaceChromeContext.Provider value={true}><div className="app-shell" ref={shellRef}>
+      <a className="skip-to-content" href="#workspace-main" onClick={() => mainRef.current?.focus()}>{t("skipToMainContent")}</a>
+      <header className="app-header workspace-header">
+        <Link className="brand" href="/" aria-label={t("headerHomeLink")}>
           <span className="brand-mark">N</span>
           <span>
             <strong>NomoSmart</strong>
             <small>{t("brandKnowledgeOps")}</small>
           </span>
         </Link>
-        <nav className="nav-list" aria-label={t("primaryNavigation")}>
-          {navItems.filter((item) => item.visible).map((item) => {
-            const Icon = item.icon;
-            return (
-              <Link className="nav-item" href={item.href} key={item.href}>
-                <Icon size={18} />
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </nav>
+        <WorkspaceNavigation key={pathname} items={navItems.filter(item => item.visible)} activeArea={activeArea} shellRef={shellRef} />
         <div className="header-tools">
-          <label className="search-box">
-            <Search size={17} />
-            <input placeholder={t("search")} />
-          </label>
           <div className="language-switcher user-menu" ref={languageMenuRef}>
             <button aria-expanded={languageMenuOpen} aria-haspopup="menu" aria-label={t("languageSwitcher")} className="user-pill language-switcher-trigger" onClick={() => setLanguageMenuOpen((open) => !open)} type="button">
-              <Languages size={17} />
-              <span>{activeLocale.label}</span>
-              <ChevronDown size={15} />
+              <Languages size={18} aria-hidden />
+              <span className="header-language-label">{activeLocale.label}</span>
+              <ChevronDown className="header-tool-chevron" size={15} aria-hidden />
             </button>
             {languageMenuOpen ? (
               <div className="user-menu-panel language-menu-panel" role="menu">
@@ -116,13 +132,14 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
           </div>
           <NotificationCenter />
           <div className="user-menu" ref={menuRef}>
-            <button aria-expanded={userMenuOpen} aria-haspopup="menu" className="user-pill" onClick={() => setUserMenuOpen((open) => !open)} type="button">
-              <ShieldCheck size={17} />
-              <span>{userDisplayName}</span>
-              <ChevronDown size={15} />
+            <button aria-expanded={userMenuOpen} aria-haspopup="menu" aria-label={format("headerAccountMenu", { name: userDisplayName })} title={userDisplayName} className="user-pill header-account-trigger" onClick={() => setUserMenuOpen((open) => !open)} type="button">
+              <span className="header-account-mark"><ShieldCheck size={18} aria-hidden /></span>
+              <span className="header-account-name">{userDisplayName}</span>
+              <ChevronDown className="header-tool-chevron" size={15} aria-hidden />
             </button>
             {userMenuOpen ? (
               <div className="user-menu-panel" role="menu">
+                <div className="header-account-identity" role="presentation">{userDisplayName}</div>
                 <button disabled={loggingOut} onClick={handleLogout} role="menuitem" type="button">
                   <LogOut size={16} />
                   <span>{loggingOut ? t("loggingOut") : t("logout", locale)}</span>
@@ -132,15 +149,10 @@ export function AppShell({ children, title }: { children: React.ReactNode; title
           </div>
         </div>
       </header>
-      <main className="main">
-        <header className="topbar">
-          <div>
-            <h1>{title}</h1>
-          </div>
-        </header>
+      <main className="main" id="workspace-main" ref={mainRef} tabIndex={-1}>
         {children}
       </main>
-    </div>
+    </div></WorkspaceChromeContext.Provider>
   );
 }
 
@@ -175,6 +187,12 @@ export function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n();
   const labels: Record<string, ReturnType<typeof t>> = {
     queued: t("statusQueued"),
+    pending: t("statusPending"),
+    passed: t("statusPassed"),
+    needs_review: t("statusNeedsReview"),
+    error: t("statusError"),
+    partial_failed: t("statusPartialFailed"),
+    cancelled: t("statusCancelled"),
     running: t("statusRunning"),
     processing: t("statusProcessing"),
     submission_ready: t("statusSubmissionReady"),

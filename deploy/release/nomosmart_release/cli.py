@@ -61,9 +61,7 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
         "nomosmart.env.example", "compose-secret-entrypoint.sh", "secret-env-entrypoint.sh",
         "postgresql-init.sh", "ssh_known_hosts.example", "embedding-capabilities.example.json",
     )),
-    ("deploy/docker/ftps-ca", ("README.md",)),
     ("sql/migrations", (".",)),
-    ("deploy/keycloak/themes/nomosmart", (".",)),
     ("deploy/opensearch", ("install-repository-s3.sh",)),
     ("deploy/helm", ("sync-assets.py",)),
     (
@@ -92,6 +90,11 @@ PACKAGE_COPY_RULES: Final[tuple[tuple[str, tuple[str, ...]], ...]] = (
         (
             "release-manifest.schema.json",
             "release-manifest-v3.schema.json",
+            "release-manifest-v4.schema.json",
+            "release-manifest-v5.schema.json",
+            "release-quality.schema.json",
+            "quality-policy.json",
+            "external-dependencies.protocol.lock.json",
             "external-dependencies.lock.json",
             "nomosmart-release",
             "nomosmart_release",
@@ -110,6 +113,17 @@ EVIDENCE_CAPTURE_PATHS: Final[dict[str, str]] = {
 
 class ReleaseBuildError(RuntimeError):
     pass
+
+
+def reject_legacy_creation_for_protocol_chart(repo: Path) -> None:
+    """Historical verification stays available; current creation uses v4 gates."""
+    marker = repo / "deploy/helm/nomosmart/templates/auth-bootstrap-configmap.yaml"
+    if marker.exists() or marker.is_symlink():
+        raise ReleaseBuildError(
+            "Legacy create/assemble-validation is retired for authentication contract 2. "
+            "Use assemble-local only after its actual full-suite, coverage, security and signing gates pass. "
+            "This does not qualify a production release. Historical verify-package remains available."
+        )
 
 
 def _run(
@@ -287,6 +301,7 @@ def _safe_copy(
 
 
 def _copy_runtime(repo: Path, staging: Path) -> None:
+    reject_legacy_creation_for_protocol_chart(repo)
     repo = repo.resolve()
     tracked = set(_git(repo, "ls-files", "-z").split("\0"))
     tracked_sources = frozenset(repo / relative for relative in tracked if relative)
@@ -938,6 +953,7 @@ def assemble_release(
     gpg_binary: str = "gpg",
     gpg_home: Path | None = None,
 ) -> dict[str, Any]:
+    reject_legacy_creation_for_protocol_chart(repo)
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}", release_id):
         raise ReleaseBuildError("release ID contains unsupported characters")
     output = output_dir.resolve()
@@ -1065,7 +1081,15 @@ def _parser() -> argparse.ArgumentParser:
     verify.add_argument("--package", required=True, type=Path)
     verify.add_argument("--trusted-fingerprint", default="", help="Required for production packages")
     verify.add_argument("--gpg-binary", default="gpg")
-    verify.add_argument("--purpose", choices=("production", "installation-validation"), default="production")
+    verify.add_argument("--purpose", choices=("production", "installation-validation", "local-verified-release", "local-risk-reviewed-release"), default="production")
+
+    test_verify = commands.add_parser("verify-test-candidate", help="Check integrity only; never qualify a release or trust a signer")
+    test_verify.add_argument("--package", required=True, type=Path)
+    test_assemble = commands.add_parser("assemble-test-candidate", help="Create explicitly unverified schema5 protocol test material")
+    for option in ("repo", "materials", "output-dir"):
+        test_assemble.add_argument("--" + option, required=True, type=Path)
+    for option in ("commit", "candidate-id", "release-id"):
+        test_assemble.add_argument("--" + option, required=True)
 
     validation = commands.add_parser("assemble-validation", help="Assemble from completed source-bound reports")
     validation.add_argument("--repo", required=True, type=Path)
@@ -1074,6 +1098,38 @@ def _parser() -> argparse.ArgumentParser:
     validation.add_argument("--image-inventory", required=True, type=Path)
     validation.add_argument("--evidence-dir", required=True, type=Path)
     validation.add_argument("--output-dir", required=True, type=Path)
+
+    local = commands.add_parser("assemble-local", help="Assemble a signed v4 package from complete actual acceptance evidence")
+    for option in ("repo", "image-inventory", "evidence-dir", "output-dir", "public-key"):
+        local.add_argument("--"+option, required=True, type=Path)
+    for option in ("commit", "release-id", "signing-fingerprint"):
+        local.add_argument("--"+option, required=True)
+    local.add_argument("--gpg-binary", default="gpg")
+    local.add_argument("--gpg-home", type=Path)
+
+    material = commands.add_parser("attest-material-source", help="Sign explicit real public material provenance; never qualify a release")
+    for option in ("repo", "material-root", "inventory", "output-dir", "public-key"):
+        material.add_argument("--" + option, required=True, type=Path)
+    for option in ("commit", "signing-fingerprint"):
+        material.add_argument("--" + option, required=True)
+    material.add_argument("--gpg-binary", default="gpg")
+    material.add_argument("--gpg-home", type=Path)
+    material_verify = commands.add_parser("verify-material-source", help="Verify provenance using an independent trusted signer")
+    for option in ("material-root", "attestation-dir"):
+        material_verify.add_argument("--" + option, required=True, type=Path)
+    material_verify.add_argument("--trusted-fingerprint", required=True)
+    material_verify.add_argument("--gpg-binary", default="gpg")
+    material_verify.add_argument("--repo", type=Path)
+    bridge = commands.add_parser("compare-installation-source", help="Compare a closed real installation to final public source without reinstalling")
+    bridge.add_argument("--config", required=True, type=Path)
+
+    reviewed = commands.add_parser("assemble-reviewed-local", help="Assemble explicit signed v5 risk-reviewed evidence; never promote a test candidate")
+    for option in ("repo", "image-inventory", "evidence-dir", "output-dir", "public-key"):
+        reviewed.add_argument("--"+option, required=True, type=Path)
+    for option in ("commit", "release-id", "signing-fingerprint"):
+        reviewed.add_argument("--"+option, required=True)
+    reviewed.add_argument("--gpg-binary", default="gpg")
+    reviewed.add_argument("--gpg-home", type=Path)
 
     create = commands.add_parser("create")
     create.add_argument("--repo", required=True, type=Path)
@@ -1098,6 +1154,55 @@ def _emit(payload: object, *, stream: Any = sys.stdout) -> None:
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
     try:
+        if args.command == "attest-material-source":
+            from .material_attestation import create_material_attestation
+            _emit(create_material_attestation(material_root=args.material_root, source_root=args.repo,
+                commit=args.commit, materials=json.loads(args.inventory.read_text()), output_dir=args.output_dir,
+                public_key=args.public_key, trusted_fingerprint=args.signing_fingerprint,
+                gpg_binary=args.gpg_binary, gpg_home=args.gpg_home))
+            return 0
+        if args.command == "verify-material-source":
+            from .material_attestation import verify_material_attestation
+            _emit(verify_material_attestation(material_root=args.material_root, attestation_dir=args.attestation_dir,
+                trusted_fingerprint=args.trusted_fingerprint, gpg_binary=args.gpg_binary, source_root=args.repo))
+            return 0
+        if args.command == "compare-installation-source":
+            from .installation_evidence import compare_installed_payload
+            configured = json.loads(args.config.read_text())
+            expected = {"installed_package", "source_root", "capture_root", "capture_references",
+                        "expected_namespace_uid", "expected_operation_uuid", "application_images"}
+            if not isinstance(configured, dict) or set(configured) != expected:
+                raise ReleaseBuildError("installation source comparison input is invalid")
+            for field in ("installed_package", "source_root", "capture_root"):
+                configured[field] = Path(configured[field])
+            _emit(compare_installed_payload(**configured))
+            return 0
+        if args.command == "verify-test-candidate":
+            from .contract_test_candidate import verify_test_candidate
+            _emit(verify_test_candidate(args.package.absolute()))
+            return 0
+        if args.command == "assemble-test-candidate":
+            from .test_candidate import assemble_test_candidate
+            _emit(assemble_test_candidate(repo=args.repo, commit=args.commit,
+                candidate_id=args.candidate_id, release_id=args.release_id,
+                materials=args.materials, output_dir=args.output_dir))
+            return 0
+        if args.command in {"create", "assemble-validation"}:
+            reject_legacy_creation_for_protocol_chart(args.repo)
+        if args.command == "assemble-reviewed-local":
+            from .local_reviewed import assemble_local_reviewed_release
+            _emit(assemble_local_reviewed_release(repo=args.repo, commit=args.commit, release_id=args.release_id,
+                image_inventory=args.image_inventory, evidence_dir=args.evidence_dir, output_dir=args.output_dir,
+                signing_fingerprint=args.signing_fingerprint, public_key=args.public_key,
+                gpg_binary=args.gpg_binary, gpg_home=args.gpg_home))
+            return 0
+        if args.command == "assemble-local":
+            from .local_verified import assemble_local_verified_release
+            _emit(assemble_local_verified_release(repo=args.repo, commit=args.commit, release_id=args.release_id,
+                image_inventory=args.image_inventory, evidence_dir=args.evidence_dir, output_dir=args.output_dir,
+                signing_fingerprint=args.signing_fingerprint, public_key=args.public_key,
+                gpg_binary=args.gpg_binary, gpg_home=args.gpg_home))
+            return 0
         if args.command == "assemble-validation":
             from .validation import assemble_validation_release
             _emit(assemble_validation_release(

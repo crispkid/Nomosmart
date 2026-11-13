@@ -35,10 +35,20 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
+      {{- if .Values.authentication.previousKeysSecretName }}
+      initContainers:
+        {{- include "nomosmart.authKeyringInit" . | nindent 8 }}
+      {{- end }}
       containers:
         - name: finalize
           image: "{{ .Values.image.backend.repository }}:{{ .Values.image.backend.tag }}"
+          resources:
+            {{- toYaml .Values.jobs.resources | nindent 12 }}
           imagePullPolicy: {{ .Values.image.backend.pullPolicy }}
           command: ["python", "-m", "app.deployment.bootstrap"]
           args: ["--mode", "finalize", "--wait-seconds", "0"]
@@ -49,10 +59,7 @@ spec:
                 name: {{ include "nomosmart.fullname" . }}-config
           env:
             {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
-            - {name: DEPLOYMENT_KEYCLOAK_MODE, value: "verify"}
             - {name: DEPLOYMENT_PHASE, value: {{ .Values.bootstrap.deploymentPhase | quote }}}
-            - name: BREAK_GLASS_INITIAL_PASSWORD
-              valueFrom: {secretKeyRef: {name: {{ include "nomosmart.secretName" . }}, key: {{ .Values.bootstrap.breakGlassPasswordKey }}}}
           volumeMounts:
             {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
       volumes:

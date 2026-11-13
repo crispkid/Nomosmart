@@ -35,7 +35,12 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        {{- include "nomosmart.authKeyringInit" . | nindent 8 }}
         {{- include "nomosmart.bootstrapEvidenceInitContainer" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: worker
@@ -50,7 +55,6 @@ spec:
             {{- include "nomosmart.runtimeSecretEnv" . | nindent 12 }}
             - name: FILE_PROCESSING_WORKER_RUNTIME_ID
               valueFrom: {fieldRef: {fieldPath: metadata.uid}}
-            - {name: PDF_SCRATCH_DIR, value: /run/pdf-work/pages}
           readinessProbe:
             exec:
               command: ["/bin/sh", "-c", "celery -A app.worker.celery_app inspect ping --destination celery@$HOSTNAME --timeout 5 | grep -q pong"]
@@ -68,7 +72,6 @@ spec:
           volumeMounts:
             {{- include "nomosmart.runtimeSecretVolumeMount" . | nindent 12 }}
             {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
-            - {name: pdf-scratch, mountPath: /run/pdf-work}
           {{- if .Values.ftpsCa.configMapName }}
             - name: ftps-ca
               mountPath: /etc/nomosmart/ftps-ca
@@ -95,8 +98,6 @@ spec:
               - key: {{ .Values.ftpsCa.key | quote }}
                 path: ca.crt
       {{- end }}
-        - name: pdf-scratch
-          emptyDir: {sizeLimit: {{ .Values.worker.pdfScratchSize | quote }}}
       {{- if .Values.sftpKnownHosts.configMapName }}
         - name: sftp-known-hosts
           configMap:

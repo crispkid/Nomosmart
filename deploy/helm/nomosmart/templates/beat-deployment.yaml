@@ -32,7 +32,12 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       initContainers:
+        {{- include "nomosmart.authKeyringInit" . | nindent 8 }}
         {{- include "nomosmart.bootstrapEvidenceInitContainer" . | nindent 8 }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
       {{- include "nomosmart.localPodDnsConfig" $ | nindent 6 }}
       containers:
         - name: beat-agent

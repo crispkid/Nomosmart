@@ -360,7 +360,7 @@ def verify_release_package(
     gpg_binary: str = "gpg",
     purpose: str = "production",
 ) -> dict[str, Any]:
-    if purpose not in {"production", "installation-validation"}:
+    if purpose not in {"production", "installation-validation", "local-verified-release", "local-risk-reviewed-release"}:
         raise ReleaseContractError("release verification purpose is invalid")
     if package_root.is_symlink():
         raise ReleaseContractError("release package root must not be a symlink")
@@ -385,7 +385,14 @@ def verify_release_package(
             raise ReleaseContractError("signer trust configuration does not apply to this package type")
         control_files = INTEGRITY_CONTROL_FILES
     else:
-        validate_manifest(manifest)
+        if purpose == "local-risk-reviewed-release":
+            from .contract_v5 import validate_manifest as validate_reviewed_manifest
+            validate_reviewed_manifest(manifest)
+        elif purpose == "local-verified-release":
+            from .contract_v4 import validate_manifest as validate_local_manifest
+            validate_local_manifest(manifest)
+        else:
+            validate_manifest(manifest)
         _normalize_fingerprint(trusted_fingerprint)
         attestation_path = _bounded_file(root, "RELEASE-ATTESTATION.json")
         attestation = _load_json(attestation_path, label="release attestation")
@@ -409,6 +416,12 @@ def verify_release_package(
     if purpose == "installation-validation":
         from .contract_v3 import verify_payload
         runtime_images, platform_images = verify_payload(root, manifest)
+    elif purpose == "local-risk-reviewed-release":
+        from .contract_v5 import verify_payload
+        runtime_images, platform_images = verify_payload(root, manifest)
+    elif purpose == "local-verified-release":
+        from .contract_v4 import verify_payload
+        runtime_images, platform_images = verify_payload(root, manifest)
     else:
         runtime_images, platform_images = manifest["images"], manifest["platform_images"]
     if expected_images is not None and runtime_images != expected_images:
@@ -429,6 +442,9 @@ def verify_release_package(
         "purpose": purpose,
         "production_ready": manifest["production_ready"],
     }
+    if purpose in {"local-verified-release", "local-risk-reviewed-release"}:
+        result["production_platform_qualified"] = False
+        result["auth_contract_revision"] = 2
     if signer is not None:
         result["signer_fingerprint"] = signer
     else:

@@ -5,6 +5,8 @@ x-nomosmart-env-file: &nomosmart_env_file
     required: false
 
 x-backend-volumes: &backend_volumes
+  - ${AUTH_CA_DIRECTORY:-./deploy/docker/auth-ca}:/etc/nomosmart/auth-ca:ro
+  - ${AUTH_BOOTSTRAP_CONFIG_FILE:-./deploy/docker/auth-bootstrap.example.json}:/etc/nomosmart/auth-bootstrap.json:ro
   - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
   - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
   - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
@@ -14,6 +16,8 @@ x-backend-volumes: &backend_volumes
   - ${OPENSEARCH_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/opensearch-ca.crt}:/etc/nomosmart/tls/opensearch-ca.crt:ro
 
 x-internal-ca-volumes: &internal_ca_volumes
+  - ${AUTH_CA_DIRECTORY:-./deploy/docker/auth-ca}:/etc/nomosmart/auth-ca:ro
+  - ${AUTH_BOOTSTRAP_CONFIG_FILE:-./deploy/docker/auth-bootstrap.example.json}:/etc/nomosmart/auth-bootstrap.json:ro
   - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
   - ${RUSTFS_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/rustfs-ca.crt}:/etc/nomosmart/tls/rustfs-ca.crt:ro
@@ -23,8 +27,15 @@ x-nonroot-runtime: &nonroot_runtime
   user: "0:0"
   entrypoint: ["/opt/nomosmart/compose-secret-entrypoint.sh", "backend"]
   tmpfs: ["/run/nomosmart:rw,noexec,nosuid,nodev,size=16m,mode=0700"]
+  # OPT424-041: the root entrypoint only copies secrets and drops to 10001;
+  # the application process keeps no capabilities.
+  cap_drop: ["ALL"]
+  cap_add: ["CHOWN", "FOWNER", "SETUID", "SETGID", "DAC_OVERRIDE"]
+  security_opt: ["no-new-privileges:true"]
 
 x-backend-secrets: &backend_secrets
+  - auth_previous_keys
+  - auth_encryption_key
   - app_encryption_key
   - database_url
   - redis_url
@@ -34,10 +45,10 @@ x-backend-secrets: &backend_secrets
   - rustfs_secret_access_key
   - opensearch_service_password
   - neo4j_service_password
-  - oidc_client_secret
-  - keycloak_sync_client_secret
 
 x-worker-secrets: &worker_secrets
+  - auth_previous_keys
+  - auth_encryption_key
   - app_encryption_key
   - database_url
   - redis_url
@@ -47,10 +58,10 @@ x-worker-secrets: &worker_secrets
   - rustfs_secret_access_key
   - opensearch_service_password
   - neo4j_service_password
-  - oidc_client_secret
-  - keycloak_sync_client_secret
 
 x-bootstrap-secrets: &bootstrap_secrets
+  - auth_previous_keys
+  - auth_encryption_key
   - app_encryption_key
   - database_url
   - redis_url
@@ -60,14 +71,14 @@ x-bootstrap-secrets: &bootstrap_secrets
   - rustfs_secret_access_key
   - opensearch_service_password
   - neo4j_service_password
-  - oidc_client_secret
-  - keycloak_sync_client_secret
-  - keycloak_bootstrap_admin_password
-  - break_glass_initial_password
   - opensearch_admin_password
   - neo4j_admin_password
+  - directory_bind_password
+  - oidc_client_secret
 
 x-finalize-secrets: &finalize_secrets
+  - auth_previous_keys
+  - auth_encryption_key
   - app_encryption_key
   - database_url
   - redis_url
@@ -77,9 +88,6 @@ x-finalize-secrets: &finalize_secrets
   - rustfs_secret_access_key
   - opensearch_service_password
   - neo4j_service_password
-  - oidc_client_secret
-  - keycloak_sync_client_secret
-  - break_glass_initial_password
 
 x-backend-environment: &backend_environment
   NOMOSMART_UPLOAD_MAX_INFLIGHT: ${NOMOSMART_UPLOAD_MAX_INFLIGHT-2}
@@ -90,6 +98,7 @@ x-backend-environment: &backend_environment
   NOMOSMART_UPLOAD_TOTAL_TIMEOUT_SECONDS: ${NOMOSMART_UPLOAD_TOTAL_TIMEOUT_SECONDS-600}
   NOMOSMART_UPLOAD_SCRATCH_MAX_MIB: ${NOMOSMART_UPLOAD_SCRATCH_MAX_MIB-256}
   NOMOSMART_UPLOAD_SCRATCH_DIR: ${NOMOSMART_UPLOAD_SCRATCH_DIR-/var/lib/nomosmart-upload/private}
+  DEPLOYMENT_PHASE: ${DEPLOYMENT_PHASE:-onboarding}
   APP_ENV: ${APP_ENV:-development}
   APP_HOST: 0.0.0.0
   APP_PORT: 8000
@@ -105,6 +114,7 @@ x-backend-environment: &backend_environment
   S3_ENDPOINT_URL: ${S3_ENDPOINT_URL:-https://rustfs:9000}
   S3_REGION: ${S3_REGION:-us-east-1}
   S3_BUCKET: ${S3_BUCKET:-nomosmart}
+  S3_OBJECT_PREFIX: ${S3_OBJECT_PREFIX:-}
   S3_ACCESS_KEY_ID_FILE: /run/secrets/s3_access_key_id
   S3_SECRET_ACCESS_KEY_FILE: /run/secrets/rustfs_secret_access_key
   S3_USE_SSL: ${S3_USE_SSL:-true}
@@ -122,18 +132,19 @@ x-backend-environment: &backend_environment
   NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
   NEO4J_USERNAME: ${NEO4J_USERNAME:-nomosmart}
   NEO4J_PASSWORD_FILE: /run/secrets/neo4j_service_password
-  OIDC_ISSUER_URL: ${OIDC_ISSUER_URL:-https://nomosmart.local/identity/realms/nomosmart}
-  OIDC_DISCOVERY_URL: ${OIDC_DISCOVERY_URL:-http://keycloak:8080/identity/realms/nomosmart/.well-known/openid-configuration}
-  OIDC_JWKS_URL: ${OIDC_JWKS_URL:-http://keycloak:8080/identity/realms/nomosmart/protocol/openid-connect/certs}
-  OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-nomosmart-backend}
-  OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
-  OIDC_AUDIENCE: ${OIDC_AUDIENCE:-nomosmart-backend}
-  OIDC_FRONTEND_CLIENT_ID: ${OIDC_FRONTEND_CLIENT_ID:-nomosmart-frontend}
-  KEYCLOAK_ADMIN_API_URL: ${KEYCLOAK_ADMIN_API_URL:-https://nomosmart.local/identity}
-  KEYCLOAK_ADMIN_INTERNAL_URL: ${KEYCLOAK_ADMIN_INTERNAL_URL:-http://keycloak:8080/identity}
-  KEYCLOAK_SYNC_CLIENT_ID: ${KEYCLOAK_SYNC_CLIENT_ID:-nomosmart-sync}
-  KEYCLOAK_SYNC_CLIENT_SECRET_FILE: /run/secrets/keycloak_sync_client_secret
-  KEYCLOAK_LDAP_GROUP_PATH: ${KEYCLOAK_LDAP_GROUP_PATH:-/ldap}
+  AUTH_BOOTSTRAP_CONFIGURATION: ${AUTH_BOOTSTRAP_CONFIGURATION:-/etc/nomosmart/auth-bootstrap.json}
+  AUTH_ENDPOINT_ALLOWED_HOSTS: ${AUTH_ENDPOINT_ALLOWED_HOSTS:-}
+  AUTH_ENDPOINT_ALLOWED_CIDRS: ${AUTH_ENDPOINT_ALLOWED_CIDRS:-}
+  AUTH_TRUST_ROOT: /etc/nomosmart/auth-ca
+  AUTH_ENCRYPTION_KEY_FILE: /run/secrets/auth_encryption_key
+  AUTH_ENCRYPTION_KEY_ID: ${AUTH_ENCRYPTION_KEY_ID:-auth-v1}
+  AUTH_ENCRYPTION_PREVIOUS_KEYS_FILE: /run/secrets/auth_previous_keys
+  AUTH_SESSION_IDLE_SECONDS: "1800"
+  # Operator source selectors belong to Compose. Ordinary consumers read the
+  # activated encrypted DB secrets; bootstrap below overrides these two paths.
+  DIRECTORY_BIND_PASSWORD_FILE: ""
+  OIDC_CLIENT_SECRET_FILE: ""
+  AUTH_EMERGENCY_USERNAME: ${AUTH_EMERGENCY_USERNAME:-emergency-admin}
   BREAK_GLASS_USERNAME: ${BREAK_GLASS_USERNAME:-nomosmart}
   BREAK_GLASS_RUNBOOK_URI: ${BREAK_GLASS_RUNBOOK_URI:-}
   BREAK_GLASS_ALERTING_EVIDENCE: ${BREAK_GLASS_ALERTING_EVIDENCE:-}
@@ -144,7 +155,6 @@ x-backend-environment: &backend_environment
   IDENTITY_SYNC_QUEUE_TIMEOUT_SECONDS: ${IDENTITY_SYNC_QUEUE_TIMEOUT_SECONDS:-300}
   IDENTITY_SYNC_RUN_TIMEOUT_SECONDS: ${IDENTITY_SYNC_RUN_TIMEOUT_SECONDS:-1800}
   IDENTITY_SYNC_HEARTBEAT_SECONDS: ${IDENTITY_SYNC_HEARTBEAT_SECONDS:-30}
-  IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS: ${IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS:-600}
   DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-Asia/Taipei}
   NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES: ${NOMOSMART_CONTENT_EDIT_MAX_UTF8_BYTES:-10485760}
   NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB: ${NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB:-100}
@@ -161,17 +171,11 @@ x-backend-environment: &backend_environment
   TABLE_CHUNK_MAX_ROWS: ${TABLE_CHUNK_MAX_ROWS:-10}
   REMOVE_REPEATED_HEADER_FOOTER: ${REMOVE_REPEATED_HEADER_FOOTER:-true}
   INGESTION_WORKER_LEASE_SECONDS: ${INGESTION_WORKER_LEASE_SECONDS:-300}
-  TESSERACT_COMMAND: ${TESSERACT_COMMAND:-tesseract}
-  TESSERACT_PDF_COMMAND: ${TESSERACT_PDF_COMMAND:-pdftoppm}
-  PDF_INFO_COMMAND: ${PDF_INFO_COMMAND:-pdfinfo}
-  PDF_TEXT_COMMAND: ${PDF_TEXT_COMMAND:-pdftotext}
-  PDF_SEPARATE_COMMAND: ${PDF_SEPARATE_COMMAND:-pdfseparate}
-  TESSERACT_SANDBOX_COMMAND: ${TESSERACT_SANDBOX_COMMAND:-bwrap}
-  TESSERACT_SANDBOX_READ_ONLY_PATHS: ${TESSERACT_SANDBOX_READ_ONLY_PATHS:-[]}
-  TESSERACT_TIMEOUT_SECONDS: ${TESSERACT_TIMEOUT_SECONDS:-120}
-  TESSERACT_MAX_MEMORY_MB: ${TESSERACT_MAX_MEMORY_MB:-512}
-  TESSERACT_MAX_PAGES: ${TESSERACT_MAX_PAGES:-200}
-  NOMOSMART_PDF_OCR_DPI: ${NOMOSMART_PDF_OCR_DPI:-200}
+  NOMOSMART_OCR_MAX_INPUT_BYTES: ${NOMOSMART_OCR_MAX_INPUT_BYTES:-45000000}
+  NOMOSMART_OCR_MAX_REQUEST_BYTES: ${NOMOSMART_OCR_MAX_REQUEST_BYTES:-67108864}
+  NOMOSMART_OCR_MAX_RESPONSE_BYTES: ${NOMOSMART_OCR_MAX_RESPONSE_BYTES:-8388608}
+  NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS: ${NOMOSMART_OCR_DOCUMENT_TIMEOUT_SECONDS:-120}
+  CELERY_GLOBAL_KEYPREFIX: ${CELERY_GLOBAL_KEYPREFIX:-}
   NOMOSMART_EMBEDDING_CAPABILITIES_FILE: /etc/nomosmart/embedding-capabilities.json
   HTTP_SOURCE_ALLOWED_HOSTS: ${HTTP_SOURCE_ALLOWED_HOSTS:-}
   HTTP_SOURCE_ALLOWED_CIDRS: ${HTTP_SOURCE_ALLOWED_CIDRS:-}
@@ -207,8 +211,8 @@ services:
       PUBLIC_API_READ_TIMEOUT_SECONDS: ${PUBLIC_API_READ_TIMEOUT_SECONDS-600}
       NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB: ${NOMOSMART_DOCUMENT_MAX_UPLOAD_SIZE_MB:-100}
       MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-100}
-      KEYCLOAK_EDGE_UPSTREAM: ${KEYCLOAK_EDGE_UPSTREAM:-http://keycloak:8080}
-      KEYCLOAK_ADMIN_ALLOW_CIDR: ${KEYCLOAK_ADMIN_ALLOW_CIDR:-127.0.0.1/32}
+      DEPLOYMENT_PHASE: ${DEPLOYMENT_PHASE:-onboarding}
+      ONBOARDING_ADMIN_ALLOW_CIDR: ${ONBOARDING_ADMIN_ALLOW_CIDR:-127.0.0.1/32}
     ports:
       - "${EDGE_HOST_IP:-127.0.0.1}:${EDGE_HTTP_PORT:-80}:80"
       - "${EDGE_HOST_IP:-127.0.0.1}:${EDGE_HTTPS_PORT:-443}:443"
@@ -222,9 +226,6 @@ services:
     depends_on:
       frontend:
         condition: service_healthy
-      keycloak:
-        condition: service_healthy
-        required: false
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1/edge-health >/dev/null 2>&1"]
       interval: 20s
@@ -234,7 +235,10 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.1}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.2.4}
+    cap_drop: ["ALL"]
+    security_opt: ["no-new-privileges:true"]
+    mem_limit: ${FRONTEND_MEM_LIMIT:-1g}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -243,15 +247,8 @@ services:
       NEXT_PUBLIC_APP_ORIGIN: ${NEXT_PUBLIC_APP_ORIGIN:-https://nomosmart.local}
       NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-/api/backend}
       BACKEND_INTERNAL_API_BASE_URL: ${BACKEND_INTERNAL_API_BASE_URL:-http://backend:8000/api/v1}
-      NEXT_PUBLIC_OIDC_ISSUER_URL: ${NEXT_PUBLIC_OIDC_ISSUER_URL:-https://nomosmart.local/identity/realms/nomosmart}
-      NEXT_PUBLIC_OIDC_CLIENT_ID: ${NEXT_PUBLIC_OIDC_CLIENT_ID:-nomosmart-frontend}
-      NEXT_PUBLIC_OIDC_AUDIENCE: ${NEXT_PUBLIC_OIDC_AUDIENCE:-nomosmart-backend}
       FRONTEND_APP_ORIGIN: ${FRONTEND_APP_ORIGIN:-https://nomosmart.local}
       FRONTEND_PUBLIC_API_BASE_URL: ${FRONTEND_PUBLIC_API_BASE_URL:-/api/backend}
-      FRONTEND_OIDC_ISSUER_URL: ${FRONTEND_OIDC_ISSUER_URL:-${OIDC_ISSUER_URL:-https://nomosmart.local/identity/realms/nomosmart}}
-      FRONTEND_OIDC_INTERNAL_ISSUER_URL: ${FRONTEND_OIDC_INTERNAL_ISSUER_URL:-http://keycloak:8080/identity/realms/nomosmart}
-      FRONTEND_OIDC_CLIENT_ID: ${FRONTEND_OIDC_CLIENT_ID:-nomosmart-frontend}
-      FRONTEND_OIDC_AUDIENCE: ${FRONTEND_OIDC_AUDIENCE:-nomosmart-backend}
       FRONTEND_AUTH_LOGOUT_TIMEOUT_MS: ${FRONTEND_AUTH_LOGOUT_TIMEOUT_MS:-10000}
       FRONTEND_UPLOAD_WAIT_NOTICE_MS: ${FRONTEND_UPLOAD_WAIT_NOTICE_MS:-30000}
       FRONTEND_FEEDBACK_TOAST_DURATION_MS: ${FRONTEND_FEEDBACK_TOAST_DURATION_MS-5000}
@@ -277,7 +274,8 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${BACKEND_MEM_LIMIT:-2g}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -287,6 +285,8 @@ services:
     command: ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
     expose: ["8000"]
     volumes:
+      - ${AUTH_CA_DIRECTORY:-./deploy/docker/auth-ca}:/etc/nomosmart/auth-ca:ro
+      - ${AUTH_BOOTSTRAP_CONFIG_FILE:-./deploy/docker/auth-bootstrap.example.json}:/etc/nomosmart/auth-bootstrap.json:ro
       - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
       - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
       - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
@@ -315,9 +315,6 @@ services:
       rustfs:
         condition: service_healthy
         required: false
-      keycloak:
-        condition: service_healthy
-        required: false
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://127.0.0.1:8000/api/v1/ready >/dev/null"]
       interval: 20s
@@ -328,7 +325,8 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${WORKER_MEM_LIMIT:-4g}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -357,7 +355,8 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
+    mem_limit: ${BEAT_MEM_LIMIT:-512m}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -413,17 +412,15 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file: *nomosmart_env_file
     environment:
       <<: *backend_environment
-      DEPLOYMENT_KEYCLOAK_MODE: ${DEPLOYMENT_KEYCLOAK_MODE:-manage}
-      KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-nomosmart}
-      KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE: /run/secrets/keycloak_bootstrap_admin_password
-      BREAK_GLASS_INITIAL_PASSWORD_FILE: /run/secrets/break_glass_initial_password
+      DIRECTORY_BIND_PASSWORD_FILE: /run/secrets/directory_bind_password
+      OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
       OPENSEARCH_ADMIN_USERNAME: ${OPENSEARCH_ADMIN_USERNAME:-admin}
       OPENSEARCH_ADMIN_PASSWORD_FILE: /run/secrets/opensearch_admin_password
       NEO4J_ADMIN_USERNAME: ${NEO4J_ADMIN_USERNAME:-neo4j}
@@ -450,24 +447,19 @@ services:
       rustfs:
         condition: service_healthy
         required: false
-      keycloak:
-        condition: service_healthy
-        required: false
     networks: [application]
     restart: "no"
 
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.1}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.2.4}
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file: *nomosmart_env_file
     environment:
       <<: *backend_environment
-      DEPLOYMENT_KEYCLOAK_MODE: verify
-      BREAK_GLASS_INITIAL_PASSWORD_FILE: /run/secrets/break_glass_initial_password
       DEPLOYMENT_PHASE: ${DEPLOYMENT_PHASE:-onboarding}
       DEPLOYMENT_BOOTSTRAP_WAIT_SECONDS: ${DEPLOYMENT_BOOTSTRAP_WAIT_SECONDS:-60}
     secrets: *finalize_secrets
@@ -495,14 +487,10 @@ services:
       NOMOSMART_DB_PASSWORD_FILE: /run/secrets/postgres_app_password
       NOMOSMART_MIGRATION_USER: ${DATABASE_MIGRATION_USER:-nomosmart_migration}
       NOMOSMART_MIGRATION_PASSWORD_FILE: /run/secrets/postgres_migration_password
-      KEYCLOAK_DB: ${KEYCLOAK_DB:-keycloak}
-      KEYCLOAK_DB_USER: ${KEYCLOAK_DB_USER:-keycloak}
-      KEYCLOAK_DB_PASSWORD_FILE: /run/secrets/keycloak_db_password
     secrets:
       - postgres_admin_password
       - postgres_app_password
       - postgres_migration_password
-      - keycloak_db_password
     expose: ["5432"]
     volumes:
       - postgres_data:/var/lib/postgresql
@@ -646,43 +634,6 @@ services:
     networks: [application]
     restart: unless-stopped
 
-  keycloak:
-    profiles: ["keycloak"]
-    image: ${KEYCLOAK_IMAGE:-quay.io/keycloak/keycloak:26.0.8@sha256:09a381c715ab0b111835b70f2905955274843a219c6f27efb348e4d9f4086858}
-    entrypoint: ["/opt/nomosmart/secret-env-entrypoint.sh", "/opt/keycloak/bin/kc.sh"]
-    command: ["start", "--http-enabled=true", "--http-port=8080"]
-    env_file: *nomosmart_env_file
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN:-nomosmart}
-      NOMOSMART_SECRET_EXPORTS: KC_BOOTSTRAP_ADMIN_PASSWORD:/run/secrets/keycloak_bootstrap_admin_password,KC_DB_PASSWORD:/run/secrets/keycloak_db_password
-      KC_DB: postgres
-      KC_DB_URL: ${KEYCLOAK_DB_URL:-jdbc:postgresql://postgresql:5432/keycloak}
-      KC_DB_USERNAME: ${KEYCLOAK_DB_USER:-keycloak}
-      KC_HOSTNAME: ${NOMOSMART_PUBLIC_ORIGIN:-https://nomosmart.local}/identity
-      KC_HTTP_RELATIVE_PATH: /identity
-      KC_PROXY_HEADERS: xforwarded
-      KC_HEALTH_ENABLED: "true"
-      KC_METRICS_ENABLED: "true"
-    secrets:
-      - keycloak_bootstrap_admin_password
-      - keycloak_db_password
-    expose: ["8080", "9000"]
-    volumes:
-      - keycloak_data:/opt/keycloak/data
-      - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
-      - ./deploy/keycloak/themes/nomosmart:/opt/keycloak/themes/nomosmart:ro
-    depends_on:
-      postgresql:
-        condition: service_healthy
-        required: false
-    healthcheck:
-      test: ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/127.0.0.1/8080'"]
-      interval: 20s
-      timeout: 10s
-      retries: 20
-    networks: [application]
-    restart: unless-stopped
-
   debug-ports:
     profiles: ["debug"]
     image: ${DEBUG_PROXY_IMAGE:-alpine/socat:1.8.0.1@sha256:87d88ff79bf42ca723fb360e9585c40e2923a2f4df9b9d148b127568ef6b99e7}
@@ -690,7 +641,6 @@ services:
     command:
       - |
         socat TCP-LISTEN:8000,fork,reuseaddr TCP:backend:8000 &
-        socat TCP-LISTEN:8080,fork,reuseaddr TCP:keycloak:8080 &
         socat TCP-LISTEN:5432,fork,reuseaddr TCP:postgresql:5432 &
         socat TCP-LISTEN:6379,fork,reuseaddr TCP:redis:6379 &
         socat TCP-LISTEN:9000,fork,reuseaddr TCP:rustfs:9000 &
@@ -699,7 +649,6 @@ services:
         wait
     ports:
       - "127.0.0.1:${DEBUG_BACKEND_PORT:-8000}:8000"
-      - "127.0.0.1:${DEBUG_KEYCLOAK_PORT:-8080}:8080"
       - "127.0.0.1:${DEBUG_POSTGRES_PORT:-5432}:5432"
       - "127.0.0.1:${DEBUG_REDIS_PORT:-6379}:6379"
       - "127.0.0.1:${DEBUG_RUSTFS_PORT:-9000}:9000"
@@ -721,9 +670,14 @@ volumes:
   neo4j_data:
   neo4j_logs:
   rustfs_data:
-  keycloak_data:
 
 secrets:
+  auth_encryption_key:
+    file: ${AUTH_ENCRYPTION_KEY_FILE:-./deploy/docker/generated/current/app_encryption_key}
+  auth_previous_keys:
+    file: ${AUTH_PREVIOUS_KEYS_FILE:-./deploy/docker/auth-previous-keys.example.json}
+  directory_bind_password:
+    file: ${DIRECTORY_BIND_PASSWORD_FILE:-./deploy/docker/generated/current/directory_bind_password}
   app_encryption_key:
     file: ./deploy/docker/generated/current/app_encryption_key
   postgres_admin_password:
@@ -732,8 +686,6 @@ secrets:
     file: ./deploy/docker/generated/current/postgres_app_password
   postgres_migration_password:
     file: ./deploy/docker/generated/current/postgres_migration_password
-  keycloak_db_password:
-    file: ./deploy/docker/generated/current/keycloak_db_password
   database_url:
     file: ./deploy/docker/generated/current/database_url
   database_migration_password:
@@ -760,11 +712,7 @@ secrets:
     file: ./deploy/docker/generated/current/neo4j_admin_password
   neo4j_service_password:
     file: ./deploy/docker/generated/current/neo4j_service_password
-  keycloak_bootstrap_admin_password:
-    file: ./deploy/docker/generated/current/keycloak_bootstrap_admin_password
   oidc_client_secret:
-    file: ./deploy/docker/generated/current/oidc_client_secret
-  keycloak_sync_client_secret:
-    file: ./deploy/docker/generated/current/keycloak_sync_client_secret
+    file: ${OIDC_CLIENT_SECRET_FILE:-./deploy/docker/generated/current/oidc_client_secret}
   break_glass_initial_password:
     file: ./deploy/docker/generated/current/break_glass_initial_password

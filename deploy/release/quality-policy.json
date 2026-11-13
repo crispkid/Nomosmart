@@ -1,0 +1,265 @@
+{
+  "schema_version": 1,
+  "policy_id": "nomosmart-risk-quality-v1",
+  "scope": "local-risk-reviewed-release",
+  "authority": {
+    "change_id": "CHG-419",
+    "approval_sha256": "8d44de3fcd791846cea49700408bfb8a1b53ccfc41f261f5b29bac78f1d56e97"
+  },
+  "coverage": {
+    "measurement_required": true,
+    "advisory_target_percent": 80,
+    "below_target_blocks": false
+  },
+  "critical_waiver_allowed": false,
+  "scenarios": [
+    {
+      "id": "ldap_login",
+      "group": "identity",
+      "requirement": "PROTAUTH-001..003/007/008/010",
+      "behavior": "LDAP／Windows AD登入成功與錯密碼／停用／未准入拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "oidc_login",
+      "group": "identity",
+      "requirement": "PROTAUTH-001..003/007/008/010",
+      "behavior": "通用OIDC登入與issuer／audience／nonce／state／PKCE／replay拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "session",
+      "group": "identity",
+      "requirement": "PROTAUTH-001..003/007/008/010",
+      "behavior": "共用session、登出撤銷與30分鐘滑動閒置",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "legacy_auth_denial",
+      "group": "identity",
+      "requirement": "PROTAUTH-001..003/007/008/010",
+      "behavior": "舊標頭／外部Bearer不建立session；emergency限時及越權拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "directory_sync",
+      "group": "directory",
+      "requirement": "PROTAUTH-004..006",
+      "behavior": "穩定身分、使用者與群組分頁同步及每日排程時區",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "directory_failure",
+      "group": "directory",
+      "requirement": "PROTAUTH-004..006",
+      "behavior": "同步失敗不套用不完整結果；停用及手動角色保持",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "role_union",
+      "group": "permissions",
+      "requirement": "PROTAUTH-006; permission semantics",
+      "behavior": "角色權限聯集與view／create／edit／delete互不推導",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "owner_protection",
+      "group": "permissions",
+      "requirement": "PROTAUTH-006; permission semantics",
+      "behavior": "Owner獨立治理、sole／self保護與角色替換原子性",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "project_isolation",
+      "group": "permissions",
+      "requirement": "PROTAUTH-006; permission semantics",
+      "behavior": "跨專案讀寫、匯出、刪除及非指派審核拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "native_pdf",
+      "group": "ingestion",
+      "requirement": "LLMOCR-001..011; COPYTOK",
+      "behavior": "PDF原檔直送LLM與可信Markdown、文件版本及未知頁碼",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "text_direct",
+      "group": "ingestion",
+      "requirement": "LLMOCR-001..011; COPYTOK",
+      "behavior": "TXT／MD直接讀取且不呼叫OCR模型",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "model_input_limits",
+      "group": "ingestion",
+      "requirement": "LLMOCR-001..011; COPYTOK",
+      "behavior": "無能力／計數／超限／截斷或拒絕不得發布部分成果",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "paid_idempotency",
+      "group": "ingestion",
+      "requirement": "LLMOCR-001..011; COPYTOK",
+      "behavior": "intent防重複付費、未知結果不自動重試；取消及失效不得promote",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "copy_tokenizer",
+      "group": "ingestion",
+      "requirement": "LLMOCR-001..011; COPYTOK",
+      "behavior": "複製萃取的舊新分詞格式相容與壞資料拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "review_recovery",
+      "group": "governance",
+      "requirement": "CANCELRECOVERY; JUDGESCOPE-001..003",
+      "behavior": "送審／退審／取消保留成果、恢復編輯與重新送審",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "publish_lock",
+      "group": "governance",
+      "requirement": "CANCELRECOVERY; JUDGESCOPE-001..003",
+      "behavior": "核准發布鎖與非指派／跨版本拒絕",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "judge_scope",
+      "group": "governance",
+      "requirement": "CANCELRECOVERY; JUDGESCOPE-001..003",
+      "behavior": "Judge真版本及嚴格舊歸屬、帳務與稽核保持",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "retrieval_scope",
+      "group": "retrieval",
+      "requirement": "knowledge search; graph; citation; public API",
+      "behavior": "搜尋／引用／圖譜與聊天遵守專案及版本權限",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "citation_provenance",
+      "group": "retrieval",
+      "requirement": "knowledge search; graph; citation; public API",
+      "behavior": "原始文件版本可追溯，不猜頁碼且安全顯示內容",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "public_api",
+      "group": "retrieval",
+      "requirement": "knowledge search; graph; citation; public API",
+      "behavior": "對外API金鑰、scope、撤銷及限速與應用登入分離",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "delete_preservation",
+      "group": "data_safety",
+      "requirement": "SOFTRES-001..004; USAGE-001; LLMOCR-013",
+      "behavior": "刪除權限、引用閉包與保留用量／帳務／審計",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "migration_restore",
+      "group": "data_safety",
+      "requirement": "SOFTRES-001..004; USAGE-001; LLMOCR-013",
+      "behavior": "加法移轉與真回復保持舊資料／版本／收據",
+      "mandatory": true,
+      "verification_level": "delivery"
+    },
+    {
+      "id": "lease_concurrency",
+      "group": "data_safety",
+      "requirement": "SOFTRES-001..004; USAGE-001; LLMOCR-013",
+      "behavior": "派送／處理lease與generation fence防止錯誤採用",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "config_secrets",
+      "group": "security",
+      "requirement": "PROTAUTH-009; secret handling; security targets",
+      "behavior": "typed設定、加密連線密碼、無秘密日誌及獨立key驗證",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "network_transport",
+      "group": "security",
+      "requirement": "PROTAUTH-009; secret handling; security targets",
+      "behavior": "TLS／redirect／來源限制及有界輸入輸出",
+      "mandatory": true,
+      "verification_level": "native"
+    },
+    {
+      "id": "security_findings",
+      "group": "security",
+      "requirement": "PROTAUTH-009; secret handling; security targets",
+      "behavior": "有效依賴／容器／靜態掃描及具範圍有效期風險接受",
+      "mandatory": true,
+      "verification_level": "delivery"
+    },
+    {
+      "id": "compose",
+      "group": "delivery",
+      "requirement": "DEPLOY; LOCALREL; RISKREL-006",
+      "behavior": "Compose啟動與健康設定、LDAP／OIDC／同步必要功能",
+      "mandatory": true,
+      "verification_level": "delivery"
+    },
+    {
+      "id": "helm",
+      "group": "delivery",
+      "requirement": "DEPLOY; LOCALREL; RISKREL-006",
+      "behavior": "Helm安裝／升級、就緒、服務及安全設定",
+      "mandatory": true,
+      "verification_level": "delivery"
+    },
+    {
+      "id": "package_integrity",
+      "group": "delivery",
+      "requirement": "DEPLOY; LOCALREL; RISKREL-006",
+      "behavior": "真候選包來源、簽章、映像摘要、SBOM與安裝／回復",
+      "mandatory": true,
+      "verification_level": "delivery"
+    },
+    {
+      "id": "critical_ui",
+      "group": "workflow_ui",
+      "requirement": "OCRSIM; operational UI; i18n",
+      "behavior": "真文件結果、送審與登入後關鍵互動及雙語安全狀態",
+      "mandatory": true,
+      "verification_level": "e2e"
+    },
+    {
+      "id": "critical_e2e",
+      "group": "workflow_ui",
+      "requirement": "OCRSIM; operational UI; i18n",
+      "behavior": "真上傳→辨識→萃取→審核→查詢／引用且資料保持",
+      "mandatory": true,
+      "verification_level": "e2e"
+    }
+  ]
+}

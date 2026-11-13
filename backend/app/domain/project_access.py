@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import and_, case, false, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -71,7 +71,7 @@ def resolve_project_models(
     llm_model_id: UUID | None,
     ocr_model_id: UUID | None,
     embedding_model_id: UUID | None,
-) -> tuple[UUID, UUID, UUID]:
+) -> tuple[UUID, UUID, UUID | None]:
     """Resolve the required active project model set before any project writes."""
 
     requested_models = (
@@ -82,6 +82,8 @@ def resolve_project_models(
     resolved: dict[str, AIModel] = {}
     missing_model_types: list[str] = []
     for public_type, database_type, requested_id in requested_models:
+        if public_type == "ocr" and requested_id is None:
+            continue
         model = session.get(AIModel, requested_id) if requested_id is not None else None
         if model is None or not model.is_active or model.deleted_at is not None or model.model_type != database_type:
             missing_model_types.append(public_type)
@@ -91,13 +93,13 @@ def resolve_project_models(
     if missing_model_types:
         raise AppError(
             "project_model_configuration_required",
-            "Active Chat, OCR, and Embedding models are required",
+            "Active Chat and Embedding models are required; PDF recognition additionally requires OCR",
             status_code=422,
             details={"missing_model_types": missing_model_types},
         )
 
     chat_model = resolved["chat"]
-    ocr_model = resolved["ocr"]
+    ocr_model = resolved.get("ocr")
     embedding_model = resolved["embedding"]
     if not _chat_accepts_embedding(chat_model, embedding_model):
         raise AppError(
@@ -107,7 +109,49 @@ def resolve_project_models(
             details={"llm_model_id": str(chat_model.id), "embedding_model_id": str(embedding_model.id)},
         )
 
-    return chat_model.id, embedding_model.id, ocr_model.id
+    if ocr_model is not None:
+        from app.domain.ocr_capabilities import require_native_capabilities
+        require_native_capabilities(ocr_model)
+    return chat_model.id, embedding_model.id, ocr_model.id if ocr_model else None
+
+
+def _is_active_model(model, kind: str) -> bool:
+    return model is not None and model.model_type == kind and model.is_active and model.deleted_at is None
+
+
+def _pdf_configuration(model) -> str:
+    if model is None:
+        return "invalid"
+    from app.domain.ocr_capabilities import require_native_capabilities
+    try:
+        require_native_capabilities(model)
+    except AppError:
+        return "invalid"
+    return "configured"
+
+
+def project_model_configuration(session: Session, project: Project) -> tuple[str, str]:
+    chat = session.get(AIModel, project.llm_model_id) if project.llm_model_id else None
+    embedding = session.get(AIModel, project.embedding_model_id) if project.embedding_model_id else None
+    basic = (_is_active_model(chat, "Chat") and _is_active_model(embedding, "Embedding")
+             and _chat_accepts_embedding(chat, embedding))
+    pdf = _pdf_configuration(session.get(AIModel, project.ocr_model_id)) if project.ocr_model_id else "not_configured"
+    return ("ready" if basic else "incomplete", pdf)
+
+
+def project_model_state_expressions(session: Session):
+    """Use the same model eligibility before SQL pagination and total counting."""
+    models = list(session.scalars(select(AIModel).where(AIModel.is_active.is_(True), AIModel.deleted_at.is_(None),
+                  AIModel.model_type.in_(("Chat", "Embedding", "OCR")))))
+    embeddings = [m for m in models if m.model_type == "Embedding"]
+    pairs = [and_(Project.llm_model_id == chat.id, Project.embedding_model_id.in_(
+                [e.id for e in embeddings if _chat_accepts_embedding(chat, e)]))
+             for chat in models if chat.model_type == "Chat"]
+    complete = or_(false(), *pairs)
+    pdf_ids = [m.id for m in models if m.model_type == "OCR" and _pdf_configuration(m) == "configured"]
+    pdf = case((Project.ocr_model_id.is_(None), "not_configured"),
+               (Project.ocr_model_id.in_(pdf_ids), "configured"), else_="invalid")
+    return complete, pdf
 
 
 def get_scoped_project(session: Session, project_id: UUID, context: IdentityContext) -> Project:
@@ -176,6 +220,7 @@ def project_response_projection(
     current_user_project_roles: set[str] | None = None,
     is_owner: bool | None = None,
     grants: tuple[PermissionGrant, ...] = (),
+    model_configuration: tuple[str, str] | None = None,
 ) -> Project:
     """Attach the current request's authoritative project access projection."""
 
@@ -202,6 +247,7 @@ def project_response_projection(
     canonical_role = canonical_project_role(roles)
     roles = {canonical_role} if canonical_role is not None else set()
 
+    project.model_configuration_state, project.pdf_model_state = model_configuration or project_model_configuration(session, project)
     project.is_owner = resolved_is_owner
     project.current_user_project_roles = sorted(roles)
     project.capabilities = project_capabilities(

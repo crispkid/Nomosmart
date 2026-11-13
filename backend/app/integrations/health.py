@@ -89,17 +89,14 @@ def _neo4j_status(settings: Settings) -> DependencyStatus:
             driver.close()
 
 
-def _keycloak_status(settings: Settings) -> DependencyStatus:
+def _authentication_status(settings: Settings) -> DependencyStatus:
+    from app.deployment.protocol_status import configuration_status
     try:
-        response = httpx.get(settings.oidc_discovery_endpoint, timeout=2)
-        if response.status_code != 200:
-            return DependencyStatus("keycloak", False, "discovery_rejected")
-        payload = response.json()
-        if not isinstance(payload, dict) or not payload.get("issuer") or not payload.get("jwks_uri"):
-            return DependencyStatus("keycloak", False, "discovery_invalid")
-        return DependencyStatus("keycloak", True, "discovery_ready")
-    except (httpx.HTTPError, json.JSONDecodeError, ValueError):
-        return DependencyStatus("keycloak", False, "unavailable")
+        mode = configuration_status(settings)
+        return DependencyStatus("authentication", True, mode + "_configured")
+    except Exception as exc:
+        from app.core.errors import AppError
+        return DependencyStatus("authentication", False, exc.code if isinstance(exc, AppError) else "auth_configuration_unavailable")
 
 
 def _worker_status(settings: Settings) -> DependencyStatus:
@@ -132,7 +129,7 @@ def check_dependencies(settings: Settings, *, recorder: ReadinessDiagnostics | N
         ("s3", lambda: _s3_status(settings)),
         ("opensearch", lambda: _opensearch_status(settings)),
         ("neo4j", lambda: _neo4j_status(settings)),
-        ("keycloak", lambda: _keycloak_status(settings)),
+        ("authentication", lambda: _authentication_status(settings)),
         ("celery_worker", lambda: _worker_status(settings)),
     )
     return [run_check(recorder, name, callback) for name, callback in checks]

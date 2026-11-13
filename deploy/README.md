@@ -1,9 +1,81 @@
 # NomoSmart deployment operations
 
-Operational configuration for NomoSmart 0.2.1. Start with the complete installation
-guide in [English](../README.md) or [繁體中文](../README.zh-TW.md).
-Record the target context, Namespace, release, image digests, migration contract,
-and recovery procedure before changing an existing deployment.
+Current source uses authentication contract2. Start with [English README](../README.md), [繁中README](../README.zh-TW.md), and the [authentication guide](../docs/AUTHENTICATION.en.md). There is no bundled or optional identity-provider component in Compose/Helm. The directory and optional external OIDC service remain operator-managed.
+
+This is an operating guide, not a statement of production readiness. Current gaps, configuration verification and historical instructions are separate records.
+
+Latest AD qualification: Windows Server 2025 / strict LDAPS results cover sign-in, user/group changes and actual 1500+1 member ranges. This used an isolated authentication runtime; Compose/Helm deployment results were reused within their recorded source limits. The AD VM remains available; media/snapshot cleanup is complete after Peter approved option A, with strict LDAPS availability confirmed after restart.
+
+## Docker Compose
+
+Prepare the operator `deploy/docker/nomosmart.env` from the [public example](docker/nomosmart.env.example), referenced platform Secret files, trusted edge/datastore TLS, a real directory Bind password and the [bootstrap configuration](docker/auth-bootstrap.example.json). The JSON contains configuration plus `admin_group_id`, not passwords. The group must exist in the real directory and contain the intended first administrator.
+
+The package tool can generate platform Secret/TLS inputs; inspect `./deploy/package/nomosmart-package init --help` for the target/profile first. Existing generations are not automatically overwritten or rotated. Operator directory/OIDC credentials must match real external accounts, not a newly generated substitute. Protect credential files as regular owner-only files. An empty public previous-keyring example contains no keys; real previous keys require a private file.
+
+For reviewed current source or explicitly compatible reviewed images:
+
+```sh
+docker compose --env-file deploy/docker/nomosmart.env config --quiet
+docker compose --env-file deploy/docker/nomosmart.env build frontend backend
+docker compose --env-file deploy/docker/nomosmart.env up -d
+docker compose --env-file deploy/docker/nomosmart.env ps
+```
+
+Complete migration/bootstrap first. Sign in through the configured LDAP/OIDC mode as a synchronized normal administrator; OIDC administrators must also complete fresh authentication in system settings. Then:
+
+```sh
+docker compose --env-file deploy/docker/nomosmart.env run --rm --no-deps deployment-finalize
+```
+
+After success, change `DEPLOYMENT_PHASE=operational` in the operator file and recreate Backend, Worker, Beat, Frontend and edge with the same configuration. Verify `/api/backend/ready` through trusted HTTPS. A completed setup Job alone does not prove normal sign-in, authorization or a business workflow. There is no fixed initial application password.
+
+For an existing bound installation, `./nomosmart status --json`, `logs` and `down` retain the host workflow's ownership/configuration checks. Its `up` command requires prepared real directory inputs; do not use it as a replacement for configuring the enterprise identity source. `down` preserves data volumes.
+
+## Helm installation
+
+If a local platform has unreliable DNS, optional `podHostAliases` can provide operator-managed IP/hostname mappings for this deployment's Pods. It defaults to an empty list and does not change cluster DNS. Keep database URLs and TLS hostname verification unchanged, and update mappings when Service IPs change. Test-only addresses must not be copied into production values.
+
+Helm merges nested label maps when applying values. When selecting a custom ingress proxy, explicitly override every retained default selector key (including `app.kubernetes.io/name`) to match that proxy, or deliberately remove an unused key while retaining restrictive selectors. Check the rendered NetworkPolicy against the actual proxy labels; adding a new selector key does not replace the default labels.
+
+
+| Path | Supported input and lifecycle |
+| --- | --- |
+| Protocol installer | `external-services`, existing runtime Secret, explicit owned namespace/context; plan → install/resume → normal sign-in → finalize → verify |
+| Direct chart | Reviewed bundled or external-services values; operator performs the same bootstrap/onboarding/finalization stages |
+| Current one-click | `--protocol-config`, external-services only; private initialization → read-only plan → bound confirmation → normal sign-in checkpoint |
+| Legacy factory/contract1 | Archived source; excluded from current protocol packages and current installation entry points |
+
+For the protocol installer, copy the [target TOML](installer/nomosmart-install.protocol.example.toml) and [values JSON](installer/protocol-values.example.json) to a private operator directory. Replace all example endpoints, CA/Secret names, image references, source/group identifiers, application origin and target fields. Use an absolute chart path or a correct path relative to the target TOML. Set endpoint allowlists to the real directory and chosen OIDC hosts; never disable TLS verification.
+
+The target example names `protocol-values.json`. Save the copied JSON under that name in the operator directory, or adjust `values_file` explicitly.
+
+The runtime Secret supplies platform/database/migration/storage credentials and encryption keys. Bootstrap additionally needs `DIRECTORY_BIND_PASSWORD` and, for an OIDC client that requires one, `OIDC_CLIENT_SECRET`. Keep `secrets.data={}` and use `secrets.existingSecret`. Authentication CA Secret keys must match `ca_reference` filenames in bootstrap configuration. Persist the encryption keys required by existing database ciphertext.
+
+Create only the intended namespace. If the operator precreates it to provision Secrets, label that **new** namespace with `nomosmart.io/protocol-installation` equal to the target `installation_id`. A namespace owned by another installation must not be relabeled or reused. The installer will reject mismatched ownership.
+
+```sh
+./deploy/installer/nomosmart-install plan --protocol-config /operator/path/target.toml
+./deploy/installer/nomosmart-install install --protocol-config /operator/path/target.toml
+# Complete synchronized normal-administrator sign-in in the browser first.
+./deploy/installer/nomosmart-install finalize --protocol-config /operator/path/target.toml
+./deploy/installer/nomosmart-install verify --protocol-config /operator/path/target.toml
+```
+
+`/operator/path` is a placeholder. `install`/`resume` may return exit10 with `action-required`; this is the normal sign-in checkpoint, not completed onboarding. After interruption inspect `status` before another mutating command. The installer does not administer an IdP or create a directory user.
+
+For a **direct bundled chart** deployment, begin with [values-bundled.example.yaml](helm/nomosmart/values-bundled.example.yaml) and complete bundled operator values including runtime/TLS Secrets, authentication bootstrap, images, storage and ingress. Do not reuse the external-services JSON unchanged. Inspect the real rendering first:
+
+```sh
+helm lint deploy/helm/nomosmart
+helm template "$NOMOSMART_RELEASE" deploy/helm/nomosmart \
+  --namespace "$NOMOSMART_NAMESPACE" \
+  -f deploy/helm/nomosmart/values-bundled.example.yaml \
+  -f "$NOMOSMART_HELM_VALUES" --set installer.deploymentStage=application
+```
+
+Rendered manifests can contain Secret data; keep output private and do not paste it into logs/chat. Apply only to the explicit reviewed context/namespace. Initial application-stage values use `bootstrap.deploymentPhase=onboarding`. After normal administrator sign-in, apply the same complete values with `bootstrap.finalize.enabled=true`; after that Job succeeds, set it false and change both `installer.deploymentStage` and `bootstrap.deploymentPhase` to `operational`. Wait for real Jobs and readiness at each stage. The protocol installer automates these stages for its external-services path.
+
+Across the contract2 upgrade, remove retired `keycloak.*`, `global.keycloakPath`, `bootstrap.keycloak*`, product-specific env/Secret/PostgreSQL fields and identity routes. Supply complete explicit values with `--reset-values`; do not carry old values across with `--reuse-values`. An actual upgrade removes old release-owned identity workloads/routes/product Secrets, so arrange independent IdP/data/credential custody first. Published SQL and historical identity fields remain; these scripts do not DROP old databases or clear retained PVCs.
 
 ## Configuration and secrets
 
@@ -20,14 +92,14 @@ request receives edge HTTP 413 before Backend; split it into smaller batches.
 This does not promise unlimited batches or change automatic-extraction rules.
 
 Helm optional `ingress.documentUpload.requestMaxSizeMiB` overrides the request
-limit; leave it omitted to derive from Backend, including old `--reuse-values`.
+limit; leave it omitted to derive from Backend, including compatible prior values.
 The integer must be at least the file limit plus 1 and at most 10241. Explicit
 null, empty, zero, non-integer and conflicting path/annotation values fail closed.
 The separate `*-document-upload` Ingress sends `/api/backend/projects` to the
 same Frontend proxy, preserving host, TLS, class and source/security annotations.
 It covers uploads and version updates without exposing Backend directly. Root,
-identity/admin and public API limits are not raised, and the three existing
-Ingress resources are not renamed or edited by this new template.
+other application and public API limits are not raised, and other application
+Ingress resources retain their paths and limits.
 
 Compose uses the same exact/slash-prefix path. Its mounted executable
 `16-document-upload-config.sh` derives a numeric nginx include before template
@@ -45,6 +117,32 @@ The Frontend forwards bounded chunks and the Backend uses bounded disk scratch
 space. Watch memory, disk capacity, and restarts during boundary checks;
 do not increase memory limits or remove the cap just to make validation pass.
 
+### Database and worker limits
+
+All values below are optional; defaults keep the PostgreSQL and Celery behavior
+of 0.2.4. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
+
+| Setting | Default | Recommended production value |
+| --- | --- | --- |
+| `NOMOSMART_DB_POOL_SIZE` / `NOMOSMART_DB_MAX_OVERFLOW` | 10 / 20 | Keep unless PostgreSQL `max_connections` requires less |
+| `NOMOSMART_DB_IDLE_IN_TRANSACTION_TIMEOUT_MS` | 0 (no limit) | `3900000` (65 min). Must exceed the longest upload and Chat Model timeout, because a chat turn holds its transaction-scoped conversation lock across the provider call |
+| `NOMOSMART_DB_STATEMENT_TIMEOUT_MS` | 0 (no limit) | `0`; report exports and graph reconciliation can run long single statements |
+| `NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS` | 300 | 300 for heartbeat, scheduling, outbox dispatch, notification and recovery tasks (hard limit +30 s) |
+| `NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS` | 0 (no limit) | Set only after measuring the longest OCR, directory sync, validation and graph sync runs |
+| `NOMOSMART_CELERY_VISIBILITY_TIMEOUT_SECONDS` | 3600 | Larger than the longest late-acknowledged task, or Redis redelivers it |
+| `FRONTEND_MEM_LIMIT` / `BACKEND_MEM_LIMIT` / `WORKER_MEM_LIMIT` / `BEAT_MEM_LIMIT` (Compose) | 1g / 2g / 4g / 512m | Raise the worker limit for large OCR documents |
+
+Compose application services drop all Linux capabilities and set
+`no-new-privileges`; the backend-image services keep only CHOWN, FOWNER, SETUID,
+SETGID and DAC_OVERRIDE for the root entrypoint that copies secrets and then runs
+the application as UID 10001 with no effective capabilities. In Helm, every
+application Deployment and Job has a container `securityContext` and resources,
+`frontend.readOnlyRootFilesystem: true` runs the frontend on a read-only root
+filesystem with writable `emptyDir` for `.next/cache` and `/tmp`, and
+`autoscaling.frontend|backend.enabled` adds an HPA with `replicaCount` as the
+minimum. Pods already roll on every Helm upgrade through the release-revision
+annotation. Pin images by digest with `tag: "<version>@sha256:<digest>"`.
+
 ### Public API edge routing
 
 The external contract remains `POST /api/public/v1/projects/{project_id}/chat`,
@@ -57,19 +155,19 @@ credentials, a path, query or fragment. The mounted `15-public-api-config.sh`
 validates settings before nginx template expansion. Keep this script executable.
 `PUBLIC_API_READ_TIMEOUT_SECONDS` defaults to `600`, integer `1..3600`; it only
 sets the public proxy's idle-read timeout, not a Provider timeout. Existing edge
-TLS, host bindings, body limits and identity-admin restrictions are unchanged.
+TLS, host bindings, body limits and onboarding source restrictions are unchanged.
 
 Helm creates a separate `*-public-api` Ingress by default, sharing the main
 Ingress hosts, TLS, class and effective source/security annotations (including
 the onboarding allowlist). Public-only buffering and upstream retry are disabled.
-The existing two Ingress resources are not renamed or edited by this template.
+Other application Ingress resources retain their paths and limits.
 Backend NetworkPolicy retains Frontend access and adds only the configured
 Ingress controller namespace AND pod selector on Backend's named `http` port.
 It does not expose an internal API or open Backend to all Pods.
 
 Optional `ingress.publicApi.enabled` (default `true`) and
 `ingress.publicApi.readTimeoutSeconds` (default `600`, integer `1..3600`) have
-template defaults even when omitted from an old release's `--reuse-values`.
+template defaults even when omitted from compatible prior values.
 Explicit null or invalid values fail schema checks. Disabling the public route
 also omits its extra network rule. Conflicting public paths, rewrite/regex,
 snippet or SSL-passthrough annotations are rejected instead of silently changing
@@ -98,12 +196,12 @@ resolved Compose config, Helm Secret manifests, tokens or private keys in logs.
 Use the checked-in mounted-file contracts; do not bake credentials into images.
 
 The default Compose profiles are
-`postgresql,redis,rustfs,opensearch,neo4j,keycloak`. A profile selects the bundled
+`postgresql,redis,rustfs,opensearch,neo4j`. A profile selects the bundled
 service, not permission to replace an existing external datastore. To use an
 external service, disable its profile and explicitly configure its endpoint,
 credential files and TLS trust. Confirm readiness against the intended service.
-Preserve public OIDC issuer/audience while configuring internal discovery/JWKS
-transport separately. Never disable verification to make a TLS failure pass.
+Configure OIDC issuer/client/metadata in authentication bootstrap or unlocked Web settings,
+with explicit allowlisted internal transport only when needed. Never disable verification to make a TLS failure pass.
 
 For Helm, use `deploy/helm/nomosmart/values.yaml` plus an environment-specific
 overlay and approved image tags/digests. Each peripheral supports `mode: bundled`
@@ -115,7 +213,7 @@ storage classes, issuer/TLS, Ingress allowlists and supporting-service ownership
 ## Validation before writes
 
 Backend readiness has an optional `backend.readinessTimeoutSeconds` integer
-(1–60). Omitted keys, including older `--reuse-values` releases, retain 5 seconds.
+(1–60). Omitted keys, including compatible prior values, retain 5 seconds.
 The Docker Desktop values overlay sets it to 10 seconds.
 This only tolerates occasional readiness latency; it does not speed up requests,
 change health results, or extend liveness (5 seconds), dependency or Ingress
@@ -130,7 +228,7 @@ and server wait < total. Periods/failure counts, authenticated TLS and hostname
 verification are unchanged. No retry-until-success or unlimited timeout is used.
 
 The optional example in `values.yaml` is deliberately commented out: omitted
-keys (including old `--reuse-values` releases) use template defaults, while
+keys (including compatible prior values releases) use template defaults, while
 explicit null, zero, wrong types and conflicting budgets are rejected rather
 than lost during Helm's default coalescing. External OpenSearch has no bundled
 probe or resource changes. The Docker Desktop overlay alone requests 2 GiB and
@@ -138,8 +236,8 @@ limits 4 GiB for OpenSearch; other profiles keep their memory defaults. CPU,
 512 MiB Java heap, image, replica count and volumes are unchanged. Account for
 the shared Docker VM's capacity, not the sum of kind nodes' reported memory.
 
-An existing release needs only the approved explicit overrides with reuse-values,
-not reapplication of the entire local overlay. Changing probes/resources rolls
+Within an already compatible contract2 release, review only the necessary
+probe/resource changes while supplying the complete approved configuration. Changing probes/resources rolls
 the StatefulSet Pod; single-node search can be briefly unavailable. Retained
 PVCs are not backups. A rollback can restore the previous smaller memory limit
 and probe budget; verify actual health instead of assuming recovery.
@@ -192,17 +290,27 @@ runtime checks remain in place.
 
 ### Migration contract
 
-NomoSmart 0.2.1 delivers [B053](../sql/migrations/B053__ocr_output_token_settings.sql) for
-empty databases and preserves V001–V053 for databases with existing migration
-history. Official Flyway applies B053 once on an empty database. The source-bound
-[migration contract](migrations/release-contract.json) defines the accepted version,
-type, file hash, and Flyway checksum.
+Current source targets [V060](../sql/migrations/V060__backfill_document_version_creators.sql).
+For an empty database, official Flyway applies the unchanged
+[B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
+then V055 through V060. Existing databases retain their published migration chain and
+continue through V060. V058 only adds indexes; writes to the indexed tables wait while
+each index is built, so run it in the normal upgrade window. V059 only drops the
+retired Keycloak column defaults. V060 writes the recorded creator into document
+versions that have none, marked `version_created_by_source = "V060"`; each migration
+file lists its rollback SQL. No B060 or rewritten
+historical SQL is introduced. The source-bound
+[migration contract](migrations/release-contract.json) defines the current SQL
+target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
+contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=053`, `MIGRATION_REQUIRED_CHECKSUM=-616112917`, and
-`MIGRATION_BASELINE_CHECKSUM=-1949712409`. Helm uses `migration.requiredVersion`,
-`migration.requiredChecksum`, and `migration.baselineChecksum`. Keep the version
-as a string. Flyway's signed 32-bit checksum and the SQL file's SHA256 hash serve
+`MIGRATION_REQUIRED_VERSION=060`, `MIGRATION_REQUIRED_CHECKSUM=571486141`, and
+an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
+`migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
+contract validates the additive SQL target, rather than inventing a same-version
+baseline. Flyway still validates the installed migration history. Keep the version
+as a string. Flyway's signed32-bit checksum and the SQL file's SHA256 hash serve
 different purposes. Preserve the values supplied with the release.
 
 For source development, add these values to `backend/.env` as described in the
@@ -244,8 +352,8 @@ still perform bounded operational writes, which must be included in approval.
 For an approved Helm upgrade, use the reviewed chart/values and correct explicit
 context/namespace. Select the installed Helm version's supported failure rollback
 flag, `--wait`, `--wait-for-jobs` and approved timeout. Check hooks/Jobs in the
-render first. `--reuse-values` retains old settings but is not a substitute for
-drift comparison. Do not automatically retry a failed migration or upgrade.
+render first. Use complete reviewed values with `--reset-values` across the authentication-contract transition;
+retired settings must not be carried forward. Drift comparison remains required. Do not automatically retry a failed migration or upgrade.
 
 ## Network and diagnosis
 
@@ -272,8 +380,8 @@ inventory, approval and recovery plan.
 
 Before a mutating release, retain a complete pre-deployment PostgreSQL backup
 and prove restoration in an isolated environment. Include object storage,
-OpenSearch, Neo4j, Keycloak and Secret recovery; PostgreSQL alone cannot restore
-external artifacts. Record protected row/resource counts and digest baselines
+OpenSearch, Neo4j, encrypted authentication settings and Secret recovery; PostgreSQL alone cannot restore
+external artifacts. The external IdP/directory operator owns their separate recovery. Record protected row/resource counts and digest baselines
 without secret values. A Helm application rollback does not undo SQL or Jobs.
 
 ### Role reuse and archive recovery
@@ -316,7 +424,7 @@ legacy snapshots remain readable and no migration/backfill is needed.
 ### Independent Beat resources
 
 `beat.resources` is optional. Omission, `null`, or `{}` keeps the legacy
-`worker.resources` fallback, including upgrades with `--reuse-values`. A partial
+`worker.resources` fallback, including compatible contract2 upgrades. A partial
 object overrides only its supplied `requests` / `limits` fields; unspecified
 CPU, memory and limits still inherit Worker. Empty child objects override nothing.
 The standalone Beat, HA Beat and capacity report use the same copied merge,
@@ -341,9 +449,30 @@ shapes and quantity types; use Kubernetes server dry-run to validate resource
 quantity syntax and request/limit relationships before an upgrade.
 
 
-Docker lifecycle from the source/package root: `./nomosmart up`, `status --json`,
-`logs backend --tail 100`, and `down`. The root bilingual README documents first
-use, hostname/CA prerequisites, source `--build`, timeout and safe persistence.
-This host CLI delegates to the existing package/Compose gates; no Web setup or
-Helm flow changes. Private state under `deploy/docker/.nomosmart-workflow/` is
-excluded from Git/package delivery.
+Private host-workflow state under `deploy/docker/.nomosmart-workflow/` remains
+outside Git and package delivery. See the current Compose section above for prerequisites.
+
+
+### Helm application node placement
+
+The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Beat variants, and migration/bootstrap/finalize Jobs. Its default `{}` leaves placement to the scheduler. Set matching node labels in environment-specific values when a constrained development or operations topology requires them. Operator-managed external services retain their own placement; check available nodes and keep HA affinity requirements in mind. A successful single-node smoke does not qualify cross-node networking or HA.
+
+既有 `nodeSelector` 現在一致套用到後端、前端、Worker、兩種 Beat，以及 migration／bootstrap／finalize 工作。預設 `{}` 由排程器安排；需要指定節點時在環境 values 填入節點標籤。外部服務仍由操作人員管理其節點位置；單節點驗證不代表跨節點網路或 HA 已通過。
+
+## Current protocol release contract (draft v4)
+
+The current source adds the `local-verified-release` v4 format and the separate [protocol dependency lock](release/external-dependencies.protocol.lock.json); historical v2/v3 validation retains its own lock and contract. The current lock has no mandatory Keycloak image. This source is not a qualified or signed package.
+
+Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See current verification and remaining work.
+
+既有部署相容性：Compose 啟動準備仍可為已掛載的舊版 IdP 憑證參照建立私有 tmpfs 檔案，供尚未升級的容器安全讀取。此相容處理不建立 Keycloak 服務，也不變更登入協定。既有容器更換憑證時應沿用其已核對的映像與掛載，先確認啟動腳本相容，再依維護計畫重啟；認證架構切換與資料庫升級仍走各自的升級程序。
+
+## Current installer and package cleanup (CHG-375)
+
+Use `installer/nomosmart-one-click --protocol-config /operator/private/target.toml --init-config` to create new owner-only target and values files in an existing mode700 directory. It never overwrites files or changes directory permissions. Edit actual service/CA/Secret/directory references, then use `--plan-only`; apply only with the returned `--confirm-digest` or explicit `--yes`. The wrapper invokes the real protocol installer, stops at the administrator sign-in checkpoint (exit10), and does not finalize on the operator's behalf. Legacy `--config` and bundled-wrapper input fail before operations; direct Helm retains bundled support.
+
+The protocol payload contains only the current installer import closure and examples. Original wrapper/CLI/templates are preserved with hashes in the archival inventory; explicitly marked old templates and inactive source remain for historical tests, outside current entry points and payloads. The local tunnel example forwards only datastore traffic. Configure any external OIDC service explicitly using the actual issuer and trusted TLS.
+
+Legacy `nomosmart-release create` and `assemble-validation` reject the current protocol chart before reading keys, building or creating output. Historical `verify-package` remains available. `assemble-local` retains its actual full-suite, 80% coverage, security and signing requirements; this cleanup does not produce a signed package or qualify production publication.
+
+V056 keeps historical policy/receipt evidence. Stop old application writers first; retain an encrypted055 recovery snapshot. New policy v2 exposes only document settings. See [native PDF operations](../docs/NATIVE-PDF-OCR-OPERATIONS.md); no local PDF companion chart is required.

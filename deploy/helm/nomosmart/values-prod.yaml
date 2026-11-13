@@ -117,13 +117,6 @@ rustfs:
     podDisruptionBudget:
       minAvailable: 3
 
-keycloak:
-  cluster:
-    replicas: 3
-    topologyKey: kubernetes.io/hostname
-    podDisruptionBudget:
-      minAvailable: 2
-
 opensearch:
   image:
     digest: sha256:e321cb03c643874c42240458a618db56bc1e4fc143b10c41bec653542bc6851b
@@ -148,14 +141,8 @@ frontend:
   env:
     NEXT_PUBLIC_APP_ORIGIN: https://nomosmart.local
     NEXT_PUBLIC_API_BASE_URL: /api/backend
-    NEXT_PUBLIC_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
-    NEXT_PUBLIC_OIDC_CLIENT_ID: nomosmart-frontend
-    NEXT_PUBLIC_OIDC_AUDIENCE: nomosmart-backend
     FRONTEND_APP_ORIGIN: https://nomosmart.local
     FRONTEND_PUBLIC_API_BASE_URL: /api/backend
-    FRONTEND_OIDC_ISSUER_URL: https://nomosmart.local/identity/realms/nomosmart
-    FRONTEND_OIDC_CLIENT_ID: nomosmart-frontend
-    FRONTEND_OIDC_AUDIENCE: nomosmart-backend
 
 secrets:
   existingSecret: nomosmart-runtime-secrets
@@ -167,7 +154,6 @@ ingress:
   hosts:
     - host: nomosmart.local
       paths:
-        - {path: /identity, pathType: Prefix, service: keycloak}
         - {path: /, pathType: Prefix, service: frontend}
   tls:
     - secretName: nomosmart-ingress-tls

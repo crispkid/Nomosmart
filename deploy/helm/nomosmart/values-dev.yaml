@@ -21,7 +21,6 @@ ingress:
   hosts:
     - host: nomosmart.local
       paths:
-        - {path: /identity, pathType: Prefix, service: keycloak}
         - {path: /, pathType: Prefix, service: frontend}
   tls:
     - secretName: nomosmart-ingress-tls

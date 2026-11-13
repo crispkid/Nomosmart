@@ -28,7 +28,9 @@ spec:
       http:
         paths:
           {{- range .paths }}
-          {{- if or (ne .service "keycloak") (eq $.Values.keycloak.mode "bundled") }}
+          {{- if eq .service "keycloak" }}
+          {{- fail "Keycloak ingress targets were removed; use the application service and configure external OIDC separately" }}
+          {{- end }}
           - path: {{ .path }}
             pathType: {{ .pathType }}
             backend:
@@ -37,46 +39,5 @@ spec:
                 port:
                   name: http
           {{- end }}
-          {{- end }}
     {{- end }}
-{{- if and (eq .Values.keycloak.mode "bundled") .Values.keycloak.adminIngress.enabled }}
----
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: {{ include "nomosmart.fullname" . }}-keycloak-admin
-  labels:
-    {{- include "nomosmart.labels" . | nindent 4 }}
-  annotations:
-    {{- with .Values.ingress.adminAnnotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-    {{- with .Values.keycloak.adminIngress.annotations }}
-    {{- toYaml . | nindent 4 }}
-    {{- end }}
-spec:
-  {{- if .Values.ingress.className }}
-  ingressClassName: {{ .Values.ingress.className }}
-  {{- end }}
-  tls:
-    {{- toYaml .Values.ingress.tls | nindent 4 }}
-  rules:
-    - host: {{ .Values.global.publicHost | quote }}
-      http:
-        paths:
-          - path: {{ printf "%s/admin" .Values.global.keycloakPath }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "nomosmart.fullname" . }}-keycloak
-                port:
-                  name: http
-          - path: {{ printf "%s/realms/master" .Values.global.keycloakPath }}
-            pathType: Prefix
-            backend:
-              service:
-                name: {{ include "nomosmart.fullname" . }}-keycloak
-                port:
-                  name: http
-{{- end }}
 {{- end }}

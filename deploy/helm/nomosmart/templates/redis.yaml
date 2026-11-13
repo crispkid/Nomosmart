@@ -215,6 +215,8 @@ spec:
               sentinel resolve-hostnames yes
               sentinel announce-hostnames yes
               sentinel monitor {{ .Values.redis.cluster.masterName }} {{ $name }}-0.{{ $name }}-headless.{{ .Release.Namespace }}.svc.cluster.local {{ .Values.redis.service.port }} {{ .Values.redis.cluster.sentinelQuorum }}
+              sentinel sentinel-user $REDIS_SENTINEL_USERNAME
+              sentinel sentinel-pass $REDIS_SENTINEL_PASSWORD
               sentinel auth-user {{ .Values.redis.cluster.masterName }} $REDIS_SENTINEL_USERNAME
               sentinel auth-pass {{ .Values.redis.cluster.masterName }} $REDIS_SENTINEL_PASSWORD
               sentinel down-after-milliseconds {{ .Values.redis.cluster.masterName }} 10000

@@ -71,15 +71,11 @@
           "type": "string",
           "pattern": "^https://"
         },
-        "keycloakPath": {
-          "type": "string",
-          "pattern": "^/[^/]+$"
-        }
+        "keycloakPath": false
       },
       "required": [
         "publicHost",
-        "publicOrigin",
-        "keycloakPath"
+        "publicOrigin"
       ]
     },
     "acceptedRisks": {
@@ -334,10 +330,7 @@
             "NEO4J_CA_CERT_PATH": {
               "type": "string"
             },
-            "KEYCLOAK_LDAP_GROUP_PATH": {
-              "type": "string",
-              "pattern": "^/[^/].*[^/]$|^/[^/]$"
-            },
+            "KEYCLOAK_LDAP_GROUP_PATH": false,
             "BREAK_GLASS_USERNAME": {
               "type": "string",
               "minLength": 1
@@ -375,13 +368,13 @@
               "type": "string",
               "pattern": "^[0-9]+$"
             },
-            "IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS": {
-              "type": "string",
-              "pattern": "^(?:[3-9][0-9]|[1-9][0-9]{2}|1[0-7][0-9]{2}|1800)$"
-            },
+            "IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS": false,
             "FTPS_CA_CERT_PATH": {
               "type": "string"
-            }
+            },
+            "KEYCLOAK_SYNC_CLIENT_ID": false,
+            "KEYCLOAK_ADMIN_API_URL": false,
+            "KEYCLOAK_ADMIN_INTERNAL_URL": false
           },
           "required": [
             "APP_ENV"
@@ -480,13 +473,7 @@
     "bootstrap": {
       "type": "object",
       "properties": {
-        "keycloakMode": {
-          "type": "string",
-          "enum": [
-            "manage",
-            "verify"
-          ]
-        },
+        "keycloakMode": false,
         "deploymentPhase": {
           "type": "string",
           "enum": [
@@ -537,20 +524,11 @@
           "type": "integer",
           "minimum": 60
         },
-        "keycloakAdminSecret": {
-          "type": "string"
-        },
-        "keycloakAdminUsernameKey": {
-          "type": "string",
-          "minLength": 1
-        },
-        "keycloakAdminPasswordKey": {
-          "type": "string",
-          "minLength": 1
-        }
+        "keycloakAdminSecret": false,
+        "keycloakAdminUsernameKey": false,
+        "keycloakAdminPasswordKey": false
       },
       "required": [
-        "keycloakMode",
         "deploymentPhase",
         "evidenceRelease",
         "onboardingAdminAllowCidr",
@@ -558,10 +536,7 @@
         "finalize",
         "waitSeconds",
         "backoffLimit",
-        "activeDeadlineSeconds",
-        "keycloakAdminSecret",
-        "keycloakAdminUsernameKey",
-        "keycloakAdminPasswordKey"
+        "activeDeadlineSeconds"
       ]
     },
     "secrets": {
@@ -574,6 +549,12 @@
           "type": "object",
           "additionalProperties": {
             "type": "string"
+          },
+          "properties": {
+            "KEYCLOAK_DB_PASSWORD": false,
+            "KEYCLOAK_BOOTSTRAP_ADMIN_USERNAME": false,
+            "KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD": false,
+            "KEYCLOAK_SYNC_CLIENT_SECRET": false
           }
         }
       },
@@ -597,41 +578,7 @@
     "neo4j": {
       "$ref": "#/definitions/component"
     },
-    "keycloak": {
-      "allOf": [
-        {
-          "$ref": "#/definitions/component"
-        },
-        {
-          "type": "object",
-          "properties": {
-            "cache": {
-              "type": "object",
-              "additionalProperties": false,
-              "properties": {
-                "mode": {
-                  "type": "string",
-                  "enum": [
-                    "local",
-                    "ispn"
-                  ]
-                },
-                "stack": {
-                  "type": "string"
-                }
-              },
-              "required": [
-                "mode",
-                "stack"
-              ]
-            }
-          },
-          "required": [
-            "cache"
-          ]
-        }
-      ]
-    },
+    "keycloak": false,
     "beat": {
       "type": "object",
       "properties": {
@@ -820,6 +767,87 @@
           "minLength": 1
         }
       }
+    },
+    "authentication": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractRevision",
+        "endpointAllowedHosts",
+        "endpointAllowedCidrs",
+        "encryptionKeyId",
+        "caSecretName",
+        "previousKeysSecretName",
+        "previousKeysSecretKey",
+        "bootstrapConfiguration"
+      ],
+      "properties": {
+        "contractRevision": {
+          "const": 2
+        },
+        "endpointAllowedHosts": {
+          "type": "string"
+        },
+        "endpointAllowedCidrs": {
+          "type": "string"
+        },
+        "encryptionKeyId": {
+          "type": "string"
+        },
+        "caSecretName": {
+          "type": "string"
+        },
+        "previousKeysSecretName": {
+          "type": "string"
+        },
+        "previousKeysSecretKey": {
+          "type": "string"
+        },
+        "bootstrapConfiguration": {
+          "type": "object"
+        }
+      }
+    },
+    "podDnsOverTcp": {
+      "type": "boolean",
+      "description": "Use TCP DNS in application Pods without changing the cluster resolver or credential profile."
+    },
+    "podHostAliases": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "ip",
+          "hostnames"
+        ],
+        "properties": {
+          "ip": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "ipv4"
+              },
+              {
+                "type": "string",
+                "format": "ipv6"
+              }
+            ]
+          },
+          "hostnames": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 32,
+            "items": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 253,
+              "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?(\\.[a-z0-9]([-a-z0-9]*[a-z0-9])?)*$"
+            }
+          }
+        }
+      }
     }
   },
   "required": [
@@ -843,7 +871,6 @@
     "rustfs",
     "opensearch",
     "neo4j",
-    "keycloak",
     "beat",
     "ingress",
     "networkPolicy"
@@ -903,27 +930,7 @@
               }
             }
           },
-          "keycloak": {
-            "properties": {
-              "cache": {
-                "properties": {
-                  "mode": {
-                    "const": "local"
-                  },
-                  "stack": {
-                    "maxLength": 0
-                  }
-                }
-              },
-              "cluster": {
-                "properties": {
-                  "replicas": {
-                    "const": 1
-                  }
-                }
-              }
-            }
-          }
+          "keycloak": false
         },
         "allOf": [
           {
@@ -995,13 +1002,7 @@
                             "pattern": "CHANGE_ME|P@ssw0rd"
                           }
                         },
-                        "KEYCLOAK_SYNC_CLIENT_SECRET": {
-                          "type": "string",
-                          "minLength": 32,
-                          "not": {
-                            "pattern": "CHANGE_ME|P@ssw0rd"
-                          }
-                        },
+                        "KEYCLOAK_SYNC_CLIENT_SECRET": false,
                         "OPENSEARCH_ADMIN_PASSWORD": {
                           "type": "string",
                           "minLength": 16,
@@ -1020,7 +1021,6 @@
                       "required": [
                         "APP_ENCRYPTION_KEY",
                         "OIDC_CLIENT_SECRET",
-                        "KEYCLOAK_SYNC_CLIENT_SECRET",
                         "OPENSEARCH_ADMIN_PASSWORD",
                         "OPENSEARCH_PASSWORD"
                       ]
@@ -1178,7 +1178,6 @@
                   "S3_VERIFY_TLS",
                   "OPENSEARCH_VERIFY_TLS",
                   "OPENSEARCH_STAGING_LIVE_WRITE",
-                  "KEYCLOAK_LDAP_GROUP_PATH",
                   "BREAK_GLASS_USERNAME",
                   "BREAK_GLASS_RUNBOOK_URI",
                   "BREAK_GLASS_ALERTING_EVIDENCE"
@@ -1426,16 +1425,12 @@
                           "type": "string",
                           "minLength": 1
                         },
-                        "keycloakSecretName": {
-                          "type": "string",
-                          "minLength": 1
-                        }
+                        "keycloakSecretName": false
                       },
                       "required": [
                         "superuserSecretName",
                         "ownerSecretName",
-                        "appSecretName",
-                        "keycloakSecretName"
+                        "appSecretName"
                       ]
                     },
                     "backup": {
@@ -1738,55 +1733,7 @@
           "neo4j": {
             "$ref": "#/definitions/persistentComponent"
           },
-          "keycloak": {
-            "allOf": [
-              {
-                "if": {
-                  "properties": {
-                    "mode": {
-                      "const": "bundled"
-                    }
-                  },
-                  "required": [
-                    "mode"
-                  ]
-                },
-                "then": {
-                  "properties": {
-                    "cluster": {
-                      "properties": {
-                        "replicas": {
-                          "const": 3
-                        },
-                        "topologyKey": {
-                          "const": "kubernetes.io/hostname"
-                        },
-                        "podDisruptionBudget": {
-                          "properties": {
-                            "minAvailable": {
-                              "const": 2
-                            }
-                          },
-                          "required": [
-                            "minAvailable"
-                          ]
-                        }
-                      },
-                      "required": [
-                        "replicas",
-                        "topologyKey",
-                        "podDisruptionBudget"
-                      ]
-                    }
-                  },
-                  "required": [
-                    "cache",
-                    "cluster"
-                  ]
-                }
-              }
-            ]
-          },
+          "keycloak": false,
           "beat": {
             "properties": {
               "haEnabled": {
@@ -2024,6 +1971,14 @@
             "retain": {
               "type": "boolean"
             }
+          }
+        },
+        "auth": {
+          "properties": {
+            "keycloakDatabase": false,
+            "keycloakUsername": false,
+            "keycloakPasswordSecretKey": false,
+            "keycloakSecretName": false
           }
         }
       },

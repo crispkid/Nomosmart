@@ -3,9 +3,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import ssl
-import urllib.error
-import urllib.request
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from time import perf_counter
@@ -16,6 +13,7 @@ from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
+from app.integrations.provider_http import ProviderRejectedError, ProviderUnavailableError, post_provider_json, provider_client
 from app.core.errors import AppError
 from app.domain.model_credentials import MODEL_CREDENTIAL_ERRORS, resolve_model_credential
 from app.db.models import AIModel, Chunk, DocumentVersion, EmbeddingBuild, EmbeddingBuildVector, EmbeddingProfile, Project
@@ -582,24 +580,17 @@ def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]
     dimensions = _int(config.get("dimensions") or config.get("embedding_dimension"), default=0)
     if dimensions > 0:
         body["dimensions"] = dimensions
-    request = urllib.request.Request(
-        openai_embeddings_url(_string(config.get("base_url") or model.endpoint or "https://api.openai.com/v1")),
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json", **_embedding_auth_headers(model, settings)},
-        method="POST",
-    )
-    context = None
+    url = openai_embeddings_url(_string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url))
+    headers = _embedding_auth_headers(model, settings)
+    verify_tls = _verify_tls(config)
     if before_dispatch is not None:
-        context = _ssl_context(config)
+        provider_client(verify_tls)
         before_dispatch()
     try:
-        if before_dispatch is None:
-            context = _ssl_context(config)
-        with urllib.request.urlopen(request, timeout=_timeout(config, default=60), context=context) as response:  # noqa: S310 - operator-configured model endpoint
-            return json.loads(response.read().decode("utf-8"))
-    except urllib.error.HTTPError as exc:
-        raise AppError("embedding_adapter_provider_rejected", "Embedding adapter provider rejected the request", status_code=502, details={"status_code": exc.code}) from exc
-    except (urllib.error.URLError, TimeoutError, OSError, json.JSONDecodeError) as exc:
+        return post_provider_json(url, body, headers=headers, timeout_seconds=_timeout(config, default=60), verify_tls=verify_tls)
+    except ProviderRejectedError as exc:
+        raise AppError("embedding_adapter_provider_rejected", "Embedding adapter provider rejected the request", status_code=502, details={"status_code": exc.status_code}) from exc
+    except ProviderUnavailableError as exc:
         raise AppError("embedding_adapter_unavailable", "Embedding adapter endpoint is unavailable", status_code=503) from exc
 
 
@@ -727,17 +718,6 @@ def _raise_reprocessing_required(chunk: Chunk, *, missing: list[str], reason: st
         status_code=409,
         details={"chunk_id": str(chunk.id), "reason": reason, "missing_evidence": missing},
     )
-
-
-def _ssl_context(config: dict[str, object]) -> ssl.SSLContext | None:
-    if not _verify_tls(config):
-        return ssl._create_unverified_context()
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except (ImportError, OSError):
-        return None
 
 
 def _timeout(config: dict[str, object], *, default: int = 60) -> int:

@@ -1,4 +1,4 @@
-"""Database-owned output budgets for physical-page PDF OCR."""
+"""Versioned OCR output budgets; legacy page snapshots remain readable."""
 from dataclasses import dataclass
 from hashlib import sha256
 import json
@@ -70,3 +70,72 @@ def load_settings(session):
     rows = list(session.scalars(select(SystemParameter).where(SystemParameter.key.in_(KEYS))
         .order_by(SystemParameter.key).execution_options(populate_existing=True)))
     return from_rows(rows)
+
+
+REQUEST_KEY = "ocr_request_max_output_tokens"
+NATIVE_KEYS = (REQUEST_KEY, DOCUMENT_KEY)
+NATIVE_POLICY = "output-document-v2"
+NATIVE_SNAPSHOT_KEYS = (*NATIVE_KEYS, "ocr_token_budget_basis", "ocr_token_budget_policy", "ocr_token_settings_hash")
+
+
+@dataclass(frozen=True)
+class NativeOCRTokenSettings:
+    request: int
+    document: int
+
+    def __post_init__(self):
+        if (type(self.request) is not int or type(self.document) is not int
+                or not 1 <= self.request <= self.document <= MAXIMUM):
+            raise AppError("ocr_token_settings_invalid", "OCR output settings are invalid", status_code=422)
+
+    @property
+    def content_hash(self):
+        body = {REQUEST_KEY: self.request, DOCUMENT_KEY: self.document,
+                "ocr_token_budget_basis": "output", "ocr_token_budget_policy": NATIVE_POLICY}
+        return sha256(json.dumps(body, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+
+    def snapshot(self):
+        return {REQUEST_KEY: self.request, DOCUMENT_KEY: self.document,
+                "ocr_token_budget_basis": "output", "ocr_token_budget_policy": NATIVE_POLICY,
+                "ocr_token_settings_hash": self.content_hash}
+
+    def request_limit(self, remaining):
+        if type(remaining) is not int or remaining <= 0:
+            raise AppError("ocr_document_output_budget_exhausted", "OCR document output budget is exhausted", status_code=422)
+        return min(self.request, remaining)
+
+
+def native_from_snapshot(snapshot):
+    if (not all(key in snapshot for key in NATIVE_SNAPSHOT_KEYS)
+            or snapshot["ocr_token_budget_basis"] != "output"
+            or snapshot["ocr_token_budget_policy"] != NATIVE_POLICY):
+        raise AppError("ocr_token_settings_invalid", "OCR output snapshot is invalid", status_code=409)
+    values = NativeOCRTokenSettings(snapshot[REQUEST_KEY], snapshot[DOCUMENT_KEY])
+    if snapshot["ocr_token_settings_hash"] != values.content_hash:
+        raise AppError("ocr_token_settings_invalid", "OCR output snapshot is invalid", status_code=409)
+    return values
+
+
+def native_from_rows(rows, *, defaults=False):
+    by_key = {row.key: row for row in rows if row.key in NATIVE_KEYS}
+    if set(by_key) != set(NATIVE_KEYS):
+        raise AppError("ocr_token_settings_missing", "OCR output settings must be initialized", status_code=503)
+    if any(row.value_type != "integer" or row.unit != "output_tokens" for row in by_key.values()):
+        raise AppError("ocr_token_settings_invalid", "OCR output setting metadata is invalid", status_code=503)
+    field = "default_value" if defaults else "value"
+    return NativeOCRTokenSettings(getattr(by_key[REQUEST_KEY], field), getattr(by_key[DOCUMENT_KEY], field))
+
+
+def legacy_page_from_rows(rows, *, defaults=False):
+    row = next((row for row in rows if row.key == PAGE_KEY), None)
+    value = getattr(row, "default_value" if defaults else "value", None)
+    if (row is None or row.value_type != "integer" or row.unit != "output_tokens"
+            or type(value) is not int or not 1 <= value <= MAXIMUM):
+        raise AppError("ocr_token_settings_invalid", "Legacy OCR output setting metadata is invalid", status_code=503)
+    return value
+
+
+def load_native_settings(session):
+    rows = list(session.scalars(select(SystemParameter).where(SystemParameter.key.in_(NATIVE_KEYS))
+        .order_by(SystemParameter.key).execution_options(populate_existing=True)))
+    return native_from_rows(rows)

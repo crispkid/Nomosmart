@@ -15,15 +15,15 @@ from app.core.middleware import RequestIdMiddleware
 def create_app(settings: Settings | None = None) -> FastAPI:
     effective_settings = settings or get_settings()
     configure_logging(effective_settings.log_level, effective_settings.log_format)
-    application = FastAPI(title="NomoSmart API", version="0.2.1")
+    application = FastAPI(title="NomoSmart API", version="0.2.4")
     application.state.settings = effective_settings
     application.add_middleware(RequestIdMiddleware)
     application.add_middleware(
         CORSMiddleware,
         allow_origins=effective_settings.cors_origins,
-        allow_credentials=False,
+        allow_credentials=True,
         allow_methods=["*"],
-        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-Id", "X-NomoSmart-API-Key"],
+        allow_headers=["Authorization", "Content-Type", "Idempotency-Key", "X-Request-Id", "X-NomoSmart-API-Key", "X-CSRF-Token"],
         expose_headers=["X-Total-Count"],
     )
     application.add_exception_handler(AppError, app_error_handler)

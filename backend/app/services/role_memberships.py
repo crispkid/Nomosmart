@@ -14,17 +14,10 @@ from app.db.models import ExternalGroup, ExternalGroupRoleMapping, ExternalGroup
 IDENTITY_MEMBERSHIP_LOCK_KEY = 4_873_662_101
 
 
-def normalized_group_path(value: str) -> str:
-    path = value.strip()
-    if not path.startswith("/"):
-        path = f"/{path}"
-    return path.rstrip("/") or "/"
 
 
-def identity_origin_for_path(path: str | None, *, ldap_group_path: str) -> str:
-    normalized_path = normalized_group_path(path or "/")
-    ldap_root = normalized_group_path(ldap_group_path)
-    return "ldap" if ldap_root != "/" and normalized_path.startswith(f"{ldap_root}/") else "keycloak_local"
+
+
 
 
 def acquire_identity_membership_lock(session: Session) -> None:
@@ -54,7 +47,7 @@ def reconcile_external_role_memberships(
         .join(Role, Role.id == ExternalGroupRoleMapping.role_id)
         .join(ExternalGroupUser, ExternalGroupUser.external_group_id == ExternalGroupRoleMapping.external_group_id)
         .where(
-            ExternalGroup.identity_origin == "ldap",
+            ExternalGroup.identity_origin.in_(["ldap", "ad"]),
             ExternalGroup.is_active.is_(True),
             Role.is_active.is_(True),
             Role.deleted_at.is_(None),

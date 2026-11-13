@@ -11,15 +11,6 @@
         name: {{ include "nomosmart.fullname" . }}-config
   env:
     {{- include "nomosmart.runtimeSecretEnv" . | nindent 4 }}
-    {{- if ne .Values.bootstrap.deploymentPhase "operational" }}
-    - name: BREAK_GLASS_INITIAL_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: {{ include "nomosmart.secretName" . }}
-          key: {{ .Values.bootstrap.breakGlassPasswordKey }}
-    {{- end }}
-    - name: DEPLOYMENT_KEYCLOAK_MODE
-      value: "verify"
   volumeMounts:
     {{- include "nomosmart.internalCaVolumeMount" . | nindent 4 }}
 {{- end -}}
@@ -56,15 +47,6 @@
         name: {{ include "nomosmart.fullname" . }}-config
   env:
     {{- include "nomosmart.runtimeSecretEnv" . | nindent 4 }}
-    {{- if ne .Values.bootstrap.deploymentPhase "operational" }}
-    - name: BREAK_GLASS_INITIAL_PASSWORD
-      valueFrom:
-        secretKeyRef:
-          name: {{ include "nomosmart.secretName" . }}
-          key: {{ .Values.bootstrap.breakGlassPasswordKey }}
-    {{- end }}
-    - name: DEPLOYMENT_KEYCLOAK_MODE
-      value: "verify"
   volumeMounts:
     {{- include "nomosmart.internalCaVolumeMount" . | nindent 4 }}
 {{- end -}}

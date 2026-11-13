@@ -67,7 +67,9 @@ copy_file() {
 }
 
 # Only allowlisted files actually mounted for this service are prepared.
-names='app_encryption_key database_url redis_url celery_broker_url celery_result_backend s3_access_key_id rustfs_secret_access_key opensearch_service_password neo4j_service_password oidc_client_secret keycloak_sync_client_secret keycloak_bootstrap_admin_password break_glass_initial_password opensearch_admin_password neo4j_admin_password database_migration_password postgres_admin_password postgres_app_password postgres_migration_password keycloak_db_password'
+# Retained deployments may still mount these three legacy IdP inputs. Prepare
+# only actual mounted files; current protocol deployments do not require them.
+names='auth_encryption_key auth_previous_keys directory_bind_password app_encryption_key database_url redis_url celery_broker_url celery_result_backend s3_access_key_id rustfs_secret_access_key opensearch_service_password neo4j_service_password oidc_client_secret break_glass_initial_password opensearch_admin_password neo4j_admin_password database_migration_password postgres_admin_password postgres_app_password postgres_migration_password keycloak_sync_client_secret keycloak_bootstrap_admin_password keycloak_db_password '
 [ -d /run/secrets ] && [ ! -L /run/secrets ] || fail "Secret mount is required" 66
 for name in $names; do
   if [ -e "/run/secrets/$name" ] || [ -L "/run/secrets/$name" ]; then
@@ -76,8 +78,21 @@ for name in $names; do
 done
 
 # No full environment dump: only known path-valued configuration is read.
-variables='APP_ENCRYPTION_KEY_FILE DATABASE_URL_FILE REDIS_URL_FILE CELERY_BROKER_URL_FILE CELERY_RESULT_BACKEND_FILE S3_ACCESS_KEY_ID_FILE S3_SECRET_ACCESS_KEY_FILE OPENSEARCH_PASSWORD_FILE NEO4J_PASSWORD_FILE OIDC_CLIENT_SECRET_FILE KEYCLOAK_SYNC_CLIENT_SECRET_FILE KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE BREAK_GLASS_INITIAL_PASSWORD_FILE OPENSEARCH_ADMIN_PASSWORD_FILE NEO4J_ADMIN_PASSWORD_FILE POSTGRES_PASSWORD_FILE NOMOSMART_DB_PASSWORD_FILE NOMOSMART_MIGRATION_PASSWORD_FILE KEYCLOAK_DB_PASSWORD_FILE'
+variables='AUTH_ENCRYPTION_KEY_FILE AUTH_ENCRYPTION_PREVIOUS_KEYS_FILE DIRECTORY_BIND_PASSWORD_FILE APP_ENCRYPTION_KEY_FILE DATABASE_URL_FILE REDIS_URL_FILE CELERY_BROKER_URL_FILE CELERY_RESULT_BACKEND_FILE S3_ACCESS_KEY_ID_FILE S3_SECRET_ACCESS_KEY_FILE OPENSEARCH_PASSWORD_FILE NEO4J_PASSWORD_FILE OIDC_CLIENT_SECRET_FILE BREAK_GLASS_INITIAL_PASSWORD_FILE OPENSEARCH_ADMIN_PASSWORD_FILE NEO4J_ADMIN_PASSWORD_FILE POSTGRES_PASSWORD_FILE NOMOSMART_DB_PASSWORD_FILE NOMOSMART_MIGRATION_PASSWORD_FILE KEYCLOAK_SYNC_CLIENT_SECRET_FILE KEYCLOAK_BOOTSTRAP_ADMIN_PASSWORD_FILE KEYCLOAK_DB_PASSWORD_FILE '
 for variable in $variables; do
+  # env_file also contains operator-side source selectors. Only this profile's
+  # mounted credentials are runtime inputs; never follow a host file path.
+  case "$profile:$variable" in
+    postgresql:POSTGRES_PASSWORD_FILE|postgresql:NOMOSMART_DB_PASSWORD_FILE|postgresql:NOMOSMART_MIGRATION_PASSWORD_FILE|postgresql:KEYCLOAK_DB_PASSWORD_FILE) ;;
+    backend:POSTGRES_PASSWORD_FILE|backend:NOMOSMART_DB_PASSWORD_FILE|backend:NOMOSMART_MIGRATION_PASSWORD_FILE|backend:KEYCLOAK_DB_PASSWORD_FILE)
+      unset "$variable"; continue ;;
+    backend:DIRECTORY_BIND_PASSWORD_FILE)
+      if [ ! -f /run/secrets/directory_bind_password ]; then unset "$variable"; continue; fi ;;
+    backend:OIDC_CLIENT_SECRET_FILE)
+      if [ ! -f /run/secrets/oidc_client_secret ]; then unset "$variable"; continue; fi ;;
+    backend:*) ;;
+    *) unset "$variable"; continue ;;
+  esac
   file=$(printenv "$variable" || true)
   [ -n "$file" ] || continue
   case "$file" in /run/secrets/*) name=${file#/run/secrets/} ;; *) fail "invalid Secret file reference" ;; esac
