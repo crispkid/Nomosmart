@@ -157,8 +157,8 @@ export async function getKnowledgeArtifactBlob(apiFetch: ApiFetch, path: string,
 export async function retryPipelineStep(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, pipelineId: string, stepName: string) {
   return apiJson<PipelineRunDetail>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/pipelines/${pipelineId}/retry`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ step_name: stepName }) });
 }
-export async function getDocumentVersionSubmissionEvidence(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string) {
-  return apiJson<SubmissionEvidenceResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/submission-evidence`);
+export async function getDocumentVersionSubmissionEvidence(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, signal?: AbortSignal) {
+  return apiJson<SubmissionEvidenceResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/submission-evidence`, { signal });
 }
 export async function submitDocumentVersionReview(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, payload: { evidence_revision: string; lock_version: number; owner_user_id?: string | null }) {
   return apiJson<ApprovalRequestResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/submit-review`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(payload) });

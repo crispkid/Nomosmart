@@ -62,12 +62,12 @@ export async function deleteRole(apiFetch: ApiFetch, roleId: string, lockVersion
   const query = new URLSearchParams({ lock_version: String(lockVersion), confirmation_name: confirmationName });
   return apiJson<RoleResponse>(apiFetch, `/roles/${roleId}?${query.toString()}`, { method: "DELETE" });
 }
-export async function listModelsPage(apiFetch: ApiFetch, params: { modelType?: string; offset?: number; limit?: number } = {}): Promise<AIModelListPage> {
+export async function listModelsPage(apiFetch: ApiFetch, params: { modelType?: string; offset?: number; limit?: number; signal?: AbortSignal } = {}): Promise<AIModelListPage> {
   const query = new URLSearchParams();
   if (params.modelType) query.set("model_type", params.modelType);
   query.set("offset", String(params.offset ?? 0));
   query.set("limit", String(params.limit ?? 20));
-  const response = await apiFetch(`${apiBaseUrl()}/models?${query.toString()}`, { cache: "no-store" });
+  const response = await apiFetch(`${apiBaseUrl()}/models?${query.toString()}`, { cache: "no-store", signal: params.signal });
   if (!response.ok) {
     throw await apiResponseError(response);
   }
@@ -76,12 +76,12 @@ export async function listModelsPage(apiFetch: ApiFetch, params: { modelType?: s
   const parsedTotal = totalHeader === null ? Number.NaN : Number(totalHeader);
   return { rows, total: Number.isFinite(parsedTotal) ? parsedTotal : rows.length };
 }
-export async function listModels(apiFetch: ApiFetch, modelType?: string) {
+export async function listModels(apiFetch: ApiFetch, modelType?: string, signal?: AbortSignal) {
   const rows: AIModelResponse[] = [];
   const limit = 200;
   let offset = 0;
   while (true) {
-    const page = await listModelsPage(apiFetch, { modelType, offset, limit });
+    const page = await listModelsPage(apiFetch, { modelType, offset, limit, signal });
     rows.push(...page.rows);
     offset += page.rows.length;
     if (page.rows.length === 0 || offset >= page.total || page.rows.length < limit) return rows;

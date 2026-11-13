@@ -48,7 +48,7 @@ export function listPendingPublishApprovalsPage(apiFetch: ApiFetch, cursor?: str
   if (cursor) params.set("cursor", cursor);
   return apiJson<ApprovalPendingPublishPage>(apiFetch, `/approvals/pending-publish/page?${params}`);
 }
-export async function getApprovalTask(apiFetch: ApiFetch, approvalTaskId: string) { return apiJson<ApprovalTaskDetail>(apiFetch, `/approvals/${approvalTaskId}`); }
+export async function getApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, signal?: AbortSignal) { return apiJson<ApprovalTaskDetail>(apiFetch, `/approvals/${approvalTaskId}`, { signal }); }
 export async function approveApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, payload: { lock_version: number; comment?: string | null }) {
   return apiJson<ApprovalTaskResponse>(apiFetch, `/approvals/${approvalTaskId}/approve`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(payload) });
 }

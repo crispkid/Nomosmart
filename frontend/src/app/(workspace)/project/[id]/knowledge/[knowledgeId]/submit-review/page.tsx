@@ -6,7 +6,7 @@ import { useFeedback } from "@/components/FeedbackProvider";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useModalFocus } from "@/components/useModalFocus";
 import { ArrowLeft, BarChart3, Check, CheckCircle2, ChevronDown, CircleUserRound, Clock3, Download, FileText, Image as ImageIcon, MessageSquareText, Network, Send, ShieldCheck, Table2, Tags, UsersRound } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
@@ -15,6 +15,7 @@ import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { getDocumentVersionSubmissionEvidence, getKnowledgeDetail, submitDocumentVersionReview, type ApprovalRequestResponse, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatRecordResponse, type SubmissionEvidenceResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -45,11 +46,34 @@ export default function SubmitReviewPage() {
   const { apiFetch, authReady } = useAuth();
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
-  const [detail, setDetail] = useState<KnowledgeDetailResponse | null>(null);
-  const [titleRead, setTitleRead] = useState<{ fetch: typeof apiFetch; route: string } | null>(null);
-  const [evidence, setEvidence] = useState<SubmissionEvidenceResponse | null>(null);
-  const [chatRecords, setChatRecords] = useState<ProjectChatRecordResponse[]>([]);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  // OPT424-035: the submission evidence is one read resource bound to the route and session fetch.
+  const route = JSON.stringify([params.id, params.knowledgeId]);
+  const readEvidence = useCallback(async (signal: AbortSignal) => {
+    const loaded = await getKnowledgeDetail(apiFetch, params.id, params.knowledgeId, signal);
+    return getDocumentVersionSubmissionEvidence(apiFetch, params.id, loaded.document.id, loaded.version.id, signal);
+  }, [apiFetch, params.id, params.knowledgeId]);
+  const evidenceRead = useReadResource<SubmissionEvidenceResponse>(readEvidence, route, authReady);
+  const evidence = evidenceRead.data;
+  const detail: KnowledgeDetailResponse | null = evidence?.detail ?? null;
+  const chatRecords = useMemo<ProjectChatRecordResponse[]>(() => (evidence?.chat_records ?? []).map((record) => ({
+    id: record.id,
+    conversation_id: record.conversation_id,
+    conversation_title: record.conversation_title,
+    scope_mode: record.scope_mode as "document_staging" | "published" | null,
+    selected_document_version_ids: record.selected_document_version_ids,
+    question: record.question,
+    answer: record.answer,
+    citations: record.reference_docs as ProjectChatCitation[],
+    evaluation: record.evaluation as ProjectChatRecordResponse["evaluation"],
+    revision_suggestion: record.revision_suggestion,
+    llm_model_id: null,
+    prompt_version: null,
+    token_usage: null,
+    latency_ms: null,
+    asked_at: record.asked_at,
+    answered_at: record.answered_at
+  })), [evidence]);
+  const loadError = evidenceRead.status === "error" ? operationalErrorMessage(evidenceRead.error, t, format, "submitReviewLoadFailed") : null;
   const { notify } = useFeedback();
   const [submissionResult, setSubmissionResult] = useState<ApprovalRequestResponse | null>(null);
   // The submission is already saved; Escape takes the same single exit as the dialog action.
@@ -60,46 +84,6 @@ export default function SubmitReviewPage() {
   const chatTestHref = `/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`;
   const versionId = detail?.version.id;
   const canSubmitReview = Boolean(evidence?.can_submit_review && evidence.next_stage_allowed);
-
-  useEffect(() => {
-    if (!authReady) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        const loaded = await getKnowledgeDetail(apiFetch, params.id, params.knowledgeId);
-        if (cancelled) return;
-        const submissionEvidence = await getDocumentVersionSubmissionEvidence(apiFetch, params.id, loaded.document.id, loaded.version.id);
-        if (cancelled) return;
-        setEvidence(submissionEvidence);
-        setDetail(submissionEvidence.detail);
-        setTitleRead({ fetch: apiFetch, route: JSON.stringify([params.id, params.knowledgeId]) });
-        setChatRecords(submissionEvidence.chat_records.map((record) => ({
-          id: record.id,
-          conversation_id: record.conversation_id,
-          conversation_title: record.conversation_title,
-          scope_mode: record.scope_mode as "document_staging" | "published" | null,
-          selected_document_version_ids: record.selected_document_version_ids,
-          question: record.question,
-          answer: record.answer,
-          citations: record.reference_docs as ProjectChatCitation[],
-          evaluation: record.evaluation as ProjectChatRecordResponse["evaluation"],
-          revision_suggestion: record.revision_suggestion,
-          llm_model_id: null,
-          prompt_version: null,
-          token_usage: null,
-          latency_ms: null,
-          asked_at: record.asked_at,
-          answered_at: record.answered_at
-        })));
-      } catch (error) {
-        if (!cancelled) setLoadError(operationalErrorMessage(error, t, format, "submitReviewLoadFailed"));
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-    };
-  }, [apiFetch, authReady, format, params.id, params.knowledgeId, t]);
 
   useEffect(() => {
     if (!submissionResult) return;
@@ -193,7 +177,7 @@ export default function SubmitReviewPage() {
   const localizedBlockReasons = evidence?.block_reasons.map((reason) => operationalCodeMessage(reason, t, format, "submitReviewWaitingVersion")) ?? [];
 
   return (
-    <AppShell title={t("submitForReview")} browserTitle={resourcePageTitle(t("submitForReview"), authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.document.title : null, authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.version.version_label : null)}>
+    <AppShell title={t("submitForReview")} browserTitle={resourcePageTitle(t("submitForReview"), authReady && !loadError && evidence !== null ? detail?.document.title : null, authReady && !loadError && evidence !== null ? detail?.version.version_label : null)}>
       <div className="project-context submission-page-context">
         <Link className="text-link" href={chatTestHref}><ArrowLeft size={16} /> {t("backToChatTest")}</Link>
         <StatusBadge status={detail?.version.status ?? "processing"} />

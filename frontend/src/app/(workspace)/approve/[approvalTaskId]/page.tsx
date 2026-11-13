@@ -7,7 +7,7 @@ import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   BarChart3,
@@ -39,6 +39,7 @@ import { approveApprovalTask, getApprovalTask, publishDocumentVersion, rejectApp
 import { buildApprovalConversationCsv, canSubmitApprovalDecision } from "@/lib/approvalDetail";
 import { reviewWorkflow, type ReviewStepState } from "@/lib/reviewPresentation";
 import { t as translate } from "@/lib/i18n";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { resolvedSourceMappings } from "@/lib/markdownSourceMapping";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
@@ -131,14 +132,14 @@ export default function ApprovalDetailPage() {
   const { apiFetch } = useAuth();
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
-  const [liveDetail, setLiveDetail] = useState<ApprovalTaskDetail | null>(null);
-  const [liveLoading, setLiveLoading] = useState(true);
-  const [liveError, setLiveError] = useState<string | null>(null);
-  const [liveErrorStatus, setLiveErrorStatus] = useState<number | null>(null);
-  const [titleRead, setTitleRead] = useState<typeof apiFetch | null>(null);
-  const [loadedTaskId, setLoadedTaskId] = useState<string | null>(null);
-  const [loadAttempt, setLoadAttempt] = useState(0);
-  const loadPending = liveLoading || loadedTaskId !== params.approvalTaskId;
+  // OPT424-035: the task is a read resource bound to the task id and the current session's fetch.
+  const readTask = useCallback((signal: AbortSignal) => getApprovalTask(apiFetch, params.approvalTaskId, signal), [apiFetch, params.approvalTaskId]);
+  const taskRead = useReadResource<ApprovalTaskDetail>(readTask, params.approvalTaskId, true);
+  const liveDetail = taskRead.data;
+  const setLiveDetail = (value: ApprovalTaskDetail) => taskRead.update(() => value);
+  const loadPending = taskRead.status === "loading";
+  const liveError = taskRead.status === "error" ? operationalErrorMessage(taskRead.error as Error, t, format, "approvalLoadFailed") : null;
+  const liveErrorStatus = taskRead.status === "error" ? (taskRead.error as Partial<ApiError>).status ?? null : null;
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(() => new Set());
   const [graphOpen, setGraphOpen] = useState(false);
   const [decision, setDecision] = useState<Decision | null>(null);
@@ -151,30 +152,6 @@ export default function ApprovalDetailPage() {
   const decisionDialogRef = useModalFocus(Boolean(decision), () => { if (!submittingDecision) closeDecision(); });
   const [publishingVersion, setPublishingVersion] = useState(false);
   const [publishError, setPublishError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    getApprovalTask(apiFetch, params.approvalTaskId).then((detail) => {
-      if (!cancelled) {
-        setLiveDetail(detail);
-        setTitleRead(() => apiFetch);
-        setLiveError(null);
-        setLiveErrorStatus(null);
-      }
-    }).catch((error: Error) => {
-      if (!cancelled) {
-        setLiveDetail(null);
-        setLiveError(operationalErrorMessage(error, t, format, "approvalLoadFailed"));
-        setLiveErrorStatus((error as Partial<ApiError>).status ?? null);
-      }
-    }).finally(() => {
-      if (!cancelled) {
-        setLoadedTaskId(params.approvalTaskId);
-        setLiveLoading(false);
-      }
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, format, loadAttempt, params.approvalTaskId, t]);
 
   useEffect(() => {
     if (!decisionOutcome?.redirectToWorkspace) return;
@@ -269,13 +246,7 @@ export default function ApprovalDetailPage() {
           <h2>{notFound ? t("approvalTaskNotFound") : liveErrorStatus === 403 ? t("apiForbidden") : t("approvalLoadFailed")}</h2>
           <p>{notFound ? t("approvalTaskNotFoundHelp") : liveError ?? t("approvalLoadFailed")}</p>
           <div className="approval-error-actions">
-          {!notFound ? <button className="action-button secondary" type="button" onClick={() => {
-            setLiveLoading(true);
-            setLiveDetail(null);
-            setLiveError(null);
-            setLiveErrorStatus(null);
-            setLoadAttempt((attempt) => attempt + 1);
-          }}><RefreshCw size={16} /> {t("retry")}</button> : null}
+          {!notFound ? <button className="action-button secondary" type="button" onClick={() => { void taskRead.reload(); }}><RefreshCw size={16} /> {t("retry")}</button> : null}
           <Link className="action-button secondary" href="/approve"><ArrowLeft size={16} /> {t("backToApprovalWorkspace")}</Link>
           </div>
         </section>
@@ -371,7 +342,7 @@ export default function ApprovalDetailPage() {
   }
 
   return (
-    <AppShell title={t("approvalDetail")} browserTitle={resourcePageTitle(t("approvalDetail"), titleRead === apiFetch && !liveError && !loadPending ? liveDetail?.document.title : null, titleRead === apiFetch && !liveError && !loadPending ? liveDetail?.version.version_label : null)}>
+    <AppShell title={t("approvalDetail")} browserTitle={resourcePageTitle(t("approvalDetail"), liveDetail !== null && !liveError && !loadPending ? liveDetail?.document.title : null, liveDetail !== null && !liveError && !loadPending ? liveDetail?.version.version_label : null)}>
       <div className="project-context submission-page-context">
         <Link className="text-link" href="/approve"><ArrowLeft size={16} /> {t("backToApprovalWorkspace")}</Link>
         <StatusBadge status={approval.status} />

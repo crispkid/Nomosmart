@@ -6,13 +6,14 @@ import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackField, FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { useModalFocus } from "@/components/useModalFocus";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
 import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { archiveProject, createProject, getProjectArchiveImpact, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectResponse } from "@/lib/api";
+import { archiveProject, createProject, getProjectArchiveImpact, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectListPage, type ProjectResponse } from "@/lib/api";
 import { formatDateTime } from "@/lib/dateFormat";
 import { Pagination } from "@/components/Pagination";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -49,14 +50,7 @@ export default function ProjectsPage() {
   const canManageModels = can("Menu", "SystemManagement", "view");
   const [activeTab, setActiveTab] = useState<"active" | "archived">("active");
   const [isCreateOpen, setIsCreateOpen] = useState(false);
-  const [projects, setProjects] = useState<ProjectResponse[]>([]);
-  const [totalProjects, setTotalProjects] = useState(0);
-  const [models, setModels] = useState<AIModelResponse[]>([]);
-  const [modelLoadState, setModelLoadState] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [modelLoadError, setModelLoadError] = useState<ApiError | Error | null>(null);
-  const [modelRefreshVersion, setModelRefreshVersion] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<ApiError | Error | null>(null);
+  const [actionError, setError] = useState<ApiError | Error | null>(null);
   const [createError, setCreateError] = useState<ApiError | Error | null>(null);
   const [nameInvalid, setNameInvalid] = useState(false);
   const nameInputRef = useRef<HTMLInputElement>(null);
@@ -79,9 +73,40 @@ export default function ProjectsPage() {
   const [draftPdfFilter, setDraftPdfFilter] = useState<"all" | ProjectResponse["pdf_model_state"]>("all");
   const [projectSort, setProjectSort] = useState<ProjectSort>("updated_desc");
   const [page, setPage] = useState(1);
-  const [refreshVersion, setRefreshVersion] = useState(0);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  // OPT424-035: the project page and the model list are read resources. The project read is bound to
+  // the tab, search, filters, sort and page; a page beyond the last one moves to the last page.
+  const projectQuery = useMemo(() => ({ status: activeTab, q: query, roles: roleFilters, modelState: modelFilter === "all" ? undefined : modelFilter,
+    pdfModelState: pdfFilter === "all" ? undefined : pdfFilter, sort: projectSort, offset: (page - 1) * PROJECT_PAGE_SIZE, limit: PROJECT_PAGE_SIZE }), [activeTab, query, roleFilters, modelFilter, pdfFilter, projectSort, page]);
+  const readProjects = useCallback((signal: AbortSignal) => listProjectsPage(apiFetch, { ...projectQuery, signal }), [apiFetch, projectQuery]);
+  const projectsRead = useReadResource<ProjectListPage>(readProjects, projectQuery, canView, {
+    onData: (result) => {
+      const lastAvailablePage = Math.max(1, Math.ceil(result.total / PROJECT_PAGE_SIZE));
+      if (page > lastAvailablePage) setPage(lastAvailablePage);
+    },
+  });
+  const totalProjects = projectsRead.data?.total ?? 0;
+  const projects = useMemo(() => projectsRead.data && page <= Math.max(1, Math.ceil(projectsRead.data.total / PROJECT_PAGE_SIZE)) ? projectsRead.data.items : [], [projectsRead.data, page]);
+  const loading = canView && projectsRead.status === "loading";
+  const error = actionError ?? (projectsRead.status === "error" ? projectsRead.error as ApiError | Error : null);
+  const refreshProjects = () => { setError(null); void projectsRead.reload(); };
+  const readModels = useCallback((signal: AbortSignal) => listModels(apiFetch, undefined, signal), [apiFetch]);
+  const modelsRead = useReadResource<AIModelResponse[]>(readModels, "project-create-models", canCreate, {
+    keepData: true,
+    onData: (modelRows) => {
+      const isEligible = (model: AIModelResponse) => model.is_active && !model.deleted_at;
+      const defaultChat = modelRows.find((model) => model.model_type.toLowerCase() === "chat" && model.is_default && isEligible(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "chat" && isEligible(model));
+      const defaultEmbedding = modelRows.find((model) => model.model_type.toLowerCase() === "embedding" && model.is_default && isEligible(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "embedding" && isEligible(model));
+      const defaultOcr = modelRows.find((model) => model.model_type.toLowerCase() === "ocr" && model.is_default && isNativeOcrModel(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "ocr" && isNativeOcrModel(model));
+      setLlmModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "chat" && isEligible(model)) ? current : defaultChat?.id || "");
+      setEmbeddingModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "embedding" && isEligible(model)) ? current : defaultEmbedding?.id || "");
+      setOcrModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "ocr" && isNativeOcrModel(model)) ? current : defaultOcr?.id || "");
+    },
+  });
+  const models = useMemo(() => modelsRead.data ?? [], [modelsRead.data]);
+  const modelLoadState: "idle" | "loading" | "ready" | "error" = !canCreate ? "idle" : modelsRead.status;
+  const modelLoadError = modelsRead.status === "error" ? modelsRead.error as ApiError | Error : null;
   const chatModels = useMemo(() => models.filter((model) => model.model_type.toLowerCase() === "chat"), [models]);
   const embeddingModels = useMemo(() => models.filter((model) => model.model_type.toLowerCase() === "embedding"), [models]);
   const ocrModels = useMemo(() => models.filter((model) => model.model_type.toLowerCase() === "ocr"), [models]);
@@ -103,69 +128,6 @@ export default function ProjectsPage() {
     }, 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
-
-  useEffect(() => {
-    if (!canView) return;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      setError(null);
-      void listProjectsPage(apiFetch, {
-        status: activeTab,
-        q: query,
-        roles: roleFilters,
-        modelState: modelFilter === "all" ? undefined : modelFilter,
-        pdfModelState: pdfFilter === "all" ? undefined : pdfFilter,
-        sort: projectSort,
-        offset: (page - 1) * PROJECT_PAGE_SIZE,
-        limit: PROJECT_PAGE_SIZE,
-        signal: controller.signal
-      }).then((result) => {
-        setTotalProjects(result.total);
-        const lastAvailablePage = Math.max(1, Math.ceil(result.total / PROJECT_PAGE_SIZE));
-        if (page > lastAvailablePage) {
-          setProjects([]);
-          setPage(lastAvailablePage);
-          return;
-        }
-        setProjects(result.items);
-      }).catch((caught: ApiError | Error) => {
-        if (caught.name !== "AbortError") setError(caught);
-      }).finally(() => {
-        if (!controller.signal.aborted) setLoading(false);
-      });
-    }, 0);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [activeTab, apiFetch, canView, modelFilter, pdfFilter, page, projectSort, query, refreshVersion, roleFilters]);
-
-  useEffect(() => {
-    if (!canCreate) return;
-    let active = true;
-    const timer = window.setTimeout(() => {
-      setModelLoadState("loading");
-      setModelLoadError(null);
-      void listModels(apiFetch).then((modelRows) => {
-        if (!active) return;
-        setModels(modelRows);
-        const isEligible = (model: AIModelResponse) => model.is_active && !model.deleted_at;
-        const defaultChat = modelRows.find((model) => model.model_type.toLowerCase() === "chat" && model.is_default && isEligible(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "chat" && isEligible(model));
-        const defaultEmbedding = modelRows.find((model) => model.model_type.toLowerCase() === "embedding" && model.is_default && isEligible(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "embedding" && isEligible(model));
-        const defaultOcr = modelRows.find((model) => model.model_type.toLowerCase() === "ocr" && model.is_default && isNativeOcrModel(model)) ?? modelRows.find((model) => model.model_type.toLowerCase() === "ocr" && isNativeOcrModel(model));
-        setLlmModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "chat" && isEligible(model)) ? current : defaultChat?.id || "");
-        setEmbeddingModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "embedding" && isEligible(model)) ? current : defaultEmbedding?.id || "");
-        setOcrModelId((current) => modelRows.some((model) => model.id === current && model.model_type.toLowerCase() === "ocr" && isNativeOcrModel(model)) ? current : defaultOcr?.id || "");
-        setModelLoadState("ready");
-      }).catch((caught: ApiError | Error) => {
-        if (!active) return;
-        setModelLoadError(caught);
-        setModelLoadState("error");
-      });
-    }, 0);
-    return () => { active = false; window.clearTimeout(timer); };
-  }, [apiFetch, canCreate, modelRefreshVersion]);
 
   useEffect(() => {
     if (!filterOpen) return;
@@ -248,7 +210,7 @@ export default function ProjectsPage() {
       setOcrModelId("");
       setActiveTab("active");
       setPage(1);
-      setRefreshVersion((version) => version + 1);
+      void projectsRead.reload();
     } catch (caught) {
       setCreateError(caught as ApiError | Error);
     } finally {
@@ -304,7 +266,7 @@ export default function ProjectsPage() {
     setError(null);
     try {
       await retryProjectArchiveCleanup(apiFetch, project.id);
-      setRefreshVersion((version) => version + 1);
+      void projectsRead.reload();
     } catch (caught) {
       setError(caught as ApiError | Error);
     } finally {
@@ -401,7 +363,7 @@ export default function ProjectsPage() {
           </section>
 
           {loading ? <div className="project-list-loading" role="status"><LoaderCircle className="spin" size={20} />{t("loadingData")}</div> : null}
-          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={() => setRefreshVersion((version) => version + 1)} type="button">{t("retry")}</button></FeedbackMessage> : null}
+          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={refreshProjects} type="button">{t("retry")}</button></FeedbackMessage> : null}
           {!loading && !error && projects.length === 0 ? <div className="empty-state">{hasDiscoveryCriteria ? t("projectsNoMatchingProjects") : t("projectsNoVisibleProjects")}{hasDiscoveryCriteria ? <button className="text-link" onClick={() => { setSearchInput(""); setQuery(""); clearFilters(); }} type="button">{t("projectsClearDiscovery")}</button> : null}</div> : null}
           <div className="project-grid">
             {projects.map((project) => (
@@ -442,7 +404,7 @@ export default function ProjectsPage() {
                   {modelLoadState === "ready" && missingModelTypes.length ? <p>{format("projectsModelReadinessMissing", { models: missingModelList })}</p> : null}
                   {modelLoadState === "ready" && !missingModelTypes.length && !hasCompatibleModelPair ? <p>{t("projectsModelPairRequired")}</p> : null}
                   {modelLoadState !== "loading" ? <div className="project-model-readiness-actions">
-                    {modelLoadState === "error" ? <button className="text-link" onClick={() => setModelRefreshVersion((version) => version + 1)} type="button"><RefreshCw size={15} />{t("projectsModelReadinessRetry")}</button> : null}
+                    {modelLoadState === "error" ? <button className="text-link" onClick={() => { void modelsRead.reload(); }} type="button"><RefreshCw size={15} />{t("projectsModelReadinessRetry")}</button> : null}
                     {canManageModels ? <Link className="text-link" href="/system?tab=models"><Settings size={15} />{t("projectsGoToAiModels")}</Link> : <span>{t("projectsContactAdministrator")}</span>}
                   </div> : null}
                 </div>
