@@ -7,152 +7,20 @@ import { useModalFocus } from "./useModalFocus";
 import { UiValidationError } from "@/lib/transportError";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { ChangeEvent, DragEvent, FormEvent, KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Bot, Check, CheckCircle2, ChevronDown, ChevronRight, Download, FileDown, FileText, MessageSquarePlus, Search, Send, Trash2, Upload, UserRound, Wrench, X } from "lucide-react";
+import { Bot, Download, MessageSquarePlus, Send, Trash2, Upload, X } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
-import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
-import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
-import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectChatCitation, type ProjectChatConversationResponse, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
-import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
+import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked } from "@/lib/chatConversationAccess";
-import { useI18n, type TranslationKey } from "@/lib/i18nClient";
+import { useI18n } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
-type ChatDocument = { id: string; documentId: string; title: string; version: string; source: string; chunks: number; documentStatus: string; versionStatus: string };
-type Entry = { id: number; recordId?: string; validationItemId?: string; question: string; answer?: string; citations?: ProjectChatCitation[]; loading?: boolean; error?: string; status?: "answered" | "no_answer"; retrievalStrategy?: string };
-type Judgment = "correct" | "revision";
-type CsvValidationQuestion = {
-  question: string;
-  expected_answer?: string | null;
-  expected_keywords?: string[];
-  selected_document_ids?: string[];
-  category?: string | null;
-  priority?: string | null;
-};
-type ProjectConversation = {
-  id: string;
-  scopeIds: string[];
-  entries: Entry[];
-  judgments: Record<number, Judgment>;
-  createdAt: number;
-  updatedAt: number;
-  persisted?: boolean;
-  history?: ProjectChatConversationResponse;
-  validationRunId?: string;
-};
-
-type Translate = (key: TranslationKey) => string;
-type Format = (key: TranslationKey, values: Record<string, string | number>) => string;
-
-function parseCsv(text: string) {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (quoted) {
-      if (character === '"' && text[index + 1] === '"') { cell += '"'; index += 1; }
-      else if (character === '"') quoted = false;
-      else cell += character;
-    } else if (character === '"') quoted = true;
-    else if (character === ",") { row.push(cell); cell = ""; }
-    else if (character === "\n" || character === "\r") {
-      if (character === "\r" && text[index + 1] === "\n") index += 1;
-      row.push(cell);
-      if (row.some((value) => value.trim())) rows.push(row);
-      row = []; cell = "";
-    } else cell += character;
-  }
-  if (quoted) throw new UiValidationError("projectChatCsvUnclosedQuote");
-  row.push(cell);
-  if (row.some((value) => value.trim())) rows.push(row);
-  return rows;
-}
-
-function downloadCsv(content: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url; anchor.download = filename; anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function retrievalErrorMessage(error: unknown, t: Translate, format: Format) {
-  const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code) : "";
-  if (code === "active_manifest_required") return t("projectChatActiveManifestRequired");
-  if (code === "retrieval_scope_denied") return t("projectChatRetrievalScopeDenied");
-  if (code === "published_index_not_ready") return t("projectChatPublishedIndexNotReady");
-  if (code === "opensearch_retrieval_unavailable" || code === "hybrid_retrieval_failed") return t("projectChatOpenSearchUnavailable");
-  if (code === "retrieval_scope_inconsistent") return t("projectChatRetrievalScopeInconsistent");
-  if (code === "embedding_provider_required" || code === "embedding_model_required" || code === "embedding_adapter_credential_required" || code === "embedding_adapter_secret_ref_unresolved") return t("projectChatEmbeddingProviderRequired");
-  if (code === "query_embedding_failed" || code === "embedding_adapter_unavailable" || code === "embedding_adapter_provider_rejected" || code === "embedding_response_invalid") return t("projectChatQueryEmbeddingFailed");
-  if (code === "vector_index_not_ready" || code === "embedding_profile_required") return t("projectChatVectorIndexNotReady");
-  if (code === "embedding_profile_mismatch") return t("projectChatEmbeddingProfileMismatch");
-  if (code === "citation_scope_mismatch") return t("projectChatCitationScopeMismatch");
-  if (code === "provider_response_contract_invalid") return t("chatCitationProviderMismatch");
-  return operationalErrorMessage(error, t, format, "projectChatRetrievalFailed");
-}
-
-function retrievalLabel(strategy?: string) {
-  if (strategy === "hybrid") return "Hybrid Retrieval";
-  if (strategy === "vector") return "Vector Retrieval";
-  if (strategy === "keyword") return "Keyword Retrieval";
-  return "Live RAG";
-}
-
-function newConversationId() {
-  return typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `conversation-${Date.now()}`;
-}
-
-function isUuid(value: string) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
-}
-
-function sameScopeIds(left: string[], right: string[]) {
-  return left.length === right.length && left.slice().sort().join() === right.slice().sort().join();
-}
-
-function timestamp(value: string) {
-  const parsed = new Date(value).getTime();
-  return Number.isFinite(parsed) ? parsed : Date.now();
-}
-
-function conversationFromHistory(item: ProjectChatConversationResponse): ProjectConversation {
-  const entries = item.records.map((record, index) => ({
-    id: index,
-    recordId: record.id,
-    question: record.question,
-    answer: record.answer ?? undefined,
-    citations: record.citations,
-    status: record.answer ? "answered" as const : "no_answer" as const
-  }));
-  const judgmentEntries = item.records.flatMap((record, index): [number, Judgment][] => {
-    if (record.evaluation === "needs_revision") return [[index, "revision"]];
-    if (record.evaluation === "correct") return [[index, "correct"]];
-    return [];
-  });
-  const updatedAt = timestamp(item.updated_at);
-  return {
-    id: item.id,
-    scopeIds: item.selected_document_version_ids,
-    entries,
-    judgments: Object.fromEntries(judgmentEntries) as Record<number, Judgment>,
-    createdAt: updatedAt,
-    updatedAt,
-    persisted: true,
-    history: item,
-  };
-}
-
-function validationItemMessage(status: string, answer: string | null | undefined, t: Translate) {
-  if (answer) return answer;
-  if (status === "running") return t("projectChatValidationRunning");
-  if (status === "error") return t("projectChatValidationFailed");
-  if (status === "failed") return t("projectChatValidationFailedScore");
-  if (status === "needs_review") return t("projectChatValidationNeedsReview");
-  if (status === "completed" || status === "passed") return t("projectChatValidationCompletedNoAnswer");
-  return t("projectChatValidationQueued");
-}
+import { conversationFromHistory, downloadCsv, isUuid, newConversationId, parseValidationQuestionsCsv, retrievalErrorMessage, sameScopeIds, validationItemMessage, type ChatDocument, type CsvValidationQuestion, type Entry, type Judgment, type ProjectConversation } from "./projectChat/projectChatModel";
+import { ProjectChatBatchUploadDialog } from "./projectChat/ProjectChatBatchUploadDialog";
+import { ProjectChatDocumentScope } from "./projectChat/ProjectChatDocumentScope";
+import { ProjectChatEntryPair } from "./projectChat/ProjectChatEntryPair";
+import { ProjectChatHistoryList } from "./projectChat/ProjectChatHistoryList";
+import { ProjectChatServingStatus } from "./projectChat/ProjectChatServingStatus";
 
 export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string }) {
   const params = useParams<{ id?: string }>();
@@ -572,32 +440,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     try {
       const contents = await file.text();
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
-      const rows = parseCsv(contents);
-      const headers = rows[0]?.map((value, index) => (index ? value : value.replace(/^\uFEFF/, "")).trim()) ?? [];
-      const questionIndex = headers.indexOf("question");
-      if (questionIndex < 0) throw new UiValidationError("projectChatCsvMissingQuestion");
-      const expectedAnswerIndex = headers.indexOf("expected_answer");
-      const expectedKeywordsIndex = headers.indexOf("expected_keywords");
-      const selectedDocumentsIndex = headers.indexOf("selected_document_ids");
-      const categoryIndex = headers.indexOf("category");
-      const priorityIndex = headers.indexOf("priority");
-      const splitList = (value: string | undefined) => (value ?? "").split(/[;,|]/).map((id) => id.trim()).filter(Boolean);
-      const valueAt = (row: string[], index: number) => index >= 0 ? (row[index] ?? "").trim() : "";
-      const questions = rows.slice(1).map((row): CsvValidationQuestion | null => {
-        const questionText = valueAt(row, questionIndex);
-        if (!questionText) return null;
-        return {
-          question: questionText,
-          expected_answer: valueAt(row, expectedAnswerIndex) || null,
-          expected_keywords: splitList(valueAt(row, expectedKeywordsIndex)),
-          selected_document_ids: splitList(valueAt(row, selectedDocumentsIndex)),
-          category: valueAt(row, categoryIndex) || null,
-          priority: valueAt(row, priorityIndex) || null
-        };
-      }).filter((item): item is CsvValidationQuestion => item !== null);
-      const invalidIds = questions.flatMap((question) => question.selected_document_ids ?? []).filter((id) => !scopeIds.includes(id));
-      if (invalidIds.length) throw new Error(format("projectChatCsvInvalidScope", { ids: [...new Set(invalidIds)].join(", ") }));
-      if (!questions.length) throw new UiValidationError("projectChatCsvNoQuestions");
+      const questions = parseValidationQuestionsCsv(contents, scopeIds, format);
       setUploadQuestions(questions);
     } catch (error) {
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
@@ -718,60 +561,10 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     </p> : null}
     <section className="project-chat-shell">
       <aside className="project-chat-sidebar">
-        <div className="project-document-region">
-          <div className="project-chat-scope-head">
-            <div><strong>{t("projectChatDocumentSelection")}</strong><small>{format("projectChatActiveDocumentCount", { source: documentSourceLabel, selected: selectedIds.length, total: eligibleIds.length })}</small></div>
-            {fixedVersionId === undefined ? <div><button onClick={() => setSelectedIds(allIds)} type="button">{t("projectChatSelectAll")}</button><button onClick={() => setSelectedIds([])} type="button">{t("projectChatClearSelection")}</button></div> : null}
-          </div>
-          <label className="project-document-search"><Search size={15} /><input aria-label={t("projectChatSearchReferenceDocuments")} onChange={(event) => setQuery(event.target.value)} placeholder={t("projectChatSearchDocumentPlaceholder")} value={query} /></label>
-          <div className="project-document-options">
-            {filtered.map((document) => {
-              const selected = selectedIds.includes(document.id);
-              const eligible = isDocumentEligible(document);
-              return <button aria-disabled={!eligible} aria-pressed={selected} className={`${selected ? "selected" : ""}${!eligible ? " disabled" : ""}`} disabled={!eligible} key={document.id} onClick={() => toggleDocument(document.id)} type="button"><span className="document-check">{selected ? <Check size={14} /> : null}</span><span><strong>{document.title}{!eligible ? <em>{documentDisabledLabel(document)}</em> : null}</strong><small>{document.version} · {document.source} · {format("projectChatChunkCountInline", { count: document.chunks })}{!eligible ? ` · ${t("projectChatDocumentUnavailableHelp")}` : ""}</small></span></button>;
-            })}
-          </div>
-          {!selectedIds.length ? <FeedbackMessage tone="warning">{t("projectChatSelectAtLeastOne")}</FeedbackMessage> : null}
-          {scopeDirty && selectedIds.length ? <button className="action-button scope-apply" onClick={startScopedConversation} type="button"><MessageSquarePlus size={16} /> {t("projectChatNewConversationWithScope")}</button> : null}
-        </div>
-        <section className={`project-serving-status readiness-${servingStatus?.readiness ?? "loading"}`} aria-label={t("projectChatServingStatus")}>
-          <button aria-expanded={servingExpanded} className="project-serving-toggle" onClick={() => setServingExpanded((current) => !current)} type="button">
-            <span><strong>{servingReadinessLabel}</strong><small>{format("projectChatServingSummary", { active: servingStatus?.active_document_count ?? 0, index: servingStatus?.ready_index_count ?? 0, graph: servingStatus?.graph_ready_count ?? 0 })}</small></span>
-            {servingExpanded ? <ChevronDown size={15} /> : <ChevronRight size={15} />}
-          </button>
-          {servingExpanded ? (
-            <div className="project-serving-documents">
-              {(servingStatus?.documents ?? []).slice(0, 3).map((document) => (
-                <span key={document.document_version_id}>{document.document_title} · {document.version_label} · {format("projectChatPublicationGeneration", { generation: document.publication_generation })} · {document.index_ready ? t("projectChatIndexReady") : t("projectChatIndexNotReady")} · {document.graph_sync_status ?? t("projectChatGraphUnknown")}</span>
-              ))}
-              {servingStatus && servingStatus.documents.length > 3 ? <span>{format("projectChatServingMore", { count: servingStatus.documents.length - 3 })}</span> : null}
-            </div>
-          ) : null}
-        </section>
+        <ProjectChatDocumentScope allIds={allIds} documentDisabledLabel={documentDisabledLabel} documentSourceLabel={documentSourceLabel} eligibleIds={eligibleIds} filtered={filtered} fixedVersionId={fixedVersionId} isDocumentEligible={isDocumentEligible} query={query} scopeDirty={scopeDirty} selectedIds={selectedIds} setQuery={setQuery} setSelectedIds={setSelectedIds} startScopedConversation={startScopedConversation} toggleDocument={toggleDocument} />
+        <ProjectChatServingStatus servingExpanded={servingExpanded} servingReadinessLabel={servingReadinessLabel} servingStatus={servingStatus} setServingExpanded={setServingExpanded} />
         <div aria-hidden="true" className="project-sidebar-divider" role="separator" />
-        <div className="project-conversation-history">
-          <div className="project-history-title"><strong>{t("conversationHistory")}</strong><small>{format("projectChatConversationCount", { count: persistedConversationCount })}</small></div>
-          <div className="project-history-list">
-            {historyStatus === "loading" ? <div className="project-history-state"><Bot size={16} /><span>{t("projectChatHistoryLoading")}</span></div> : null}
-            {historyStatus === "error" ? <FeedbackMessage tone="error"><Bot size={16} /><span><strong>{t("projectChatHistoryLoadFailed")}</strong><small>{localize(historyError)}</small></span></FeedbackMessage> : null}
-            {historyStatus === "ready" && !orderedConversations.length ? <div className="project-history-state"><MessageSquarePlus size={16} /><span><strong>{t("projectChatHistoryEmptyTitle")}</strong><small>{t("projectChatHistoryEmptyHelp")}</small></span></div> : null}
-            {historyStatus !== "loading" && orderedConversations.map((conversation) => {
-              const title = conversation.history?.title || conversation.entries[0]?.question || t("newConversation");
-              const draft = !conversation.persisted;
-              const itemAccess = chatConversationAccess(conversation.history, currentUser?.user_id);
-              return (
-                <div className={`project-history-row${conversation.id === activeConversationId ? " active" : ""}${draft ? " draft" : ""}`} key={conversation.id}>
-                  <button aria-pressed={conversation.id === activeConversationId} className="project-history-select" onClick={() => activateConversation(conversation)} type="button">
-                    <MessageSquarePlus size={15} />
-                    <span><strong>{title.length > 22 ? `${title.slice(0, 22)}…` : title}{draft ? <em>{t("projectChatDraftBadge")}</em> : null}</strong><ChatHistoryAuthor name={draft ? currentUser?.display_name : conversation.history?.created_by_display_name} isMine={draft || itemAccess.isMine} readOnly={!draft && !itemAccess.canContinue} /><small>{draft ? format("projectChatDraftSummary", { documents: conversation.scopeIds.length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) }) : format(conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length === 1 ? "projectChatHistorySummaryOne" : "projectChatHistorySummaryMany", { documents: conversation.scopeIds.length, count: conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) })}</small></span>
-                  </button>
-                  {draft || itemAccess.canDelete ? <button aria-label={format("projectChatDeleteConversationAria", { title })} className="project-history-delete" onClick={() => { setDeleteTargetId(conversation.id); setDeleteError(""); }} type="button"><Trash2 size={14} /></button> : null}
-                </div>
-              );
-            })}
-            {historyCursor ? <button className="action-button secondary" disabled={historyBusy} onClick={() => void loadMoreHistory()} type="button">{t("chatHistoryLoadMore")}</button> : null}
-          </div>
-        </div>
+        <ProjectChatHistoryList activateConversation={activateConversation} activeConversationId={activeConversationId} currentUser={currentUser} historyBusy={historyBusy} historyCursor={historyCursor} historyError={historyError} historyStatus={historyStatus} loadMoreHistory={loadMoreHistory} orderedConversations={orderedConversations} persistedConversationCount={persistedConversationCount} setDeleteError={setDeleteError} setDeleteTargetId={setDeleteTargetId} />
         <dl className="project-chat-models"><div><dt>LLM</dt><dd>{t("projectChatModelConfigured")}</dd></div><div><dt>Embedding</dt><dd>{t("projectChatModelConfigured")}</dd></div><div><dt>{t("labelIndex")}</dt><dd>{t("projectChatProductionActiveOnly")}</dd></div></dl>
       </aside>
 
@@ -788,76 +581,12 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
           {historyStatus === "ready" && historyError ? <FeedbackField>{localize(historyError)}</FeedbackField> : null}
           {(activeConversation?.persisted || activeConversation?.validationRunId) && !canContinue ? <FeedbackMessage tone="info">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</FeedbackMessage> : null}
           {!entries.length ? <div className="chat-empty-state"><Bot size={24} /><strong>{t("projectChatEmptyTitle")}</strong><span>{t("projectChatEmptyHelp")}</span></div> : null}
-          {entries.map((entry) => (
-            <div className="chat-response-pair" key={entry.id}>
-              <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
-              <article aria-busy={entry.loading || undefined} className="chat-message assistant-message">
-                <div className="message-avatar"><Bot size={17} /></div>
-                <div className="assistant-message-body">
-                  <small>NomoSmart · {retrievalLabel(entry.retrievalStrategy)}</small>
-                  {entry.loading ? <ChatWaitingIndicator label={t("projectChatQueryingPublishedKnowledge")} /> : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
-                    <ChatResponseEvidence
-                      answer={entry.answer}
-                      answerFallback={t("projectChatNoBackendAnswer")}
-                      citations={entry.citations ?? []}
-                      citationsLabel={t("citations")}
-                      idPrefix={`project-chat-${entry.id}`}
-                      noCitationsLabel={entry.status === "no_answer" ? t("projectChatNoVerifiableCitation") : t("projectChatNoBackendCitation")}
-                    />
-                  )}
-                  <div className="answer-judgment">
-                    <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "correct" ? "selected correct" : ""} onClick={() => void persistFeedback(entry, "correct")} type="button"><CheckCircle2 size={15} /> {t("answerCorrect")}</button>
-                    <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "revision" ? "selected needs-revision" : ""} onClick={() => { if (!access.canEvaluate) return; setRevisionEntryId(entry.id); setRevisionText(""); }} type="button"><Wrench size={15} /> {t("answerNeedsRevision")}</button>
-                  </div>
-                </div>
-              </article>
-            </div>
-          ))}
+          {entries.map((entry) => <ProjectChatEntryPair access={access} authorName={authorName} entry={entry} judgments={judgments} key={entry.id} persistFeedback={persistFeedback} setRevisionEntryId={setRevisionEntryId} setRevisionText={setRevisionText} />)}
         </div>
         <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea disabled={!canContinue || queryBusy} id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!canContinue || !question.trim() || !scopeIds.length || scopeDirty || queryBusy} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <FeedbackMessage tone="warning">{t("projectChatScopeChangedWarning")}</FeedbackMessage> : null}</form>
       </div>
     </section>
-    {uploadOpen ? (
-      <div className="modal-backdrop" role="presentation">
-        <section ref={uploadDialogRef} tabIndex={-1} aria-labelledby="project-batch-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
-          <div className="modal-header">
-            <div><p className="eyebrow">{t("batchValidation")}</p><h2 id="project-batch-upload-title">{t("uploadTestConversations")}</h2></div>
-            <button aria-label={t("close")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button>
-          </div>
-
-          {activeValidationRun ? <div className="batch-file-status"><Wrench size={17} /><span><strong>{format("documentChatValidationRun", { id: activeValidationRun.status })}</strong><small>{format("projectChatValidationRunProgress", { completed: activeValidationRun.completed_count + activeValidationRun.failed_count, total: activeValidationRun.total_count })}</small></span></div> : null}
-          {validationFinished ? (
-            <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t("batchCompleted")}</strong><span>{format("projectChatBatchCompletedHelp", { count: batchCompletedCount ?? uploadQuestions.length })}</span></div></div>
-          ) : (
-            <div className="batch-upload-body">
-              <div className="batch-template-row">
-                <div><strong>{t("csvTemplate")}</strong><small>question, expected_answer, expected_keywords, selected_document_ids, category, priority</small></div>
-                <button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button>
-              </div>
-              <label
-                className={`csv-upload-field${uploadDragging ? " is-dragging" : ""}`}
-                onDragEnter={(event) => { event.preventDefault(); setUploadDragging(true); }}
-                onDragLeave={(event) => { event.preventDefault(); setUploadDragging(false); }}
-                onDragOver={(event) => event.preventDefault()}
-                onDrop={dropUploadFile}
-              >
-                <Upload size={24} />
-                <span><strong>{t("selectCsvFile")}</strong><small>{t("projectChatCsvUploadHelp")}</small></span>
-                <input accept=".csv,text/csv" onChange={selectUploadFile} type="file" />
-              </label>
-              {uploadFileName ? <div className="batch-file-status"><FileText size={17} /><span><strong>{uploadFileName}</strong><small>{uploadError ? localize(uploadError) : format("projectChatValidQuestionCount", { questions: uploadQuestions.length, documents: scopeIds.length })}</small></span></div> : null}
-              {uploadError ? <FeedbackMessage tone="error">{localize(uploadError)}</FeedbackMessage> : null}
-              {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((value, index) => <li key={`${value.question}-${index}`}>{value.question}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
-            </div>
-          )}
-          <div className="modal-actions">
-            <button className="action-button secondary" onClick={() => setUploadOpen(false)} type="button">{validationFinished ? t("close") : t("cancel")}</button>
-            {canRetryFailedValidation ? <button className="action-button secondary" onClick={() => { void retryFailedValidationItems(); }} type="button">{t("projectChatRetryFailedQuestions")}</button> : null}
-            {!activeValidationRun && !validationFinished ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError)} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}
-          </div>
-        </section>
-      </div>
-    ) : null}
+    {uploadOpen ? <ProjectChatBatchUploadDialog activeValidationRun={activeValidationRun} batchCompletedCount={batchCompletedCount} canRetryFailedValidation={canRetryFailedValidation} confirmBatchUpload={confirmBatchUpload} downloadQuestionTemplate={downloadQuestionTemplate} dropUploadFile={dropUploadFile} retryFailedValidationItems={retryFailedValidationItems} scopeIds={scopeIds} selectUploadFile={selectUploadFile} setUploadDragging={setUploadDragging} setUploadOpen={setUploadOpen} uploadDialogRef={uploadDialogRef} uploadDragging={uploadDragging} uploadError={uploadError} uploadFileName={uploadFileName} uploadQuestions={uploadQuestions} validationFinished={validationFinished} /> : null}
     {revisionEntryId !== null ? <div className="modal-backdrop" role="presentation"><section ref={revisionDialogRef} tabIndex={-1} aria-labelledby="project-chat-revision-title" aria-modal="true" className="modal-panel chat-small-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2 id="project-chat-revision-title">{t("revisionSuggestion")}</h2></div><button aria-label={t("close")} className="icon-button" onClick={() => setRevisionEntryId(null)} type="button"><X size={18} /></button></div><form className="revision-suggestion-form" onSubmit={(event) => { event.preventDefault(); if (!revisionText.trim() || !access.canEvaluate) return; const target = entries.find((entry) => entry.id === revisionEntryId); if (target) void persistFeedback(target, "revision"); }}><textarea aria-label={t("revisionSuggestion")} onChange={(event) => setRevisionText(event.target.value)} placeholder={t("revisionPlaceholder")} required value={revisionText} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionEntryId(null)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionText.trim()} type="submit">{t("saveSuggestion")}</button></div></form></section></div> : null}
     {deleteTargetId ? <div className="modal-backdrop" role="presentation"><section ref={deleteDialogRef} tabIndex={-1} aria-labelledby="project-chat-delete-title" aria-modal="true" className="modal-panel chat-small-modal" role="dialog"><div className="modal-header"><div><p className="eyebrow">{t("projectChatDeleteConversationEyebrow")}</p><h2 id="project-chat-delete-title">{t("projectChatDeleteConversationTitle")}</h2></div><button aria-label={t("close")} className="icon-button" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)} type="button"><X size={18} /></button></div><div className="delete-confirmation-body"><Trash2 size={22} /><p>{t("projectChatDeleteConversationHelp")}</p>{deleteError ? <FeedbackField>{localize(deleteError)}</FeedbackField> : null}</div><div className="modal-actions"><button className="action-button secondary" disabled={deleteBusy} onClick={() => setDeleteTargetId(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={deleteBusy} onClick={() => { void confirmDeleteConversation(); }} type="button"><Trash2 size={16} /> {deleteBusy ? t("projectChatDeletingConversation") : t("projectChatConfirmDeleteConversation")}</button></div></section></div> : null}
     </>
