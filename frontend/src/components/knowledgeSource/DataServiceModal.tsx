@@ -3,10 +3,11 @@
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackConfirm } from "../FeedbackConfirm";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, Check, CheckCircle2, Cloud, FolderSync, KeyRound, LoaderCircle, LockKeyhole, Server, X } from "lucide-react";
 import type { DataSourceConnectionOptions } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 import { ALLOWED_DOCUMENT_EXTENSIONS, HTTP_RESPONSE_EXTENSIONS, buildFriendlyCron, documentExtension, validateFiveFieldCron } from "@/lib/knowledgeImport";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import type { ServiceSource, CreatedKnowledgeDocument } from "./knowledgeSourceTypes";
@@ -61,9 +62,6 @@ export function DataServiceModal({
   const [credential, setCredential] = useState("");
   const [credentialSecretRef, setCredentialSecretRef] = useState("");
   const [credentialMode, setCredentialMode] = useState<"secret_reference" | "inline">("secret_reference");
-  const [credentialModes, setCredentialModes] = useState<DataSourceConnectionOptions["credential_modes"]>([]);
-  const [credentialOptionsState, setCredentialOptionsState] = useState<"loading" | "ready" | "error">("loading");
-  const credentialGeneration = useRef({ version: 0 });
   const [url, setUrl] = useState("");
   const [authMode, setAuthMode] = useState<"none" | "bearer" | "api_key_header">("none");
   const [apiKeyHeaderName, setApiKeyHeaderName] = useState("X-API-Key");
@@ -105,6 +103,24 @@ export function DataServiceModal({
     }
   }, [headersText]);
   const configuredCredential = credentialMode === "secret_reference" ? credentialSecretRef.trim() : credential;
+  // OPT424-035: connection options are a read resource; the result must offer a Secret reference and a
+  // valid default time zone, otherwise the step shows the options error.
+  const readOptions = useCallback(async () => {
+    if (!onLoadConnectionOptions) throw new Error("serviceCredentialOptionsFailed");
+    const result = await onLoadConnectionOptions();
+    if (!result.credential_modes.includes("secret_reference") || result.credential_modes.some(mode => !["secret_reference", "inline"].includes(mode))) throw new Error("serviceCredentialOptionsFailed");
+    if (typeof result.default_timezone !== "string" || !result.default_timezone) throw new Error("serviceCredentialOptionsFailed");
+    new Intl.DateTimeFormat("en", { timeZone: result.default_timezone });
+    return result;
+  }, [onLoadConnectionOptions]);
+  const optionsRead = useReadResource<DataSourceConnectionOptions>(readOptions, "data-source-connection-options", true, {
+    onData: result => {
+      setTimezone(value => value || result.default_timezone);
+      if (!result.credential_modes.includes(credentialMode)) { setCredentialMode("secret_reference"); setCredential(""); }
+    },
+  });
+  const credentialOptionsState = optionsRead.status;
+  const credentialModes = optionsRead.data?.credential_modes ?? [];
   const credentialModeAllowed = credentialOptionsState === "ready" && credentialModes.includes(credentialMode);
   const connectionReady = credentialModeAllowed && (serviceType === "HTTP_API" ? Boolean(url && (authMode === "none" || configuredCredential) && (authMode !== "api_key_header" || apiKeyHeaderName)) : Boolean(host && username && configuredCredential && (serviceType !== "S3" || (bucket && region)) && fileName && extensionValid));
   const sourceValid = Boolean(fileName) && extensionValid && (serviceType === "HTTP_API" || Boolean(path)) && (scheduleMode === "once" || (cronValid && timezone));
@@ -121,26 +137,7 @@ export function DataServiceModal({
     return () => window.removeEventListener("keydown", handleEscape);
   }, [dirty, onClose, submitting]);
 
-  async function loadCredentialOptions() {
-    const generation = ++credentialGeneration.current.version;
-    setCredentialOptionsState("loading"); setCredentialModes([]); invalidateConnection();
-    try {
-      if (!onLoadConnectionOptions) throw new Error("serviceCredentialOptionsFailed");
-      const result = await onLoadConnectionOptions();
-      if (generation !== credentialGeneration.current.version) return;
-      if (!result.credential_modes.includes("secret_reference") || result.credential_modes.some(mode => !["secret_reference", "inline"].includes(mode))) throw new Error("serviceCredentialOptionsFailed");
-      if (typeof result.default_timezone !== "string" || !result.default_timezone) throw new Error("serviceCredentialOptionsFailed");
-      new Intl.DateTimeFormat("en", { timeZone: result.default_timezone });
-      setCredentialModes(result.credential_modes); setTimezone(value => value || result.default_timezone); setCredentialOptionsState("ready");
-      if (!result.credential_modes.includes(credentialMode)) { setCredentialMode("secret_reference"); setCredential(""); }
-    } catch { if (generation === credentialGeneration.current.version) setCredentialOptionsState("error"); }
-  }
-  useEffect(() => {
-    const epoch = credentialGeneration.current;
-    const timer = setTimeout(() => { void loadCredentialOptions(); }, 0);
-    return () => { clearTimeout(timer); epoch.version++; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onLoadConnectionOptions]);
+  function loadCredentialOptions() { invalidateConnection(); void optionsRead.reload(); }
   function renderCredentialField() { return <>
     {credentialModes.includes("inline") ? <label><span>{t("serviceCredentialMode")}</span><DropdownSelect disabled={submitting} onChange={event => { setCredentialMode(event.target.value as "secret_reference" | "inline"); setCredential(""); setCredentialSecretRef(""); invalidateConnection(); }} value={credentialMode}><option value="secret_reference">{t("serviceCredentialSecretReference")}</option><option value="inline">{t("serviceCredentialInline")}</option></DropdownSelect></label> : null}
     <label><span>{t(credentialMode === "secret_reference" ? "serviceCredentialSecretReference" : "serviceCredentialInline")}</span><input aria-label={t(credentialMode === "secret_reference" ? "serviceCredentialSecretReference" : "serviceCredentialInline")} autoComplete="off" disabled={!credentialModeAllowed || submitting} maxLength={credentialMode === "secret_reference" ? 1000 : 8000} onChange={event => { if (credentialMode === "secret_reference") setCredentialSecretRef(event.target.value); else setCredential(event.target.value); invalidateConnection(); }} placeholder={credentialMode === "secret_reference" ? t("serviceCredentialReferencePlaceholder") : undefined} type={credentialMode === "secret_reference" ? "text" : "password"} value={credentialMode === "secret_reference" ? credentialSecretRef : credential} /><small>{t(credentialMode === "secret_reference" ? "serviceCredentialReferenceHelp" : "serviceCredentialInlineHelp")}</small></label>
