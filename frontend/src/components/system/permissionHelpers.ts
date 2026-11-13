@@ -12,6 +12,10 @@ export const permissionMenuRows = [
 
 export type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";
 
+export function permissionActionEnabled(row: (typeof permissionMenuRows)[number], action: PermissionAction) {
+  return (row.actions as readonly PermissionAction[]).includes(action);
+}
+
 export type PermissionState = Record<string, Record<PermissionAction, boolean>>;
 
 export type RoleStatusFilter = "all" | "enabled" | "disabled";

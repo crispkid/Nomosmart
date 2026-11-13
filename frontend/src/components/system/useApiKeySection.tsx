@@ -6,7 +6,7 @@ import { FeedbackForm } from "@/components/FeedbackForm";
 import { FeedbackField } from "@/components/FeedbackMessage";
 import { SettingsCard } from "../SettingsCard";
 import { EmptyInlineState, SectionHeader, StateBadge } from "./SystemUi";
-import { activateIntegrationClient, createIntegrationClient, deactivateIntegrationClient, getProject, listIntegrationClientsPage, replaceIntegrationClientProjectScopes, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, type ApiFetch, type IntegrationClientResponse, type ProjectResponse } from "@/lib/api";
+import { activateIntegrationClient, createIntegrationClient, deactivateIntegrationClient, getProject, replaceIntegrationClientProjectScopes, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, type ApiFetch, type IntegrationClientResponse, type ProjectResponse } from "@/lib/api";
 import { IntegrationClientDateError, integrationClientDateInput, integrationClientDateUpdate, integrationClientDateValue } from "@/lib/integrationClientDates";
 import { MutationOutcomeUnknown } from "@/lib/transportError";
 import type { TranslationKey } from "@/lib/i18nClient";
