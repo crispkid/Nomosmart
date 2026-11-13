@@ -17,19 +17,18 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, Clock3, Database, FilePlus2, Layers3, MessageSquareText, Network, ShieldCheck, UploadCloud, X } from "lucide-react";
 import { AppShell, PageGrid, Panel, StatCard } from "@/components/AppShell";
-import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
-import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
+import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload } from "@/components/KnowledgeSourceModals";
 import { ProjectChatTest } from "@/components/ProjectChatTest";
 import { formatCount } from "@/lib/numberFormat";
 import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDataSourceConnectionOptions, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse, type ReferenceSourceProjectResponse } from "@/lib/api";
+import { createDataSource, getDataSourceConnectionOptions, getPipelineDetail, getProject, getUploadConfig, listModels, listProjectDocuments, listProjectMembers, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, uploadProjectDocuments, type AIModelResponse, type ApiError, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
-import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
+import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { extractionOutcome, pipelineIsExecuting } from "@/lib/reviewPresentation";
 import { confirmedUploadResults, UploadAttemptGuard, uploadOutcomeUnknown, type UploadBatchResult } from "@/lib/uploadProgress";
 import { useDocumentList } from "@/lib/useDocumentList";
@@ -37,8 +36,10 @@ import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { extractionRunKey, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
 
-import { type Translate, isReviewLockedVersionStatus, type DocumentItem, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, getSourceState, formatSyncDate, syncRunStep } from "@/components/projectImport/importDocumentModel";
+import { type Translate, isReviewLockedVersionStatus, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, getSourceState } from "@/components/projectImport/importDocumentModel";
 import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelineCard";
+import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
+import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
 import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
@@ -101,10 +102,7 @@ function ProjectImportPage() {
   const [projectDropActive, setProjectDropActive] = useState(false);
   const projectDragDepth = useRef(0);
   const [dataServiceModalOpen, setDataServiceModalOpen] = useState(false);
-  const [referenceModalOpen, setReferenceModalOpen] = useState(false);
-  const [referenceSources, setReferenceSources] = useState<ReferenceSourceProjectResponse[]>([]);
-  const [referenceSourcesLoading, setReferenceSourcesLoading] = useState(false);
-  const [referenceSourcesError, setReferenceSourcesError] = useState("");
+  const referenceSourceState = useReferenceSourceState();
   const [documentLoadState, setDocumentLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [documentLoadError, setDocumentLoadError] = useState("");
   const { notify } = useFeedback();
@@ -112,8 +110,8 @@ function ProjectImportPage() {
   const { committedStatuses, pendingStatusChange, statusSubmitting } = statusChangeState;
   const [pipelineDetailLoading, setPipelineDetailLoading] = useState<Record<string, boolean>>({});
   const [pipelineRetryNotices, setPipelineRetryNotices] = useState<Record<string, { pipelineId: string; message: string }>>({});
-  const [syncRunsByDataSource, setSyncRunsByDataSource] = useState<Record<string, DataSyncRunResponse[]>>({});
-  const [syncRunLoading, setSyncRunLoading] = useState<Record<string, boolean>>({});
+  const dataSourceSyncState = useDataSourceSyncState();
+  const { syncRunsByDataSource, setSyncRunsByDataSource, syncRunLoading, setSyncRunLoading } = dataSourceSyncState;
   const projectReady = projectAccess === "granted" && project?.id === params.id;
   const canEditLifecycle = projectReady && (project?.capabilities.can_manage_lifecycle ?? false);
   const canUpload = projectAccess === "granted" && project?.id === params.id && documentLoadState === "ready" && project?.capabilities?.can_upload === true;
@@ -236,58 +234,8 @@ function ProjectImportPage() {
   const projectVersionState = useProjectVersionState({ apiFetch, format, params, t, allDocuments, syncRunsByDataSource, setSyncRunsByDataSource, setSyncRunLoading });
   const { setVersionDocumentId } = projectVersionState;
 
-  async function refreshDataSourceSyncRuns(dataSourceId: string) {
-    setSyncRunLoading((current) => ({ ...current, [dataSourceId]: true }));
-    try {
-      const runs = await listDataSourceSyncRuns(apiFetch, params.id, dataSourceId);
-      setSyncRunsByDataSource((current) => ({ ...current, [dataSourceId]: runs }));
-      return runs;
-    } finally {
-      setSyncRunLoading((current) => ({ ...current, [dataSourceId]: false }));
-    }
-  }
-
-  function applySyncRunState(documentId: string, run: DataSyncRunResponse) {
-    const sourceState: SourceState = run.status === "failed" ? "sync_failed" : run.status === "success" || run.status === "unchanged" ? "ready_for_extraction" : "syncing";
-    const syncedAt = formatSyncDate(run.completed_at ?? run.started_at ?? run.created_at, locale);
-    const patch = {
-      sourceState,
-      updatedAt: syncedAt,
-      pipeline: {
-        currentStep: syncRunStep(run, t),
-        elapsed: "",
-        eta: run.status === "queued" ? t("projectImportWaitingWorker") : run.status === "running" ? t("projectImportSyncRunning") : "",
-        error: run.error_summary ? operationalCodeMessage(run.error_code, t, format, "projectImportSyncFailed") : ""
-      }
-    };
-    const applyPatch = (item: CreatedKnowledgeDocument): CreatedKnowledgeDocument => {
-      if (item.id !== documentId) return item;
-      const nextVersions = run.document_version_id && !item.versions.some((version) => version.id === run.document_version_id)
-        ? [{ id: run.document_version_id, label: t("projectImportLatestSyncVersion"), status: "draft", createdAt: syncedAt, author: t("projectImportSystemSync") }, ...item.versions]
-        : item.versions;
-      return {
-        ...item,
-        ...patch,
-        latestVersionId: run.document_version_id ?? item.latestVersionId,
-        versionStatus: run.document_version_id ? "draft" : item.versionStatus,
-        versions: nextVersions,
-        pipeline: { ...item.pipeline, ...patch.pipeline }
-      };
-    };
-    setCreatedImports((current) => current.map(applyPatch));
-    setLiveDocuments((current) => current.map(applyPatch));
-  }
-
-  async function pollDataSourceSyncRun(documentId: string, dataSourceId: string, runId: string) {
-    for (let attempt = 0; attempt < 10; attempt += 1) {
-      await new Promise((resolve) => window.setTimeout(resolve, attempt === 0 ? 500 : 2000));
-      const runs = await refreshDataSourceSyncRuns(dataSourceId);
-      const latestRun = runs.find((run) => run.id === runId) ?? runs[0];
-      if (!latestRun) continue;
-      applySyncRunState(documentId, latestRun);
-      if (["success", "unchanged", "failed"].includes(latestRun.status)) return;
-    }
-  }
+  const dataSourceSyncActions = createDataSourceSyncActions(dataSourceSyncState, { apiFetch, format, locale, params, t, projectReady, setCreatedImports, setLiveDocuments });
+  const { refreshDataSourceSyncRuns, syncNow } = dataSourceSyncActions;
 
   function applyPipelineDetailToDocument(document: CreatedKnowledgeDocument, detail: PipelineRunDetail): CreatedKnowledgeDocument {
     if (detail.project_id !== params.id || detail.document_id !== document.id
@@ -408,41 +356,8 @@ function ProjectImportPage() {
     return serviceDocumentFromResponse(response, t);
   }
 
-  async function loadReferenceSources() {
-    setReferenceModalOpen(true);
-    setReferenceSourcesLoading(true);
-    setReferenceSourcesError("");
-    try {
-      const sources = await listProjectReferenceSources(apiFetch, params.id);
-      setReferenceSources(sources);
-    } catch (error) {
-      setReferenceSourcesError(operationalErrorMessage(error, t, format, "referenceLoadSourcesFailed"));
-    } finally {
-      setReferenceSourcesLoading(false);
-    }
-  }
-
-  async function createLiveReferences(mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) {
-    if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
-    const response = await importProjectDocumentReferences(apiFetch, params.id, { mode, items });
-    const created = await Promise.all(response.results.filter((result) => result.status === "created" && result.document).map(async (result) => {
-      const document = result.document!;
-      const versionId = document.latest_version?.id;
-      const pipelineId = document.latest_pipeline?.id;
-      if (!versionId || !pipelineId) return liveDocumentFromSummary(document, t);
-      try {
-        const detail = await getPipelineDetail(apiFetch, params.id, document.id, versionId, pipelineId);
-        return liveDocumentFromSummary(document, t, detail);
-      } catch {
-        return liveDocumentFromSummary(document, t);
-      }
-    }));
-    if (created.length) setCreatedImports((current) => [...created, ...current]);
-    return {
-      createdCount: created.length,
-      errors: response.results.filter((result) => result.status === "failed").map((result) => operationalCodeMessage(result.error_code, t, format, "referenceCreateFailed"))
-    };
-  }
+  const referenceSourceActions = createReferenceSourceActions(referenceSourceState, { apiFetch, format, params, t, projectReady, setCreatedImports });
+  const { loadReferenceSources } = referenceSourceActions;
 
   async function startManualExtraction(documentId: string) {
     const liveDocument = allDocuments.find((item) => item.id === documentId && item.isLive && item.latestVersionId);
@@ -596,41 +511,13 @@ function ProjectImportPage() {
     }
   }
 
-  async function syncNow(document: DocumentItem) {
-    if (!projectReady) return;
-    if ("dataSourceId" in document && document.dataSourceId) {
-      setCreatedImports((current) => current.map((item) => item.id === document.id ? {
-        ...item,
-        sourceState: "syncing",
-        pipeline: { ...item.pipeline, currentStep: t("projectImportManualSyncSource"), elapsed: "00m 01s", eta: t("projectImportWaitingWorker"), error: "" }
-      } : item));
-      try {
-        const run = await queueDataSourceSync(apiFetch, params.id, document.dataSourceId);
-        setSyncRunsByDataSource((current) => ({ ...current, [document.dataSourceId!]: [run, ...(current[document.dataSourceId!] ?? []).filter((item) => item.id !== run.id)] }));
-        applySyncRunState(document.id, run);
-        void pollDataSourceSyncRun(document.id, document.dataSourceId, run.id);
-      } catch (error) {
-        setCreatedImports((current) => current.map((item) => item.id === document.id ? {
-          ...item,
-          sourceState: "sync_failed",
-          pipeline: { ...item.pipeline, currentStep: t("projectImportSyncScheduleFailed"), elapsed: "", eta: "", error: operationalErrorMessage(error, t, format, "projectImportSyncScheduleFailed") }
-        } : item));
-      }
-      return;
-    }
-    setCreatedImports((current) => current.map((item) => item.id === document.id ? {
-      ...item,
-      sourceState: "syncing",
-      pipeline: { ...item.pipeline, currentStep: t("projectImportManualSyncSource"), elapsed: "00m 01s", eta: t("projectImportWaitingRemoteService") }
-    } : item));
-  }
-
   const projectVersionActions = createProjectVersionActions(projectVersionState, { apiFetch, format, params, t, projectReady, canEditLifecycle, replaceLiveDocuments, setCreatedImports, setLiveDocuments });
 
   const statusChangeActions = createStatusChangeActions(statusChangeState, { apiFetch, format, params, t, canEditLifecycle, notify, setCreatedImports, setLiveDocuments });
   const { requestStatusChange } = statusChangeActions;
 
 
+  const { renderReferenceModal } = createReferenceSourceView(referenceSourceState, referenceSourceActions);
   const { renderStatusChangeModal } = createStatusChangeView(statusChangeState, statusChangeActions, { localize, t });
   const { renderProjectVersionModals } = createProjectVersionView(projectVersionState, projectVersionActions, { canEditLifecycle, format, locale, localize, syncRunLoading, refreshDataSourceSyncRuns, syncNow, t });
   const { renderProjectPermissionModal } = createProjectPermissionView(projectPermissionState, projectPermissionActions, { canManageProjectPermissions, currentUser, format, locale, project, t });
@@ -797,16 +684,7 @@ function ProjectImportPage() {
 
       {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
       {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
-      {referenceModalOpen ? (
-        <ProjectReferenceModal
-          error={referenceSourcesError}
-          loading={referenceSourcesLoading}
-          onClose={() => setReferenceModalOpen(false)}
-          onCreate={createLiveReferences}
-          onRefresh={() => { void loadReferenceSources(); }}
-          sources={referenceSources}
-        />
-      ) : null}
+      {renderReferenceModal()}
 
       {permissionModalOpen && canManageProjectPermissions ? renderProjectPermissionModal() : null}
 
