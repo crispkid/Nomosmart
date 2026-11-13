@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import {
   BookOpenText,
   ChevronDown,
@@ -23,8 +23,30 @@ import { workspaceArea } from "@/lib/workspaceNavigation";
 import { BrowserTitle } from "@/lib/browserTitle";
 import WorkspaceNavigation from "./WorkspaceNavigation";
 
+const WorkspaceChromeContext = createContext(false);
+
+/**
+ * Workspace page header: browser title and the page heading (OPT424-035). Inside the
+ * (workspace) route-group layout the navigation chrome is already mounted and persists across
+ * navigation; rendered anywhere else, the page brings its own chrome as before.
+ */
 export function AppShell({ children, title, browserTitle }: { children: React.ReactNode; title: string; browserTitle?: string }) {
-  const { can, logout, userDisplayName, authReady } = useAuth();
+  const insideChrome = useContext(WorkspaceChromeContext);
+  const { authReady } = useAuth();
+  const { t } = useI18n();
+  const page = <><BrowserTitle label={authReady ? browserTitle ?? title : t("brandKnowledgeOps")} />
+    <header className="topbar">
+      <div>
+        <h1>{title}</h1>
+      </div>
+    </header>
+    {children}</>;
+  return insideChrome ? page : <WorkspaceChrome>{page}</WorkspaceChrome>;
+}
+
+/** Header, navigation, language, notifications, account menu and the main landmark (OPT424-035). */
+export function WorkspaceChrome({ children }: { children: React.ReactNode }) {
+  const { can, logout, userDisplayName } = useAuth();
   const pathname = usePathname();
   const activeArea = workspaceArea(pathname);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -80,7 +102,7 @@ export function AppShell({ children, title, browserTitle }: { children: React.Re
   const activeLocale = supportedLocales.find((item) => item.code === locale) ?? supportedLocales[0];
 
   return (
-    <div className="app-shell" ref={shellRef}><BrowserTitle label={authReady ? browserTitle ?? title : t("brandKnowledgeOps")} />
+    <WorkspaceChromeContext.Provider value={true}><div className="app-shell" ref={shellRef}>
       <a className="skip-to-content" href="#workspace-main" onClick={() => mainRef.current?.focus()}>{t("skipToMainContent")}</a>
       <header className="app-header workspace-header">
         <Link className="brand" href="/" aria-label={t("headerHomeLink")}>
@@ -128,14 +150,9 @@ export function AppShell({ children, title, browserTitle }: { children: React.Re
         </div>
       </header>
       <main className="main" id="workspace-main" ref={mainRef} tabIndex={-1}>
-        <header className="topbar">
-          <div>
-            <h1>{title}</h1>
-          </div>
-        </header>
         {children}
       </main>
-    </div>
+    </div></WorkspaceChromeContext.Provider>
   );
 }
 
