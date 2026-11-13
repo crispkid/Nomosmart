@@ -21,18 +21,19 @@ import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
 import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, completionGateBlocksKnowledgeDetail, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
-import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, createManualChunk, deleteChunkTag, deleteDocumentTag, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
+import { deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
-import { mappedSelectionRange } from "@/lib/manualSourceSelection";
 import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { useI18n } from "@/lib/i18nClient";
-import { codePointLength, markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior } from "@/lib/markdownSourceMapping";
+import { markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior } from "@/lib/markdownSourceMapping";
 import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi";
 
 const DocumentContentEditorModal = dynamic(() => import("@/components/DocumentContentEditorModal").then(module => module.DocumentContentEditorModal), { ssr: false });
 
-import { type Translate, type KnowledgeChunk, type ArticleView, type DocumentView, type ManualTextSelection, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate } from "@/components/knowledgeDetail/knowledgeDetailModel";
+import { type Translate, type KnowledgeChunk, type DocumentView, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate } from "@/components/knowledgeDetail/knowledgeDetailModel";
+import { createKnowledgeTagActions, useKnowledgeTagState } from "@/components/knowledgeDetail/useKnowledgeTagSection";
+import { useManualChunkSection } from "@/components/knowledgeDetail/useManualChunkSection";
 import { ChunkPreview, TagResultStrip, KnowledgeDetailCompletionGate, TagEditor } from "@/components/knowledgeDetail/KnowledgeDetailParts";
 
 export default function KnowledgePage() {
@@ -69,13 +70,8 @@ export default function KnowledgePage() {
   const [sourceLocationError, setSourceLocationError] = useState(false);
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
   const [retryError, setRetryError] = useState(false);
-  const [manualSelection, setManualSelection] = useState<ManualTextSelection | null>(null);
-  const [manualChunkBusy, setManualChunkBusy] = useState(false);
-  const [manualChunkError, setManualChunkError] = useState(false);
-  const [documentTagDraft, setDocumentTagDraft] = useState("");
-  const [chunkTagDrafts, setChunkTagDrafts] = useState<Record<string, string>>({});
-  const [tagBusyKey, setTagBusyKey] = useState<string | null>(null);
-  const [tagError, setTagError] = useState(false);
+  const tagState = useKnowledgeTagState();
+  const { documentTagDraft, setDocumentTagDraft, chunkTagDrafts, setChunkTagDrafts, tagBusyKey, tagError } = tagState;
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeChunk | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -91,6 +87,7 @@ export default function KnowledgePage() {
   const selectedChunk = selectedChunks[0];
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const rememberSourcePosition = useSourceViewPosition(articleViewerRef, documentView, markdownSourceText, selectedChunkIds.length);
+  const { manualSelection, setManualSelection, manualChunkBusy, manualChunkError, captureManualSelection, submitManualChunk } = useManualChunkSection({ apiFetch, params, liveDetail, setLiveDetail, articleViewerRef, markdownSourceText, setSelectedChunkIds, setSourceLocationError });
   function changeDocumentView(view: DocumentView) {
     if (view === documentView) return;
     if (view !== "tags" && documentView !== "tags") rememberSourcePosition();
@@ -295,142 +292,8 @@ export default function KnowledgePage() {
     setChunkScrollRequest((request) => ({ chunkId: chunkIds[0], sequence: (request?.sequence ?? 0) + 1 }));
   }
 
-  function captureManualSelection(viewMode: ArticleView) {
-    if (!liveDetail?.manual_edit_enabled) return;
-    const selection = window.getSelection();
-    const viewer = articleViewerRef.current;
-    if (!selection || !viewer || selection.rangeCount === 0) return;
-    const range = selection.getRangeAt(0);
-    if (!viewer.contains(range.commonAncestorContainer)) return;
-    const rawSelection = selection.toString();
-    const content = rawSelection.trim();
-    if (!content) {
-      setManualSelection(null);
-      return;
-    }
-    if (viewMode === "original") {
-      const mapped = mappedSelectionRange(range);
-      if (!mapped || !markdownSourceText) {
-        setManualSelection(null);
-        setSourceLocationError(true);
-        return;
-      }
-      const raw = Array.from(markdownSourceText).slice(mapped.start, mapped.end).join("");
-      const canonicalContent = raw.trim();
-      if (!canonicalContent) return;
-      const startOffset = mapped.start + codePointLength(raw.slice(0, raw.length - raw.trimStart().length));
-      const rect = range.getBoundingClientRect();
-      setManualSelection({ content: canonicalContent, viewMode, sourceAnchor: "markdown-document",
-        startOffset, endOffset: startOffset + codePointLength(canonicalContent), offsetScope: "canonical_markdown",
-        top: Math.max(72, rect.top - 48), left: Math.min(window.innerWidth - 180, Math.max(16, rect.left)) });
-      setManualChunkError(false);
-      setSourceLocationError(false);
-      return;
-    }
-    const node = range.commonAncestorContainer.nodeType === Node.ELEMENT_NODE ? range.commonAncestorContainer as Element : range.commonAncestorContainer.parentElement;
-    const anchorElement = node?.closest<HTMLElement>("[data-source-anchor]");
-    const sourceAnchor = viewMode === "markdown" ? "markdown-document" : anchorElement?.dataset.sourceAnchor || "original-document";
-    const canonicalRoot = viewer.querySelector<HTMLElement>("[data-canonical-markdown-source] code");
-    const offsetRoot = viewMode === "markdown" ? canonicalRoot : anchorElement ?? viewer;
-    if (!offsetRoot) return;
-    if (!offsetRoot.contains(range.startContainer) || !offsetRoot.contains(range.endContainer)) return;
-    const preRange = document.createRange();
-    preRange.selectNodeContents(offsetRoot);
-    preRange.setEnd(range.startContainer, range.startOffset);
-    const leadingWhitespace = rawSelection.slice(0, rawSelection.length - rawSelection.trimStart().length);
-    const startOffset = codePointLength(preRange.toString()) + codePointLength(leadingWhitespace);
-    const endOffset = startOffset + codePointLength(content);
-    const rect = range.getBoundingClientRect();
-    setManualSelection({
-      content,
-      viewMode,
-      sourceAnchor,
-      startOffset,
-      endOffset,
-      offsetScope: viewMode === "markdown" ? "canonical_markdown" : "source_anchor",
-      top: Math.max(72, rect.top - 48),
-      left: Math.min(window.innerWidth - 180, Math.max(16, rect.left + rect.width / 2 - 70))
-    });
-    setManualChunkError(false);
-  }
-
-  async function submitManualChunk() {
-    if (!manualSelection || !liveDetail?.manual_edit_enabled) return;
-    setManualChunkBusy(true);
-    setManualChunkError(false);
-    try {
-      const refreshed = await createManualChunk(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, {
-        content: manualSelection.content,
-        view_mode: manualSelection.viewMode,
-        source_anchor: manualSelection.sourceAnchor,
-        start_offset: manualSelection.startOffset,
-        end_offset: manualSelection.endOffset,
-        offset_unit: "unicode_code_point",
-        offset_scope: manualSelection.offsetScope,
-        lock_version: liveDetail.version.lock_version
-      });
-      setLiveDetail(refreshed);
-      const selectedId = refreshed.chunks.find((chunk) => chunk.content === manualSelection.content)?.id ?? refreshed.chunks[0]?.id;
-      setSelectedChunkIds(selectedId ? [selectedId] : []);
-      setManualSelection(null);
-      window.getSelection()?.removeAllRanges();
-    } catch {
-      setManualChunkError(true);
-    } finally {
-      setManualChunkBusy(false);
-    }
-  }
-
-  async function refreshAfterTag(action: () => Promise<KnowledgeDetailResponse>) {
-    setTagError(false);
-    try {
-      const refreshed = await action();
-      setLiveDetail(refreshed);
-      setSelectedChunkIds((current) => current.length ? current : refreshed.chunks[0]?.id ? [refreshed.chunks[0].id] : []);
-    } catch {
-      setTagError(true);
-    } finally {
-      setTagBusyKey(null);
-    }
-  }
-
-  function addDocumentTagFromDraft() {
-    const tagText = documentTagDraft.trim();
-    if (!liveDetail || !tagText) return;
-    setTagBusyKey("document:add");
-    refreshAfterTag(() => addDocumentTag(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, tagText)).then(() => setDocumentTagDraft(""));
-  }
-
-  function addChunkTagFromDraft(chunkId: string) {
-    const tagText = (chunkTagDrafts[chunkId] ?? "").trim();
-    if (!liveDetail || !tagText) return;
-    setTagBusyKey(`chunk:${chunkId}:add`);
-    refreshAfterTag(() => addChunkTag(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, chunkId, tagText)).then(() => setChunkTagDrafts((current) => ({ ...current, [chunkId]: "" })));
-  }
-
-  function autoTagWholeDocument() {
-    if (!liveDetail) return;
-    setTagBusyKey("document:auto");
-    refreshAfterTag(() => autoTagDocument(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id));
-  }
-
-  function deleteWholeDocumentTag(tagId: string) {
-    if (!liveDetail) return;
-    setTagBusyKey(`document:delete:${tagId}`);
-    refreshAfterTag(() => deleteDocumentTag(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, tagId));
-  }
-
-  function autoTagOneChunk(chunkId: string) {
-    if (!liveDetail) return;
-    setTagBusyKey(`chunk:${chunkId}:auto`);
-    refreshAfterTag(() => autoTagChunk(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, chunkId));
-  }
-
-  function deleteOneChunkTag(chunkId: string, tagId: string) {
-    if (!liveDetail) return;
-    setTagBusyKey(`chunk:${chunkId}:delete:${tagId}`);
-    refreshAfterTag(() => deleteChunkTag(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, chunkId, tagId));
-  }
+  const tagActions = createKnowledgeTagActions(tagState, { apiFetch, params, liveDetail, setLiveDetail, setSelectedChunkIds });
+  const { addDocumentTagFromDraft, addChunkTagFromDraft, autoTagWholeDocument, deleteWholeDocumentTag, autoTagOneChunk, deleteOneChunkTag } = tagActions;
 
   async function handleRetryStep(stepName: string) {
     if (!liveDetail?.pipeline?.id) return;
