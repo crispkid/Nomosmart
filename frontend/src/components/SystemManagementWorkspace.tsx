@@ -9,7 +9,7 @@ import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { modalScope, type ModalState, type ModelRow, type PromptRow, type SystemReadState } from "./system/modalState";
 import { createApiKeyActions, createApiKeyView, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, createModelView, useModelState } from "./system/useModelSection";
-import { createPromptActions, usePromptState } from "./system/usePromptSection";
+import { createPromptActions, createPromptView, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, useRoleState } from "./system/useRoleSection";
 import { createUserActions, useUserState } from "./system/useUserSection";
 import { createIdentityActions, useIdentityState } from "./system/useIdentitySection";
@@ -265,7 +265,8 @@ export default function SystemManagementWorkspace({
   const systemReadVersions = useRef<Record<string, number>>({});
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
-  const { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor } = createPromptActions(promptState, { apiFetch, canEditModels, errorMessage, format, liveModels, localize, promptBlocked, promptGuard, promptOperation, reloadSystemSection, setReadState, systemReadScope, systemReadVersions, t });
+  const promptActions = createPromptActions(promptState, { apiFetch, canEditModels, errorMessage, format, liveModels, localize, promptBlocked, promptGuard, promptOperation, reloadSystemSection, setReadState, systemReadScope, systemReadVersions, t });
+  const { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor } = promptActions;
   const systemReadStates = useRef<Record<string, SystemReadState>>({});
   const mappingRows = useRef<Awaited<ReturnType<typeof listExternalGroupMappings>>>([]);
   const groupRows = useRef<ExternalGroupResponse[]>([]);
@@ -754,6 +755,7 @@ export default function SystemManagementWorkspace({
   // Views receive event handlers that read refs only when the user acts, never during render.
   // eslint-disable-next-line react-hooks/refs
   const { renderModelPanel, renderModelForm, renderModelDeleteForm } = createModelView(modelState, modelActions, { activeEmbeddingModels, apiFetch, canCreateModels, canDeleteModels, canEditModels, closeModal, discardModal, format, locale, localize, localizedOperationStatus, localizedStatus, modal, modalBlocked, modelTableFirst, modelTableLast, modelTableTotalPages, quickBlocked, refreshModelTable, runQuickMutation, sectionReady, setModal, submitting, t });
+  const { renderPromptPanel } = createPromptView(promptState, promptActions, { canCreateModels, format, globalChatPrompt, globalJudgePrompt, liveModels, modelSpecificPrompts, promptBlocked, promptModelOptions, sectionReady, t });
   return (
     <section className="system-workspace">
       {systemLoading ? <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("loadingData")}</strong><span>{t("systemLoadingBackend")}</span></div></div> : null}
@@ -814,23 +816,7 @@ export default function SystemManagementWorkspace({
 
           {activeSection === "ai" ? renderModelPanel() : null}
 
-          {activeSection === "ai" ? <SettingsCard panel="prompts">
-            <SectionHeader description={t("systemPromptsDescription")} title={t("systemPrompts")} />
-            {!promptEditorOpen ? renderPromptFeedback() : null}
-
-            <div className="system-prompt-layer-stack"><Layers3 size={17} /><div><strong>{t("systemPromptLayerOrderTitle")}</strong><span>{t("systemPromptLayerOrderHelp")}</span></div></div>
-            <section className="system-prompt-area">
-              <div className="system-subsection-title"><div><h3><Globe2 size={18} />{t("systemPromptGlobalSection")}</h3><p>{t("systemPromptGlobalSectionHelp")}</p></div></div>
-              <div className="system-prompt-global-grid">
-                {globalChatPrompt ? <button className={selectedPromptId === globalChatPrompt.id ? "system-prompt-summary active" : "system-prompt-summary"} onClick={() => selectPrompt(globalChatPrompt)} type="button"><span><MessageSquareText size={18} />{t("systemPromptGlobalChatTitle")}</span><strong>{format("systemVersionValue", { version: globalChatPrompt.current_version_number ?? "—" })}</strong><StateBadge tone={globalChatPrompt.is_active ? "green" : "gray"}>{globalChatPrompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></button> : <button className="system-prompt-empty-global" disabled={!canCreateModels || promptSaving || promptBlocked || !sectionReady("prompts")} onClick={() => { void createGlobalPrompt("Chat"); }} type="button"><strong>{t("systemPromptGlobalChatTitle")}</strong><p>{t("systemPromptGlobalMissing")}</p></button>}
-                {globalJudgePrompt ? <button className={selectedPromptId === globalJudgePrompt.id ? "system-prompt-summary active" : "system-prompt-summary"} onClick={() => selectPrompt(globalJudgePrompt)} type="button"><span><ShieldCheck size={18} />{t("systemPromptGlobalJudgeTitle")}</span><strong>{format("systemVersionValue", { version: globalJudgePrompt.current_version_number ?? "—" })}</strong><StateBadge tone={globalJudgePrompt.is_active ? "green" : "gray"}>{globalJudgePrompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></button> : <button className="system-prompt-empty-global" disabled={!canCreateModels || promptSaving || promptBlocked || !sectionReady("prompts")} onClick={() => { void createGlobalPrompt("Judge"); }} type="button"><strong>{t("systemPromptGlobalJudgeTitle")}</strong><p>{t("systemPromptGlobalMissing")}</p></button>}
-              </div>
-            </section>
-            <section className="system-prompt-area">
-              <div className="system-subsection-title"><div><h3><Bot size={18} />{t("systemPromptModelSection")}</h3><p>{t("systemPromptModelSectionHelp")}</p></div><div className="system-toolbar compact"><DropdownSelect aria-label={t("systemPromptSelectModel")} onChange={(event) => setPromptModelDraft(event.target.value)} value={promptModelDraft}>{promptModelOptions.length ? promptModelOptions.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.type}</option>) : <option value="">{t("systemPromptNoModelsAvailable")}</option>}</DropdownSelect><button className="action-button secondary" disabled={!canCreateModels || !promptModelDraft || promptSaving || !sectionReady("prompts") || !sectionReady("models")} onClick={() => { void createModelPrompt(); }} type="button"><Plus size={16} />{t("systemPromptAddModel")}</button></div></div>
-              {modelSpecificPrompts.length ? <div className="system-table-wrap system-prompt-model-table"><table className="system-table"><thead><tr><th>{t("systemModel")}</th><th>{t("systemModelType")}</th><th>{t("systemVersion")}</th><th>{t("systemStatusColumn")}</th></tr></thead><tbody>{modelSpecificPrompts.map((prompt) => <tr className={selectedPromptId === prompt.id ? "selected-row" : ""} key={prompt.id} onClick={() => selectPrompt(prompt)}><td><button className="text-link system-prompt-open" type="button" onClick={(event) => { event.stopPropagation(); selectPrompt(prompt); }} aria-label={format("systemPromptOpenForModel", { name: liveModels.find(model => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—" })}><MessageSquareText size={16} aria-hidden="true" /><strong>{liveModels.find((model) => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—"}</strong></button><small>{prompt.content_hash ?? t("systemPromptBlankHash")}</small></td><td>{prompt.model_type}</td><td>{prompt.current_version_number ?? "—"}</td><td><StateBadge tone={prompt.is_active ? "green" : "gray"}>{prompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></td></tr>)}</tbody></table></div> : sectionReady("prompts") ? <EmptyInlineState>{t("systemPromptNoModelPrompts")}</EmptyInlineState> : null}
-            </section>
-          </SettingsCard> : null}
+          {activeSection === "ai" ? renderPromptPanel() : null}
 
           {activeSection === "apiKeys" ? renderApiKeyPanel() : null}
 

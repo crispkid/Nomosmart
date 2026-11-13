@@ -1,14 +1,17 @@
 "use client";
 
 import { useCallback, useRef, useState, type MutableRefObject } from "react";
-import { Bot, Check, Info, Save, X } from "lucide-react";
+import { Bot, Check, Globe2, Info, Layers3, MessageSquareText, Plus, Save, ShieldCheck, X } from "lucide-react";
+import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { activateSystemPrompt, addSystemPromptVersion, createSystemPrompt, deactivateSystemPrompt, listSystemPrompts, type ApiError, type ApiFetch } from "@/lib/api";
-import { StateBadge } from "./SystemUi";
+import { SettingsCard } from "../SettingsCard";
+import { EmptyInlineState, SectionHeader, StateBadge } from "./SystemUi";
 import type { FeedbackTone } from "@/lib/feedback";
 import type { TranslationKey } from "@/lib/i18nClient";
 import type { useOperationGuard } from "../useOperationGuard";
 import type { ModelRow, PromptRow, SystemReadState } from "./modalState";
+import type { WorkspaceViewDeps } from "./viewDeps";
 
 type OperationGuard = ReturnType<typeof useOperationGuard>;
 
@@ -222,4 +225,37 @@ export function createPromptActions(state: PromptState, deps: PromptDeps) {
   }
 
   return { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor };
+}
+
+export type PromptActions = ReturnType<typeof createPromptActions>;
+
+/** System prompt view: JSX moved verbatim from SystemManagementWorkspace (OPT424-038). */
+export function createPromptView(state: PromptState, actions: PromptActions, deps: Pick<WorkspaceViewDeps, "canCreateModels" | "format" | "globalChatPrompt" | "globalJudgePrompt" | "liveModels" | "modelSpecificPrompts" | "promptBlocked" | "promptModelOptions" | "sectionReady" | "t">) {
+  const { systemPrompts, selectedPromptId, promptModelDraft, setPromptModelDraft, promptSaving, promptEditorOpen } = state;
+  const { createGlobalPrompt, createModelPrompt, selectPrompt, renderPromptFeedback } = actions;
+
+  function renderPromptPanel() {
+    const { canCreateModels, format, globalChatPrompt, globalJudgePrompt, liveModels, modelSpecificPrompts, promptBlocked, promptModelOptions, sectionReady, t } = deps;
+    return (
+      <SettingsCard panel="prompts">
+      <SectionHeader description={t("systemPromptsDescription")} title={t("systemPrompts")} />
+      {!promptEditorOpen ? renderPromptFeedback() : null}
+    
+      <div className="system-prompt-layer-stack"><Layers3 size={17} /><div><strong>{t("systemPromptLayerOrderTitle")}</strong><span>{t("systemPromptLayerOrderHelp")}</span></div></div>
+      <section className="system-prompt-area">
+        <div className="system-subsection-title"><div><h3><Globe2 size={18} />{t("systemPromptGlobalSection")}</h3><p>{t("systemPromptGlobalSectionHelp")}</p></div></div>
+        <div className="system-prompt-global-grid">
+          {globalChatPrompt ? <button className={selectedPromptId === globalChatPrompt.id ? "system-prompt-summary active" : "system-prompt-summary"} onClick={() => selectPrompt(globalChatPrompt)} type="button"><span><MessageSquareText size={18} />{t("systemPromptGlobalChatTitle")}</span><strong>{format("systemVersionValue", { version: globalChatPrompt.current_version_number ?? "—" })}</strong><StateBadge tone={globalChatPrompt.is_active ? "green" : "gray"}>{globalChatPrompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></button> : <button className="system-prompt-empty-global" disabled={!canCreateModels || promptSaving || promptBlocked || !sectionReady("prompts")} onClick={() => { void createGlobalPrompt("Chat"); }} type="button"><strong>{t("systemPromptGlobalChatTitle")}</strong><p>{t("systemPromptGlobalMissing")}</p></button>}
+          {globalJudgePrompt ? <button className={selectedPromptId === globalJudgePrompt.id ? "system-prompt-summary active" : "system-prompt-summary"} onClick={() => selectPrompt(globalJudgePrompt)} type="button"><span><ShieldCheck size={18} />{t("systemPromptGlobalJudgeTitle")}</span><strong>{format("systemVersionValue", { version: globalJudgePrompt.current_version_number ?? "—" })}</strong><StateBadge tone={globalJudgePrompt.is_active ? "green" : "gray"}>{globalJudgePrompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></button> : <button className="system-prompt-empty-global" disabled={!canCreateModels || promptSaving || promptBlocked || !sectionReady("prompts")} onClick={() => { void createGlobalPrompt("Judge"); }} type="button"><strong>{t("systemPromptGlobalJudgeTitle")}</strong><p>{t("systemPromptGlobalMissing")}</p></button>}
+        </div>
+      </section>
+      <section className="system-prompt-area">
+        <div className="system-subsection-title"><div><h3><Bot size={18} />{t("systemPromptModelSection")}</h3><p>{t("systemPromptModelSectionHelp")}</p></div><div className="system-toolbar compact"><DropdownSelect aria-label={t("systemPromptSelectModel")} onChange={(event) => setPromptModelDraft(event.target.value)} value={promptModelDraft}>{promptModelOptions.length ? promptModelOptions.map((model) => <option key={model.id} value={model.id}>{model.name} · {model.type}</option>) : <option value="">{t("systemPromptNoModelsAvailable")}</option>}</DropdownSelect><button className="action-button secondary" disabled={!canCreateModels || !promptModelDraft || promptSaving || !sectionReady("prompts") || !sectionReady("models")} onClick={() => { void createModelPrompt(); }} type="button"><Plus size={16} />{t("systemPromptAddModel")}</button></div></div>
+        {modelSpecificPrompts.length ? <div className="system-table-wrap system-prompt-model-table"><table className="system-table"><thead><tr><th>{t("systemModel")}</th><th>{t("systemModelType")}</th><th>{t("systemVersion")}</th><th>{t("systemStatusColumn")}</th></tr></thead><tbody>{modelSpecificPrompts.map((prompt) => <tr className={selectedPromptId === prompt.id ? "selected-row" : ""} key={prompt.id} onClick={() => selectPrompt(prompt)}><td><button className="text-link system-prompt-open" type="button" onClick={(event) => { event.stopPropagation(); selectPrompt(prompt); }} aria-label={format("systemPromptOpenForModel", { name: liveModels.find(model => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—" })}><MessageSquareText size={16} aria-hidden="true" /><strong>{liveModels.find((model) => model.id === prompt.model_id)?.name ?? prompt.model_id ?? "—"}</strong></button><small>{prompt.content_hash ?? t("systemPromptBlankHash")}</small></td><td>{prompt.model_type}</td><td>{prompt.current_version_number ?? "—"}</td><td><StateBadge tone={prompt.is_active ? "green" : "gray"}>{prompt.is_active ? t("systemEnabled") : t("systemDisabled")}</StateBadge></td></tr>)}</tbody></table></div> : sectionReady("prompts") ? <EmptyInlineState>{t("systemPromptNoModelPrompts")}</EmptyInlineState> : null}
+      </section>
+    </SettingsCard>
+    );
+  }
+
+  return { renderPromptPanel };
 }

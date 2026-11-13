@@ -1,7 +1,7 @@
 import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ApiFetch, ProjectResponse } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18nClient";
-import type { ModalState, ModelRow } from "./modalState";
+import type { ModalState, ModelRow, PromptRow } from "./modalState";
 import type { QuickMutationTarget } from "./useModelSection";
 
 /** Values the workspace shares with section views; each view picks what it renders with (OPT424-038). */
@@ -39,5 +39,11 @@ export type WorkspaceViewDeps = {
   modelTableFirst: number;
   modelTableLast: number;
   modelTableTotalPages: number;
+  liveModels: ModelRow[];
+  promptBlocked: boolean;
+  globalChatPrompt: PromptRow | undefined;
+  globalJudgePrompt: PromptRow | undefined;
+  modelSpecificPrompts: PromptRow[];
+  promptModelOptions: ModelRow[];
   setClientNextCursor: Dispatch<SetStateAction<string | null>>;
 };
