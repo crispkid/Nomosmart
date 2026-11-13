@@ -282,12 +282,15 @@ export default function SystemManagementWorkspace({
     setModelTableLoading(true);
     setModelTableError("");
     try {
-      const page = await listModelsPage(apiFetch, {
+      // OPT424-035: the model table read runs through its own section ReadResource (aborts older pages).
+      const result = await sectionResource<Awaited<ReturnType<typeof listModelsPage>>>("modelTable").run(signal => listModelsPage(apiFetch, {
         modelType: modelTableType === "all" ? undefined : modelTableType,
         offset: (modelTablePage - 1) * modelTablePageSize,
-        limit: modelTablePageSize
-      });
-      if (requestId !== modelTableRequestRef.current) return;
+        limit: modelTablePageSize,
+        signal
+      }));
+      if (!result.committed || requestId !== modelTableRequestRef.current) return;
+      const page = result.data;
       const totalPages = Math.max(1, Math.ceil(page.total / modelTablePageSize));
       if (modelTablePage > totalPages) {
         setModelTablePage(totalPages);
