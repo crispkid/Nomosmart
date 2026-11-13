@@ -330,3 +330,27 @@ export function documentStatusLabel(status: string, t: Translate) {
   if (status === "deleted") return t("projectImportStatusDeleted");
   return status;
 }
+
+/** Project import document list search and sort (OPT424-038). */
+export function filterAndSortDocuments(allDocuments: DocumentItem[], documentQuery: string, sortBy: string) {
+    const query = documentQuery.trim().toLowerCase();
+    const filtered = allDocuments.filter((document) => {
+      const haystack = [
+        document.title,
+        document.sourceType,
+        document.owner,
+        document.documentStatus,
+        document.versionStatus,
+        document.pipeline.status,
+        document.pipeline.currentStep
+      ].join(" ").toLowerCase();
+      return !query || haystack.includes(query);
+    });
+
+    return [...filtered].sort((a, b) => {
+      if (sortBy === "name") return a.title.localeCompare(b.title, "zh-Hant");
+      if (sortBy === "status") return a.documentStatus.localeCompare(b.documentStatus, "zh-Hant");
+      if (sortBy === "progress") return b.pipeline.progress - a.pipeline.progress;
+      return b.updatedAt.localeCompare(a.updatedAt);
+    });
+}

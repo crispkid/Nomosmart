@@ -1,24 +1,17 @@
 "use client";
 
 import { DropdownSelect } from "@/components/DropdownSelect";
-
 import { resourcePageTitle } from "@/lib/browserTitle";
-
-
 import { useModalFocus } from "@/components/useModalFocus";
-
 import { UiValidationError } from "@/lib/transportError";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { ocrFailureKey, ocrRetryBlocked } from "@/lib/ocrPresentation";
-
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Clock3, Database, FilePlus2, Layers3, MessageSquareText, Network, ShieldCheck, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Clock3, FilePlus2, MessageSquareText, Network, ShieldCheck } from "lucide-react";
 import { AppShell, PageGrid, Panel, StatCard } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload } from "@/components/KnowledgeSourceModals";
-import { ProjectChatTest } from "@/components/ProjectChatTest";
 import { formatCount } from "@/lib/numberFormat";
 import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
@@ -35,17 +28,16 @@ import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { extractionRunKey, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
-
-import { type Translate, isReviewLockedVersionStatus, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, getSourceState } from "@/components/projectImport/importDocumentModel";
+import { type Translate, isReviewLockedVersionStatus, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState } from "@/components/projectImport/importDocumentModel";
 import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelineCard";
 import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
+import { KnowledgeSourceDropZone } from "@/components/projectImport/KnowledgeSourceDropZone";
+import { ProjectFeatureDialog } from "@/components/projectImport/ProjectFeatureDialog";
 import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
 
-// OPT424-036: the graph engine loads only when a graph dialog opens.
-const ProjectGraphPreview = dynamic(() => import("@/components/ProjectGraphPreview").then(module => module.ProjectGraphPreview), { ssr: false });
 
 export default function ImportPage() {
   const params = useParams<{ id: string }>();
@@ -205,28 +197,7 @@ function ProjectImportPage() {
     return () => { cancelled = true; };
   }, [apiFetch, params.id, t, replaceLiveDocuments, setLiveDocuments]);
 
-  const visibleDocuments = useMemo(() => {
-    const query = documentQuery.trim().toLowerCase();
-    const filtered = allDocuments.filter((document) => {
-      const haystack = [
-        document.title,
-        document.sourceType,
-        document.owner,
-        document.documentStatus,
-        document.versionStatus,
-        document.pipeline.status,
-        document.pipeline.currentStep
-      ].join(" ").toLowerCase();
-      return !query || haystack.includes(query);
-    });
-
-    return [...filtered].sort((a, b) => {
-      if (sortBy === "name") return a.title.localeCompare(b.title, "zh-Hant");
-      if (sortBy === "status") return a.documentStatus.localeCompare(b.documentStatus, "zh-Hant");
-      if (sortBy === "progress") return b.pipeline.progress - a.pipeline.progress;
-      return b.updatedAt.localeCompare(a.updatedAt);
-    });
-  }, [allDocuments, documentQuery, sortBy]);
+  const visibleDocuments = useMemo(() => filterAndSortDocuments(allDocuments, documentQuery, sortBy), [allDocuments, documentQuery, sortBy]);
   const elapsedEnabled = Boolean(currentUser && projectReady && documentLoadState === "ready");
   const elapsedNow = usePipelineElapsedClock(visibleDocuments
     .filter(document => document.sourceState === "pipeline" && document.documentStatus !== "deleted")
@@ -543,52 +514,15 @@ function ProjectImportPage() {
       </PageGrid>
 
       {canUpload ? <div className="content-grid">
-        <Panel title={t("projectImportAddKnowledgeSource")}>
-          <div
-            aria-label={t("projectImportDropAria")}
-            className={`drop-zone project-source-drop-zone ${projectDropActive ? "drag-active" : ""}`}
-            onClick={() => openUploadModal()}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              projectDragDepth.current += 1;
-              setProjectDropActive(true);
-            }}
-            onDragLeave={(event) => {
-              event.preventDefault();
-              projectDragDepth.current = Math.max(0, projectDragDepth.current - 1);
-              if (projectDragDepth.current === 0) setProjectDropActive(false);
-            }}
-            onDragOver={(event) => {
-              event.preventDefault();
-              event.dataTransfer.dropEffect = "copy";
-            }}
-            onDrop={(event) => {
-              event.preventDefault();
-              projectDragDepth.current = 0;
-              setProjectDropActive(false);
-              const files = Array.from(event.dataTransfer.files);
-              if (files.length) openUploadModal(files);
-            }}
-            onKeyDown={(event) => {
-              if (event.target !== event.currentTarget) return;
-              if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                openUploadModal();
-              }
-            }}
-            role="button"
-            tabIndex={0}
-          >
-            <UploadCloud size={36} />
-            <strong>{t("projectImportDropTitle")}</strong>
-            <small>{t("projectImportDropHelp")}</small>
-            <div className="drop-actions">
-              <button className="action-button" onClick={(event) => { event.stopPropagation(); openUploadModal(); }} type="button"><FilePlus2 size={17} /> {t("projectImportChooseFiles")}</button>
-              <button className="action-button secondary" onClick={(event) => { event.stopPropagation(); setDataServiceModalOpen(true); }} type="button"><Database size={17} /> {t("projectImportDataService")}</button>
-              <button className="action-button secondary" title={t("projectImportReferenceOtherProject")} onClick={(event) => { event.stopPropagation(); void loadReferenceSources(); }} type="button"><Layers3 size={17} /> {t("projectImportReferenceOtherProject")}</button>
-            </div>
-          </div>
-        </Panel>
+        <KnowledgeSourceDropZone
+          active={projectDropActive}
+          dragDepthRef={projectDragDepth}
+          onActiveChange={setProjectDropActive}
+          onOpenDataService={() => setDataServiceModalOpen(true)}
+          onOpenReference={() => { void loadReferenceSources(); }}
+          onOpenUpload={openUploadModal}
+          t={t}
+        />
       </div> : null}
 
       <Panel
@@ -654,33 +588,7 @@ function ProjectImportPage() {
       </Panel>
 
       </div>
-      {activeModal ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={featureDialogRef} tabIndex={-1} aria-labelledby="project-feature-title" aria-modal="true" className={`modal-panel project-feature-modal ${activeModal === "chat" ? "project-chat-modal" : "project-graph-modal"}`} role="dialog">
-            <div className="modal-header">
-              <div>
-                <p className="eyebrow">{t("projectImportFeatureEyebrow")}</p>
-                <h2 id="project-feature-title">{activeModal === "graph" ? t("knowledgeGraph") : t("chatTest")}</h2>
-              </div>
-              <button className="icon-button" onClick={() => setActiveModal(null)} type="button" aria-label={t("projectImportCloseFeatureModal")}>
-                <X size={18} />
-              </button>
-            </div>
-
-            {activeModal === "graph" ? (
-              <div className="feature-summary">
-                <div className="feature-copy">
-                  <strong>{t("projectImportGraphHelpTitle")}</strong>
-                  <small>{t("projectImportGraphHelpDescription")}</small>
-                </div>
-                <ProjectGraphPreview />
-              </div>
-            ) : (
-              <ProjectChatTest fixedVersionId={fixedChatVersion} key={`${params.id}:${fixedChatVersion ?? "all"}`} />
-            )}
-          </section>
-        </div>
-      ) : null}
+      {activeModal ? <ProjectFeatureDialog activeModal={activeModal} dialogRef={featureDialogRef} fixedChatVersion={fixedChatVersion} onClose={() => setActiveModal(null)} projectId={params.id} t={t} /> : null}
 
       {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
       {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
