@@ -13,10 +13,10 @@ import { createUserActions, createUserView, useUserState } from "./system/useUse
 import { createIdentityActions, createIdentityView, useIdentityState } from "./system/useIdentitySection";
 import { permissionStateFromResponse } from "./system/permissionHelpers";
 import { modelRow } from "./system/modelHelpers";
+import { createOutcomeQueries } from "./system/useOutcomeQueries";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
 
-import { MutationOutcomeUnknown } from "@/lib/transportError";
 import { useOperationGuard } from "./useOperationGuard";
 import { FeedbackConfirm } from "./FeedbackConfirm";
 import { useFeedback } from "./FeedbackProvider";
@@ -25,7 +25,7 @@ import { formatCount } from "@/lib/numberFormat";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Activity, Bot, ChevronRight, KeyRound, Layers3, LockKeyhole, MessageSquareText, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
-import { getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, type ApiError, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
+import { getBreakGlassStatus, getPermissions, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, type ApiError, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
 import { ForbiddenState } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { type UserRow } from "@/lib/systemManagement";
@@ -67,7 +67,7 @@ export default function SystemManagementWorkspace({
   const activeTab: TabId = activeSection === "people" ? "users" : activeSection === "ai" ? "models" : activeSection === "general" || activeSection === "documents" ? "parameters" : activeSection;
   const [parameterDirty, setParameterDirty] = useState(false);
   const identityState = useIdentityState();
-  const { identityDirty, setIdentityDirty, syncRuns, setSyncRuns, identitySyncing, setIdentitySyncing, breakGlassStatus, setBreakGlassStatus, identityMessage, setIdentityMessage } = identityState;
+  const { identityDirty, setIdentityDirty, setSyncRuns, setBreakGlassStatus } = identityState;
   const [settingsLeave, setSettingsLeave] = useState<(() => void) | null>(null);
   const leaveFocus = useRef<HTMLElement | null>(null);
   const [navOpen, setNavOpen] = useState(false);
@@ -83,23 +83,18 @@ export default function SystemManagementWorkspace({
   }, []);
 
   const roleState = useRoleState();
-  const { selectedRole, setSelectedRole, permissions, setPermissions, permissionSaved, setPermissionSaved, liveRoles, setLiveRoles, liveGroupMappings, setLiveGroupMappings, externalGroups, setExternalGroups, roleTableIds, setRoleTableIds, roleTotal, setRoleTotal, roleOverallTotal, setRoleOverallTotal, rolePage, setRolePage, rolePageSize, setRolePageSize, memberOffset, setMemberOffset, memberTotal, setMemberTotal, memberCandidateIds, setMemberCandidateIds, roleUsersReadback, setRoleUsersReadback, roleUsers, setRoleUsers, roleUserDraftIds, setRoleUserDraftIds, roleUserSearch, setRoleUserSearch, rolesView, setRolesView, roleQuery, setRoleQuery, roleStatusFilter, setRoleStatusFilter, roleActionId, setRoleActionId, roleDeleteConfirmation, setRoleDeleteConfirmation, mappingGroupDraft, setMappingGroupDraft, roleMenuTriggerRef } = roleState;
+  const { selectedRole, setSelectedRole, setPermissions, permissionSaved, setPermissionSaved, liveRoles, setLiveRoles, setLiveGroupMappings, externalGroups, setExternalGroups, roleTableIds, setRoleTableIds, setRoleTotal, setRoleOverallTotal, rolePage, setRolePage, rolePageSize, memberOffset, setMemberOffset, setMemberTotal, memberCandidateIds, setMemberCandidateIds, setRoleUsersReadback, roleUsers, roleUserDraftIds, roleUserSearch, roleQuery, roleStatusFilter, roleMenuTriggerRef } = roleState;
   const userState = useUserState();
-  const { liveUsers, setLiveUsers, userTableIds, setUserTableIds, userTotal, setUserTotal, userOverallTotal, setUserOverallTotal, userPage, setUserPage, userPageSize, setUserPageSize, userQuery, setUserQuery, userSourceFilter, setUserSourceFilter } = userState;
+  const { liveUsers, setLiveUsers, userTableIds, setUserTableIds, setUserTotal, setUserOverallTotal, userPage, setUserPage, userPageSize, userQuery, userSourceFilter } = userState;
   const [liveModels, setLiveModels] = useState<ModelRow[]>([]);
   const modelState = useModelState();
-  const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = modelState;
+  const { setModelTableRows, modelTableTotal, setModelTableTotal, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, modelTableType, setModelTableLoading, setModelTableError } = modelState;
   const promptState = usePromptState();
-  const { systemPrompts, setSystemPrompts, selectedPromptId, setSelectedPromptId, promptDraft, setPromptDraft, promptDraftSourceVersion, setPromptDraftSourceVersion, promptModelDraft, setPromptModelDraft, promptNotice, setPromptNotice, promptError, setPromptError, promptSaving, setPromptSaving, promptEditorOpen, setPromptEditorOpen, promptEditorPrompt, setPromptEditorPrompt, promptBaseline, setPromptBaseline, promptLeave, setPromptLeave, promptMessage, setPromptMessage, promptDialogRef, promptFocusRef, promptReceipt, promptMutationScope, promptIntent } = promptState;
+  const { systemPrompts, setSystemPrompts, selectedPromptId, setSelectedPromptId, promptDraft, setPromptDraft, setPromptDraftSourceVersion, setPromptModelDraft, promptSaving, promptEditorOpen, setPromptEditorOpen, promptEditorPrompt, promptBaseline, setPromptBaseline, promptLeave, setPromptLeave, promptDialogRef, promptFocusRef } = promptState;
   const [liveProjects, setLiveProjects] = useState<ProjectResponse[]>([]);
   const apiKeyState = useApiKeyState();
-  const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = apiKeyState;
+  const { setIntegrationClients, apiKeyProjectDraft, apiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, clientCursors, setClientCursors, clientPageSize } = apiKeyState;
   const apiKeyDialogRef = useRef<HTMLElement>(null);
-
-
-
-
-
 
   const [systemStatus, setSystemStatus] = useState<OperationsStatusResponse | null>(null);
   const [liveReady, setLiveReady] = useState(false);
@@ -112,7 +107,7 @@ export default function SystemManagementWorkspace({
   const { notify } = useFeedback();
   const [modal, setModalState] = useState<ModalState | null>(null);
   const userActions = createUserActions(userState, { apiFetch, modal, runModalMutation });
-  const { cacheUsers, submitUser, toggleUser } = userActions;
+  const { cacheUsers } = userActions;
   const [dirtyModal, setDirtyModal] = useState<ModalState | null>(null);
   const [discardModal, setDiscardModal] = useState<ModalState | null>(null);
   const systemDialogRef = useRef<HTMLElement>(null);
@@ -181,9 +176,6 @@ export default function SystemManagementWorkspace({
   const canDeleteModels = canDeleteSystemManagement;
   const errorMessage = useCallback((error: ApiError | Error | null) => operationalErrorMessage(error, t, format), [format, t]);
 
-
-
-
   const modelTableRequestRef = useRef(0);
   const selectedRoleRecord = liveRoles.find((role) => role.id === selectedRole);
   const selectedRoleLockVersion = selectedRoleRecord?.lockVersion;
@@ -204,13 +196,12 @@ export default function SystemManagementWorkspace({
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const apiKeyActions = createApiKeyActions(apiKeyState, { apiFetch, t, format, modal, setModal, setModalError, setModalQueryMessage, systemReadScope, readScopeNow: () => systemReadScopeRef.current, cacheProjects, readSystemSection, reloadSystemSection, runModalMutation, sectionReady });
-  const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = apiKeyActions;
   const systemReadEpoch = useRef({ version: 0 });
   const systemReadVersions = useRef<Record<string, number>>({});
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const promptActions = createPromptActions(promptState, { apiFetch, canEditModels, errorMessage, format, liveModels, localize, promptBlocked, promptGuard, promptOperation, reloadSystemSection, setReadState, systemReadScope, systemReadVersions, t });
-  const { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor } = promptActions;
+  const { requestPromptLeave, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor } = promptActions;
   const systemReadStates = useRef<Record<string, SystemReadState>>({});
   const mappingRows = useRef<Awaited<ReturnType<typeof listExternalGroupMappings>>>([]);
   const groupRows = useRef<ExternalGroupResponse[]>([]);
@@ -350,7 +341,7 @@ export default function SystemManagementWorkspace({
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const modelActions = createModelActions(modelState, { apiFetch, modal, notify, refreshModelTable, reloadSystemSection, runModalMutation, runQuickMutation, setLiveModels, setModal, setModalError, setSystemError, t });
-  const { modelDeleteDependencyLabel, runModelConnectionTest, refreshModels, activateModel, deactivateModelRow, openModelDeleteModal, submitModelDelete, openModelModal, toggleModelPair, submitModel } = modelActions;
+  const { refreshModels } = modelActions;
 
   useEffect(() => {
     const timer = window.setTimeout(() => { void loadSystem(); }, 0);
@@ -393,8 +384,6 @@ export default function SystemManagementWorkspace({
     return () => { current = false; };
   }, [activeSection, apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion, permissionSaved, setLiveRoles, setPermissionSaved, setPermissions]);
 
-
-
   useEffect(() => {
     if (!canViewSystemManagement || activeSection !== "people") return;
     const versions = systemReadVersions.current;
@@ -436,9 +425,6 @@ export default function SystemManagementWorkspace({
   }
   function renderProjectSearch() { return <><label className="system-toolbar"><Search size={16} /><input aria-label={t("adminSearchProjects")} maxLength={100} onChange={event => { setProjectQuery(event.target.value); setProjectOffset(0); }} placeholder={t("adminSearchProjects")} value={projectQuery} /></label><span>{format("adminSelectedCount", { count: formatCount(modal?.type === "api-key-manage" ? (apiKeyScopeDrafts[modal.client.id] ?? modal.client.project_ids).length : apiKeyProjectDraft.length, locale) })}</span>{projectCandidateIds.length < projectTotal ? <button className="action-button secondary" disabled={!sectionReady("projects")} onClick={() => setProjectOffset(offset => offset + 20)} type="button">{t("adminLoadMore")}</button> : null}</>; }
 
-
-
-
   const userRowName = (user: UserRow) => formatPersonName(user.raw ?? { display_name: user.name }, locale) || user.name;
   const filteredUsers = userTableIds.flatMap(id => liveUsers.find(row => row.id === id) ?? []);
   const filteredLocalRoles = roleTableIds.flatMap(id => liveRoles.find(row => row.id === id) ?? []);
@@ -450,11 +436,11 @@ export default function SystemManagementWorkspace({
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const roleActions = createRoleActions(roleState, { apiFetch, breakGlassRoleUserIds, canDeleteRoles, canEditPermissions, canEditRoles, draftRoleUserIds, externalRoleUserIds, format, groupRows, mappingRows, modal, originalManualRoleUserIds, quickBlocked, readSystemSection, reloadSystemSection, renderSectionReadNotice, roleNames, runModalMutation, runQuickMutation, sectionReady, selectedRoleReadOnly, setModal, setModalError, setSystemError, systemReadScope, systemReadStates, t });
-  const { cacheRoles, applyMemberSnapshot, updateMappingProjection, readRoleMembers, togglePermission, savePermissions, refreshRolesAndMappings, submitRole, openRoleUsers, toggleRoleUserDraft, roleUserStatusLabels, roleUserIdentityLine, saveRoleUsers, openRoleMapping, saveRoleMapping, changeRoleLifecycle, openRoleDelete, submitRoleDelete, renderLocalRoleCard } = roleActions;
+  const { cacheRoles, applyMemberSnapshot, updateMappingProjection, readRoleMembers, refreshRolesAndMappings } = roleActions;
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
   const identityActions = createIdentityActions(identityState, { apiFetch, errorMessage, refreshRolesAndMappings, reloadSystemSection, sectionReady, t });
-  const { localizedBreakGlassStatus, refreshIdentityData, runIdentitySync } = identityActions;
+  const { runIdentitySync } = identityActions;
   const activeRoleUserCandidates = liveUsers.filter((user) => user.status === "active" && memberCandidateIds.includes(user.id));
   const filteredRoleUserCandidates = activeRoleUserCandidates;
   const pendingAddUsers = liveUsers.filter((user) => user.status === "active" && draftRoleUserIds.has(user.id) && !originalManualRoleUserIds.has(user.id));
@@ -486,7 +472,6 @@ export default function SystemManagementWorkspace({
       } else commit();
     });
   }
-
 
   async function refreshSystemStatus() { await reloadSystemSection("status"); }
 
@@ -520,69 +505,6 @@ export default function SystemManagementWorkspace({
     } finally { if (modalGuard.current(token)) setSubmitting(false); }
   }
 
-  async function readOutcomeRecord<T>(read: Promise<T>): Promise<T | undefined> {
-    try { return await read; }
-    catch (error) { if (error && typeof error === "object" && "status" in error && error.status === 404) return undefined; throw error; }
-  }
-
-  async function queryModalOutcome() {
-    const token = modalGuard.beginCheck(); if (token === null || !modal) return;
-    setModalQueryMessage(t("feedbackCheckingOutcome"));
-    try {
-      const kind = modal.type === "confirm" ? modal.target.kind : ["model", "model-delete"].includes(modal.type) ? "model" : ["role", "role-delete", "role-users", "mapping"].includes(modal.type) ? "role" : modal.type === "user" ? "user" : "client";
-      const sameMutation = modalMutationScope.current === modalGuard.scope;
-      const targetId = (modal.type === "confirm" ? modal.target.id : "model" in modal ? modal.model?.id : "role" in modal ? modal.role?.id : "user" in modal ? modal.user.id : "client" in modal ? modal.client.id : undefined) ?? (sameMutation && modalGuard.snapshot().phase !== "unknown" ? modalReceiptId.current : undefined);
-      let record: { name?: string; display_name?: string | null; is_active?: boolean; status?: string; lock_version?: number; config_version?: number } | undefined;
-      let detailReadback = "";
-      if (kind === "model") {
-        const rows = await listModels(apiFetch); if (!modalGuard.current(token)) return;
-        record = rows.find(row => row.id === targetId);
-        setLiveModels(rows.map(modelRow)); setModelTableRows(current => current.map(row => { const found = rows.find(item => item.id === row.id); return found ? modelRow(found) : row; }));
-      } else if (targetId && kind === "role") {
-        const role = await readOutcomeRecord(getRole(apiFetch, targetId)); if (!modalGuard.current(token)) return;
-        if (role && (modal.type === "mapping" || modal.type === "role-users")) {
-          const members = await getRoleUsers(apiFetch, targetId); if (!modalGuard.current(token)) return;
-          const mappings = modal.type === "mapping" ? await listExternalGroupMappings(apiFetch) : null;
-          if (!modalGuard.current(token)) return;
-          const currentRole = await getRole(apiFetch, targetId); if (!modalGuard.current(token)) return;
-          if (role.lock_version !== members.lock_version || currentRole.lock_version !== members.lock_version) throw new Error("snapshot_changed_reload");
-          record = currentRole; cacheRoles([currentRole]); applyMemberSnapshot(targetId, members);
-          setRoleUsersReadback(members);
-          detailReadback = modal.type === "mapping" ? format("adminMemberReadback", { count: formatCount(new Set(members.users.map(user => user.user_id)).size, locale), version: formatCount(members.lock_version, locale) }) : "";
-          if (mappings) {
-            mappingRows.current = mappings;
-            systemReadVersions.current.mappings = (systemReadVersions.current.mappings ?? 0) + 1;
-            setReadState("mappings", { scope: systemReadScope, phase: "ready", received: true });
-            updateMappingProjection();
-            const id = mappings.find(mapping => mapping.role_id === targetId)?.external_group_id;
-            const group = groupRows.current.find(group => group.id === id);
-            detailReadback += ` · ${format("adminMappingReadback", { group: group?.path || group?.group_name || id || t("systemNotConfigured") })}`;
-          }
-        } else if (role) { record = role; cacheRoles([role]); }
-      } else if (targetId && kind === "user") {
-        const user = await readOutcomeRecord(getUser(apiFetch, targetId)); if (!modalGuard.current(token)) return;
-        record = user; if (user) cacheUsers([user]);
-      } else if (targetId && kind === "client") {
-        const client = await readOutcomeRecord(getIntegrationClient(apiFetch, targetId)); if (!modalGuard.current(token)) return;
-        record = client; if (client) setIntegrationClients(rows => rows.map(row => row.id === client.id ? client : row));
-      }
-      const acknowledged = modalGuard.snapshot().phase === "read_failed" || modalGuard.snapshot().phase === "accepted";
-      const expected = modal.type === "confirm" ? modal.target.expected : undefined;
-      const currentGoalConfirmed = Boolean(record && expected && record[expected.field] === expected.value);
-      if (acknowledged || currentGoalConfirmed) {
-        modalGuard.checked(token, true); setModalError(""); setDirtyModal(null); setModal(null);
-        notify({ id: sameMutation ? modalEventId.current : crypto.randomUUID(), scope: "system", tone: acknowledged && sameMutation ? "success" : "info", title: acknowledged && sameMutation ? modalSuccess.current : "feedbackCurrentStateChecked" });
-      } else {
-        modalGuard.checked(token);
-        setModalQueryMessage(t("feedbackSystemOutcomeChecked"));
-        setModalReadback(record ? [format("feedbackCurrentRecord", { name: record.name ?? record.display_name ?? "—", status: record.is_active !== undefined ? t(record.is_active ? "systemEnabled" : "systemDisabled") : localizedStatus(record.status ?? "unknown"), version: record.config_version ?? record.lock_version ?? "—" }), detailReadback].filter(Boolean).join(" · ") : t("feedbackRecordNotFound"));
-      }
-    } catch {
-      if (!modalGuard.current(token)) return;
-      modalGuard.checkFailed(token); setModalQueryMessage(t("feedbackOutcomeQueryFailed"));
-    }
-  }
-
   async function runQuickMutation(target: NonNullable<typeof quickTarget.current>, write: () => Promise<unknown>, refresh: (current: () => boolean) => Promise<void>) {
     const token = quickGuard.begin(); if (token === null) return;
     quickTarget.current = target; setQuickError(null); setQuickQueryFailed(false);
@@ -594,27 +516,6 @@ export default function SystemManagementWorkspace({
     } catch (caught) {
       if (!quickGuard.current(token)) return;
       quickGuard.failed(token, caught); setQuickError(caught as ApiError | Error);
-    }
-  }
-
-  async function queryQuickOutcome() {
-    const token = quickGuard.beginCheck(); const target = quickTarget.current;
-    if (token === null || !target) return;
-    setQuickQueryFailed(false);
-    try {
-      const rows = target.kind === "model" ? await listModels(apiFetch) : await listRoles(apiFetch);
-      if (!quickGuard.current(token)) return;
-      const row = rows.find(item => item.id === target.id);
-      const confirmed = quickGuard.snapshot().phase === "read_failed" || Boolean(row && (target.field === "is_active" ? row.is_active : "is_default" in row && row.is_default) === target.value);
-      if (confirmed) {
-        if (target.kind === "model") await refreshModels(() => quickGuard.current(token)); else await refreshRolesAndMappings(() => quickGuard.current(token));
-        if (!quickGuard.current(token)) return;
-        quickGuard.checked(token, true); setQuickError(null);
-        notify({ id: crypto.randomUUID(), scope: "system", tone: "info", title: "feedbackCurrentStateChecked" });
-      } else { quickGuard.checked(token); setQuickError(new MutationOutcomeUnknown()); }
-    } catch (caught) {
-      if (!quickGuard.current(token)) return;
-      quickGuard.checkFailed(token); setQuickQueryFailed(true); setQuickError(caught as ApiError | Error);
     }
   }
 
@@ -647,36 +548,6 @@ export default function SystemManagementWorkspace({
     if (restoreTarget) window.requestAnimationFrame(() => restoreTarget.focus());
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   const selectedPrompt = systemPrompts.find((prompt) => prompt.id === selectedPromptId);
   const activePromptEditor = promptEditorOpen ? (selectedPrompt ?? promptEditorPrompt) : null;
   const promptModels = liveModels.filter((model) => model.type === "Chat" || model.type === "Judge");
@@ -686,18 +557,19 @@ export default function SystemManagementWorkspace({
   const modelSpecificPrompts = systemPrompts.filter((prompt) => prompt.prompt_scope === "model");
   const promptScopeLabel = (prompt: PromptRow) => prompt.prompt_scope === "global" ? t("systemPromptScopeGlobal") : t("systemPromptScopeModel");
 
+  // The factory only creates handlers; ref-reading dependencies run in events, not during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { queryModalOutcome, queryQuickOutcome } = createOutcomeQueries({ apiFetch, applyMemberSnapshot, cacheRoles, cacheUsers, format, groupRows, locale, localizedStatus, mappingRows, modal, modalEventId, modalGuard, modalMutationScope, modalReceiptId, modalSuccess, notify, quickGuard, quickTarget, refreshModels, refreshRolesAndMappings, setDirtyModal, setIntegrationClients, setLiveModels, setModal, setModalError, setModalQueryMessage, setModalReadback, setModelTableRows, setQuickError, setQuickQueryFailed, setReadState, setRoleUsersReadback, systemReadScope, systemReadVersions, t, updateMappingProjection });
+
   if (!canViewSystemManagement) {
     return <ForbiddenState />;
   }
-
-
-
 
   if (loadedSystemScope !== systemReadScope) return <FeedbackMessage tone="info">{t("loadingData")}</FeedbackMessage>;
 
   // Views receive event handlers that read refs only when the user acts, never during render.
   // eslint-disable-next-line react-hooks/refs
-  const { renderApiKeyPanel, renderApiKeyCreateForm, renderApiKeyManageForm, apiKeyStatusTone } = createApiKeyView(apiKeyState, apiKeyActions, { activeProjects, canCreateSystemManagement, canDeleteSystemManagement, canEditSystemManagement, clientNextCursor, closeModal, discardModal, format, modal, modalBlocked, projectNameById, renderListPager, renderProjectSearch, renderSectionReadNotice, sectionReady, setModal, submitting, t });
+  const { renderApiKeyPanel, renderApiKeyCreateForm, renderApiKeyManageForm } = createApiKeyView(apiKeyState, apiKeyActions, { activeProjects, canCreateSystemManagement, canDeleteSystemManagement, canEditSystemManagement, clientNextCursor, closeModal, discardModal, format, modal, modalBlocked, projectNameById, renderListPager, renderProjectSearch, renderSectionReadNotice, sectionReady, setModal, submitting, t });
   // Views receive event handlers that read refs only when the user acts, never during render.
   // eslint-disable-next-line react-hooks/refs
   const { renderModelPanel, renderModelForm, renderModelDeleteForm } = createModelView(modelState, modelActions, { activeEmbeddingModels, apiFetch, canCreateModels, canDeleteModels, canEditModels, closeModal, discardModal, format, locale, localize, localizedOperationStatus, localizedStatus, modal, modalBlocked, modelTableFirst, modelTableLast, modelTableTotalPages, quickBlocked, refreshModelTable, runQuickMutation, sectionReady, setModal, submitting, t });
