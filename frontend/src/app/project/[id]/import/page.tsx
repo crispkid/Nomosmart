@@ -17,13 +17,11 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, Loader2, MessageSquareText, Network, RotateCcw, ShieldCheck, Trash2, UploadCloud, UserPlus, UserRoundCog, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Clock3, Database, FilePlus2, FolderSync, Layers3, ListRestart, Loader2, MessageSquareText, Network, RotateCcw, ShieldCheck, UploadCloud, X } from "lucide-react";
 import { AppShell, PageGrid, Panel, StatCard, StatusBadge } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload, type SourceState } from "@/components/KnowledgeSourceModals";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
 import { ProjectChatTest } from "@/components/ProjectChatTest";
-import { ProjectMemberAutocomplete } from "@/components/ProjectMemberAutocomplete";
-import { ProjectMemberRoleSelector } from "@/components/ProjectMemberRoleSelector";
 import { FileProcessingStatus } from "@/components/FileProcessingStatus";
 import { DocumentChunkCount } from "@/components/DocumentChunkCount";
 import { PipelineElapsed } from "@/components/PipelineElapsed";
@@ -34,22 +32,20 @@ import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDataSourceConnectionOptions, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, removeProjectMember, replaceProjectMember, retryPipelineStep, searchProjectMemberCandidates, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectMemberCandidate, type ProjectMemberResponse, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
+import { createDataSource, getDataSourceConnectionOptions, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, retryPipelineStep, startDocumentExtraction, switchActiveDocumentVersion, testDataSourceConnection, updateDocumentLifecycle, updateDocumentReferenceVersion, updateProjectDocumentFile, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse, type ReferenceSourceProjectResponse, type ReferenceSourceVersionResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
-import { formatPersonName } from "@/lib/personName";
 import { extractionOutcome, pipelineIsExecuting } from "@/lib/reviewPresentation";
-import { availableProjectMemberCandidates, projectMemberOwnerProtection } from "@/lib/projectPermissions";
-import { useDebouncedProjectMemberCandidateSearch } from "@/lib/useDebouncedProjectMemberCandidateSearch";
 import { confirmedUploadResults, UploadAttemptGuard, uploadOutcomeUnknown, type UploadBatchResult } from "@/lib/uploadProgress";
 import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { cleanupIsUnconfirmed, extractionRunKey, fileObservationMode, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
 
-import { type Translate, normalizeVersion, isWorkingVersion, isReviewLockedVersionStatus, type DocumentItem, projectMemberRoles, type ProjectMemberRole, type PendingStatusChange, type VersionSwitchTarget, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, publishStageAction, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, pipelineStepProgress, pipelineStepStatusKind, pipelineStepStatusLabel, pipelineStepStats, extractionLabel, liveDocumentFromSummary, serviceDocumentFromResponse, getReferenceSource, getSourceState, isServiceDocument, formatSyncDate, syncRunLabel, syncRunStep, projectImportErrorMessage, documentStatusLabel } from "@/components/projectImport/importDocumentModel";
+import { type Translate, normalizeVersion, isWorkingVersion, isReviewLockedVersionStatus, type DocumentItem, type PendingStatusChange, type VersionSwitchTarget, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, publishStageAction, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, pipelineStepProgress, pipelineStepStatusKind, pipelineStepStatusLabel, pipelineStepStats, extractionLabel, liveDocumentFromSummary, serviceDocumentFromResponse, getReferenceSource, getSourceState, isServiceDocument, formatSyncDate, syncRunLabel, syncRunStep, documentStatusLabel } from "@/components/projectImport/importDocumentModel";
+import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
 
 // OPT424-036: the graph engine loads only when a graph dialog opens.
 const ProjectGraphPreview = dynamic(() => import("@/components/ProjectGraphPreview").then(module => module.ProjectGraphPreview), { ssr: false });
@@ -102,15 +98,6 @@ function ProjectImportPage() {
     setFixedChatVersion(requestedChatVersion);
     if (requestedChatVersion !== undefined) setActiveModal("chat");
   }, [requestedChatVersion, params.id]);
-  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
-  const [projectMembers, setProjectMembers] = useState<ProjectMemberResponse[]>([]);
-  const [permissionQuery, setPermissionQuery] = useState("");
-  const [pendingPermissionUsers, setPendingPermissionUsers] = useState<ProjectMemberCandidate[]>([]);
-  const [activePermissionRole, setActivePermissionRole] = useState<ProjectMemberRole>("owner");
-  const [permissionLoading, setPermissionLoading] = useState(false);
-  const [permissionError, setPermissionError] = useState<ApiError | Error | null>(null);
-  const [permissionSavingUserId, setPermissionSavingUserId] = useState<string | null>(null);
-  const [permissionRemovingUserId, setPermissionRemovingUserId] = useState<string | null>(null);
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadNotice, setUploadNotice] = useState<TranslationKey | null>(null);
   const [initialUploadFiles, setInitialUploadFiles] = useState<File[]>([]);
@@ -163,34 +150,10 @@ function ProjectImportPage() {
     ownership: observationOwnership,
   });
   const canManageProjectPermissions = projectReady && (project?.is_owner ?? false);
-  const permissionRoleLabel = (role: ProjectMemberRole) => t(projectMemberRoles.find((item) => item.id === role)?.labelKey ?? "projectRoleViewer");
-  const membersForActiveRole = projectMembers.filter((member) => member.roles.includes(activePermissionRole));
-  const searchPermissionCandidates = useCallback(
-    (query: string, signal: AbortSignal) => searchProjectMemberCandidates(apiFetch, params.id, query, signal),
-    [apiFetch, params.id],
-  );
-  const permissionCandidateSearch = useDebouncedProjectMemberCandidateSearch({
-    enabled: permissionModalOpen && canManageProjectPermissions,
-    query: permissionQuery,
-    search: searchPermissionCandidates,
-  });
-  const permissionUsers = permissionCandidateSearch.result?.items ?? [];
-  const filteredPermissionUsers = availableProjectMemberCandidates(
-    permissionUsers,
-    projectMembers,
-    new Set(pendingPermissionUsers.map((user) => user.id)),
-  );
-  const permissionSearchMessage = permissionCandidateSearch.phase === "waiting" || permissionCandidateSearch.phase === "loading"
-    ? t("projectImportPermissionSearchLoading")
-    : permissionCandidateSearch.phase === "error"
-      ? t("projectImportPermissionSearchFailed")
-      : permissionCandidateSearch.phase === "ready" && !filteredPermissionUsers.length
-        ? permissionUsers.length
-          ? t("projectImportPermissionSearchNoAdditionalRole")
-          : (permissionCandidateSearch.result?.ineligible_match_count ?? 0) > 0
-            ? t("projectImportPermissionSearchMissingAccess")
-            : t("projectImportPermissionSearchNoResults")
-        : "";
+  const projectPermissionState = useProjectPermissionState({ apiFetch, canManageProjectPermissions, params, t });
+  const { permissionModalOpen, setProjectMembers } = projectPermissionState;
+  const projectPermissionActions = createProjectPermissionActions(projectPermissionState, { apiFetch, canManageProjectPermissions, currentUser, params, project, setProject, setProjectAccess });
+  const { openPermissionModal } = projectPermissionActions;
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +174,7 @@ function ProjectImportPage() {
       }
     });
     return () => { cancelled = true; };
-  }, [apiFetch, params.id, currentUser?.user_id]);
+  }, [apiFetch, params.id, currentUser?.user_id, setProjectMembers]);
 
   useEffect(() => {
     if (projectAccess === "loading" || (projectAccess === "granted" && project?.capabilities.can_upload)) return;
@@ -225,95 +188,6 @@ function ProjectImportPage() {
     setProjectDropActive(false);
     projectDragDepth.current = 0;
   }, [projectAccess, project?.capabilities.can_upload, releaseModalObservation]);
-
-  async function loadProjectPermissions() {
-    setPermissionLoading(true);
-    setPermissionError(null);
-    try {
-      const [members, freshProject] = await Promise.all([listProjectMembers(apiFetch, params.id), getProject(apiFetch, params.id)]);
-      setProjectMembers(members);
-      setProject(freshProject);
-      setProjectAccess("granted");
-    } catch (error) {
-      setPermissionError(error as ApiError | Error);
-      if ((error as ApiError).status === 401 || (error as ApiError).status === 403) setProjectAccess("denied");
-    } finally {
-      setPermissionLoading(false);
-    }
-  }
-
-  function openPermissionModal() {
-    if (!canManageProjectPermissions) return;
-    setPermissionModalOpen(true);
-    setPermissionQuery("");
-    setPendingPermissionUsers([]);
-    setActivePermissionRole("owner");
-    void loadProjectPermissions();
-  }
-
-  async function saveProjectMemberRole(userId: string, role: ProjectMemberRole) {
-    if (!project || !canManageProjectPermissions || permissionSavingUserId || permissionRemovingUserId) return;
-    const member = projectMembers.find((row) => row.user_id === userId);
-    if (member && projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id)) return;
-    setPermissionSavingUserId(userId);
-    setPermissionError(null);
-    try {
-      const members = await replaceProjectMember(apiFetch, params.id, userId, { roles: [role], lock_version: project.lock_version });
-      const freshProject = await getProject(apiFetch, params.id);
-      setProjectMembers(members);
-      setProject(freshProject);
-    } catch (error) {
-      setPermissionError(error as ApiError | Error);
-    } finally {
-      setPermissionSavingUserId(null);
-    }
-  }
-
-  function stagePermissionCandidate(user: ProjectMemberCandidate) {
-    setPendingPermissionUsers((current) => current.some((item) => item.id === user.id) ? current : [...current, user]);
-    setPermissionQuery("");
-  }
-
-  async function commitPendingPermissionCandidates() {
-    if (!project || !canManageProjectPermissions || permissionSavingUserId || permissionRemovingUserId || !pendingPermissionUsers.length) return;
-    setPermissionSavingUserId("pending-members");
-    setPermissionError(null);
-    try {
-      let currentProject = project;
-      let currentMembers = projectMembers;
-      for (const user of pendingPermissionUsers) {
-        if (currentMembers.some((member) => member.user_id === user.id)) continue;
-        currentMembers = await replaceProjectMember(apiFetch, params.id, user.id, { roles: [activePermissionRole], lock_version: currentProject.lock_version });
-        currentProject = await getProject(apiFetch, params.id);
-      }
-      setProjectMembers(currentMembers);
-      setProject(currentProject);
-      setPendingPermissionUsers([]);
-      setPermissionQuery("");
-    } catch (error) {
-      setPermissionError(error as ApiError | Error);
-    } finally {
-      setPermissionSavingUserId(null);
-    }
-  }
-
-  async function removeProjectPermissionMember(userId: string) {
-    if (!project || !canManageProjectPermissions || permissionSavingUserId || permissionRemovingUserId) return;
-    const member = projectMembers.find((row) => row.user_id === userId);
-    if (member && projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id)) return;
-    setPermissionRemovingUserId(userId);
-    setPermissionError(null);
-    try {
-      const updated = await removeProjectMember(apiFetch, params.id, userId, project.lock_version);
-      const members = await listProjectMembers(apiFetch, params.id);
-      setProjectMembers(members);
-      setProject(updated);
-    } catch (error) {
-      setPermissionError(error as ApiError | Error);
-    } finally {
-      setPermissionRemovingUserId(null);
-    }
-  }
 
   useEffect(() => {
     let cancelled = false;
@@ -1042,6 +916,7 @@ function ProjectImportPage() {
     }, 300);
   }
 
+  const { renderProjectPermissionModal } = createProjectPermissionView(projectPermissionState, projectPermissionActions, { canManageProjectPermissions, currentUser, format, locale, project, t });
   return (
     <AppShell title={project?.name ?? t("projectImportFallbackProjectTitle")} browserTitle={resourcePageTitle(t("workspaceImportTitle"), projectReady && titleRead?.fetch === apiFetch && titleRead.route === params.id ? project?.name : null)}>
       <div className="project-import-page">
@@ -1381,92 +1256,7 @@ function ProjectImportPage() {
         />
       ) : null}
 
-      {permissionModalOpen && canManageProjectPermissions ? (
-        <div className="modal-backdrop" role="presentation">
-          <section aria-labelledby="project-permissions-title" aria-modal="true" className="modal-panel project-permission-modal" role="dialog">
-            <div className="modal-header">
-              <div className="modal-title-row">
-                <span className="modal-title-icon"><UserRoundCog size={20} /></span>
-                <div>
-                  <p className="eyebrow">{project?.name ?? t("projectImportFallbackProjectTitle")}</p>
-                  <h2 id="project-permissions-title">{t("projectImportPermissionManagement")}</h2>
-                </div>
-              </div>
-              <button className="icon-button" onClick={() => setPermissionModalOpen(false)} type="button" aria-label={t("projectImportClosePermissionModal")}>
-                <X size={18} />
-              </button>
-            </div>
-            {permissionError ? <FeedbackMessage tone="error"><strong>{projectImportErrorMessage(permissionError, t, format)}</strong><button className="text-link" onClick={loadProjectPermissions} type="button">{t("retry")}</button></FeedbackMessage> : null}
-            {permissionLoading ? <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("loadingData")}</p></div> : (
-              <div className="project-permission-body">
-                <section className="create-section project-permission-section">
-                  <div className="create-section-title"><UserRoundCog size={18} /><h3>{t("projectsOwnersAndMembers")}</h3></div>
-                  {!canManageProjectPermissions ? <div className="permission-note locked"><AlertTriangle size={16} /> {t("projectImportPermissionOwnerOnly")}</div> : null}
-                  <div className="member-search">
-                    <ProjectMemberAutocomplete
-                      candidates={filteredPermissionUsers}
-                      disabled={!canManageProjectPermissions || Boolean(permissionSavingUserId || permissionRemovingUserId)}
-                      id="project-permission-user-search"
-                      label={t("projectsSearchUsers")}
-                      locale={locale}
-                      onQueryChange={setPermissionQuery}
-                      onSelect={stagePermissionCandidate}
-                      placeholder={t("projectsSearchUsersPlaceholder")}
-                      statusMessage={permissionSearchMessage}
-                      value={permissionQuery}
-                    />
-                    <button className="action-button secondary" disabled={!canManageProjectPermissions || !pendingPermissionUsers.length || Boolean(permissionSavingUserId || permissionRemovingUserId)} onClick={() => { void commitPendingPermissionCandidates(); }} type="button"><UserPlus size={16} /> {t("projectsAddMember")}</button>
-                    {pendingPermissionUsers.length ? (
-                      <div className="project-permission-selected-users">
-                        {pendingPermissionUsers.map((user) => (
-                          <span className="project-permission-selected-user" key={user.id}>
-                            {formatPersonName(user, locale)}
-                            <button aria-label={t("projectImportRemovePendingMember")} onClick={() => setPendingPermissionUsers((current) => current.filter((item) => item.id !== user.id))} type="button">
-                              <X size={13} />
-                            </button>
-                          </span>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-                  <div aria-label={t("projectsMemberRolesAria")} className="role-tabs" role="tablist">{projectMemberRoles.map((role) => <button aria-selected={activePermissionRole === role.id} className={activePermissionRole === role.id ? "role-tab active" : "role-tab"} key={role.id} onClick={() => { setPendingPermissionUsers([]); setActivePermissionRole(role.id); }} role="tab" type="button">{permissionRoleLabel(role.id)}<span>{projectMembers.filter((member) => member.roles.includes(role.id)).length}</span></button>)}</div>
-                  <div className="project-permission-member-list">
-                    {membersForActiveRole.map((member) => {
-                      const currentRole = member.roles.find((role): role is ProjectMemberRole => projectMemberRoles.some((item) => item.id === role));
-                      if (!currentRole) return null;
-                      const busy = permissionSavingUserId === member.user_id || permissionRemovingUserId === member.user_id;
-                      const protection = projectMemberOwnerProtection(member, projectMembers, currentUser?.user_id);
-                      const protectionId = protection ? `project-member-protection-${member.user_id}` : undefined;
-                      return (
-                        <article className={protection ? "project-permission-member protected" : "project-permission-member"} key={member.user_id}>
-                          <div>
-                            <strong>{formatPersonName(member, locale)}</strong>
-                            <small>{member.email ?? member.user_id}</small>
-                            {protection ? <span className="project-permission-protection-reason" id={protectionId}><ShieldCheck size={13} />{t(protection === "last_owner" ? "projectImportLastOwnerProtected" : "projectImportSelfOwnerProtected")}</span> : null}
-                          </div>
-                          <ProjectMemberRoleSelector
-                            describedBy={protectionId}
-                            disabled={!canManageProjectPermissions || busy || Boolean(protection)}
-                            label={t("projectsMemberRolesAria")}
-                            memberId={member.user_id}
-                            onChange={(role) => { void saveProjectMemberRole(member.user_id, role); }}
-                            options={projectMemberRoles.map((role) => ({ id: role.id, label: permissionRoleLabel(role.id) }))}
-                            role={currentRole}
-                          />
-                          {protection ? null : <button className="icon-button danger" disabled={!canManageProjectPermissions || busy} onClick={() => { void removeProjectPermissionMember(member.user_id); }} title={t("projectImportRemoveMember")} type="button" aria-label={t("projectImportRemoveMember")}><Trash2 size={17} /></button>}
-                        </article>
-                      );
-                    })}
-                    {!membersForActiveRole.length ? <div className="empty-state compact">{t("projectImportNoMembersInRole")}</div> : null}
-                  </div>
-                  <p className="field-note">{t("projectImportPermissionHelp")}</p>
-                </section>
-              </div>
-            )}
-            <div className="modal-actions"><button className="action-button secondary" onClick={() => setPermissionModalOpen(false)} type="button">{t("close")}</button></div>
-          </section>
-        </div>
-      ) : null}
+      {permissionModalOpen && canManageProjectPermissions ? renderProjectPermissionModal() : null}
 
       {versionDocument ? (
         <div className="modal-backdrop" role="presentation">
