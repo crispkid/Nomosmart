@@ -13,11 +13,12 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Database, Download, FileDown, File
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useModalFocus } from "@/components/useModalFocus";
 import { useAuth } from "@/components/AuthProvider";
-import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
+import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked, mergeChatHistory } from "@/lib/chatConversationAccess";
 import { t as translate } from "@/lib/i18n";
 import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -83,53 +84,46 @@ export default function ChatTestPage() {
     setBatchCompletedCount(null);
   }, []);
 
-  useEffect(() => {
-    const scopeGuard = scopeEpoch.current;
-    const selectionGuard = selectionEpoch.current;
-    scopeGuard.invalidate();
-    selectionGuard.invalidate();
-    setBatchDisplay(false);
-    setActiveValidationRun(null);
-    setBatchCreating(false);
-    setHistoryReady(false);
-    setHistoryBusy(false);
-    setHistories([]);
-    setHistoryCursor(null);
-    setDetail(null);
-    setConversationEntries([]);
-    setActiveConversationId(null);
-    setEvaluations({});
-    setQuestion("");
-    setUploadOpen(false);
-    setLoadError(null);
-    if (!authReady) return;
-    let cancelled = false;
-    async function load() {
-      try {
-        const loaded = await getKnowledgeDetail(apiFetch, params.id, params.knowledgeId);
-        if (cancelled) return;
-        setDetail(loaded);
-        setTitleRead({ fetch: apiFetch, route: JSON.stringify([params.id, params.knowledgeId]) });
-        const page = await listProjectChatConversationPage(apiFetch, params.id, { scope_mode: "document_staging", document_version_id: loaded.version.id });
-        if (cancelled) return;
-        setHistories(page.items);
-        setHistoryCursor(page.next_cursor);
-        setHistoryReady(true);
-        selectConversation(page.items[0] ?? null);
-      } catch (error) {
-        if (!cancelled) {
-          if (chatScopeRevoked(error)) setDetail(null);
-          setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
-        }
-      }
-    }
-    void load();
-    return () => {
-      cancelled = true;
-      scopeGuard.invalidate();
-      selectionGuard.invalidate();
-    };
-  }, [apiFetch, authReady, currentUser?.user_id, format, params.id, params.knowledgeId, selectConversation, t]);
+  // OPT424-035: the document detail and its first history page are one read resource bound to the route
+  // and user. Starting a read resets the page as before; the result feeds the conversation state that
+  // questions, history paging and scope revocation also update.
+  const readChat = useCallback(async (signal: AbortSignal) => {
+    const loaded = await getKnowledgeDetail(apiFetch, params.id, params.knowledgeId, signal);
+    const page = await listProjectChatConversationPage(apiFetch, params.id, { scope_mode: "document_staging", document_version_id: loaded.version.id, signal });
+    return { loaded, page };
+  }, [apiFetch, params.id, params.knowledgeId]);
+  useReadResource(readChat, JSON.stringify([params.id, params.knowledgeId, currentUser?.user_id ?? null]), authReady, {
+    onStart: () => {
+      scopeEpoch.current.invalidate();
+      selectionEpoch.current.invalidate();
+      setBatchDisplay(false);
+      setActiveValidationRun(null);
+      setBatchCreating(false);
+      setHistoryReady(false);
+      setHistoryBusy(false);
+      setHistories([]);
+      setHistoryCursor(null);
+      setDetail(null);
+      setConversationEntries([]);
+      setActiveConversationId(null);
+      setEvaluations({});
+      setQuestion("");
+      setUploadOpen(false);
+      setLoadError(null);
+    },
+    onData: ({ loaded, page }) => {
+      setDetail(loaded);
+      setTitleRead({ fetch: apiFetch, route: JSON.stringify([params.id, params.knowledgeId]) });
+      setHistories(page.items);
+      setHistoryCursor(page.next_cursor);
+      setHistoryReady(true);
+      selectConversation(page.items[0] ?? null);
+    },
+    onError: (error) => {
+      if (chatScopeRevoked(error)) setDetail(null);
+      setLoadError(operationalErrorMessage(error, t, format, "documentChatLoadFailed"));
+    },
+  });
 
   async function loadMoreHistory() {
     if (!versionId || !historyCursor || historyBusy) return;
@@ -174,33 +168,32 @@ export default function ChatTestPage() {
 
   const validationRunId = activeValidationRun?.id;
   const validationRunning = Boolean(activeValidationRun && ["queued", "running"].includes(activeValidationRun.status));
-  useEffect(() => {
-    if (!authReady || !versionId || !validationRunId || !validationRunning) return;
-    const scope = scopeEpoch.current.capture();
-    const selection = selectionEpoch.current.capture();
-    let cancelled = false;
-    let timer: number;
-    const current = () => !cancelled && scopeEpoch.current.isCurrent(scope) && selectionEpoch.current.isCurrent(selection);
-    async function poll() {
-      try {
-        const run = await getProjectChatValidationRun(apiFetch, params.id, validationRunId!);
-        if (!current()) return;
-        if (run.id !== validationRunId || run.project_id !== params.id || run.run_scope !== "document_staging"
-          || run.selected_document_ids.length !== 1 || run.selected_document_ids[0] !== versionId) throw new Error("validation_scope_mismatch");
-        setActiveValidationRun(run);
-        setConversationEntries(validationEntries(run, t, format));
-        setBatchCompletedCount(run.completed_count + run.failed_count);
-        if (["queued", "running"].includes(run.status)) timer = window.setTimeout(() => void poll(), 2500);
-      } catch (error) {
-        if (!current() || discardRevokedScope(error)) return;
-        const message = retrievalErrorMessage(error, t, format);
-        setLoadError(message);
-        setConversationEntries((entries) => entries.map((entry) => ({ ...entry, loading: false, error: message })));
-      }
-    }
-    timer = window.setTimeout(() => void poll(), 0);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-  }, [apiFetch, authReady, discardRevokedScope, format, params.id, t, validationRunId, validationRunning, versionId]);
+  // OPT424-035: a running validation run is a read resource polled every 2.5 s until it finishes. A
+  // result commits only while the scope and conversation selection that started the read are current.
+  const pollGuards = useRef<{ scope: number; selection: number } | null>(null);
+  const readValidationRun = useCallback(async (signal: AbortSignal) => {
+    const run = await getProjectChatValidationRun(apiFetch, params.id, validationRunId!, signal);
+    if (run.id !== validationRunId || run.project_id !== params.id || run.run_scope !== "document_staging"
+      || run.selected_document_ids.length !== 1 || run.selected_document_ids[0] !== versionId) throw new Error("validation_scope_mismatch");
+    return run;
+  }, [apiFetch, params.id, validationRunId, versionId]);
+  const pollCurrent = () => pollGuards.current !== null && scopeEpoch.current.isCurrent(pollGuards.current.scope) && selectionEpoch.current.isCurrent(pollGuards.current.selection);
+  useReadResource(readValidationRun, validationRunId ?? null, Boolean(authReady && versionId && validationRunId && validationRunning), {
+    poll: (outcome) => "data" in outcome && ["queued", "running"].includes(outcome.data.status) ? 2500 : null,
+    onStart: () => { pollGuards.current = { scope: scopeEpoch.current.capture(), selection: selectionEpoch.current.capture() }; },
+    onData: (run) => {
+      if (!pollCurrent()) return;
+      setActiveValidationRun(run);
+      setConversationEntries(validationEntries(run, t, format));
+      setBatchCompletedCount(run.completed_count + run.failed_count);
+    },
+    onError: (error) => {
+      if (!pollCurrent() || discardRevokedScope(error)) return;
+      const message = retrievalErrorMessage(error, t, format);
+      setLoadError(message);
+      setConversationEntries((entries) => entries.map((entry) => ({ ...entry, loading: false, error: message })));
+    },
+  });
 
   async function submitQuestion(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

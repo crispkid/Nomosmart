@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked } from "@/lib/chatConversationAccess";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
 import { conversationFromHistory, downloadCsv, isUuid, newConversationId, parseValidationQuestionsCsv, retrievalErrorMessage, sameScopeIds, validationItemMessage, type ChatDocument, type CsvValidationQuestion, type Entry, type Judgment, type ProjectConversation } from "./projectChat/projectChatModel";
@@ -109,33 +110,36 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     return true;
   }, [format, t]);
 
-  useEffect(() => {
-    const projectId = params?.id;
-    const scopeGuard = scopeEpoch.current;
-    const selectionGuard = selectionEpoch.current;
-    scopeGuard.invalidate();
-    selectionGuard.invalidate();
-    setDocuments([]);
-    setServingStatus(null);
-    setDocumentSource("loading");
-    setConversations([]);
-    setActiveConversationId(null);
-    setActiveValidationRun(null);
-    setValidationConversationId(null);
-    setSelectedIds([]);
-    setHistoryCursor(null);
-    setHistoryBusy(false);
-    setQuestion("");
-    setUploadOpen(false);
-    setRevisionEntryId(null);
-    setDeleteTargetId(null);
-    if (!authReady || !projectId) return;
-    let cancelled = false;
-    const scope = scopeGuard.capture();
-    setHistoryStatus("loading");
-    setHistoryError("");
-    listProjectChatConversationPage(apiFetch, projectId).then((page) => {
-      if (cancelled || !scopeGuard.isCurrent(scope)) return;
+  // OPT424-035: the conversation history, the reference documents with serving status, and a running
+  // validation run are read resources. Results commit only while the scope epoch captured when the
+  // read started is current; they feed the chat state that questions and uploads also update.
+  const projectId = params?.id ?? null;
+  const historyScope = useRef(0);
+  const readHistory = useCallback((signal: AbortSignal) => listProjectChatConversationPage(apiFetch, projectId!, { signal }), [apiFetch, projectId]);
+  useReadResource(readHistory, JSON.stringify([projectId, currentUser?.user_id ?? null, fixedVersionId ?? null]), Boolean(authReady && projectId), {
+    onStart: () => {
+      scopeEpoch.current.invalidate();
+      selectionEpoch.current.invalidate();
+      setDocuments([]);
+      setServingStatus(null);
+      setDocumentSource("loading");
+      setConversations([]);
+      setActiveConversationId(null);
+      setActiveValidationRun(null);
+      setValidationConversationId(null);
+      setSelectedIds([]);
+      setHistoryCursor(null);
+      setHistoryBusy(false);
+      setQuestion("");
+      setUploadOpen(false);
+      setRevisionEntryId(null);
+      setDeleteTargetId(null);
+      historyScope.current = scopeEpoch.current.capture();
+      setHistoryStatus("loading");
+      setHistoryError("");
+    },
+    onData: (page) => {
+      if (!scopeEpoch.current.isCurrent(historyScope.current)) return;
       const history = page.items.filter((item) => fixedVersionId === undefined || sameScopeIds(item.selected_document_version_ids, [fixedVersionId]));
       setHistoryCursor(page.next_cursor);
       setHistoryStatus("ready");
@@ -150,23 +154,23 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
         setConversations([]);
         setActiveConversationId(null);
       }
-    }).catch((error) => {
-      if (cancelled || !scopeGuard.isCurrent(scope) || discardRevokedScope(error)) return;
+    },
+    onError: (error) => {
+      if (!scopeEpoch.current.isCurrent(historyScope.current) || discardRevokedScope(error)) return;
       setConversations([]);
       setActiveConversationId(null);
       setHistoryStatus("error");
       setHistoryError(operationalErrorMessage(error, t, format, "projectChatHistoryLoadFailed"));
-    });
-    return () => { cancelled = true; scopeGuard.invalidate(); selectionGuard.invalidate(); };
-  }, [apiFetch, authReady, currentUser?.user_id, discardRevokedScope, fixedVersionId, format, params?.id, t]);
+    },
+  });
 
-  useEffect(() => {
-    const projectId = params?.id;
-    if (!authReady || !projectId) return;
-    let cancelled = false;
-    const scope = scopeEpoch.current.capture();
-    Promise.all([listProjectDocuments(apiFetch, projectId), getProjectServingStatus(apiFetch, projectId)]).then(([items, status]) => {
-      if (cancelled || !scopeEpoch.current.isCurrent(scope)) return;
+  const documentsScope = useRef(0);
+  const readDocuments = useCallback((signal: AbortSignal) => Promise.all([listProjectDocuments(apiFetch, projectId!, signal), getProjectServingStatus(apiFetch, projectId!, signal)]), [apiFetch, projectId]);
+  // The document labels depend on the interface language, so a language change re-reads them as before.
+  useReadResource(readDocuments, JSON.stringify([projectId, currentUser?.user_id ?? null, fixedVersionId ?? null, unavailableVersionLabel]), Boolean(authReady && projectId), {
+    onStart: () => { documentsScope.current = scopeEpoch.current.capture(); },
+    onData: ([items, status]) => {
+      if (!scopeEpoch.current.isCurrent(documentsScope.current)) return;
       setServingStatus(status);
       const chatDocuments = items
         .map((item) => {
@@ -199,17 +203,16 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
         setSelectedIds([]);
         setDocumentSource("empty");
       }
-    }).catch((error) => {
-      if (!cancelled && scopeEpoch.current.isCurrent(scope)) {
-        if (discardRevokedScope(error)) return;
-        setServingStatus(null);
-        setDocuments([]);
-        setSelectedIds([]);
-        setDocumentSource("error");
-      }
-    });
-    return () => { cancelled = true; };
-  }, [apiFetch, authReady, currentUser?.user_id, discardRevokedScope, fixedVersionId, params?.id, unavailableVersionLabel]);
+    },
+    onError: (error) => {
+      if (!scopeEpoch.current.isCurrent(documentsScope.current)) return;
+      if (discardRevokedScope(error)) return;
+      setServingStatus(null);
+      setDocuments([]);
+      setSelectedIds([]);
+      setDocumentSource("error");
+    },
+  });
 
   async function loadMoreHistory() {
     if (!params?.id || !historyCursor || historyBusy) return;
@@ -244,43 +247,41 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     latestEntry?.loading
   ]);
 
-  useEffect(() => {
-    if (!authReady || !params?.id || !activeValidationRun || !validationRunning) return;
-    let cancelled = false;
-    const scope = scopeEpoch.current.capture();
-    const timer = window.setInterval(() => {
-      getProjectChatValidationRun(apiFetch, params.id!, activeValidationRun.id).then((run) => {
-        if (cancelled || !scopeEpoch.current.isCurrent(scope)) return;
-        setActiveValidationRun(run);
-        setBatchCompletedCount(run.completed_count + run.failed_count);
-        setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? {
-          ...conversation,
-          entries: conversation.entries.map((entry) => {
-            if (!entry.validationItemId) return entry;
-            const item = run.items.find((candidate) => candidate.id === entry.validationItemId);
-            if (!item) return entry;
-            return {
-              ...entry,
-              recordId: item.chat_record_id ?? entry.recordId,
-              answer: validationItemMessage(item.status, item.answer, t),
-              citations: item.citations,
-              loading: ["pending", "running"].includes(item.status),
-              error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined,
-              status: item.answer ? "answered" as const : undefined
-            };
-          }),
-          updatedAt: Date.now()
-        } : conversation));
-      }).catch((error) => {
-        if (cancelled || !scopeEpoch.current.isCurrent(scope) || discardRevokedScope(error)) return;
-        setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry), updatedAt: Date.now() } : conversation));
-      });
-    }, 2500);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [validationConversationId, activeValidationRun, apiFetch, authReady, discardRevokedScope, format, params?.id, t, validationRunning]);
+  const validationScope = useRef(0);
+  const validationRunId = activeValidationRun?.id ?? null;
+  const readValidationRun = useCallback((signal: AbortSignal) => getProjectChatValidationRun(apiFetch, projectId!, validationRunId!, signal), [apiFetch, projectId, validationRunId]);
+  // Polled every 2.5 s while the run is queued or running; a failed read keeps polling as before.
+  useReadResource(readValidationRun, validationRunId, Boolean(authReady && projectId && validationRunId && validationRunning), {
+    poll: () => 2500,
+    onStart: () => { validationScope.current = scopeEpoch.current.capture(); },
+    onData: (run) => {
+      if (!scopeEpoch.current.isCurrent(validationScope.current)) return;
+      setActiveValidationRun(run);
+      setBatchCompletedCount(run.completed_count + run.failed_count);
+      setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? {
+        ...conversation,
+        entries: conversation.entries.map((entry) => {
+          if (!entry.validationItemId) return entry;
+          const item = run.items.find((candidate) => candidate.id === entry.validationItemId);
+          if (!item) return entry;
+          return {
+            ...entry,
+            recordId: item.chat_record_id ?? entry.recordId,
+            answer: validationItemMessage(item.status, item.answer, t),
+            citations: item.citations,
+            loading: ["pending", "running"].includes(item.status),
+            error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined,
+            status: item.answer ? "answered" as const : undefined
+          };
+        }),
+        updatedAt: Date.now()
+      } : conversation));
+    },
+    onError: (error) => {
+      if (!scopeEpoch.current.isCurrent(validationScope.current) || discardRevokedScope(error)) return;
+      setConversations((current) => current.map((conversation) => conversation.id === validationConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.validationItemId ? { ...entry, loading: false, error: retrievalErrorMessage(error, t, format) } : entry), updatedAt: Date.now() } : conversation));
+    },
+  });
 
   function toggleDocument(id: string) {
     if (fixedVersionId !== undefined || !eligibleIds.includes(id)) return;

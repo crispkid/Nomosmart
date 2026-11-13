@@ -86,19 +86,19 @@ export async function getProjectGraphNeighbors(apiFetch: ApiFetch, projectId: st
 export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, nodeLimit = 120, signal?: AbortSignal) {
   return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/graph?node_limit=${nodeLimit}`, { signal });
 }
-export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string) {
-  return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`);
+export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
+  return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`, { signal });
 }
 export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, payload: { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null }) {
   return apiJson<ProjectChatQueryResponse>(apiFetch, `/projects/${projectId}/chat/query`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string }) {
+export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string; signal?: AbortSignal }) {
   const params = new URLSearchParams();
   params.set("scope_mode", options?.scope_mode ?? "published");
   if (options?.document_version_id) params.set("document_version_id", options.document_version_id);
   if (options?.cursor) params.set("cursor", options.cursor);
   const query = params.toString();
-  const page = await apiJson<ProjectChatConversationPage>(apiFetch, `/projects/${projectId}/chat/conversations${query ? `?${query}` : ""}`);
+  const page = await apiJson<ProjectChatConversationPage>(apiFetch, `/projects/${projectId}/chat/conversations${query ? `?${query}` : ""}`, { signal: options?.signal });
   return page;
 }
 export async function getProjectChatConversation(apiFetch: ApiFetch, projectId: string, conversationId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string }) {
@@ -127,8 +127,8 @@ export async function updateProjectChatFeedback(apiFetch: ApiFetch, projectId: s
 export async function createProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, payload: { uploaded_file_name?: string | null; scope_mode: "published" | "document_staging"; selected_document_version_ids?: string[] | null; questions: { input_item_id?: string | null; question: string; expected_answer?: string | null; expected_keywords?: string[]; selected_document_ids?: string[] | null; category?: string | null; priority?: string | null }[] }) {
   return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function getProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, runId: string) {
-  return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}`);
+export async function getProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, runId: string, signal?: AbortSignal) {
+  return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}`, { signal });
 }
 export async function retryFailedProjectChatValidationItems(apiFetch: ApiFetch, projectId: string, runId: string) {
   return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}/retry-failed`, { method: "POST" });
