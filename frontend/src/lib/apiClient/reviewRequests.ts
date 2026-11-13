@@ -21,32 +21,32 @@ export type ApprovalListFilters = {
   project_id?: string; submitter_id?: string; q?: string; stage?: string; result?: string;
   priority?: string; source_type?: string; date_from?: string; date_to?: string;
 };
-export function listApprovalFilterOptions(apiFetch: ApiFetch, filters: { kind: "project" | "submitter"; tab: ApprovalTab; project_id?: string; q?: string }, cursor?: string | null) {
+export function listApprovalFilterOptions(apiFetch: ApiFetch, filters: { kind: "project" | "submitter"; tab: ApprovalTab; project_id?: string; q?: string }, cursor?: string | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ limit: "20" });
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   if (cursor) params.set("cursor", cursor);
-  return apiJson<CursorPage<{ id: string; label: string }>>(apiFetch, `/approvals/filter-options?${params}`);
+  return apiJson<CursorPage<{ id: string; label: string }>>(apiFetch, `/approvals/filter-options?${params}`, { signal });
 }
-function approvalPage<T>(apiFetch: ApiFetch, path: string, cursor?: string | null, result?: string, filters: ApprovalListFilters = {}) {
+function approvalPage<T>(apiFetch: ApiFetch, path: string, cursor?: string | null, result?: string, filters: ApprovalListFilters = {}, signal?: AbortSignal) {
   const params = new URLSearchParams({ limit: "20" });
   for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
   if (cursor) params.set("cursor", cursor);
   if (result) params.set("result", result);
-  return apiJson<CursorPage<T>>(apiFetch, `${path}?${params}`);
+  return apiJson<CursorPage<T>>(apiFetch, `${path}?${params}`, { signal });
 }
-export function listPendingApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/pending", cursor, undefined, filters); }
-export function listApprovalHistoryPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/history", cursor, undefined, filters); }
-export function listRejectedApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/history", cursor, "rejected", filters); }
-export function listMyApprovalSubmissionsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}) { return approvalPage<ApprovalRequestResponse>(apiFetch, "/approvals/my-submissions", cursor, undefined, filters); }
+export function listPendingApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/pending", cursor, undefined, filters, signal); }
+export function listApprovalHistoryPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/history", cursor, undefined, filters, signal); }
+export function listRejectedApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/history", cursor, "rejected", filters, signal); }
+export function listMyApprovalSubmissionsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalRequestResponse>(apiFetch, "/approvals/my-submissions", cursor, undefined, filters, signal); }
 export async function listPendingApprovals(apiFetch: ApiFetch) { return (await listPendingApprovalsPage(apiFetch)).items; }
 export async function listApprovalHistory(apiFetch: ApiFetch) { return (await listApprovalHistoryPage(apiFetch)).items; }
 export async function listRejectedApprovals(apiFetch: ApiFetch) { return (await listRejectedApprovalsPage(apiFetch)).items; }
 export async function listMyApprovalSubmissions(apiFetch: ApiFetch) { return (await listMyApprovalSubmissionsPage(apiFetch)).items; }
 export async function listPendingPublishApprovals(apiFetch: ApiFetch) { return apiJson<ApprovalPendingPublishResponse[]>(apiFetch, "/approvals/pending-publish"); }
-export function listPendingPublishApprovalsPage(apiFetch: ApiFetch, cursor?: string | null) {
+export function listPendingPublishApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ limit: "20" });
   if (cursor) params.set("cursor", cursor);
-  return apiJson<ApprovalPendingPublishPage>(apiFetch, `/approvals/pending-publish/page?${params}`);
+  return apiJson<ApprovalPendingPublishPage>(apiFetch, `/approvals/pending-publish/page?${params}`, { signal });
 }
 export async function getApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, signal?: AbortSignal) { return apiJson<ApprovalTaskDetail>(apiFetch, `/approvals/${approvalTaskId}`, { signal }); }
 export async function approveApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, payload: { lock_version: number; comment?: string | null }) {

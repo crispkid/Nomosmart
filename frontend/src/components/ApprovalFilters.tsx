@@ -25,7 +25,7 @@ function FilterCandidate({ kind, tab, projectId, value, onChange }: {
   const id = useId();
   const [input, setInput] = useState("");
   const [query, setQuery] = useState("");
-  const read = useCallback((cursor?: string | null) => listApprovalFilterOptions(apiFetch, { kind, tab, project_id: projectId, q: query || undefined }, cursor), [apiFetch, kind, tab, projectId, query]);
+  const read = useCallback((cursor?: string | null, signal?: AbortSignal) => listApprovalFilterOptions(apiFetch, { kind, tab, project_id: projectId, q: query || undefined }, cursor, signal), [apiFetch, kind, tab, projectId, query]);
   const list = useCursorList(read, operationGuards, authReady);
   const label = t(kind === "project" ? "approvalProjectLabel" : "approvalSubmitter");
   const selectedLoaded = value && list.items.some(item => item.id === value.id);

@@ -62,11 +62,11 @@ export default function ApprovalPage() {
   const queries = useMemo(() => ({ pending: approvalListFilters(filters, "pending"), mine: approvalListFilters(filters, "mine"), history: approvalListFilters(filters, "history"), rejected: approvalListFilters(filters, "rejected") }), [filters]);
   const applyFilters = (values: ApprovalFilterValues) => setFilterState({ scope: operationGuards, values });
   const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
-  const readPending = useCallback((cursor?: string | null) => listPendingApprovalsPage(apiFetch, cursor, queries.pending), [apiFetch, queries.pending]);
-  const readMine = useCallback((cursor?: string | null) => listMyApprovalSubmissionsPage(apiFetch, cursor, queries.mine), [apiFetch, queries.mine]);
-  const readHistory = useCallback((cursor?: string | null) => listApprovalHistoryPage(apiFetch, cursor, queries.history), [apiFetch, queries.history]);
-  const readRejected = useCallback((cursor?: string | null) => listRejectedApprovalsPage(apiFetch, cursor, queries.rejected), [apiFetch, queries.rejected]);
-  const readPublish = useCallback((cursor?: string | null) => listPendingPublishApprovalsPage(apiFetch, cursor), [apiFetch]);
+  const readPending = useCallback((cursor?: string | null, signal?: AbortSignal) => listPendingApprovalsPage(apiFetch, cursor, queries.pending, signal), [apiFetch, queries.pending]);
+  const readMine = useCallback((cursor?: string | null, signal?: AbortSignal) => listMyApprovalSubmissionsPage(apiFetch, cursor, queries.mine, signal), [apiFetch, queries.mine]);
+  const readHistory = useCallback((cursor?: string | null, signal?: AbortSignal) => listApprovalHistoryPage(apiFetch, cursor, queries.history, signal), [apiFetch, queries.history]);
+  const readRejected = useCallback((cursor?: string | null, signal?: AbortSignal) => listRejectedApprovalsPage(apiFetch, cursor, queries.rejected, signal), [apiFetch, queries.rejected]);
+  const readPublish = useCallback((cursor?: string | null, signal?: AbortSignal) => listPendingPublishApprovalsPage(apiFetch, cursor, signal), [apiFetch]);
   const summaryRead = useReadResource(readSummary, operationGuards, authReady);
   const publishRead = usePendingPublishList(readPublish, operationGuards, authReady);
   const pendingRead = useCursorList(readPending, operationGuards, authReady);
