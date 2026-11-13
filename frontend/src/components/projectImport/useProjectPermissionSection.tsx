@@ -63,7 +63,7 @@ export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
 
 /** Project member permission actions, created each render once workspace dependencies exist. */
 export function createProjectPermissionActions(state: ProjectPermissionState, deps: ProjectPermissionDeps) {
-  const { permissionModalOpen, setPermissionModalOpen, projectMembers, setProjectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, setPermissionLoading, permissionError, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId } = state;
+  const { setPermissionModalOpen, projectMembers, setProjectMembers, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, setPermissionLoading, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId } = state;
 
   async function loadProjectPermissions() {
     const { apiFetch, params, setProject, setProjectAccess } = deps;
