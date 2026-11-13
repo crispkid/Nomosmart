@@ -957,7 +957,7 @@ def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]
     if dimensions > 0:
         body["dimensions"] = dimensions
     request = urllib.request.Request(
-        _openai_embeddings_url(_string(config.get("base_url") or model.endpoint or "https://api.openai.com/v1")),
+        _openai_embeddings_url(_string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url)),
         data=json.dumps(body).encode("utf-8"),
         headers={"Content-Type": "application/json", **_embedding_auth_headers(model, settings)},
         method="POST",

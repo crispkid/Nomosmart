@@ -122,13 +122,13 @@ celery_app.conf.timezone = settings.identity_sync_timezone
 _minute, _hour, _day_of_month, _month_of_year, _day_of_week = settings.identity_sync_schedule.split()
 celery_app.conf.beat_schedule = {
     "record-runtime-heartbeat": {"task": "app.worker.record_runtime_heartbeat", "schedule": float(settings.identity_sync_heartbeat_seconds)},
-    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_directory_sync_v2", "schedule": DirectoryDailySchedule(run_every=60, app=celery_app)},
-    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": 60.0},
-    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": 10.0},
-    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": 60.0},
-    "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": 86400.0},
+    "queue-daily-identity-sync": {"task": "app.worker.queue_scheduled_directory_sync_v2", "schedule": DirectoryDailySchedule(run_every=settings.beat_directory_schedule_check_seconds, app=celery_app)},
+    "queue-scheduled-data-source-sync": {"task": "app.worker.queue_scheduled_data_source_sync", "schedule": float(settings.beat_data_source_sync_seconds)},
+    "dispatch-outbox": {"task": "app.worker.dispatch_outbox", "schedule": float(settings.beat_outbox_dispatch_seconds)},
+    "recover-stale-project-archive-runs": {"task": "app.worker.recover_stale_project_archives", "schedule": float(settings.beat_archive_recovery_seconds)},
+    "cleanup-authentication-retention": {"task": "app.worker.cleanup_authentication_retention", "schedule": float(settings.beat_auth_retention_cleanup_seconds)},
     "recover-staging-retention": {"task": "app.worker.recover_staging_retention", "schedule": float(settings.staging_retention_recovery_seconds)},
-    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": 86400.0},
+    "cleanup-public-api-retention": {"task": "app.worker.cleanup_public_api_retention", "schedule": float(settings.beat_public_api_retention_cleanup_seconds)},
 }
 
 

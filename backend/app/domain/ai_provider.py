@@ -141,7 +141,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider in {"openai", "vllm", "custom"}:
-        default_url = "https://api.openai.com/v1" if provider == "openai" else ""
+        default_url = settings.provider_openai_base_url if provider == "openai" else ""
         base_url = _string(config.get("base_url") or model.endpoint or default_url).rstrip("/")
         if not base_url:
             raise AppError("model_endpoint_required", "Chat Model endpoint is required", status_code=422)
@@ -168,7 +168,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider == "gemini":
-        base_url = _string(config.get("base_url") or model.endpoint or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_gemini_base_url).rstrip("/")
         api_key = _resolve_api_key(model, settings)
         if api_key:
             headers["x-goog-api-key"] = api_key
@@ -182,8 +182,8 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             yield chunk
         return
     if provider in {"claude", "anthropic"}:
-        base_url = _string(config.get("base_url") or model.endpoint or "https://api.anthropic.com/v1").rstrip("/")
-        headers["anthropic-version"] = _string(config.get("anthropic_version") or "2023-06-01")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_anthropic_base_url).rstrip("/")
+        headers["anthropic-version"] = _string(config.get("anthropic_version") or settings.provider_anthropic_version)
         body = {
             "model": _model_name(model),
             "system": messages[0]["content"],
@@ -425,7 +425,7 @@ def _invoke_openai_compatible(model: AIModel, messages: list[dict[str, str]], se
     config = model.config or {}
     provider = model.provider.strip().lower()
     if provider == "openai":
-        base_url = _string(config.get("base_url") or model.endpoint or "https://api.openai.com/v1").rstrip("/")
+        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url).rstrip("/")
     else:
         base_url = _string(config.get("base_url") or model.endpoint).rstrip("/")
     if not base_url:
@@ -476,7 +476,7 @@ def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], set
 
 
 def _openai_responses_url(value: object) -> str:
-    base_url = _string(value).rstrip("/") or "https://api.openai.com/v1"
+    base_url = _string(value).rstrip("/") or get_settings().provider_openai_base_url
     return base_url if base_url.lower().endswith("/responses") else f"{base_url}/responses"
 
 
@@ -495,7 +495,7 @@ def _invoke_ollama(model: AIModel, messages: list[dict[str, str]], _settings: Se
 def _invoke_gemini(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
     model_name = _model_name(model)
-    base_url = _string(config.get("base_url") or model.endpoint or "https://generativelanguage.googleapis.com/v1beta").rstrip("/")
+    base_url = _string(config.get("base_url") or model.endpoint or settings.provider_gemini_base_url).rstrip("/")
     api_key = _resolve_api_key(model, settings)
     url = f"{base_url}/models/{urllib.parse.quote(model_name, safe='')}:generateContent"
     headers = {"x-goog-api-key": api_key} if api_key else {}
@@ -509,9 +509,9 @@ def _invoke_gemini(model: AIModel, messages: list[dict[str, str]], settings: Set
 
 def _invoke_claude(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
-    base_url = _string(config.get("base_url") or model.endpoint or "https://api.anthropic.com/v1").rstrip("/")
+    base_url = _string(config.get("base_url") or model.endpoint or settings.provider_anthropic_base_url).rstrip("/")
     headers = _auth_headers(model, settings)
-    headers["anthropic-version"] = _string(config.get("anthropic_version") or "2023-06-01")
+    headers["anthropic-version"] = _string(config.get("anthropic_version") or settings.provider_anthropic_version)
     body = {
         "model": _model_name(model),
         "system": messages[0]["content"],

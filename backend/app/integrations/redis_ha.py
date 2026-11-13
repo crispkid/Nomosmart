@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import os
+import threading
 from urllib.parse import unquote, urlsplit
 
 from redis import Redis
@@ -75,3 +78,40 @@ def redis_client(
         settings.redis_sentinel_master_name,
         db=selected_database,
     )
+
+
+_SHARED_REDIS_LOCK = threading.Lock()
+_SHARED_REDIS_CLIENTS: dict[tuple[object, ...], Redis] = {}
+
+
+def shared_redis_client(
+    settings: Settings,
+    *,
+    url: str | None = None,
+    database: int | None = None,
+    decode_responses: bool = False,
+    socket_timeout: float = 2,
+) -> Redis:
+    """Process-wide Redis client for hot paths; its connection pool is reused across calls (OPT424-019).
+
+    Keyed by process id so forked workers never reuse a parent's sockets, and by a digest of the
+    connection settings so a changed URL, credential or Sentinel topology gets a new client.
+    Callers must not close the returned client.
+    """
+    connection_url = url or settings.redis_url.get_secret_value()
+    digest = hashlib.sha256("\0".join((
+        connection_url,
+        settings.redis_ha_mode,
+        settings.redis_sentinel_nodes,
+        settings.redis_sentinel_master_name,
+        settings.redis_sentinel_username,
+        settings.redis_sentinel_password.get_secret_value(),
+        settings.redis_tls_ca_cert_path,
+    )).encode("utf-8")).hexdigest()
+    key = (os.getpid(), digest, database, decode_responses, socket_timeout)
+    with _SHARED_REDIS_LOCK:
+        client = _SHARED_REDIS_CLIENTS.get(key)
+        if client is None:
+            client = redis_client(settings, url=url, database=database, decode_responses=decode_responses, socket_timeout=socket_timeout)
+            _SHARED_REDIS_CLIENTS[key] = client
+        return client

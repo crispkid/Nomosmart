@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.db.models import IdentitySetting, IdentitySyncProviderResult, IdentitySyncRun, OutboxEvent
-from app.integrations.redis_ha import redis_client
+from app.integrations.redis_ha import shared_redis_client
 from app.services.audit import add_audit
 
 
@@ -20,7 +20,8 @@ BEAT_HEARTBEAT_KEY = "nomosmart:runtime:celery-beat:auth-v2"
 
 
 def _redis(settings: Settings) -> Redis:
-    return redis_client(
+    # Shared per process (OPT424-019); callers must not close it.
+    return shared_redis_client(
         settings,
         url=settings.celery_broker_url.get_secret_value(),
     )
@@ -28,20 +29,12 @@ def _redis(settings: Settings) -> Redis:
 
 def record_worker_heartbeat(settings: Settings) -> None:
     ttl = max(60, settings.identity_sync_heartbeat_seconds * 3)
-    client = _redis(settings)
-    try:
-        client.set(settings.celery_global_keyprefix + WORKER_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
-    finally:
-        client.close()
+    _redis(settings).set(settings.celery_global_keyprefix + WORKER_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
 
 
 def record_beat_heartbeat(settings: Settings) -> None:
     ttl = max(60, settings.identity_sync_heartbeat_seconds * 3)
-    client = _redis(settings)
-    try:
-        client.set(settings.celery_global_keyprefix + BEAT_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
-    finally:
-        client.close()
+    _redis(settings).set(settings.celery_global_keyprefix + BEAT_HEARTBEAT_KEY, datetime.now(UTC).isoformat(), ex=ttl)
 
 
 def identity_runtime_status(settings: Settings) -> dict[str, bool]:
@@ -51,8 +44,6 @@ def identity_runtime_status(settings: Settings) -> dict[str, bool]:
         return {"worker_available": values[0] is not None, "beat_available": values[1] is not None}
     except RedisError:
         return {"worker_available": False, "beat_available": False}
-    finally:
-        client.close()
 
 
 def recover_stale_identity_runs(

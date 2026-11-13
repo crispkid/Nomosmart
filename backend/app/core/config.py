@@ -296,6 +296,19 @@ class Settings(MigrationProbeSettings):
     # directory sync, validation, graph sync...) are unlimited unless set (0).
     celery_short_task_soft_time_limit_seconds: int = Field(default=300, ge=0, le=86400, validation_alias="NOMOSMART_CELERY_SHORT_TASK_SOFT_TIME_LIMIT_SECONDS")
     celery_long_task_soft_time_limit_seconds: int = Field(default=0, ge=0, le=172800, validation_alias="NOMOSMART_CELERY_LONG_TASK_SOFT_TIME_LIMIT_SECONDS")
+    # OPT424-019: Celery beat intervals (seconds) for the periodic scheduling and maintenance tasks.
+    beat_directory_schedule_check_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DIRECTORY_SCHEDULE_CHECK_SECONDS")
+    beat_data_source_sync_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_DATA_SOURCE_SYNC_SECONDS")
+    beat_outbox_dispatch_seconds: int = Field(default=10, ge=1, le=600, validation_alias="NOMOSMART_BEAT_OUTBOX_DISPATCH_SECONDS")
+    beat_archive_recovery_seconds: int = Field(default=60, ge=10, le=3600, validation_alias="NOMOSMART_BEAT_ARCHIVE_RECOVERY_SECONDS")
+    beat_auth_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_AUTH_RETENTION_CLEANUP_SECONDS")
+    beat_public_api_retention_cleanup_seconds: int = Field(default=86400, ge=300, le=604800, validation_alias="NOMOSMART_BEAT_PUBLIC_API_RETENTION_CLEANUP_SECONDS")
+    # OPT424-019: provider defaults used when a model has no endpoint/base_url or version of its own.
+    provider_openai_base_url: str = Field(default="https://api.openai.com/v1", validation_alias="NOMOSMART_PROVIDER_OPENAI_BASE_URL")
+    provider_gemini_base_url: str = Field(default="https://generativelanguage.googleapis.com/v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_BASE_URL")
+    provider_gemini_api_version: str = Field(default="v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_API_VERSION")
+    provider_anthropic_base_url: str = Field(default="https://api.anthropic.com/v1", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL")
+    provider_anthropic_version: str = Field(default="2023-06-01", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_VERSION")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""

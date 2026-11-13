@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from hashlib import sha256
 import logging
+import os
+import threading
 from typing import Any
 from uuid import UUID
 
@@ -21,6 +23,20 @@ from app.db.session import get_db
 
 
 logger = logging.getLogger(__name__)
+
+_SHARED_JWK_LOCK = threading.Lock()
+_SHARED_JWK_CLIENTS: dict[tuple[int, str], PyJWKClient] = {}
+
+
+def shared_jwk_client(jwks_url: str) -> PyJWKClient:
+    """Process-wide JWKS client per URL so fetched signing keys stay cached between validations (OPT424-019)."""
+    key = (os.getpid(), jwks_url)
+    with _SHARED_JWK_LOCK:
+        client = _SHARED_JWK_CLIENTS.get(key)
+        if client is None:
+            client = PyJWKClient(jwks_url, cache_keys=True)
+            _SHARED_JWK_CLIENTS[key] = client
+        return client
 
 
 @dataclass(frozen=True)
@@ -44,10 +60,7 @@ class IdentityPrincipal:
 class JWTValidator:
     def __init__(self, settings: Settings, *, jwk_client: PyJWKClient | None = None) -> None:
         self.settings = settings
-        self.jwk_client = jwk_client or PyJWKClient(
-            settings.oidc_jwks_endpoint,
-            cache_keys=True,
-        )
+        self.jwk_client = jwk_client or shared_jwk_client(settings.oidc_jwks_endpoint)
 
     def validate(self, token: str, *, signing_key: Any | None = None) -> IdentityPrincipal:
         try:
@@ -118,7 +131,7 @@ def build_identity_jwt_validator(settings: Settings, configuration: dict[str, An
     configured_jwks = settings.oidc_jwks_url if issuer == settings.oidc_issuer_url.rstrip("/") else ""
     jwks_url = str(configuration.get("jwks_url") or configured_jwks or f"{issuer}/protocol/openid-connect/certs")
     effective = settings.model_copy(update={"oidc_issuer_url": issuer, "oidc_audience": audience})
-    return JWTValidator(effective, jwk_client=PyJWKClient(jwks_url, cache_keys=True))
+    return JWTValidator(effective, jwk_client=shared_jwk_client(jwks_url))
 
 
 def get_current_principal(

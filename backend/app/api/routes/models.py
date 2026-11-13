@@ -8,6 +8,7 @@ from sqlalchemy import func, or_, select, update
 from sqlalchemy.orm import Session
 
 from app.api.schemas import AIModelCreate, AIModelDeleteRequest, AIModelResponse, AIModelUpdate
+from app.core.config import get_settings
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
 from app.db.models import AIModel, DocumentVersion, PipelineRun, Project, SystemPrompt
@@ -375,7 +376,7 @@ def _normalized_config(
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("base_url", endpoint or "https://api.openai.com/v1")
+        normalized.setdefault("base_url", endpoint or get_settings().provider_openai_base_url)
         if model_type in {"Chat", "Judge"} and "api_mode" in normalized:
             api_mode = str(normalized.get("api_mode") or "").strip().lower()
             if api_mode not in {"responses", "chat_completions"}:
@@ -396,12 +397,12 @@ def _normalized_config(
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("api_version", "v1beta")
+        normalized.setdefault("api_version", get_settings().provider_gemini_api_version)
     elif provider_key == "claude":
         if require_credential:
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
-        normalized.setdefault("anthropic_version", "2023-06-01")
+        normalized.setdefault("anthropic_version", get_settings().provider_anthropic_version)
         if endpoint:
             normalized.setdefault("base_url", endpoint)
     elif provider_key == "ollama":
