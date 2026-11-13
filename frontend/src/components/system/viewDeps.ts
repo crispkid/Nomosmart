@@ -2,7 +2,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import type { ApiFetch, ExternalGroupResponse, ProjectResponse } from "@/lib/api";
 import type { RoleRow, UserRow } from "@/lib/systemManagement";
 import type { TranslationKey } from "@/lib/i18nClient";
-import type { ModalState, ModelRow, PromptRow } from "./modalState";
+import type { ModalState, ModelRow, PromptRow, SystemReadState } from "./modalState";
 import type { QuickMutationTarget } from "./useModelSection";
 
 /** Values the workspace shares with section views; each view picks what it renders with (OPT424-038). */
@@ -64,5 +64,9 @@ export type WorkspaceViewDeps = {
   availableMappingGroups: ExternalGroupResponse[];
   requestSettingsLeave: (action: () => void) => void;
   userRowName: (user: UserRow) => string;
+  canEditUsers: boolean;
+  filteredUsers: UserRow[];
+  sectionReads: Record<string, SystemReadState>;
+  runIdentitySync: () => Promise<void>;
   setClientNextCursor: Dispatch<SetStateAction<string | null>>;
 };

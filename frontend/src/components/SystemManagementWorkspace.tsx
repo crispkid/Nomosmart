@@ -3,32 +3,29 @@
 import { DropdownSelect } from "@/components/DropdownSelect";
 import ProtocolIdentityPanel from "./ProtocolIdentityPanel";
 import SystemParameterSettings from "./SystemParameterSettings";
-import { SettingsCard } from "./SettingsCard";
-import { EmptyInlineState, SectionHeader, StateBadge, operationStatusLabel } from "./system/SystemUi";
+import { SectionHeader, StateBadge, operationStatusLabel } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { modalScope, type ModalState, type ModelRow, type PromptRow, type SystemReadState } from "./system/modalState";
 import { createApiKeyActions, createApiKeyView, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, createModelView, useModelState } from "./system/useModelSection";
 import { createPromptActions, createPromptView, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, createRoleView, useRoleState } from "./system/useRoleSection";
-import { createUserActions, useUserState } from "./system/useUserSection";
+import { createUserActions, createUserView, useUserState } from "./system/useUserSection";
 import { createIdentityActions, useIdentityState } from "./system/useIdentitySection";
 import { permissionStateFromResponse } from "./system/permissionHelpers";
 import { modelRow } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
 import { apiBaseUrl } from "@/lib/oidc";
-import { identitySourceLabel } from "@/lib/identitySource";
 
 import { MutationOutcomeUnknown } from "@/lib/transportError";
 import { useOperationGuard } from "./useOperationGuard";
-import { FeedbackForm } from "@/components/FeedbackForm";
 import { FeedbackConfirm } from "./FeedbackConfirm";
 import { useFeedback } from "./FeedbackProvider";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { formatCount } from "@/lib/numberFormat";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Activity, Bot, ChevronRight, KeyRound, Layers3, LockKeyhole, MessageSquareText, RefreshCw, Save, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, Bot, ChevronRight, KeyRound, Layers3, LockKeyhole, MessageSquareText, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
 import { getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, type ApiError, type BreakGlassStatusResponse, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
 import { ForbiddenState } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -159,7 +156,8 @@ export default function SystemManagementWorkspace({
   const [quickQueryFailed, setQuickQueryFailed] = useState(false);
   const { notify } = useFeedback();
   const [modal, setModalState] = useState<ModalState | null>(null);
-  const { cacheUsers, submitUser, toggleUser } = createUserActions(userState, { apiFetch, modal, runModalMutation });
+  const userActions = createUserActions(userState, { apiFetch, modal, runModalMutation });
+  const { cacheUsers, submitUser, toggleUser } = userActions;
   const [dirtyModal, setDirtyModal] = useState<ModalState | null>(null);
   const [discardModal, setDiscardModal] = useState<ModalState | null>(null);
   const systemDialogRef = useRef<HTMLElement>(null);
@@ -751,6 +749,9 @@ export default function SystemManagementWorkspace({
   // Views receive event handlers that read refs only when the user acts, never during render.
   // eslint-disable-next-line react-hooks/refs
   const { renderRolePanel, renderPermissionPanel, renderRoleForm, renderRoleUsersForm, renderRoleMappingForm, renderRoleDeleteForm } = createRoleView(roleState, roleActions, { activeRoleUserCandidates, availableMappingGroups, breakGlassRoleUserIds, canCreateRoles, canEditPermissions, canEditRoles, closeModal, discardModal, draftRoleUserIds, externalRoleUserIds, filteredLocalRoles, filteredRoleUserCandidates, format, ldapGroups, liveUsers, locale, modal, modalBlocked, originalManualRoleUserIds, pendingAddUsers, pendingRemoveUsers, renderListPager, renderSectionReadNotice, requestSettingsLeave, sectionReady, selectedRoleReadOnly, setModal, submitting, t, userRowName });
+  // Views receive event handlers that read refs only when the user acts, never during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { renderUserPanel, renderUserForm } = createUserView(userState, userActions, { canEditUsers, closeModal, discardModal, filteredUsers, format, locale, localizedStatus, modal, modalBlocked, renderListPager, runIdentitySync, sectionReads, sectionReady, setModal, submitting, t, userRowName });
   return (
     <section className="system-workspace">
       {systemLoading ? <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("loadingData")}</strong><span>{t("systemLoadingBackend")}</span></div></div> : null}
@@ -773,12 +774,7 @@ export default function SystemManagementWorkspace({
           <header className="settings-page-heading"><p>{t("labelSystemManagement")}</p><h1>{t(settingsSections.find(section => section.id === activeSection)!.labelKey)}</h1><span>{t("settingsWorkspaceHelp")}</span></header>
           {activeSection === "general" ? <button type="button" className="text-link" onClick={() => navigateSettings({ section: "documents", panel: "upload" })}>{t("settingsGoDocuments")}<ChevronRight size={16} /></button> : null}
           {(activeSection === "people" ? ["users", "roles", "groups", "mappings"] : activeSection === "ai" ? ["models", "prompts"] : activeSection === "apiKeys" ? ["clients", "projects"] : activeSection === "status" ? ["status"] : []).map(section => <div key={section}>{renderSectionReadNotice(section)}</div>)}
-          {activeSection === "people" ? <SettingsCard panel="users">
-            <SectionHeader action={<button className="action-button secondary" disabled={!canEditUsers} onClick={runIdentitySync} type="button"><RefreshCw size={16} />{t("systemSyncNow")}</button>} description={t("systemUserManagementDescription")} title={t("systemUserManagementTitle")} />
-            <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("systemSearchUsers")} maxLength={100} onChange={(event) => { setUserQuery(event.target.value); setUserPage(1); }} placeholder={t("systemSearchUsersPlaceholder")} value={userQuery} /></label><DropdownSelect aria-label={t("systemFilterIdentitySource")} onChange={(event) => { setUserSourceFilter(event.target.value); setUserPage(1); }} value={userSourceFilter}><option value="all">{t("systemAllIdentitySources")}</option>{Array.from(new Set(["ldap", "ad", "local", ...liveUsers.map(user => user.source), ...(userSourceFilter === "all" ? [] : [userSourceFilter])])).map((source) => <option key={source} value={source}>{identitySourceLabel(source, t)}</option>)}</DropdownSelect><span>{format("systemUserCount", { filtered: sectionReads.users?.received ? formatCount(filteredUsers.length, locale) : t("systemReadCountUnknown"), total: sectionReads.users?.received ? formatCount(userTotal, locale) : t("systemReadCountUnknown") })}</span></div>
-            {filteredUsers.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemUser")}</th><th>{t("systemDepartment")}</th><th>{t("systemIdentitySourceColumn")}</th><th>{t("systemRoleColumn")}</th><th>{t("systemStatusColumn")}</th><th aria-label={t("systemActionsColumn")} /></tr></thead><tbody>{filteredUsers.map((user) => <tr key={user.id}><td><strong>{userRowName(user)}</strong><small>{user.email}</small></td><td>{user.department}</td><td>{identitySourceLabel(user.source, t)}</td><td>{user.roles}</td><td><StateBadge tone={user.status === "active" ? "green" : "gray"}>{localizedStatus(user.status)}</StateBadge></td><td><div className="system-row-actions"><button aria-label={format("systemViewUser", { name: userRowName(user) })} className="icon-text-button" onClick={() => setModal({ type: "user", user })} type="button">{t("systemView")} <ChevronRight size={15} /></button><button className="icon-text-button" disabled={!canEditUsers} onClick={() => setModal({ type: "confirm", title: `${user.status === "active" ? t("systemDisable") : t("systemEnable")}${t("systemUser")}`, message: format("systemConfirmToggleUser", { action: user.status === "active" ? t("systemDisable") : t("systemEnable"), name: userRowName(user) }), actionLabel: user.status === "active" ? t("systemDisable") : t("systemEnable"), target: { kind: "user", id: user.id, expected: { field: "is_active", value: user.status !== "active" } }, run: accepted => toggleUser(user, accepted) })} type="button">{user.status === "active" ? t("systemDisable") : t("systemEnable")}</button></div></td></tr>)}</tbody></table></div> : sectionReady("users") ? <EmptyInlineState /> : null}
-            {renderListPager("users", userPage, userPageSize, userTotal, () => setUserPage(page => page - 1), userPage * userPageSize < userTotal ? () => setUserPage(page => page + 1) : null, size => { setUserPageSize(size); setUserPage(1); })}
-          </SettingsCard> : null}
+          {activeSection === "people" ? renderUserPanel() : null}
 
           {activeSection === "people" ? renderRolePanel() : null}
 
@@ -859,13 +855,7 @@ export default function SystemManagementWorkspace({
           <header><span>{modal.type === "api-key-create" || modal.type === "api-key-manage" ? <KeyRound size={20} /> : modal.type === "model-delete" || modal.type === "role-delete" ? <Trash2 size={20} /> : <Settings2 size={20} />}</span><div><small>{t("labelSystemManagement")}</small><h2 id="system-crud-modal-title">{modal.type === "user" ? t("systemUserDetails") : modal.type === "role" ? (modal.role ? (modal.role.isActive === false ? t("systemRoleDetails") : t("systemEditRole")) : t("systemAddRole")) : modal.type === "role-users" ? t("systemManualRoleUsers") : modal.type === "mapping" ? t("systemRoleMappingTitle") : modal.type === "role-delete" ? t("systemDeleteLocalRole") : modal.type === "model" ? (modal.model ? t("systemEditAiModel") : t("systemAddAiModel")) : modal.type === "model-delete" ? t("systemDeleteModelTitle") : modal.type === "api-key-create" ? t("systemApiKeyCreateTitle") : modal.type === "api-key-manage" ? t("systemApiKeyManageTitle") : localize(modal.title)}</h2></div><button aria-label={t("close")} className="modal-close-button" disabled={submitting} onClick={closeModal} type="button"><X size={18} /></button></header>
           {discardModal === modal ? <FeedbackConfirm title={t("contentEditUnsaved")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => { setDiscardModal(null); systemDialogRef.current?.querySelector<HTMLButtonElement>(".modal-close-button")?.focus(); }} onConfirm={() => { setDiscardModal(null); setDirtyModal(null); setModal(null); }} /> : null}
           {modalFeedbackError ? <FeedbackMessage tone={modalOperation.phase === "unknown" || modalOperation.phase === "read_failed" ? "warning" : "error"} actions={modalOperation.phase === "unknown" || modalOperation.phase === "read_failed" ? <button type="button" className="action-button secondary" disabled={modalOperation.checking} onClick={() => void queryModalOutcome()}>{t(modalOperation.phase === "read_failed" ? "feedbackReloadResult" : "feedbackQueryOutcome")}</button> : undefined}><strong>{localize(modalFeedbackError)}</strong>{modalQueryMessage ? <p>{modalQueryMessage}</p> : null}{modalReadback ? <p>{modalReadback}</p> : null}</FeedbackMessage> : null}
-          {modal.type === "user" ? <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form" onSubmit={(event) => { event.preventDefault(); void submitUser(new FormData(event.currentTarget)); }}>
-            <div className="system-detail-grid"><div><small>{t("systemName")}</small><strong>{userRowName(modal.user)}</strong></div><div><small>{t("labelEmail")}</small><strong>{modal.user.email}</strong></div><div><small>{t("systemSourceColumn")}</small><strong>{identitySourceLabel(modal.user.source, t)}</strong></div><div><small>{t("systemStatusColumn")}</small><strong>{localizedStatus(modal.user.status)}</strong></div></div>
-            <label className="identity-toggle"><input defaultChecked={Boolean(modal.user.raw?.knowledge_owner)} name="knowledge_owner" type="checkbox" /><span>{t("labelKnowledgeOwner")}</span></label>
-            <label><span>{t("systemManagerDelegateOptional")}</span><input defaultValue={modal.user.raw?.manager_delegate_user_id ?? ""} disabled={modal.user.raw?.manager_delegate_user_id === undefined} name="manager_delegate_user_id" placeholder="UUID" />{modal.user.raw?.manager_delegate_user_id === undefined ? <small>{t("systemManagerDelegateUnavailable")}</small> : null}</label>
-            <label><span>{t("labelSystemNotes")}</span><textarea defaultValue={modal.user.raw?.system_notes ?? ""} name="system_notes" rows={4} /></label>
-            <footer><button className="action-button secondary" onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canEditUsers || submitting} type="submit"><Save size={16} />{t("save")}</button></footer>
-          </FeedbackForm> : null}
+          {modal.type === "user" ? renderUserForm(modal) : null}
           {modal.type === "role" ? renderRoleForm(modal) : null}
           {modal.type === "role-users" ? renderRoleUsersForm(modal) : null}
           {modal.type === "mapping" ? renderRoleMappingForm(modal) : null}
