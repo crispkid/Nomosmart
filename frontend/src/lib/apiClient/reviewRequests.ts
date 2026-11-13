@@ -135,12 +135,12 @@ export async function retryFailedProjectChatValidationItems(apiFetch: ApiFetch, 
 }
 export type ModelUsageReportFilters = { modelType?: string; usagePurpose?: string; sourceChannel?: string; usageStatus?: string };
 export type ReportQueryParams = { topic: string; dateFrom?: string; dateTo?: string; scope?: string; projectId?: string | null; page?: number; pageSize?: number } & ModelUsageReportFilters;
-export async function getReportFilterOptions(apiFetch: ApiFetch, scope = "owner_projects") {
-  return apiJson<ReportFilterOptionsResponse>(apiFetch, `/reports/filter-options?scope=${encodeURIComponent(scope)}`);
+export async function getReportFilterOptions(apiFetch: ApiFetch, scope = "owner_projects", signal?: AbortSignal) {
+  return apiJson<ReportFilterOptionsResponse>(apiFetch, `/reports/filter-options?scope=${encodeURIComponent(scope)}`, { signal });
 }
-export async function getReportSummary(apiFetch: ApiFetch, params: ReportQueryParams) {
+export async function getReportSummary(apiFetch: ApiFetch, params: ReportQueryParams, signal?: AbortSignal) {
   const query = reportQuery(params);
-  return apiJson<ReportSummaryResponse>(apiFetch, `/reports/summary?${query}`);
+  return apiJson<ReportSummaryResponse>(apiFetch, `/reports/summary?${query}`, { signal });
 }
 export async function downloadReportCsv(apiFetch: ApiFetch, params: ReportQueryParams & { locale?: string }) {
   const query = reportQuery(params);

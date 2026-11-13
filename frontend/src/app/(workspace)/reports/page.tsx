@@ -9,6 +9,7 @@ import { AppShell, ForbiddenState, Panel } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { downloadReportCsv, getReportFilterOptions, getReportSummary, type ReportFilterOptionsResponse, type ReportSummaryResponse } from "@/lib/api";
 import { Pagination } from "@/components/Pagination";
+import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { reportCountValue } from "@/lib/reportExport";
@@ -58,9 +59,7 @@ export default function ReportsPage() {
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
   const [draftFilters, setDraftFilters] = useState<ReportFilters>(initialFilters);
   const [appliedFilters, setAppliedFilters] = useState<ReportFilters>(initialFilters);
-  const [optionsBinding, setOptionsBinding] = useState<{ options: ReportFilterOptionsResponse; identity: typeof operationGuards } | null>(null);
-  const [appliedOptions, setAppliedOptions] = useState<typeof optionsBinding>(null);
-  const filterOptions = optionsBinding?.identity === operationGuards ? optionsBinding.options : null;
+  const [appliedOptions, setAppliedOptions] = useState<{ options: ReportFilterOptionsResponse; identity: typeof operationGuards } | null>(null);
   const [responses, setResponses] = useState<Partial<Record<ReportTopic, ReportSummaryResponse>>>({});
   const [topicLoading, setTopicLoading] = useState<Partial<Record<ReportTopic, boolean>>>({});
   const [topicErrors, setTopicErrors] = useState<Partial<Record<ReportTopic, string>>>({});
@@ -70,7 +69,7 @@ export default function ReportsPage() {
   const queryGeneration = useRef(0);
   const queryBatch = useRef(0);
   const topicGeneration = useRef<Partial<Record<ReportTopic, number>>>({});
-  const optionsGeneration = useRef(0);
+  const topicRequests = useRef<Partial<Record<ReportTopic, AbortController>>>({});
   const initialized = useRef(false);
   const messages = useRef({ t, format });
   useEffect(() => { messages.current = { t, format }; }, [t, format]);
@@ -91,21 +90,31 @@ export default function ReportsPage() {
     usageStatus: filters.usageStatus
   }), []);
 
-  const loadOptions = useCallback(async (scope: string) => {
-    const request = ++optionsGeneration.current;
-    setOptionsBinding(null);
-    setError(null);
-    try {
-      const options = await getReportFilterOptions(apiFetch, scope);
-      if (request === optionsGeneration.current) setOptionsBinding({ options, identity: operationGuards });
-    } catch (reason) {
-      if (request === optionsGeneration.current) setError(operationalErrorMessage(reason, messages.current.t, messages.current.format));
-    }
-  }, [apiFetch, operationGuards]);
+  // OPT424-035: filter options are a read resource for the selected scope and session identity.
+  const optionsScope = draftFilters.scope;
+  const readOptions = useCallback((signal: AbortSignal) => getReportFilterOptions(apiFetch, optionsScope, signal), [apiFetch, optionsScope]);
+  const optionsRead = useReadResource<ReportFilterOptionsResponse>(readOptions, operationGuards, authReady && canViewReports, {
+    onStart: () => setError(null),
+    onError: (reason) => setError(operationalErrorMessage(reason, messages.current.t, messages.current.format)),
+  });
+  const filterOptions = optionsRead.data;
+  const optionsBinding = filterOptions ? { options: filterOptions, identity: operationGuards } : null;
+
+  // Each topic request is aborted when a newer request for the topic or a new applied query starts.
+  const beginTopicRequest = useCallback((topic: ReportTopic) => {
+    topicRequests.current[topic]?.abort();
+    const controller = new AbortController();
+    topicRequests.current[topic] = controller;
+    return controller.signal;
+  }, []);
+  const abortTopicRequests = useCallback(() => {
+    for (const controller of Object.values(topicRequests.current)) controller?.abort();
+  }, []);
 
   const queryTab = useCallback(async (tab: ReportTab, filters: ReportFilters, replace: boolean) => {
     // A new applied condition invalidates every old page, including its finally.
     if (replace) {
+      abortTopicRequests();
       queryGeneration.current += 1;
       setResponses({});
       setTopicErrors({});
@@ -123,7 +132,7 @@ export default function ReportsPage() {
       setTopicErrors((value) => ({ ...value, [topic]: undefined }));
       setTopicLoading((value) => ({ ...value, [topic]: true }));
       try {
-        const result = await getReportSummary(apiFetch, reportParams(topic, filters));
+        const result = await getReportSummary(apiFetch, reportParams(topic, filters), beginTopicRequest(topic));
         if (current()) setResponses((value) => ({ ...value, [topic]: result }));
       } catch (reason) {
         if (!current()) return;
@@ -134,7 +143,7 @@ export default function ReportsPage() {
       }
     }));
     if (generation === queryGeneration.current && batch === queryBatch.current) setQueryLoading(false);
-  }, [apiFetch, reportParams]);
+  }, [abortTopicRequests, apiFetch, beginTopicRequest, reportParams]);
 
   useEffect(() => {
     if (!authReady || !canViewReports || initialized.current) return;
@@ -145,7 +154,6 @@ export default function ReportsPage() {
       setDraftFilters(initialFilters);
       setAppliedFilters(initialFilters);
       setActiveTab("overview");
-      void loadOptions(initialFilters.scope);
       void queryTab("overview", initialFilters, true);
     });
     return () => {
@@ -153,13 +161,12 @@ export default function ReportsPage() {
       initialized.current = false;
       queryGeneration.current += 1;
       queryBatch.current += 1;
-      optionsGeneration.current += 1;
+      abortTopicRequests();
     };
-  }, [authReady, canViewReports, initialFilters, loadOptions, operationGuards, queryTab]);
+  }, [abortTopicRequests, authReady, canViewReports, initialFilters, operationGuards, queryTab]);
 
-  async function changeScope(scope: string) {
+  function changeScope(scope: string) {
     setDraftFilters((current) => ({ ...current, scope, project: "all" }));
-    await loadOptions(scope);
   }
 
   async function applyQuery() {
@@ -187,7 +194,7 @@ export default function ReportsPage() {
     setTopicLoading((value) => ({ ...value, [topic]: true }));
     setTopicErrors((value) => ({ ...value, [topic]: undefined }));
     try {
-      const result = await getReportSummary(apiFetch, reportParams(topic, appliedFilters, page));
+      const result = await getReportSummary(apiFetch, reportParams(topic, appliedFilters, page), beginTopicRequest(topic));
       if (current()) setResponses((value) => ({ ...value, [topic]: result }));
     } catch (reason) {
       if (current()) setTopicErrors((value) => ({ ...value, [topic]: operationalErrorMessage(reason, t, format) }));
@@ -244,7 +251,7 @@ export default function ReportsPage() {
       <section className="report-filter-bar" aria-label={t("reportFilterLabel")}>
         <label><CalendarDays size={16} /><span>{t("reportDateFrom")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateFrom: event.target.value }))} type="date" value={draftFilters.dateFrom} /></label>
         <label><CalendarDays size={16} /><span>{t("reportDateTo")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateTo: event.target.value }))} type="date" value={draftFilters.dateTo} /></label>
-        <label><span>{t("reportScope")}</span><DropdownSelect onChange={(event) => { void changeScope(event.target.value); }} value={draftFilters.scope}>{(filterOptions?.scopes ?? [{ value: draftFilters.scope, project_count: 0 }]).map((option) => <option key={option.value} value={option.value}>{scopeLabel(option.value, t)} ({option.project_count})</option>)}</DropdownSelect></label>
+        <label><span>{t("reportScope")}</span><DropdownSelect onChange={(event) => { changeScope(event.target.value); }} value={draftFilters.scope}>{(filterOptions?.scopes ?? [{ value: draftFilters.scope, project_count: 0 }]).map((option) => <option key={option.value} value={option.value}>{scopeLabel(option.value, t)} ({option.project_count})</option>)}</DropdownSelect></label>
         <label><span>{t("reportProject")}</span><DropdownSelect onChange={(event) => setDraftFilters((current) => ({ ...current, project: event.target.value }))} value={draftFilters.project}><option value="all">{t("reportAllAuthorizedProjects")}</option>{(filterOptions?.projects ?? []).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</DropdownSelect></label>
         <button className="action-button report-query-button" disabled={queryLoading} onClick={() => { void applyQuery(); }} type="button"><Search size={16} />{queryLoading ? t("reportQueryLoading") : t("reportQuery")}</button>
       </section>
