@@ -27,7 +27,6 @@ from app.api.schemas import (
     ApprovalFilterOptionPage,
     DocumentSummary,
     DocumentVersionSummary,
-    KnowledgeTagResponse,
     OriginalFileViewerMetadata,
     PublishResult,
     PublishVersionPayload,
@@ -38,8 +37,9 @@ from app.domain.approval_access import approval_request_read_predicate, can_deci
 from app.domain.document_layout import project_document_layout as _document_layout
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
-from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, IdempotencyKey, Project, ProjectOwner, ReviewRecord, Tag, User
+from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, Document, DocumentVersion, IdempotencyKey, Project, ProjectOwner, ReviewRecord, User
 from app.db.session import get_db
+from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation
 from app.domain.markdown_artifacts import normalize_source_mappings, resolve_markdown_artifact
 from app.domain.review_publish import LiveNeo4jGraphSyncAdapter, LiveOpenSearchPublishedAdapter, approve_task, publish_version, reject_task, switch_active_version
@@ -1196,36 +1196,6 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
         download_url=original_url,
         markdown_source_mode=markdown_source_mode,
     )
-
-
-
-
-
-
-
-
-def _tag_details_query(session: Session, source_model, link_filter) -> list[KnowledgeTagResponse]:
-    rows = session.execute(select(source_model, Tag).join(Tag, source_model.tag_id == Tag.id).where(link_filter, source_model.source != "rule").order_by(Tag.name)).all()
-    return [
-        KnowledgeTagResponse(
-            tag_id=tag.id,
-            tag_text=tag.name,
-            source=link.source,
-            confidence_score=float(link.confidence_score) if link.confidence_score is not None else None,
-            metadata=link.metadata_ or {},
-            created_by=link.created_by,
-            created_at=link.created_at,
-        )
-        for link, tag in rows
-    ]
-
-
-def _chunk_tag_details(session: Session, chunk_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, ChunkTag, ChunkTag.chunk_id == chunk_id)
-
-
-def _document_tag_details(session: Session, version_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, DocumentVersionTag, DocumentVersionTag.document_version_id == version_id)
 
 
 def _chunk_evidence(session: Session, chunk: Chunk) -> ApprovalChunkEvidence:

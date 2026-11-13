@@ -18,10 +18,11 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, KnowledgeTagResponse, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
+from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
 from app.domain.ai_provider import generate_knowledge_tags
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
 from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_scope, queue_chunk_artifact_reconciliation
@@ -1444,12 +1445,6 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
     )
 
 
-
-
-
-
-
-
 def _scoped_document_version(session: Session, project_id: UUID, document_id: UUID, version_id: UUID) -> tuple[Document, DocumentVersion]:
     document = session.get(Document, document_id)
     version = session.get(DocumentVersion, version_id)
@@ -1664,8 +1659,6 @@ def _delete_orphan_tags(session: Session, candidate_tag_ids: list[UUID]) -> list
     return deleted_ids
 
 
-
-
 def _chunk_offsets(chunk: Chunk) -> tuple[int | None, int | None]:
     if chunk.start_offset is not None and chunk.end_offset is not None:
         return chunk.start_offset, chunk.end_offset
@@ -1839,30 +1832,6 @@ def _reindex_active_chunks(session: Session, project_id: UUID, document_id: UUID
     for index, chunk in enumerate(active_chunks, start=1):
         chunk.chunk_index = index
     session.flush()
-
-
-def _tag_details_query(session: Session, source_model, link_filter) -> list[KnowledgeTagResponse]:
-    rows = session.execute(select(source_model, Tag).join(Tag, source_model.tag_id == Tag.id).where(link_filter, source_model.source != "rule").order_by(Tag.name)).all()
-    return [
-        KnowledgeTagResponse(
-            tag_id=tag.id,
-            tag_text=tag.name,
-            source=link.source,
-            confidence_score=float(link.confidence_score) if link.confidence_score is not None else None,
-            metadata=link.metadata_ or {},
-            created_by=link.created_by,
-            created_at=link.created_at,
-        )
-        for link, tag in rows
-    ]
-
-
-def _chunk_tag_details(session: Session, chunk_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, ChunkTag, ChunkTag.chunk_id == chunk_id)
-
-
-def _document_tag_details(session: Session, version_id: UUID) -> list[KnowledgeTagResponse]:
-    return _tag_details_query(session, DocumentVersionTag, DocumentVersionTag.document_version_id == version_id)
 
 
 def _delete_rule_chunk_tags(session: Session, chunk_id: UUID) -> None:
@@ -2330,7 +2299,6 @@ def _step_summary(step: PipelineRunStep) -> PipelineStepSummary:
         remaining_output_tokens=max(0, tokens.document - used) if tokens and used is not None else None,
         chunking_issue=issue,
     )
-
 
 
 def _native_step_summary(step, configured, run, session) -> PipelineStepSummary:

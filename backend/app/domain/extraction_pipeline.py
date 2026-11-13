@@ -21,11 +21,21 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
-from app.domain.model_credentials import MODEL_CREDENTIAL_ERRORS, resolve_model_credential
 from app.db.models import AIModel, AIModelUsageEvent, Chunk, ChunkTag, Document, DocumentVersion, DocumentVersionTag, EmbeddingProfile, OutboxEvent, PipelineRun, PipelineRunStep, Project, Tag
 from app.domain.ai_provider import AIProviderResult, generate_knowledge_tags
 from app.domain.document_layout import build_document_layout, renderable_source_anchors
-from app.domain.embeddings import embed_chunks, load_canonical_embeddings, model_name, resolve_index_retrieval_text
+from app.domain.embeddings import (
+    _embedding_auth_headers,
+    _int,
+    _ssl_context,
+    _string,
+    _timeout,
+    embed_chunks,
+    load_canonical_embeddings,
+    model_name,
+    openai_embeddings_url as _openai_embeddings_url,
+    resolve_index_retrieval_text,
+)
 from app.domain.model_usage import record_model_usage
 from app.domain.markdown_structure import MarkdownStructureParser, mark_repeated_boilerplate, repeated_page_boilerplate
 from app.domain.uploads import require_extractable_source, is_http_data_strategy
@@ -117,14 +127,6 @@ class LiveOnlyOCRAdapter:
         if (version.canonical_extension or "").lower() in {".txt", ".md", ".csv", ".json"}:
             return OCRResult(text=parsed_text, adapter_source="reliable-text-layer", skipped=True, reason="reliable_text_layer", metadata=snapshot)
         raise AppError("ocr_adapter_not_configured", "OCR adapter endpoint is not configured", status_code=422)
-
-
-
-
-
-
-
-
 
 
 class StagingEvidenceError(AppError):
@@ -970,41 +972,6 @@ def _post_openai_embeddings(model: AIModel, settings: Settings, texts: list[str]
         raise AppError("embedding_adapter_unavailable", "Embedding adapter endpoint is unavailable", status_code=503) from exc
 
 
-def _embedding_auth_headers(model: AIModel, settings: Settings) -> dict[str, str]:
-    api_key = _resolve_model_api_key(model, settings)
-    if not api_key:
-        raise AppError("embedding_adapter_credential_required", "Embedding adapter API key is required", status_code=409)
-    return {"Authorization": f"Bearer {api_key}"}
-
-
-def _openai_embeddings_url(base_url: str) -> str:
-    normalized = base_url.rstrip("/")
-    lowered = normalized.lower()
-    if lowered.endswith("/embeddings"):
-        return normalized
-    if lowered.endswith("/responses"):
-        normalized = normalized[: -len("/responses")]
-    if lowered.endswith("/chat/completions"):
-        normalized = normalized[: -len("/chat/completions")]
-    return f"{normalized}/embeddings"
-
-
-def _openai_embedding_vectors(payload: dict[str, Any]) -> list[list[float]]:
-    data = payload.get("data")
-    if not isinstance(data, list):
-        raise AppError("embedding_response_invalid", "Embedding adapter response did not contain data", status_code=502)
-    ordered = sorted(data, key=lambda item: int(item.get("index", 0)) if isinstance(item, dict) else 0)
-    vectors: list[list[float]] = []
-    for item in ordered:
-        if not isinstance(item, dict) or not isinstance(item.get("embedding"), list):
-            raise AppError("embedding_response_invalid", "Embedding adapter response did not contain vectors", status_code=502)
-        try:
-            vectors.append([float(value) for value in item["embedding"]])
-        except (TypeError, ValueError) as exc:
-            raise AppError("embedding_response_invalid", "Embedding adapter vector contains invalid values", status_code=502) from exc
-    return vectors
-
-
 def _estimated_tokens(text: str) -> int:
     return max(1, len(text) // 4)
 
@@ -1036,37 +1003,6 @@ def _load_source_object(settings: Settings, version: DocumentVersion):
     return storage.get_object(bucket=version.storage_bucket, key=version.storage_key, max_bytes=settings.max_upload_size_mb * 1024 * 1024)
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-def _ssl_context(config: dict[str, object]) -> ssl.SSLContext | None:
-    if not _verify_tls(config):
-        return ssl._create_unverified_context()
-    try:
-        import certifi
-
-        return ssl.create_default_context(cafile=certifi.where())
-    except (ImportError, OSError):
-        return None
-
-
-def _resolve_model_api_key(model: AIModel, settings: Settings) -> str | None:
-    return resolve_model_credential(settings, model)
-
-
-
-
-
-
 def _model_name(model: AIModel) -> str:
     value = _string((model.config or {}).get("model_name") or model.name)
     if not value:
@@ -1074,37 +1010,11 @@ def _model_name(model: AIModel) -> str:
     return value
 
 
-
-
-def _string(value: object) -> str:
-    return value.strip() if isinstance(value, str) else ""
-
-
-def _int(value: object, *, default: int) -> int:
-    try:
-        return int(value) if value is not None else default
-    except (TypeError, ValueError):
-        return default
-
-
 def _float(value: object, *, default: float) -> float:
     try:
         return float(value) if value is not None else default
     except (TypeError, ValueError):
         return default
-
-
-def _timeout(config: dict[str, object], *, default: int = 60) -> int:
-    return max(1, min(_int(config.get("timeout_seconds") or config.get("timeout"), default=default), 300))
-
-
-def _verify_tls(config: dict[str, object]) -> bool:
-    value = config.get("verify_tls", True)
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, str):
-        return value.strip().lower() not in {"0", "false", "no", "off"}
-    return True
 
 
 def _parse_document_payload(settings: Settings, version: DocumentVersion) -> dict[str, object]:
@@ -1130,8 +1040,6 @@ def _parse_document_payload(settings: Settings, version: DocumentVersion) -> dic
         if text.strip():
             return {"text": text.strip(), "canonical_markdown": text, "adapter_source": "configured-source-text"}
     raise AppError("parser_adapter_not_configured", "Parser adapter is not configured", status_code=503)
-
-
 
 
 def _has_reliable_text_layer(version: DocumentVersion) -> bool:
@@ -1160,12 +1068,6 @@ def _document_layout_artifact(paragraphs) -> dict[str, object]:
         return build_document_layout(paragraphs)
     markdown = "\n\n".join(str(value) for value in paragraphs)
     return build_document_layout(MarkdownStructureParser().parse(markdown))
-
-
-
-
-
-
 
 
 def _canonical_markdown_source(artifacts: dict[str, PipelineArtifact]) -> tuple[str, str]:
