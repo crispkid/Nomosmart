@@ -92,17 +92,17 @@ export async function updateModel(apiFetch: ApiFetch, modelId: string, payload: 
 export async function deleteModel(apiFetch: ApiFetch, modelId: string, payload: { confirmation_name: string; config_version: number }) { return apiJson<AIModelResponse>(apiFetch, `/models/${modelId}`, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function setDefaultModel(apiFetch: ApiFetch, modelId: string) { return apiJson<AIModelResponse>(apiFetch, `/models/${modelId}/set-default`, { method: "POST" }); }
 export async function testModel(apiFetch: ApiFetch, modelId: string) { return apiJson<AIModelResponse>(apiFetch, `/models/${modelId}/test`, { method: "POST" }); }
-export async function listSystemPrompts(apiFetch: ApiFetch) { return apiJson<SystemPromptResponse[]>(apiFetch, "/system-prompts"); }
+export async function listSystemPrompts(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<SystemPromptResponse[]>(apiFetch, "/system-prompts", { signal }); }
 export async function createSystemPrompt(apiFetch: ApiFetch, payload: SystemPromptPayload) { return apiJson<SystemPromptResponse>(apiFetch, "/system-prompts", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function addSystemPromptVersion(apiFetch: ApiFetch, promptId: string, payload: SystemPromptVersionPayload) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/versions`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function activateSystemPrompt(apiFetch: ApiFetch, promptId: string, versionId?: string | null) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/activate`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ version_id: versionId ?? null }) }); }
 export async function deactivateSystemPrompt(apiFetch: ApiFetch, promptId: string) { return apiJson<SystemPromptResponse>(apiFetch, `/system-prompts/${promptId}/deactivate`, { method: "POST" }); }
-export async function getPermissions(apiFetch: ApiFetch, roleId: string) { return apiJson<PermissionMatrixResponse>(apiFetch, `/roles/${roleId}/permissions`); }
+export async function getPermissions(apiFetch: ApiFetch, roleId: string, signal?: AbortSignal) { return apiJson<PermissionMatrixResponse>(apiFetch, `/roles/${roleId}/permissions`, { signal }); }
 export async function replacePermissions(apiFetch: ApiFetch, roleId: string, payload: PermissionMatrixResponse) { return apiJson<PermissionMatrixResponse>(apiFetch, `/roles/${roleId}/permissions`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function getRoleUsers(apiFetch: ApiFetch, roleId: string) { return apiJson<RoleUsersResponse>(apiFetch, `/roles/${roleId}/users`); }
+export async function getRoleUsers(apiFetch: ApiFetch, roleId: string, signal?: AbortSignal) { return apiJson<RoleUsersResponse>(apiFetch, `/roles/${roleId}/users`, { signal }); }
 export async function replaceRoleUsers(apiFetch: ApiFetch, roleId: string, payload: { lock_version: number; user_ids: string[] }) { return apiJson<RoleUsersResponse>(apiFetch, `/roles/${roleId}/users`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function listExternalGroups(apiFetch: ApiFetch) { return apiJson<ExternalGroupResponse[]>(apiFetch, "/external-groups"); }
-export async function listExternalGroupMappings(apiFetch: ApiFetch) { return apiJson<ExternalGroupRoleMapping[]>(apiFetch, "/external-group-role-mappings"); }
+export async function listExternalGroups(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<ExternalGroupResponse[]>(apiFetch, "/external-groups", { signal }); }
+export async function listExternalGroupMappings(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<ExternalGroupRoleMapping[]>(apiFetch, "/external-group-role-mappings", { signal }); }
 export async function setRoleExternalGroupMapping(apiFetch: ApiFetch, roleId: string, payload: { external_group_id: string | null; lock_version: number }) { return apiJson<RoleExternalGroupMappingResponse>(apiFetch, `/roles/${roleId}/external-group-mapping`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemParameters(apiFetch: ApiFetch, signal?: AbortSignal) {
   const value = await apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { signal });
@@ -116,18 +116,18 @@ export async function getSystemParameters(apiFetch: ApiFetch, signal?: AbortSign
 }
 export async function getUploadConfig(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config", { signal }); }
 export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersUpdatePayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function getSystemStatus(apiFetch: ApiFetch) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status"); }
+export async function getSystemStatus(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status", { signal }); }
 
 
 
-export async function getBreakGlassStatus(apiFetch: ApiFetch) { return apiJson<BreakGlassStatusResponse>(apiFetch, "/system/break-glass/status"); }
+export async function getBreakGlassStatus(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<BreakGlassStatusResponse>(apiFetch, "/system/break-glass/status", { signal }); }
 
 
 
 
 
 export async function queueIdentitySync(apiFetch: ApiFetch) { return apiJson<IdentitySyncRunResponse>(apiFetch, "/identity-sync/run", { method: "POST" }); }
-export async function listIdentitySyncRuns(apiFetch: ApiFetch) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs")).items; }
+export async function listIdentitySyncRuns(apiFetch: ApiFetch, signal?: AbortSignal) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs", { signal })).items; }
 export async function getIdentitySyncRun(apiFetch: ApiFetch, runId: string) { return apiJson<IdentitySyncRunResponse>(apiFetch, `/identity-sync/runs/${runId}`); }
 
 export async function patchSystemParameters(apiFetch: ApiFetch, section: "general" | "documents", expected_revision: string, values: Partial<SystemParameterApiValues>) {

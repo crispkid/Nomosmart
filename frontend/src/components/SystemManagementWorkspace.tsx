@@ -13,6 +13,8 @@ import { createUserActions, createUserView, useUserState } from "./system/useUse
 import { createIdentityActions, createIdentityView, useIdentityState } from "./system/useIdentitySection";
 import { permissionStateFromResponse } from "./system/permissionHelpers";
 import { modelRow } from "./system/modelHelpers";
+import { ReadResource } from "@/lib/readResource";
+import { useReadResource } from "@/lib/useReadResource";
 import { createOutcomeQueries } from "./system/useOutcomeQueries";
 import { useModalFocus } from "./useModalFocus";
 import { SettingsNavigation } from "./system/SettingsNavigation";
@@ -160,12 +162,14 @@ export default function SystemManagementWorkspace({
   const groupRows = useRef<ExternalGroupResponse[]>([]);
   const roleNames = useRef(new Map<string, string>());
   const draftStates = useRef({ prompts: false });
+  const sectionResources = useRef(new Map<string, ReadResource<unknown>>());
   useLayoutEffect(() => {
+    const resources = sectionResources.current;
     const epoch = systemReadEpoch.current;
     systemReadScopeRef.current = systemReadScope; epoch.version++;
     systemReadStates.current = {}; mappingRows.current = []; groupRows.current = []; roleNames.current = new Map();
 
-    return () => { systemReadScopeRef.current = null; epoch.version++; };
+    return () => { systemReadScopeRef.current = null; epoch.version++; resources.forEach(resource => resource.invalidate()); };
   }, [systemReadScope]);
   useLayoutEffect(() => {
     draftStates.current = { prompts: promptEditorOpen || promptDraft !== promptBaseline };
@@ -176,7 +180,14 @@ export default function SystemManagementWorkspace({
     systemReadStates.current[section] = state;
     setSectionReads(current => ({ ...current, [section]: state }));
   }
-  async function readSystemSection<T>(section: string, read: () => Promise<T>, apply: (value: T) => void, outerCurrent: () => boolean = () => true) {
+  // OPT424-035: every section read (including per-role member reads) runs through one ReadResource per
+  // section key: a newer read of the section aborts the older request, and a scope change aborts all.
+  function sectionResource<T>(section: string) {
+    let resource = sectionResources.current.get(section) as ReadResource<T> | undefined;
+    if (!resource) { resource = new ReadResource<T>(); sectionResources.current.set(section, resource as ReadResource<unknown>); }
+    return resource;
+  }
+  async function readSystemSection<T>(section: string, read: (signal: AbortSignal) => Promise<T>, apply: (value: T) => void, outerCurrent: () => boolean = () => true) {
     const scope = systemReadScope;
     const epoch = systemReadEpoch.current.version;
     const generation = (systemReadVersions.current[section] ?? 0) + 1;
@@ -186,8 +197,9 @@ export default function SystemManagementWorkspace({
     const received = previous?.scope === scope && previous.received;
     setReadState(section, { scope, phase: "loading", received: Boolean(received) });
     try {
-      const value = await read();
-      if (!current()) return false;
+      const result = await sectionResource<T>(section).run(read);
+      if (!result.committed || !current()) return false;
+      const value = result.data;
       apply(value);
       setReadState(section, { scope, phase: "ready", received: true });
       return true;
@@ -201,7 +213,7 @@ export default function SystemManagementWorkspace({
   function cacheProjects(rows: ProjectResponse[]) { setLiveProjects(current => [...new Map([...current, ...rows].map(row => [row.id, row])).values()]); }
   async function reloadSystemSection(section: string, current: () => boolean = () => true): Promise<boolean> {
     switch (section) {
-      case "users": return readSystemSection(section, () => listUsersPage(apiFetch, { q: userQuery, authSource: userSourceFilter === "all" ? undefined : userSourceFilter, offset: (userPage - 1) * userPageSize, limit: userPageSize }), page => {
+      case "users": return readSystemSection(section, signal => listUsersPage(apiFetch, { signal, q: userQuery, authSource: userSourceFilter === "all" ? undefined : userSourceFilter, offset: (userPage - 1) * userPageSize, limit: userPageSize }), page => {
         cacheUsers(page.items); setUserTableIds(page.items.map(row => row.id)); setUserTotal(page.total);
         if (!userQuery.trim() && userSourceFilter === "all") setUserOverallTotal(page.total);
         const last = Math.max(1, Math.ceil(page.total / userPageSize)); if (userPage > last) setUserPage(last);
@@ -210,7 +222,7 @@ export default function SystemManagementWorkspace({
         const generation = (systemReadVersions.current.roles ?? 0) + 1;
         const valid = () => current() && systemReadVersions.current.roles === generation && systemReadScopeRef.current === systemReadScope;
         let loadedRows: RoleResponse[] | undefined;
-        const success = await readSystemSection(section, () => listRolesPage(apiFetch, { q: roleQuery, isActive: roleStatusFilter === "all" ? undefined : roleStatusFilter === "enabled", offset: (rolePage - 1) * rolePageSize, limit: rolePageSize }), page => {
+        const success = await readSystemSection(section, signal => listRolesPage(apiFetch, { signal, q: roleQuery, isActive: roleStatusFilter === "all" ? undefined : roleStatusFilter === "enabled", offset: (rolePage - 1) * rolePageSize, limit: rolePageSize }), page => {
           loadedRows = page.items; cacheRoles(page.items); setRoleTableIds(page.items.map(row => row.id)); setRoleTotal(page.total);
           if (!roleQuery.trim() && roleStatusFilter === "all") setRoleOverallTotal(page.total);
           setSelectedRole(selected => selected || page.items[0]?.id || "");
@@ -223,19 +235,19 @@ export default function SystemManagementWorkspace({
         }
         return success && valid();
       }
-      case "models": return readSystemSection(section, () => listModels(apiFetch), rows => { setLiveModels(rows.map(modelRow)); setPromptModelDraft(selected => selected || rows.find(model => ["Chat", "Judge"].includes(model.model_type))?.id || ""); }, current);
-      case "prompts": return readSystemSection(section, () => listSystemPrompts(apiFetch), rows => {
+      case "models": return readSystemSection(section, signal => listModels(apiFetch, undefined, signal), rows => { setLiveModels(rows.map(modelRow)); setPromptModelDraft(selected => selected || rows.find(model => ["Chat", "Judge"].includes(model.model_type))?.id || ""); }, current);
+      case "prompts": return readSystemSection(section, signal => listSystemPrompts(apiFetch, signal), rows => {
         setSystemPrompts(rows);
         if (!draftStates.current.prompts) { const next = rows.find(row => row.id === selectedPromptId) ?? rows[0]; setSelectedPromptId(next?.id ?? ""); setPromptDraft(next?.content ?? ""); setPromptBaseline(next?.content ?? ""); setPromptDraftSourceVersion(null); }
       }, current);
-      case "projects": return readSystemSection(section, () => listProjectsPage(apiFetch, { q: projectQuery, offset: projectOffset, limit: 20 }), page => { cacheProjects(page.items); setProjectTotal(page.total); setProjectCandidateIds(ids => projectOffset === 0 ? page.items.map(row => row.id) : [...new Set([...ids, ...page.items.map(row => row.id)])]); }, current);
-      case "memberCandidates": return readSystemSection(section, () => listUsersPage(apiFetch, { q: roleUserSearch, isActive: true, offset: memberOffset, limit: 20 }), page => { cacheUsers(page.items); setMemberTotal(page.total); setMemberCandidateIds(ids => memberOffset === 0 ? page.items.map(row => row.id) : [...new Set([...ids, ...page.items.map(row => row.id)])]); }, current);
-      case "clients": return readSystemSection(section, () => listIntegrationClientsPage(apiFetch, { name: clientQuery, cursor: clientCursors.at(-1), limit: clientPageSize }), page => { setIntegrationClients(page.items); setClientNextCursor(page.has_more ? page.next_cursor : null); }, current);
-      case "syncRuns": return readSystemSection(section, () => listIdentitySyncRuns(apiFetch), setSyncRuns, current);
-      case "groups": { const success = await readSystemSection(section, () => listExternalGroups(apiFetch), rows => { groupRows.current = rows; setExternalGroups(rows); }, current); if (success && current()) updateMappingProjection(); return success; }
-      case "mappings": { const success = await readSystemSection(section, () => listExternalGroupMappings(apiFetch), rows => { mappingRows.current = rows; }, current); if (success && current()) updateMappingProjection(); return success; }
-      case "breakGlass": return readSystemSection(section, () => getBreakGlassStatus(apiFetch), setBreakGlassStatus, current);
-      case "status": return readSystemSection(section, () => getSystemStatus(apiFetch), setSystemStatus, current);
+      case "projects": return readSystemSection(section, signal => listProjectsPage(apiFetch, { signal, q: projectQuery, offset: projectOffset, limit: 20 }), page => { cacheProjects(page.items); setProjectTotal(page.total); setProjectCandidateIds(ids => projectOffset === 0 ? page.items.map(row => row.id) : [...new Set([...ids, ...page.items.map(row => row.id)])]); }, current);
+      case "memberCandidates": return readSystemSection(section, signal => listUsersPage(apiFetch, { signal, q: roleUserSearch, isActive: true, offset: memberOffset, limit: 20 }), page => { cacheUsers(page.items); setMemberTotal(page.total); setMemberCandidateIds(ids => memberOffset === 0 ? page.items.map(row => row.id) : [...new Set([...ids, ...page.items.map(row => row.id)])]); }, current);
+      case "clients": return readSystemSection(section, signal => listIntegrationClientsPage(apiFetch, { signal, name: clientQuery, cursor: clientCursors.at(-1), limit: clientPageSize }), page => { setIntegrationClients(page.items); setClientNextCursor(page.has_more ? page.next_cursor : null); }, current);
+      case "syncRuns": return readSystemSection(section, signal => listIdentitySyncRuns(apiFetch, signal), setSyncRuns, current);
+      case "groups": { const success = await readSystemSection(section, signal => listExternalGroups(apiFetch, signal), rows => { groupRows.current = rows; setExternalGroups(rows); }, current); if (success && current()) updateMappingProjection(); return success; }
+      case "mappings": { const success = await readSystemSection(section, signal => listExternalGroupMappings(apiFetch, signal), rows => { mappingRows.current = rows; }, current); if (success && current()) updateMappingProjection(); return success; }
+      case "breakGlass": return readSystemSection(section, signal => getBreakGlassStatus(apiFetch, signal), setBreakGlassStatus, current);
+      case "status": return readSystemSection(section, signal => getSystemStatus(apiFetch, signal), setSystemStatus, current);
       default: return false;
     }
   }
@@ -325,17 +337,16 @@ export default function SystemManagementWorkspace({
     return () => window.clearTimeout(timer);
   }, [activeTab, liveReady, refreshModelTable]);
 
-  useEffect(() => {
-    if (activeSection !== "people" || !liveReady || !selectedRole || !selectedRoleReady || !permissionSaved) return;
-    let current = true;
-    getPermissions(apiFetch, selectedRole).then((response) => {
-      if (!current) return;
+  // The selected role's saved permission matrix is a read resource, re-read when the role or its lock version changes.
+  const readPermissions = useCallback((signal: AbortSignal) => getPermissions(apiFetch, selectedRole, signal), [apiFetch, selectedRole]);
+  useReadResource(readPermissions, `${selectedRole}:${selectedRoleLockVersion ?? ""}`, activeSection === "people" && liveReady && Boolean(selectedRole) && selectedRoleReady && permissionSaved, {
+    onData: (response) => {
       setPermissions((current) => ({ ...current, [selectedRole]: permissionStateFromResponse(response) }));
       setLiveRoles((current) => current.map((role) => role.id === selectedRole ? { ...role, lockVersion: response.lock_version } : role));
       setPermissionSaved(true);
-    }).catch((caught) => { if (current) setSystemError(caught as ApiError | Error); });
-    return () => { current = false; };
-  }, [activeSection, apiFetch, liveReady, selectedRole, selectedRoleReady, selectedRoleLockVersion, permissionSaved, setLiveRoles, setPermissionSaved, setPermissions]);
+    },
+    onError: (caught) => setSystemError(caught as ApiError | Error),
+  });
 
   useEffect(() => {
     if (!canViewSystemManagement || activeSection !== "people") return;
