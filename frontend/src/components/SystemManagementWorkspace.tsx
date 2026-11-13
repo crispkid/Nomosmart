@@ -15,6 +15,10 @@ import { permissionStateFromResponse } from "./system/permissionHelpers";
 import { modelRow } from "./system/modelHelpers";
 import { createOutcomeQueries } from "./system/useOutcomeQueries";
 import { useModalFocus } from "./useModalFocus";
+import { SettingsNavigation } from "./system/SettingsNavigation";
+import { ApiKeyOneTimeDialog } from "./system/ApiKeyOneTimeDialog";
+import { useSystemDialogFocus } from "./system/useSystemDialogFocus";
+import { useGuardedLinkNavigation } from "./system/useGuardedLinkNavigation";
 import { apiBaseUrl } from "@/lib/oidc";
 
 import { useOperationGuard } from "./useOperationGuard";
@@ -24,7 +28,7 @@ import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { formatCount } from "@/lib/numberFormat";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Activity, Bot, ChevronRight, KeyRound, Layers3, LockKeyhole, MessageSquareText, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
+import { Activity, ChevronRight, KeyRound, LockKeyhole, MessageSquareText, RefreshCw, Search, Settings2, Trash2, X } from "lucide-react";
 import { getBreakGlassStatus, getPermissions, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, type ApiError, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
 import { ForbiddenState } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
@@ -34,24 +38,6 @@ import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { formatPersonName } from "@/lib/personName";
 import { settingsSections, settingsPositionUrl, legacySettingsPositions, type SettingsPosition, type SystemTabId } from "@/lib/systemRouteState";
-
-const settingsPanelLabels: Record<string, TranslationKey> = {
-  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
-};
-const settingsPanelHelp: Record<string, TranslationKey> = {
-  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription"
-};
-
-const settingsSearchFields: Record<string, TranslationKey[]> = {
-  models: ["labelProvider", "labelModelName", "labelEndpoint", "systemChatEmbeddingPairs", "systemModelPricingTitle"],
-  prompts: ["systemPromptGlobalMissing", "systemVersion"],
-  login: ["labelIssuer", "protocolClientId", "protocolScopes", "protocolMappingClaim"],
-  directory: ["protocolUsersDN", "protocolGroupsDN", "protocolBindDN", "protocolUserFilter", "protocolGroupFilter", "protocolEndpoints"],
-  credentials: ["protocolBindPassword", "protocolClientSecret"],
-  sync: ["protocolDailyTime", "protocolTimezone", "protocolSyncScope"],
-  clients: ["systemApiKeyRequestsPerMinute", "systemApiKeyExpiresAt", "systemApiKeyProjectScopes", "systemApiKeyContactName"],
-  ocr: ["ocrRequestTokenSettingLabel", "ocrDocumentTokenSettingLabel", "ocrDocumentTokenSettingHelp"]
-};
 
 type TabId = SystemTabId;
 
@@ -73,7 +59,6 @@ export default function SystemManagementWorkspace({
   const [navOpen, setNavOpen] = useState(false);
   const [narrow, setNarrow] = useState(false);
   const [settingsSearch, setSettingsSearch] = useState("");
-  const searchText = (section: (typeof settingsSections)[number], panel: string) => [section.labelKey, settingsPanelLabels[panel], settingsPanelHelp[panel] || settingsPanelLabels[panel], ...(settingsSearchFields[panel] || [])].map(key => t(key)).join(" ").toLocaleLowerCase();
   const navigationRef = useModalFocus(narrow && navOpen && !settingsLeave, () => setNavOpen(false));
   const leaveDialogRef = useModalFocus(Boolean(settingsLeave), () => setSettingsLeave(null));
   useEffect(() => {
@@ -110,39 +95,7 @@ export default function SystemManagementWorkspace({
   const { cacheUsers } = userActions;
   const [dirtyModal, setDirtyModal] = useState<ModalState | null>(null);
   const [discardModal, setDiscardModal] = useState<ModalState | null>(null);
-  const systemDialogRef = useRef<HTMLElement>(null);
-  const systemDialogTriggerRef = useRef<HTMLElement | null>(null);
-  useEffect(() => {
-    const remember = (event: FocusEvent) => { if (event.target instanceof HTMLElement && !event.target.closest('[role="dialog"],[role="alertdialog"]')) systemDialogTriggerRef.current = event.target; };
-    document.addEventListener("focusin", remember);
-    return () => document.removeEventListener("focusin", remember);
-  }, []);
-  useEffect(() => {
-    if (!modal) return;
-    const dialog = systemDialogRef.current;
-    if (dialog && !dialog.contains(document.activeElement)) dialog.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
-    const trigger = systemDialogTriggerRef.current;
-    return () => { if (trigger?.isConnected) trigger.focus(); };
-  }, [modal]);
-  useEffect(() => {
-    if (!apiKeyOneTime || modal) return;
-    const trigger = systemDialogTriggerRef.current;
-    const fallback = navigationRef.current?.querySelector<HTMLButtonElement>("nav button[aria-current]");
-    apiKeyDialogRef.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
-    return () => {
-      if (trigger?.isConnected) trigger.focus();
-      else if (fallback?.isConnected) fallback.focus();
-    };
-  }, [apiKeyOneTime, modal, activeTab, navigationRef, apiKeyDialogRef]);
-  useEffect(() => {
-    if (!promptEditorOpen) return;
-    const trigger = systemDialogTriggerRef.current;
-    const fallback = navigationRef.current?.querySelector<HTMLButtonElement>("nav button[aria-current]");
-    return () => {
-      if (trigger?.isConnected) trigger.focus();
-      else if (fallback?.isConnected) fallback.focus();
-    };
-  }, [promptEditorOpen, navigationRef]);
+  const systemDialogRef = useSystemDialogFocus({ activeTab, apiKeyDialogRef, apiKeyOneTimeOpen: Boolean(apiKeyOneTime), modal, navigationRef, promptEditorOpen });
   const [modalError, setModalError] = useState("");
   const { guard: modalGuard, state: modalOperation, blocked: modalBlocked } = useOperationGuard(`${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}:${modalScope(modal)}:${can("Menu", "SystemManagement", "view")}`, operationGuards);
   const { guard: promptGuard, state: promptOperation, blocked: promptBlocked } = useOperationGuard(`${currentUser?.user_id}:prompts:${selectedPromptId}:${can("Menu", "SystemManagement", "edit")}`, operationGuards);
@@ -519,26 +472,7 @@ export default function SystemManagementWorkspace({
     }
   }
 
-  useEffect(() => {
-    const followLink = (event: MouseEvent) => {
-      if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-      const link = event.target instanceof Element ? event.target.closest<HTMLAnchorElement>("a[href]") : null;
-      if (!link || link.target || link.hasAttribute("download")) return;
-      const url = new URL(link.href, window.location.href);
-      if (url.origin !== window.location.origin || url.pathname === window.location.pathname && url.search === window.location.search) return;
-      if (permissionSaved && !parameterDirty && !identityDirty && !promptEditorOpen && activeSection !== "identity") return;
-      event.preventDefault(); event.stopPropagation();
-      const go = () => {
-        if (activeSection === "identity") void apiFetch(`${apiBaseUrl()}/system/identity-settings/lock`, { method: "POST" }).then(response => {
-          if (!response.ok) throw new Error("identity_settings_locked"); window.location.assign(url.href);
-        }).catch(error => setSystemError(error));
-        else window.location.assign(url.href);
-      };
-      if (promptEditorOpen) requestPromptLeave(go); else requestSettingsLeave(go);
-    };
-    document.addEventListener("click", followLink, true);
-    return () => document.removeEventListener("click", followLink, true);
-  });
+  useGuardedLinkNavigation({ apiFetch, identityActive: activeSection === "identity", promptEditorOpen, requestPromptLeave, requestSettingsLeave, setSystemError, unsaved: !permissionSaved || parameterDirty || identityDirty });
 
   function closeModal() {
     if (submitting) return;
@@ -589,34 +523,18 @@ export default function SystemManagementWorkspace({
       {settingsLeave ? <div className="system-modal-backdrop"><section ref={leaveDialogRef} role="alertdialog" aria-modal="true" aria-labelledby="settings-leave-title" className="system-reauth-modal"><h2 id="settings-leave-title">{t("contentEditUnsaved")}</h2><FeedbackConfirm title={t("settingsLeaveHelp")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => { setSettingsLeave(null); leaveFocus.current?.focus(); }} onConfirm={() => { const action = settingsLeave; setSettingsLeave(null); if (!permissionSaved) setPermissions(previous => { const next = { ...previous }; delete next[selectedRole]; return next; }); action(); }} /></section></div> : null}
       <button className="action-button secondary settings-menu-trigger" aria-expanded={navOpen} aria-controls="settings-navigation" onClick={() => setNavOpen(true)} type="button"><Settings2 size={18} />{t("settingsCategories")}</button>
       <div className="system-settings-layout">
-        {narrow && navOpen ? <div className="settings-nav-backdrop" onClick={() => setNavOpen(false)} /> : null}
-        <aside id="settings-navigation" ref={navigationRef} inert={Boolean(settingsLeave)} role={narrow && navOpen && !settingsLeave ? "dialog" : undefined} aria-modal={narrow && navOpen && !settingsLeave ? true : undefined} aria-label={t("settingsCategories")} className={`settings-navigation${navOpen ? " is-open" : ""}`}>
-          <div className="settings-nav-heading"><strong>{t("settingsCategories")}</strong><button className="icon-button settings-menu-close" aria-label={t("close")} onClick={() => setNavOpen(false)} type="button"><X size={18} /></button></div>
-          <label className="settings-search"><Search size={16} /><input type="search" value={settingsSearch} aria-label={t("settingsSearch")} placeholder={t("settingsSearch")} onChange={event => setSettingsSearch(event.target.value)} /></label>
-          <nav aria-label={t("settingsCategories")}>{settingsSections.map((section, index) => {
-            const Icon = [UsersRound, ShieldCheck, Bot, Layers3, KeyRound, SlidersHorizontal, Activity][index];
-            return <button type="button" key={section.id} aria-current={activeSection === section.id ? "page" : undefined} onClick={() => navigateSettings({ section: section.id, panel: section.panels[0] })}><Icon size={18} /><span>{t(section.labelKey)}</span><ChevronRight size={15} /></button>;
-          })}</nav>
-          {settingsSearch.trim() ? <div className="settings-search-results" aria-live="polite">{settingsSections.flatMap(section => section.panels.map(panel => ({ section, panel, label: t(settingsPanelLabels[panel]) }))).filter(item => searchText(item.section, item.panel).includes(settingsSearch.trim().toLocaleLowerCase())).map(item => <button type="button" key={item.panel} onClick={() => { navigateSettings({ section: item.section.id, panel: item.panel }); }}><span>{t(item.section.labelKey)}</span><strong>{item.label}</strong></button>)}{!settingsSections.some(section => section.panels.some(panel => searchText(section, panel).includes(settingsSearch.trim().toLocaleLowerCase()))) ? <p>{t("settingsSearchEmpty")}</p> : null}</div> : null}
-        </aside>
+        <SettingsNavigation activeSection={activeSection} leaveOpen={Boolean(settingsLeave)} narrow={narrow} navOpen={navOpen} navigateSettings={navigateSettings} navigationRef={navigationRef} setNavOpen={setNavOpen} setSettingsSearch={setSettingsSearch} settingsSearch={settingsSearch} t={t} />
         <div className="settings-main" inert={Boolean(settingsLeave) || narrow && navOpen}>
           <header className="settings-page-heading"><p>{t("labelSystemManagement")}</p><h1>{t(settingsSections.find(section => section.id === activeSection)!.labelKey)}</h1><span>{t("settingsWorkspaceHelp")}</span></header>
           {activeSection === "general" ? <button type="button" className="text-link" onClick={() => navigateSettings({ section: "documents", panel: "upload" })}>{t("settingsGoDocuments")}<ChevronRight size={16} /></button> : null}
           {(activeSection === "people" ? ["users", "roles", "groups", "mappings"] : activeSection === "ai" ? ["models", "prompts"] : activeSection === "apiKeys" ? ["clients", "projects"] : activeSection === "status" ? ["status"] : []).map(section => <div key={section}>{renderSectionReadNotice(section)}</div>)}
           {activeSection === "people" ? renderUserPanel() : null}
-
           {activeSection === "people" ? renderRolePanel() : null}
-
           {activeSection === "people" ? renderPermissionPanel() : null}
-
           {activeSection === "ai" ? renderModelPanel() : null}
-
           {activeSection === "ai" ? renderPromptPanel() : null}
-
           {activeSection === "apiKeys" ? renderApiKeyPanel() : null}
-
           {activeTab === "identity" ? renderIdentityPanel() : null}
-
           {activeTab === "status" ? <>
             <SectionHeader action={<button className="action-button secondary" onClick={() => { void refreshSystemStatus(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button>} description={t("systemStatusDescription")} title={t("systemStatus")} />
             <div className="fixture-banner"><Activity size={17} /><div><strong>{t("liveData")}</strong><span>{t("systemStatusLiveHelp")}</span></div></div>
@@ -625,7 +543,6 @@ export default function SystemManagementWorkspace({
           </> : null}
 
           {activeSection === "general" || activeSection === "documents" ? <SystemParameterSettings key={`${systemReadScope}:${activeSection}`} section={activeSection} onDirtyChange={setParameterDirty} /> : null}
-
         </div>
       </div>
       {activePromptEditor ? <div className="system-modal-backdrop" onKeyDown={handlePromptDialogKey} onMouseDown={(event) => { if (event.target === event.currentTarget) requestPromptLeave(() => setPromptEditorOpen(false)); }} role="presentation">
@@ -636,22 +553,7 @@ export default function SystemManagementWorkspace({
           <div inert={Boolean(promptLeave)}>{renderPromptEditor(activePromptEditor)}</div>
         </section>
       </div> : null}
-      {apiKeyOneTime && !modal ? <div className="system-modal-backdrop" onKeyDown={(event) => {
-        if (event.key === "Escape") { event.stopPropagation(); setApiKeyOneTime(null); }
-        if (event.key === "Tab") {
-          const dialog = apiKeyDialogRef.current;
-          const controls = Array.from(dialog?.querySelectorAll<HTMLElement>('button:not(:disabled),a[href],[tabindex="0"]') ?? []).filter(control => control.getClientRects().length);
-          const first = controls[0], last = controls.at(-1);
-          if (event.shiftKey && (document.activeElement === first || !dialog?.contains(document.activeElement))) { event.preventDefault(); last?.focus(); }
-          else if (!event.shiftKey && (document.activeElement === last || !dialog?.contains(document.activeElement))) { event.preventDefault(); first?.focus(); }
-        }
-      }} onMouseDown={(event) => { if (event.target === event.currentTarget) setApiKeyOneTime(null); }} role="presentation">
-        <section ref={apiKeyDialogRef} aria-labelledby="system-api-key-onetime-title" aria-modal="true" className="system-reauth-modal system-api-key-onetime-modal" role="dialog">
-          <header><span><KeyRound size={20} /></span><div><small>{t("systemApiKeys")}</small><h2 id="system-api-key-onetime-title">{format("systemApiKeyOneTimeTitle", { name: apiKeyOneTime.name })}</h2></div><button aria-label={t("close")} className="modal-close-button" onClick={() => setApiKeyOneTime(null)} type="button"><X size={18} /></button></header>
-          <div className="system-api-key-once" role="status"><KeyRound size={18} /><div><code>{apiKeyOneTime.key}</code><small>{t("systemApiKeyOneTimeHelp")}</small></div></div>
-          <footer><button className="action-button secondary" onClick={() => { void navigator.clipboard.writeText(apiKeyOneTime.key); }} type="button">{t("systemApiKeyCopy")}</button><button className="action-button" onClick={() => setApiKeyOneTime(null)} type="button">{t("close")}</button></footer>
-        </section>
-      </div> : null}
+      {apiKeyOneTime && !modal ? <ApiKeyOneTimeDialog apiKey={apiKeyOneTime} dialogRef={apiKeyDialogRef} format={format} onClose={() => setApiKeyOneTime(null)} t={t} /> : null}
       {modal ? <div className="system-modal-backdrop" onKeyDown={(event) => {
         if (event.key === "Escape" && !submitting) { event.stopPropagation(); if (discardModal === modal) setDiscardModal(null); else closeModal(); }
         if (event.key === "Tab") {
