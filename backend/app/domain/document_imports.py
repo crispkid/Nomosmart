@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import UUID, uuid4
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
@@ -542,8 +542,36 @@ def _title_from_filename(filename: str) -> str:
     return title[:MAX_TITLE_LENGTH]
 
 
-def latest_versions(session: Session, project_id: UUID) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
-    documents = list(session.scalars(select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False)).order_by(desc(Document.updated_at), Document.title)))
+@dataclass(frozen=True)
+class DocumentListPosition:
+    """Keyset position after a document in list order (updated_at newest first, title, id)."""
+
+    updated_at: datetime
+    title: str
+    document_id: UUID
+
+
+def latest_versions(
+    session: Session,
+    project_id: UUID,
+    *,
+    after: DocumentListPosition | None = None,
+    limit: int | None = None,
+) -> list[tuple[Document, DocumentVersion | None, PipelineRun | None]]:
+    statement = select(Document).where(Document.project_id == project_id, Document.is_deleted.is_(False))
+    if after is not None:
+        # OPT424-016: keyset over (updated_at DESC, title ASC, id ASC) for the paged list.
+        statement = statement.where(or_(
+            Document.updated_at < after.updated_at,
+            and_(Document.updated_at == after.updated_at, or_(
+                Document.title > after.title,
+                and_(Document.title == after.title, Document.id > after.document_id),
+            )),
+        ))
+    statement = statement.order_by(desc(Document.updated_at), Document.title, Document.id)
+    if limit is not None:
+        statement = statement.limit(limit)
+    documents = list(session.scalars(statement))
     if not documents:
         return []
     # One DISTINCT ON query per relation instead of two queries per document.

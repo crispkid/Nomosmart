@@ -10,7 +10,7 @@ from time import perf_counter
 from urllib.parse import quote
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, Request
+from fastapi import APIRouter, Depends, Header, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
@@ -18,7 +18,8 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
@@ -32,7 +33,7 @@ from app.api.schemas import ContentUpdatePayload, ContentRetryPayload, ContentCa
 from app.db.models import DocumentContentUpdate
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
-from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, latest_versions, start_document_extraction
+from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, DocumentListPosition, latest_versions, start_document_extraction
 from app.domain.document_layout import project_document_layout as _document_layout
 from app.domain.document_summary import document_summary_metadata
 from app.domain.document_execution import execution_projection
@@ -319,8 +320,41 @@ def _process_upload_item(
 @router.get("", response_model=list[DocumentSummary])
 def list_project_documents(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> list[DocumentSummary]:
     project = _get_scoped_project(session, project_id, context)
+    return _document_summaries(session, project, context, latest_versions(session, project.id))
+
+
+@router.get("/page", response_model=DocumentSummaryPage)
+def list_project_documents_page(
+    project_id: UUID,
+    request: Request,
+    cursor: str | None = Query(default=None, max_length=1024),
+    limit: int = Query(default=50, ge=1, le=200),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> DocumentSummaryPage:
+    """Cursor-paged document list in the same order as the full list (OPT424-016, D424-10)."""
+    project = _get_scoped_project(session, project_id, context)
+    settings = request.app.state.settings
+    after = None
+    if cursor:
+        payload = decode_cursor(settings, namespace="documents", value=cursor)
+        try:
+            if payload.get("project") != str(project.id):
+                raise ValueError("cursor_project_mismatch")
+            after = DocumentListPosition(datetime.fromisoformat(str(payload["updated_at"])), str(payload["title"]), UUID(str(payload["id"])))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
+    rows = latest_versions(session, project.id, after=after, limit=limit + 1)
+    next_cursor = None
+    if len(rows) > limit:
+        rows = rows[:limit]
+        last = rows[-1][0]
+        next_cursor = encode_cursor(settings, namespace="documents", payload={"project": str(project.id), "updated_at": last.updated_at.isoformat(), "title": last.title, "id": str(last.id)})
+    return DocumentSummaryPage(items=_document_summaries(session, project, context, rows), next_cursor=next_cursor)
+
+
+def _document_summaries(session: Session, project, context: IdentityContext, rows) -> list[DocumentSummary]:
     capabilities = project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))
-    rows = latest_versions(session, project.id)
     document_ids = [document.id for document, _version, _pipeline in rows]
     metadata = document_summary_metadata(session, project.id, document_ids)
     prefetched = _prefetch_document_list(session, project.id, document_ids)
