@@ -19,13 +19,14 @@ import { useSourceViewPosition } from "@/lib/sourceViewPosition";
 import { formatCount } from "@/lib/numberFormat";
 import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
-import { isPollingAuthorizationFailure, startFileProcessingPolling } from "@/lib/fileProcessingPolling";
+import { fileProcessingPollDelay, isPollingAuthorizationFailure } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, completionGateBlocksKnowledgeDetail, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
 import { deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { useI18n } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 import { markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior } from "@/lib/markdownSourceMapping";
 import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi";
 
@@ -42,7 +43,6 @@ export default function KnowledgePage() {
   const { locale, format } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [liveDetail, setLiveDetail] = useState<KnowledgeDetailResponse | null>(null);
-  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
   const [loadedRoute, setLoadedRoute] = useState<string | null>(null);
   const userId = currentUser?.user_id ?? "";
@@ -102,87 +102,96 @@ export default function KnowledgePage() {
 
   const fetchDetail = useCallback((signal?: AbortSignal) => getKnowledgeDetail(apiFetch, params.id, params.knowledgeId, signal), [apiFetch, params.id, params.knowledgeId]);
 
-  useEffect(() => {
-    if (!canObserve || deniedReadRoute === routeKey) return;
+  // OPT424-035: the detail is one read resource for the route and user: the first read, then reads
+  // scheduled while processing or a readiness check is active. Reads share the single-flight lease with
+  // the manual readiness recheck; results feed the page detail that tag, chunk and retry actions update.
+  const loadedRouteRef = useRef<string | null>(null);
+  const readDetail = useCallback(async (signal: AbortSignal) => {
+    const polling = loadedRouteRef.current === routeKey;
+    const before = currentReadState.current.detail;
+    const key = knowledgeReadinessKey(userId, params.id, params.knowledgeId, before);
+    if (polling && key && needsKnowledgeReadinessCheck(before) && !readinessBudget.take(key)) {
+      setStoppedReadiness(key);
+      throw new DOMException("Readiness budget exhausted", "AbortError");
+    }
     const lease = detailReads.begin(routeKey);
-    if (!lease) return;
-    fetchDetail(lease.signal).then((detail) => {
-      if (lease.active()) {
+    if (!lease) throw new DOMException("Read already in progress", "AbortError");
+    signal.addEventListener("abort", lease.cancel, { once: true });
+    try {
+      const detail = await fetchDetail(lease.signal);
+      const latest = currentReadState.current;
+      if (!lease.active() || !latest.canObserve || latest.routeKey !== routeKey) throw new DOMException("Read superseded", "AbortError");
+      if (!polling) {
         if (detail.document.id !== params.knowledgeId || detail.document.project_id !== params.id) throw new Error("knowledge_read_scope_mismatch");
-        setLiveDetail(detail);
-        setLoadedRoute(routeKey);
-        setSelectedChunkIds((current) => current.length ? current : detail.chunks[0]?.id ? [detail.chunks[0].id] : []);
-        setLoadError(false);
-      }
-    }).catch((error) => {
-      if (lease.active()) {
-        if (isPollingAuthorizationFailure(error)) setDeniedReadRoute(routeKey);
-        setLoadError(true);
-      }
-    }).finally(() => {
-      if (lease.active()) setLoading(false);
-      lease.finish();
-    });
-    return lease.cancel;
-  }, [fetchDetail, routeKey, canObserve, deniedReadRoute, detailReads, params.id, params.knowledgeId]);
+      } else if (!acceptsKnowledgeRead(userId, params.id, params.knowledgeId, before, latest.detail, detail)) throw new Error("knowledge_read_scope_mismatch");
+      return detail;
+    } finally { lease.finish(); }
+  }, [detailReads, fetchDetail, params.id, params.knowledgeId, readinessBudget, routeKey, userId]);
+  const [pollFailures, setPollFailures] = useState(0);
+  const detailRead = useReadResource<KnowledgeDetailResponse>(readDetail, routeKey, canObserve && deniedReadRoute !== routeKey, {
+    onData: (detail) => {
+      loadedRouteRef.current = routeKey;
+      setLiveDetail(detail);
+      setLoadedRoute(routeKey);
+      setSelectedChunkIds((current) => current.length ? current : detail.chunks[0]?.id ? [detail.chunks[0].id] : []);
+      setLoadError(false);
+    },
+    onError: (error) => {
+      if (error instanceof DOMException && error.name === "AbortError") return;
+      handleDetailReadError(error);
+      setPollFailures((count) => count + 1);
+    },
+  });
+  const loading = detailRead.status === "loading" && loadedRoute !== routeKey;
+  const reloadDetail = detailRead.reload;
+  function handleDetailReadError(error: unknown) {
+    if (isPollingAuthorizationFailure(error)) setDeniedReadRoute(routeKey);
+    if (readinessKey && error instanceof Error && ["knowledge_read_scope_mismatch", "file_processing_poll_contract_invalid"].includes(error.message)) {
+      readinessBudget.stop(readinessKey); setStoppedReadiness(readinessKey);
+    }
+    if (readinessKey && readinessBudget.exhausted(readinessKey)) setStoppedReadiness(readinessKey);
+    setLoadError(true);
+  }
 
   useEffect(() => () => { detailReads.cancel(); }, [detailReads, routeKey, canObserve]);
 
+  // Schedules the next detail read while processing or a readiness check is active, re-evaluated when the
+  // detail changes (from a read or an action), after a failed read, and when page visibility changes.
+  const pollingActive = Boolean(canObserve && deniedReadRoute !== routeKey && loadedRoute === routeKey && (
+    shouldPollKnowledgeCompletionGate(liveDetail) || liveDetail?.pipeline?.execution?.phase === "stopping" ||
+    (isPipelineActive(liveDetail?.pipeline) && !liveDetail?.document_layout?.pages.length) ||
+    liveDetail?.chunk_artifact_status === "queued" || liveDetail?.chunk_artifact_status === "running" ||
+    Boolean(readinessKey && needsKnowledgeReadinessCheck(liveDetail) && !readinessBudget.exhausted(readinessKey))));
+  const execution = liveDetail?.pipeline?.execution;
+  const handleDetailReadErrorRef = useRef(handleDetailReadError);
+  useEffect(() => { handleDetailReadErrorRef.current = handleDetailReadError; });
   useEffect(() => {
-    if (!canObserve || deniedReadRoute === routeKey || loadedRoute !== routeKey) return;
-    let current = liveDetail;
-    let lease: ReturnType<KnowledgeDetailReads["begin"]> = null;
-    const active = () => shouldPollKnowledgeCompletionGate(current) ||
-      current?.pipeline?.execution?.phase === "stopping" ||
-      (isPipelineActive(current?.pipeline) && !current?.document_layout?.pages.length) ||
-      current?.chunk_artifact_status === "queued" || current?.chunk_artifact_status === "running" ||
-      Boolean(readinessKey && needsKnowledgeReadinessCheck(current) && !readinessBudget.exhausted(readinessKey));
-    if (readinessKey && needsKnowledgeReadinessCheck(current)) readinessBudget.observe(readinessKey);
-    if (!active()) return;
-    // Deadline is independent of background cadence and is not reset by renders.
-    const deadline = readinessKey && needsKnowledgeReadinessCheck(current) ? setTimeout(() => {
+    if (!pollingActive) return;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const schedule = () => {
+      clearTimeout(timer);
+      let delay: number;
+      try { delay = fileProcessingPollDelay(execution, document.visibilityState === "hidden"); }
+      catch (error) { handleDetailReadErrorRef.current(error); return; }
+      timer = setTimeout(() => { void reloadDetail(); }, delay);
+    };
+    document.addEventListener("visibilitychange", schedule);
+    schedule();
+    return () => { clearTimeout(timer); document.removeEventListener("visibilitychange", schedule); };
+  }, [pollingActive, execution, liveDetail, pollFailures, reloadDetail]);
+
+  // The readiness window has its own deadline, independent of the read cadence and of renders.
+  const readinessActive = Boolean(canObserve && loadedRoute === routeKey && readinessKey && needsKnowledgeReadinessCheck(liveDetail));
+  useEffect(() => {
+    if (!readinessActive || !readinessKey) return;
+    readinessBudget.observe(readinessKey);
+    const deadline = setTimeout(() => {
       readinessBudget.stop(readinessKey);
       setStoppedReadiness(readinessKey);
-      lease?.cancel();
-    }, readinessBudget.remainingMs(readinessKey)) : undefined;
-    const stop = startFileProcessingPolling({
-      load: async () => {
-        if (readinessKey && needsKnowledgeReadinessCheck(current) && !readinessBudget.take(readinessKey)) {
-          setStoppedReadiness(readinessKey);
-          throw new DOMException("Readiness budget exhausted", "AbortError");
-        }
-        lease = detailReads.begin(routeKey);
-        if (!lease) throw new DOMException("Read already in progress", "AbortError");
-        const request = lease;
-        const before = current;
-        try {
-          const detail = await fetchDetail(request.signal);
-          const latest = currentReadState.current;
-          if (!request.active() || !latest.canObserve || latest.routeKey !== routeKey) throw new DOMException("Read superseded", "AbortError");
-          if (!acceptsKnowledgeRead(userId, params.id, params.knowledgeId, before, latest.detail, detail)) throw new Error("knowledge_read_scope_mismatch");
-          return detail;
-        } finally { request.finish(); }
-      },
-      execution: () => current?.pipeline?.execution,
-      active,
-      value: (detail) => {
-        current = detail;
-        setLiveDetail(detail);
-        setSelectedChunkIds((current) => current.length ? current : detail.chunks[0]?.id ? [detail.chunks[0].id] : []);
-        setLoadError(false);
-      },
-      error: (error) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
-        if (isPollingAuthorizationFailure(error)) setDeniedReadRoute(routeKey);
-        if (readinessKey && error instanceof Error && ["knowledge_read_scope_mismatch", "file_processing_poll_contract_invalid"].includes(error.message)) {
-          readinessBudget.stop(readinessKey); setStoppedReadiness(readinessKey);
-        }
-        if (readinessKey && readinessBudget.exhausted(readinessKey)) setStoppedReadiness(readinessKey);
-        setLoadError(true);
-      }
-    });
-    return () => { stop(); clearTimeout(deadline); lease?.cancel(); };
-  }, [liveDetail, fetchDetail, loadedRoute, routeKey, canObserve, deniedReadRoute, detailReads, readinessBudget, readinessKey, stoppedReadiness, userId, params.id, params.knowledgeId]);
+      detailReads.cancel();
+    }, readinessBudget.remainingMs(readinessKey));
+    return () => clearTimeout(deadline);
+  }, [detailReads, readinessActive, readinessBudget, readinessKey]);
 
   async function recheckReadinessOnce() {
     if (!canObserve || deniedReadRoute === routeKey || !readinessPending || !readinessStopped || !readinessKey) return;
