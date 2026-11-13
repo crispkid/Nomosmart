@@ -5,115 +5,24 @@ import { resourcePageTitle } from "@/lib/browserTitle";
 import { scrollChatToEnd } from "@/lib/scrollChatToEnd";
 
 import { UiValidationError } from "@/lib/transportError";
-import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, Bot, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, Wrench, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, X } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
 import { useModalFocus } from "@/components/useModalFocus";
 import { useAuth } from "@/components/AuthProvider";
-import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
-import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
 import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked, mergeChatHistory } from "@/lib/chatConversationAccess";
 import { t as translate } from "@/lib/i18n";
 import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
-import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
+import { useI18n } from "@/lib/i18nClient";
+import { operationalErrorMessage } from "@/lib/operationalMessages";
 
-type Judgment = "correct" | "needs_revision";
-type AnswerEvaluation = { judgment: Judgment; suggestion: string };
-type Translate = (key: TranslationKey) => string;
-type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
-type ConversationEntry = {
-  id: string;
-  recordId?: string;
-  validationStatus?: string;
-  question: string;
-  answer?: string;
-  askedAt: string;
-  answeredAt?: string | null;
-  citations: ProjectChatCitation[];
-  loading?: boolean;
-  error?: string;
-  status?: "answered" | "no_answer";
-};
-
-function validationEntries(run: ValidationRunResponse, t: Translate, format: Format): ConversationEntry[] {
-  const running = ["queued", "running"].includes(run.status);
-  return run.items.map((item, index) => ({
-    id: item.id,
-    recordId: item.chat_record_id ?? undefined,
-    validationStatus: item.status,
-    question: item.question,
-    answer: item.answer ?? undefined,
-    askedAt: new Date(Date.parse(run.created_at) + index).toISOString(),
-    answeredAt: item.answer ? run.completed_at : null,
-    citations: item.citations,
-    loading: running && ["pending", "running"].includes(item.status),
-    error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "documentChatQueryFailed") : undefined,
-    status: item.answer ? "answered" : undefined
-  }));
-}
-
-function parseCsv(text: string) {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let inQuotes = false;
-  for (let index = 0; index < text.length; index += 1) {
-    const character = text[index];
-    if (inQuotes) {
-      if (character === '"' && text[index + 1] === '"') {
-        cell += '"';
-        index += 1;
-      } else if (character === '"') inQuotes = false;
-      else cell += character;
-      continue;
-    }
-    if (character === '"') inQuotes = true;
-    else if (character === ",") {
-      row.push(cell);
-      cell = "";
-    } else if (character === "\n" || character === "\r") {
-      if (character === "\r" && text[index + 1] === "\n") index += 1;
-      row.push(cell);
-      if (row.some((value) => value.trim())) rows.push(row);
-      row = [];
-      cell = "";
-    } else cell += character;
-  }
-  if (inQuotes) throw new UiValidationError("projectChatCsvUnclosedQuote");
-  row.push(cell);
-  if (row.some((value) => value.trim())) rows.push(row);
-  return rows;
-}
-
-function downloadTextFile(content: string, filename: string) {
-  const url = URL.createObjectURL(new Blob([content], { type: "text/csv;charset=utf-8" }));
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  anchor.style.display = "none";
-  document.body.appendChild(anchor);
-  anchor.click();
-  anchor.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 0);
-}
-
-function retrievalErrorMessage(error: unknown, t: Translate, format: Format) {
-  const code = typeof error === "object" && error !== null && "code" in error ? String((error as { code?: unknown }).code) : "";
-  if (code === "embedding_provider_required" || code === "embedding_model_required" || code === "embedding_adapter_credential_required" || code === "embedding_adapter_secret_ref_unresolved") return t("projectChatEmbeddingProviderRequired");
-  if (code === "query_embedding_failed" || code === "embedding_adapter_unavailable" || code === "embedding_adapter_provider_rejected" || code === "embedding_response_invalid") return t("projectChatQueryEmbeddingFailed");
-  if (code === "vector_index_not_ready" || code === "embedding_profile_required") return t("projectChatVectorIndexNotReady");
-  if (code === "embedding_profile_mismatch") return t("projectChatEmbeddingProfileMismatch");
-  if (code === "hybrid_retrieval_failed" || code === "opensearch_retrieval_unavailable") return t("projectChatOpenSearchUnavailable");
-  if (code === "retrieval_scope_inconsistent") return t("projectChatRetrievalScopeInconsistent");
-  if (code === "provider_response_contract_invalid") return t("chatCitationProviderMismatch");
-  return operationalErrorMessage(error, t, format, "documentChatQueryFailed");
-}
+import { type Judgment, type AnswerEvaluation, type Translate, type ConversationEntry, validationEntries, parseCsv, downloadTextFile, retrievalErrorMessage } from "@/components/documentChat/documentChatModel";
+import { AssistantMessage } from "@/components/documentChat/AssistantMessage";
 
 export default function ChatTestPage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
@@ -544,61 +453,5 @@ export default function ChatTestPage() {
         </div>
       ) : null}
     </AppShell>
-  );
-}
-
-function AssistantMessage({ entry, canEvaluate, evaluation, extractionHref, onEvaluate }: { entry: ConversationEntry; canEvaluate: boolean; evaluation?: AnswerEvaluation; extractionHref: string; onEvaluate: (entry: ConversationEntry, value: Judgment, suggestion?: string) => Promise<void> }) {
-  const { locale, format, localize } = useI18n();
-  const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
-  const [revisionOpen, setRevisionOpen] = useState(false);
-  const revisionDialogRef = useModalFocus(revisionOpen, () => setRevisionOpen(false));
-  const [revisionSuggestion, setRevisionSuggestion] = useState("");
-
-  function openRevisionModal() {
-    if (!canEvaluate) return;
-    setRevisionSuggestion(evaluation?.suggestion ?? "");
-    setRevisionOpen(true);
-  }
-
-  async function submitRevision(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const suggestion = revisionSuggestion.trim();
-    if (!suggestion || !canEvaluate) return;
-    await onEvaluate(entry, "needs_revision", suggestion);
-    setRevisionOpen(false);
-  }
-
-  return (
-    <article aria-busy={entry.loading || undefined} className="chat-message assistant-message">
-      <div className="message-avatar"><Bot size={18} /></div>
-      <div className="assistant-message-body">
-        <small>{t("brandNomoSmartLiveBackend")} {entry.answeredAt ? `· ${formatDateTime(entry.answeredAt, locale)}` : ""}</small>
-        {entry.loading ? <ChatWaitingIndicator label={t("documentChatQueryingStaging")} /> : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
-          <ChatResponseEvidence
-            answer={entry.answer}
-            answerFallback={t("documentChatNoVerifiableAnswer")}
-            citations={entry.citations}
-            citationsLabel={t("citations")}
-            detailHref={extractionHref}
-            idPrefix={`document-chat-${entry.id}`}
-            noCitationsLabel={t("documentChatNoBackendCitation")}
-          />
-        )}
-        <div className="answer-judgment" aria-label={t("documentChatAnswerJudgmentAria")}>
-          <button className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId || !canEvaluate} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><CheckCircle2 size={16} /> {t("answerCorrect")}</button>
-          <button className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId || !canEvaluate} onClick={openRevisionModal} type="button"><Wrench size={16} /> {t("answerNeedsRevision")}</button>
-          {evaluation ? <span>{evaluation.judgment === "correct" ? t("documentChatRecordedCorrect") : format("documentChatRecordedSuggestion", { suggestion: evaluation.suggestion })}</span> : null}
-        </div>
-      </div>
-
-      {revisionOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={revisionDialogRef} aria-labelledby={`${entry.id}-revision-title`} aria-modal="true" className="modal-panel chat-small-modal" role="dialog">
-            <div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2 id={`${entry.id}-revision-title`}>{t("revisionSuggestion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setRevisionOpen(false)} type="button"><X size={18} /></button></div>
-            <form className="revision-suggestion-form" onSubmit={submitRevision}><label htmlFor={`${entry.id}-revision`}>{t("revisionSuggestion")}</label><textarea autoFocus id={`${entry.id}-revision`} onChange={(event) => setRevisionSuggestion(event.target.value)} placeholder={t("revisionPlaceholder")} required rows={5} value={revisionSuggestion} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionOpen(false)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionSuggestion.trim()} type="submit">{t("saveSuggestion")}</button></div></form>
-          </section>
-        </div>
-      ) : null}
-    </article>
   );
 }
