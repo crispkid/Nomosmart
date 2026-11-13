@@ -7,7 +7,7 @@ import { SettingsCard } from "./SettingsCard";
 import { EmptyInlineState, SectionHeader, StateBadge, metricPairs, operationStatusLabel, statusTone } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { modalScope, type ModalState, type ModelRow, type PromptRow, type SystemReadState } from "./system/modalState";
-import { createApiKeyActions, useApiKeyState } from "./system/useApiKeySection";
+import { createApiKeyActions, createApiKeyView, useApiKeyState } from "./system/useApiKeySection";
 import { createModelActions, useModelState } from "./system/useModelSection";
 import { createPromptActions, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, useRoleState } from "./system/useRoleSection";
@@ -282,7 +282,8 @@ export default function SystemManagementWorkspace({
   const systemReadScopeRef = useRef<string | null>(systemReadScope);
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
-  const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = createApiKeyActions(apiKeyState, { apiFetch, t, format, modal, setModal, setModalError, setModalQueryMessage, systemReadScope, readScopeNow: () => systemReadScopeRef.current, cacheProjects, readSystemSection, reloadSystemSection, runModalMutation, sectionReady });
+  const apiKeyActions = createApiKeyActions(apiKeyState, { apiFetch, t, format, modal, setModal, setModalError, setModalQueryMessage, systemReadScope, readScopeNow: () => systemReadScopeRef.current, cacheProjects, readSystemSection, reloadSystemSection, runModalMutation, sectionReady });
+  const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = apiKeyActions;
   const systemReadEpoch = useRef({ version: 0 });
   const systemReadVersions = useRef<Record<string, number>>({});
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
@@ -692,12 +693,6 @@ export default function SystemManagementWorkspace({
     }
   }
 
-  function apiKeyStatusTone(client: IntegrationClientResponse): "green" | "gold" | "gray" | "coral" {
-    if (client.status === "revoked") return "coral";
-    if (client.effective_status === "expired" || client.effective_status === "scheduled") return "gold";
-    return client.status === "active" ? "green" : "gray";
-  }
-
   useEffect(() => {
     const followLink = (event: MouseEvent) => {
       if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
@@ -775,6 +770,9 @@ export default function SystemManagementWorkspace({
 
   if (loadedSystemScope !== systemReadScope) return <FeedbackMessage tone="info">{t("loadingData")}</FeedbackMessage>;
 
+  // Views receive event handlers that read refs only when the user acts, never during render.
+  // eslint-disable-next-line react-hooks/refs
+  const { renderApiKeyPanel, renderApiKeyCreateForm, renderApiKeyManageForm, apiKeyStatusTone } = createApiKeyView(apiKeyState, apiKeyActions, { activeProjects, canCreateSystemManagement, canDeleteSystemManagement, canEditSystemManagement, clientNextCursor, closeModal, discardModal, format, modal, modalBlocked, projectNameById, renderListPager, renderProjectSearch, renderSectionReadNotice, sectionReady, setModal, submitting, t });
   return (
     <section className="system-workspace">
       {systemLoading ? <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("loadingData")}</strong><span>{t("systemLoadingBackend")}</span></div></div> : null}
@@ -871,29 +869,7 @@ export default function SystemManagementWorkspace({
             </section>
           </SettingsCard> : null}
 
-          {activeSection === "apiKeys" ? <SettingsCard panel="clients">
-            <SectionHeader
-              action={<div className="system-section-actions"><button className="action-button secondary" onClick={() => { void refreshIntegrationClients(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button><button className="action-button" disabled={!canCreateSystemManagement || !sectionReady("projects") || !sectionReady("clients")} onClick={openApiKeyCreateModal} type="button"><Plus size={16} />{t("systemApiKeyCreateTitle")}</button></div>}
-              description={t("systemApiKeysDescription")}
-              title={t("systemApiKeys")}
-            />
-            <section className="system-api-key-list">
-              <div className="system-subsection-title"><div><h3>{t("systemApiKeyListTitle")}</h3><p>{t("systemApiKeyListHelp")}</p></div></div>
-              <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("adminSearchClients")} maxLength={255} onChange={event => { setClientQuery(event.target.value); setClientCursors([undefined]); }} placeholder={t("adminSearchClients")} value={clientQuery} /></label></div>
-              {renderListPager("clients", clientCursors.length, clientPageSize, null, () => setClientCursors(cursors => cursors.slice(0, -1)), clientNextCursor ? () => setClientCursors(cursors => [...cursors, clientNextCursor]) : null, size => { setClientPageSize(size); setClientCursors([undefined]); })}
-              {integrationClients.length ? <div className="system-api-key-rows">{integrationClients.map((client) => {
-                const authorizedProjectNames = client.project_ids.map((projectId) => projectNameById.get(projectId) ?? projectId);
-                const projectSummary = authorizedProjectNames.length ? authorizedProjectNames.slice(0, 3).join(", ") + (authorizedProjectNames.length > 3 ? ` +${authorizedProjectNames.length - 3}` : "") : t("systemApiKeyNoProjects");
-                return <article className="system-api-key-row" key={client.id}>
-                  <header><div><strong>{client.name}</strong><small>{format("systemApiKeyVersionIdentity", { prefix: client.api_key_prefix, version: client.api_key_version })}</small></div><StateBadge tone={apiKeyStatusTone(client)}>{apiKeyStatusLabel(client)}</StateBadge></header>
-                  <p>{client.description || t("systemApiKeyNoDescription")}</p>
-                  <dl className="system-api-key-metrics"><div><dt>{t("systemApiKeySuccessCount")}</dt><dd>{client.success_count}</dd></div><div><dt>{t("systemApiKeyFailureCount")}</dt><dd>{client.failure_count}</dd></div><div><dt>{t("systemApiKeyLastUsed")}</dt><dd>{client.last_used_at ? client.last_used_at.slice(0, 16).replace("T", " ") : "—"}</dd></div><div><dt>{t("systemApiKeyExpiresAt")}</dt><dd>{client.expires_at ? client.expires_at.slice(0, 16).replace("T", " ") : t("systemApiKeyNoExpiry")}</dd></div><div><dt>{t("systemApiKeyAuthorizedProjects")}</dt><dd>{format("systemApiKeyAuthorizedProjectsValue", { count: client.project_ids.length })}</dd></div></dl>
-                  <div className="system-api-key-scope-summary"><span>{t("systemApiKeyProjectScopes")}</span><strong>{projectSummary}</strong></div>
-                  <footer><button className="icon-text-button" onClick={() => openApiKeyManageModal(client)} type="button"><Settings2 size={15} />{t("systemApiKeyManage")}</button></footer>
-                </article>;
-              })}</div> : sectionReady("clients") ? <EmptyInlineState>{t("systemApiKeyEmpty")}</EmptyInlineState> : null}
-            </section>
-          </SettingsCard> : null}
+          {activeSection === "apiKeys" ? renderApiKeyPanel() : null}
 
           {activeTab === "identity" ? <>
             <ProtocolIdentityPanel key={systemReadScope} canEdit={canEditSystemManagement} onDirtyChange={setIdentityDirty} />
@@ -1115,44 +1091,8 @@ export default function SystemManagementWorkspace({
             <label><span>{format("systemDeleteModelConfirmationLabel", { name: modal.model.name })}</span><input autoComplete="off" autoFocus onChange={(event) => setModelDeleteConfirmation(event.target.value)} placeholder={modal.model.name} value={modelDeleteConfirmation} /><small>{t("systemDeleteModelConfirmationHelp")}</small></label>
             <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button danger" disabled={submitting || modalBlocked || modelDeleteConfirmation !== modal.model.name} onClick={() => { void submitModelDelete(modal.model); }} type="button"><Trash2 size={16} />{t("systemDeleteModelPermanently")}</button></footer>
           </div> : null}
-          {modal.type === "api-key-create" ? <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form system-api-key-modal-form" onSubmit={(event) => { event.preventDefault(); void submitApiKey(new FormData(event.currentTarget)); }}>
-            <p className="system-modal-help">{t("systemApiKeyCreateHelp")}</p>
-            <div className="identity-form-grid">
-              <label><span>{t("systemName")}</span><input name="name" placeholder={t("systemApiKeyNamePlaceholder")} required /></label>
-              <label><span>{t("systemApiKeyRequestsPerMinute")}</span><input defaultValue={60} min={1} name="requests_per_minute" type="number" /></label>
-              {renderApiKeyDateField("valid_from")}
-              {renderApiKeyDateField("expires_at")}
-              <label><span>{t("systemApiKeyContactName")}</span><input name="contact_name" /></label>
-              <label><span>{t("systemApiKeyContactEmail")}</span><input name="contact_email" type="email" /></label>
-              <label><span>{t("systemApiKeyContactDepartment")}</span><input name="contact_department" /></label>
-              <label className="identity-wide-field"><span>{t("systemDescription")}</span><textarea name="description" rows={3} /></label>
-            </div>
-            <div className="system-api-project-picker">{renderSectionReadNotice("projects")}{renderProjectSearch()}<strong>{t("systemApiKeyProjectScopes")}</strong><p>{t("systemApiKeyProjectScopesHelp")}</p>{activeProjects.length ? <div>{activeProjects.map((project) => <label className={apiKeyProjectDraft.includes(project.id) ? "active" : ""} key={project.id}><input checked={apiKeyProjectDraft.includes(project.id)} disabled={!sectionReady("projects")} onChange={(event) => toggleApiKeyProjectDraft(project.id, event.target.checked)} type="checkbox" /> <span>{project.name}</span></label>)}</div> : sectionReady("projects") ? <EmptyInlineState>{t("systemApiKeyNoProjects")}</EmptyInlineState> : null}</div>
-            <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canCreateSystemManagement || submitting || !apiKeyProjectDraft.length} type="submit"><Plus size={16} />{t("systemApiKeyCreate")}</button></footer>
-          </FeedbackForm> : null}
-          {modal.type === "api-key-manage" ? <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form system-api-key-modal-form" onSubmit={(event) => { event.preventDefault(); void saveApiKeyManagement(modal.client, new FormData(event.currentTarget)); }}>
-            <div className="system-security-note"><KeyRound size={17} /><div><strong>{format("systemApiKeyVersionIdentity", { prefix: modal.client.api_key_prefix, version: modal.client.api_key_version })}</strong><p>{t("systemApiKeyManageHelp")}</p></div><StateBadge tone={apiKeyStatusTone(modal.client)}>{apiKeyStatusLabel(modal.client)}</StateBadge></div>
-            <div className="identity-form-grid">
-              <label><span>{t("systemName")}</span><input defaultValue={modal.client.name} disabled={modal.client.status === "revoked"} name="name" required /></label>
-              <label><span>{t("systemApiKeyRequestsPerMinute")}</span><input defaultValue={modal.client.requests_per_minute ?? 60} disabled={modal.client.status === "revoked"} min={1} name="requests_per_minute" type="number" /></label>
-              {renderApiKeyDateField("valid_from", modal.client.valid_from, modal.client.status === "revoked")}
-              {renderApiKeyDateField("expires_at", modal.client.expires_at, modal.client.status === "revoked")}
-              <label><span>{t("systemApiKeyContactName")}</span><input defaultValue={modal.client.contact_name ?? ""} disabled={modal.client.status === "revoked"} name="contact_name" /></label>
-              <label><span>{t("systemApiKeyContactEmail")}</span><input defaultValue={modal.client.contact_email ?? ""} disabled={modal.client.status === "revoked"} name="contact_email" type="email" /></label>
-              <label><span>{t("systemApiKeyContactDepartment")}</span><input defaultValue={modal.client.contact_department ?? ""} disabled={modal.client.status === "revoked"} name="contact_department" /></label>
-              <label className="identity-wide-field"><span>{t("systemDescription")}</span><textarea defaultValue={modal.client.description ?? ""} disabled={modal.client.status === "revoked"} name="description" rows={3} /></label>
-            </div>
-            <div className="system-api-project-picker">{renderSectionReadNotice("projects")}{renderProjectSearch()}<strong>{t("systemApiKeyProjectScopes")}</strong><p>{t("systemApiKeyProjectScopesHelp")}</p>{activeProjects.length ? <div>{activeProjects.map((project) => {
-              const scopeDraft = apiKeyScopeDrafts[modal.client.id] ?? modal.client.project_ids;
-              return <label className={scopeDraft.includes(project.id) ? "active" : ""} key={project.id}><input checked={scopeDraft.includes(project.id)} disabled={modal.client.status === "revoked" || !canEditSystemManagement || submitting || !sectionReady("projects")} onChange={(event) => toggleApiKeyScopeDraft(modal.client.id, project.id, event.target.checked)} type="checkbox" /> <span>{projectNameById.get(project.id) ?? project.name}</span></label>;
-            })}</div> : sectionReady("projects") ? <EmptyInlineState>{t("systemApiKeyNoProjects")}</EmptyInlineState> : null}</div>
-            <div className="system-api-key-modal-actions">
-              <button className="icon-text-button" disabled={modal.client.status === "revoked" || !canEditSystemManagement || submitting} onClick={() => { void rotateApiKey(modal.client); }} type="button"><RotateCcw size={15} />{t("systemApiKeyRotate")}</button>
-              {modal.client.status === "active" ? <button className="icon-text-button" disabled={!canEditSystemManagement || submitting} onClick={() => { void setApiKeyStatus(modal.client, false); }} type="button">{t("systemDisable")}</button> : <button className="icon-text-button" disabled={modal.client.status === "revoked" || !canEditSystemManagement || modal.client.effective_status === "expired" || submitting} onClick={() => { void setApiKeyStatus(modal.client, true); }} type="button">{t("systemEnable")}</button>}
-              <button className="icon-text-button danger" disabled={modal.client.status === "revoked" || !canDeleteSystemManagement || submitting} onClick={() => setModal({ type: "confirm", title: t("systemApiKeyRevoke"), message: format("systemApiKeyRevokeConfirm", { name: modal.client.name }), actionLabel: t("systemApiKeyRevoke"), successTitle: "systemApiKeyRevoked", target: { kind: "client", id: modal.client.id, expected: { field: "status", value: "revoked" } }, run: accepted => revokeApiKey(modal.client, accepted) })} type="button">{t("systemApiKeyRevoke")}</button>
-            </div>
-            <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canEditSystemManagement || submitting || modal.client.status === "revoked"} type="submit"><Save size={16} />{t("save")}</button></footer>
-          </FeedbackForm> : null}
+          {modal.type === "api-key-create" ? renderApiKeyCreateForm() : null}
+          {modal.type === "api-key-manage" ? renderApiKeyManageForm(modal) : null}
           {modal.type === "confirm" ? <div className="system-crud-form"><p>{localize(modal.message)}</p><footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button danger" disabled={submitting || modalBlocked} onClick={() => { void runModalMutation(modal.run, () => {}, modal.successTitle); }} type="button">{localize(modal.actionLabel)}</button></footer></div> : null}
         </section>
       </div> : null}

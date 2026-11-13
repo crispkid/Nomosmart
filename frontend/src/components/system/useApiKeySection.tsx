@@ -1,12 +1,17 @@
 "use client";
 
 import { useState, type Dispatch, type SetStateAction } from "react";
+import { KeyRound, Plus, RefreshCw, RotateCcw, Save, Search, Settings2 } from "lucide-react";
+import { FeedbackForm } from "@/components/FeedbackForm";
 import { FeedbackField } from "@/components/FeedbackMessage";
+import { SettingsCard } from "../SettingsCard";
+import { EmptyInlineState, SectionHeader, StateBadge } from "./SystemUi";
 import { activateIntegrationClient, createIntegrationClient, deactivateIntegrationClient, getProject, listIntegrationClientsPage, replaceIntegrationClientProjectScopes, revokeIntegrationClient, rotateIntegrationClientKey, updateIntegrationClient, type ApiFetch, type IntegrationClientResponse, type ProjectResponse } from "@/lib/api";
 import { IntegrationClientDateError, integrationClientDateInput, integrationClientDateUpdate, integrationClientDateValue } from "@/lib/integrationClientDates";
 import { MutationOutcomeUnknown } from "@/lib/transportError";
 import type { TranslationKey } from "@/lib/i18nClient";
 import { modalScope, type ModalState } from "./modalState";
+import type { WorkspaceViewDeps } from "./viewDeps";
 
 /** Dependencies shared with the rest of the workspace, read when a handler runs. */
 export type ApiKeySectionDeps = {
@@ -186,4 +191,99 @@ export function createApiKeyActions(state: ApiKeyState, deps: ApiKeySectionDeps)
   }
 
   return { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel };
+}
+
+export type ApiKeyActions = ReturnType<typeof createApiKeyActions>;
+
+/** API key view: JSX moved verbatim from SystemManagementWorkspace (OPT424-038). */
+export function createApiKeyView(state: ApiKeyState, actions: ApiKeyActions, deps: Pick<WorkspaceViewDeps, "activeProjects" | "canCreateSystemManagement" | "canDeleteSystemManagement" | "canEditSystemManagement" | "clientNextCursor" | "closeModal" | "discardModal" | "format" | "modal" | "modalBlocked" | "projectNameById" | "renderListPager" | "renderProjectSearch" | "renderSectionReadNotice" | "sectionReady" | "setModal" | "submitting" | "t">) {
+  const { integrationClients, apiKeyProjectDraft, apiKeyScopeDrafts, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = state;
+  const { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, renderApiKeyDateField, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel } = actions;
+
+  function renderApiKeyPanel() {
+    const { canCreateSystemManagement, clientNextCursor, format, projectNameById, renderListPager, sectionReady, t } = deps;
+    return (
+      <SettingsCard panel="clients">
+      <SectionHeader
+        action={<div className="system-section-actions"><button className="action-button secondary" onClick={() => { void refreshIntegrationClients(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button><button className="action-button" disabled={!canCreateSystemManagement || !sectionReady("projects") || !sectionReady("clients")} onClick={openApiKeyCreateModal} type="button"><Plus size={16} />{t("systemApiKeyCreateTitle")}</button></div>}
+        description={t("systemApiKeysDescription")}
+        title={t("systemApiKeys")}
+      />
+      <section className="system-api-key-list">
+        <div className="system-subsection-title"><div><h3>{t("systemApiKeyListTitle")}</h3><p>{t("systemApiKeyListHelp")}</p></div></div>
+        <div className="system-toolbar"><label><Search size={16} /><input aria-label={t("adminSearchClients")} maxLength={255} onChange={event => { setClientQuery(event.target.value); setClientCursors([undefined]); }} placeholder={t("adminSearchClients")} value={clientQuery} /></label></div>
+        {renderListPager("clients", clientCursors.length, clientPageSize, null, () => setClientCursors(cursors => cursors.slice(0, -1)), clientNextCursor ? () => setClientCursors(cursors => [...cursors, clientNextCursor]) : null, size => { setClientPageSize(size); setClientCursors([undefined]); })}
+        {integrationClients.length ? <div className="system-api-key-rows">{integrationClients.map((client) => {
+          const authorizedProjectNames = client.project_ids.map((projectId) => projectNameById.get(projectId) ?? projectId);
+          const projectSummary = authorizedProjectNames.length ? authorizedProjectNames.slice(0, 3).join(", ") + (authorizedProjectNames.length > 3 ? ` +${authorizedProjectNames.length - 3}` : "") : t("systemApiKeyNoProjects");
+          return <article className="system-api-key-row" key={client.id}>
+            <header><div><strong>{client.name}</strong><small>{format("systemApiKeyVersionIdentity", { prefix: client.api_key_prefix, version: client.api_key_version })}</small></div><StateBadge tone={apiKeyStatusTone(client)}>{apiKeyStatusLabel(client)}</StateBadge></header>
+            <p>{client.description || t("systemApiKeyNoDescription")}</p>
+            <dl className="system-api-key-metrics"><div><dt>{t("systemApiKeySuccessCount")}</dt><dd>{client.success_count}</dd></div><div><dt>{t("systemApiKeyFailureCount")}</dt><dd>{client.failure_count}</dd></div><div><dt>{t("systemApiKeyLastUsed")}</dt><dd>{client.last_used_at ? client.last_used_at.slice(0, 16).replace("T", " ") : "—"}</dd></div><div><dt>{t("systemApiKeyExpiresAt")}</dt><dd>{client.expires_at ? client.expires_at.slice(0, 16).replace("T", " ") : t("systemApiKeyNoExpiry")}</dd></div><div><dt>{t("systemApiKeyAuthorizedProjects")}</dt><dd>{format("systemApiKeyAuthorizedProjectsValue", { count: client.project_ids.length })}</dd></div></dl>
+            <div className="system-api-key-scope-summary"><span>{t("systemApiKeyProjectScopes")}</span><strong>{projectSummary}</strong></div>
+            <footer><button className="icon-text-button" onClick={() => openApiKeyManageModal(client)} type="button"><Settings2 size={15} />{t("systemApiKeyManage")}</button></footer>
+          </article>;
+        })}</div> : sectionReady("clients") ? <EmptyInlineState>{t("systemApiKeyEmpty")}</EmptyInlineState> : null}
+      </section>
+    </SettingsCard>
+    );
+  }
+
+  function renderApiKeyCreateForm() {
+    const { activeProjects, canCreateSystemManagement, closeModal, discardModal, modal, modalBlocked, renderProjectSearch, renderSectionReadNotice, sectionReady, submitting, t } = deps;
+    return (
+      <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form system-api-key-modal-form" onSubmit={(event) => { event.preventDefault(); void submitApiKey(new FormData(event.currentTarget)); }}>
+      <p className="system-modal-help">{t("systemApiKeyCreateHelp")}</p>
+      <div className="identity-form-grid">
+        <label><span>{t("systemName")}</span><input name="name" placeholder={t("systemApiKeyNamePlaceholder")} required /></label>
+        <label><span>{t("systemApiKeyRequestsPerMinute")}</span><input defaultValue={60} min={1} name="requests_per_minute" type="number" /></label>
+        {renderApiKeyDateField("valid_from")}
+        {renderApiKeyDateField("expires_at")}
+        <label><span>{t("systemApiKeyContactName")}</span><input name="contact_name" /></label>
+        <label><span>{t("systemApiKeyContactEmail")}</span><input name="contact_email" type="email" /></label>
+        <label><span>{t("systemApiKeyContactDepartment")}</span><input name="contact_department" /></label>
+        <label className="identity-wide-field"><span>{t("systemDescription")}</span><textarea name="description" rows={3} /></label>
+      </div>
+      <div className="system-api-project-picker">{renderSectionReadNotice("projects")}{renderProjectSearch()}<strong>{t("systemApiKeyProjectScopes")}</strong><p>{t("systemApiKeyProjectScopesHelp")}</p>{activeProjects.length ? <div>{activeProjects.map((project) => <label className={apiKeyProjectDraft.includes(project.id) ? "active" : ""} key={project.id}><input checked={apiKeyProjectDraft.includes(project.id)} disabled={!sectionReady("projects")} onChange={(event) => toggleApiKeyProjectDraft(project.id, event.target.checked)} type="checkbox" /> <span>{project.name}</span></label>)}</div> : sectionReady("projects") ? <EmptyInlineState>{t("systemApiKeyNoProjects")}</EmptyInlineState> : null}</div>
+      <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canCreateSystemManagement || submitting || !apiKeyProjectDraft.length} type="submit"><Plus size={16} />{t("systemApiKeyCreate")}</button></footer>
+    </FeedbackForm>
+    );
+  }
+
+  function renderApiKeyManageForm(modal: Extract<ModalState, { type: "api-key-manage" }>) {
+    const { activeProjects, canDeleteSystemManagement, canEditSystemManagement, closeModal, discardModal, format, modalBlocked, projectNameById, renderProjectSearch, renderSectionReadNotice, sectionReady, setModal, submitting, t } = deps;
+    return (
+      <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form system-api-key-modal-form" onSubmit={(event) => { event.preventDefault(); void saveApiKeyManagement(modal.client, new FormData(event.currentTarget)); }}>
+      <div className="system-security-note"><KeyRound size={17} /><div><strong>{format("systemApiKeyVersionIdentity", { prefix: modal.client.api_key_prefix, version: modal.client.api_key_version })}</strong><p>{t("systemApiKeyManageHelp")}</p></div><StateBadge tone={apiKeyStatusTone(modal.client)}>{apiKeyStatusLabel(modal.client)}</StateBadge></div>
+      <div className="identity-form-grid">
+        <label><span>{t("systemName")}</span><input defaultValue={modal.client.name} disabled={modal.client.status === "revoked"} name="name" required /></label>
+        <label><span>{t("systemApiKeyRequestsPerMinute")}</span><input defaultValue={modal.client.requests_per_minute ?? 60} disabled={modal.client.status === "revoked"} min={1} name="requests_per_minute" type="number" /></label>
+        {renderApiKeyDateField("valid_from", modal.client.valid_from, modal.client.status === "revoked")}
+        {renderApiKeyDateField("expires_at", modal.client.expires_at, modal.client.status === "revoked")}
+        <label><span>{t("systemApiKeyContactName")}</span><input defaultValue={modal.client.contact_name ?? ""} disabled={modal.client.status === "revoked"} name="contact_name" /></label>
+        <label><span>{t("systemApiKeyContactEmail")}</span><input defaultValue={modal.client.contact_email ?? ""} disabled={modal.client.status === "revoked"} name="contact_email" type="email" /></label>
+        <label><span>{t("systemApiKeyContactDepartment")}</span><input defaultValue={modal.client.contact_department ?? ""} disabled={modal.client.status === "revoked"} name="contact_department" /></label>
+        <label className="identity-wide-field"><span>{t("systemDescription")}</span><textarea defaultValue={modal.client.description ?? ""} disabled={modal.client.status === "revoked"} name="description" rows={3} /></label>
+      </div>
+      <div className="system-api-project-picker">{renderSectionReadNotice("projects")}{renderProjectSearch()}<strong>{t("systemApiKeyProjectScopes")}</strong><p>{t("systemApiKeyProjectScopesHelp")}</p>{activeProjects.length ? <div>{activeProjects.map((project) => {
+        const scopeDraft = apiKeyScopeDrafts[modal.client.id] ?? modal.client.project_ids;
+        return <label className={scopeDraft.includes(project.id) ? "active" : ""} key={project.id}><input checked={scopeDraft.includes(project.id)} disabled={modal.client.status === "revoked" || !canEditSystemManagement || submitting || !sectionReady("projects")} onChange={(event) => toggleApiKeyScopeDraft(modal.client.id, project.id, event.target.checked)} type="checkbox" /> <span>{projectNameById.get(project.id) ?? project.name}</span></label>;
+      })}</div> : sectionReady("projects") ? <EmptyInlineState>{t("systemApiKeyNoProjects")}</EmptyInlineState> : null}</div>
+      <div className="system-api-key-modal-actions">
+        <button className="icon-text-button" disabled={modal.client.status === "revoked" || !canEditSystemManagement || submitting} onClick={() => { void rotateApiKey(modal.client); }} type="button"><RotateCcw size={15} />{t("systemApiKeyRotate")}</button>
+        {modal.client.status === "active" ? <button className="icon-text-button" disabled={!canEditSystemManagement || submitting} onClick={() => { void setApiKeyStatus(modal.client, false); }} type="button">{t("systemDisable")}</button> : <button className="icon-text-button" disabled={modal.client.status === "revoked" || !canEditSystemManagement || modal.client.effective_status === "expired" || submitting} onClick={() => { void setApiKeyStatus(modal.client, true); }} type="button">{t("systemEnable")}</button>}
+        <button className="icon-text-button danger" disabled={modal.client.status === "revoked" || !canDeleteSystemManagement || submitting} onClick={() => setModal({ type: "confirm", title: t("systemApiKeyRevoke"), message: format("systemApiKeyRevokeConfirm", { name: modal.client.name }), actionLabel: t("systemApiKeyRevoke"), successTitle: "systemApiKeyRevoked", target: { kind: "client", id: modal.client.id, expected: { field: "status", value: "revoked" } }, run: accepted => revokeApiKey(modal.client, accepted) })} type="button">{t("systemApiKeyRevoke")}</button>
+      </div>
+      <footer><button className="action-button secondary" disabled={submitting} onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canEditSystemManagement || submitting || modal.client.status === "revoked"} type="submit"><Save size={16} />{t("save")}</button></footer>
+    </FeedbackForm>
+    );
+  }
+
+  function apiKeyStatusTone(client: IntegrationClientResponse): "green" | "gold" | "gray" | "coral" {
+    if (client.status === "revoked") return "coral";
+    if (client.effective_status === "expired" || client.effective_status === "scheduled") return "gold";
+    return client.status === "active" ? "green" : "gray";
+  }
+
+  return { renderApiKeyPanel, renderApiKeyCreateForm, renderApiKeyManageForm, apiKeyStatusTone };
 }
