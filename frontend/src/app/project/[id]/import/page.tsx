@@ -31,7 +31,7 @@ import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
-import { createDataSource, getDataSourceConnectionOptions, getDocumentLifecycleImpact, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, updateDocumentLifecycle, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse, type ReferenceSourceProjectResponse } from "@/lib/api";
+import { createDataSource, getDataSourceConnectionOptions, getPipelineDetail, getProject, getUploadConfig, importProjectDocumentReferences, listDataSourceSyncRuns, listModels, listProjectDocuments, listProjectMembers, listProjectReferenceSources, queueDataSourceSync, retryPipelineStep, startDocumentExtraction, testDataSourceConnection, uploadProjectDocuments, type AIModelResponse, type ApiError, type DataSyncRunResponse, type DocumentSummary, type DocumentUploadResult, type PipelineRunDetail, type ProjectResponse, type ReferenceSourceProjectResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
@@ -43,7 +43,8 @@ import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { cleanupIsUnconfirmed, extractionRunKey, fileObservationMode, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
 
-import { type Translate, normalizeVersion, isWorkingVersion, isReviewLockedVersionStatus, type DocumentItem, type PendingStatusChange, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, publishStageAction, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, pipelineStepProgress, pipelineStepStatusKind, pipelineStepStatusLabel, pipelineStepStats, extractionLabel, liveDocumentFromSummary, serviceDocumentFromResponse, getReferenceSource, getSourceState, formatSyncDate, syncRunStep, documentStatusLabel } from "@/components/projectImport/importDocumentModel";
+import { type Translate, normalizeVersion, isWorkingVersion, isReviewLockedVersionStatus, type DocumentItem, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, publishStageAction, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, pipelineStepProgress, pipelineStepStatusKind, pipelineStepStatusLabel, pipelineStepStats, extractionLabel, liveDocumentFromSummary, serviceDocumentFromResponse, getReferenceSource, getSourceState, formatSyncDate, syncRunStep } from "@/components/projectImport/importDocumentModel";
+import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
 
@@ -111,11 +112,9 @@ function ProjectImportPage() {
   const [referenceSourcesError, setReferenceSourcesError] = useState("");
   const [documentLoadState, setDocumentLoadState] = useState<"loading" | "ready" | "error">("loading");
   const [documentLoadError, setDocumentLoadError] = useState("");
-  const [committedStatuses, setCommittedStatuses] = useState<Record<string, string>>({});
-  const [pendingStatusChange, setPendingStatusChange] = useState<PendingStatusChange | null>(null);
-  const [statusSubmitting, setStatusSubmitting] = useState(false);
-  const [statusError, setStatusError] = useState("");
   const { notify } = useFeedback();
+  const statusChangeState = useStatusChangeState();
+  const { committedStatuses, pendingStatusChange, statusSubmitting } = statusChangeState;
   const [pipelineDetailLoading, setPipelineDetailLoading] = useState<Record<string, boolean>>({});
   const [pipelineRetryNotices, setPipelineRetryNotices] = useState<Record<string, { pipelineId: string; message: string }>>({});
   const [syncRunsByDataSource, setSyncRunsByDataSource] = useState<Record<string, DataSyncRunResponse[]>>({});
@@ -633,111 +632,11 @@ function ProjectImportPage() {
 
   const projectVersionActions = createProjectVersionActions(projectVersionState, { apiFetch, format, params, t, projectReady, canEditLifecycle, replaceLiveDocuments, setCreatedImports, setLiveDocuments });
 
-  useEffect(() => {
-    if (!pendingStatusChange) return;
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !statusSubmitting) setPendingStatusChange(null);
-    }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [pendingStatusChange, statusSubmitting]);
+  const statusChangeActions = createStatusChangeActions(statusChangeState, { apiFetch, format, params, t, canEditLifecycle, notify, setCreatedImports, setLiveDocuments });
+  const { requestStatusChange } = statusChangeActions;
 
 
-  function impactSummaryProjects(referenceCount: number, activeVersionCount: number) {
-    const summary = [];
-    if (referenceCount > 0) summary.push(format("projectImportImpactReferences", { count: referenceCount }));
-    if (activeVersionCount > 0) summary.push(format("projectImportImpactActiveVersions", { count: activeVersionCount }));
-    return summary;
-  }
-
-  async function requestStatusChange(document: DocumentItem, requestedStatus: string, currentStatus: string) {
-    if (requestedStatus === currentStatus) return;
-    setStatusError("");
-    if (requestedStatus === "inactive" || requestedStatus === "deleted") {
-      const baseChange: PendingStatusChange = { documentId: document.id, documentTitle: document.title, from: currentStatus, to: requestedStatus, projects: document.impactedProjects, isLive: Boolean("isLive" in document && document.isLive), lockVersion: "lockVersion" in document ? document.lockVersion : undefined, requiresConfirmation: true };
-      setPendingStatusChange(baseChange);
-      if ("isLive" in document && document.isLive) {
-        try {
-          const impact = await getDocumentLifecycleImpact(apiFetch, params.id, document.id, requestedStatus);
-          setPendingStatusChange((current) => current?.documentId === document.id && current.to === requestedStatus ? { ...current, projects: impactSummaryProjects(impact.impacted_reference_count, impact.impacted_active_version_count), requiresConfirmation: impact.requires_confirmation } : current);
-        } catch (error) {
-          setStatusError(operationalErrorMessage(error, t, format, "projectImportImpactLoadFailed"));
-        }
-      }
-      return;
-    }
-    if ("isLive" in document && document.isLive) {
-      if (!canEditLifecycle) {
-        setStatusError(t("projectImportMissingLifecyclePermission"));
-        return;
-      }
-      if (!("lockVersion" in document) || document.lockVersion === undefined) {
-        setStatusError(t("projectImportMissingLockVersion"));
-        return;
-      }
-      setStatusSubmitting(true);
-      try {
-        const updated = await updateDocumentLifecycle(apiFetch, params.id, document.id, { lock_version: document.lockVersion, status: requestedStatus, impact_confirmed: false, reason: "lifecycle update from project document list" });
-        setLiveDocuments((current) => current.map((item) => item.id === document.id ? liveDocumentFromSummary(updated, t) : item));
-        setCreatedImports((current) => current.map((item) => item.id === document.id ? liveDocumentFromSummary(updated, t) : item));
-        setCommittedStatuses((current) => {
-          const next = { ...current };
-          delete next[document.id];
-          return next;
-        });
-        if (currentStatus === "inactive" && requestedStatus === "active") {
-          notify({ id: crypto.randomUUID(), scope: `project:${params.id}`, tone: "success", title: "projectImportReactivatedTitle", reason: "projectImportReactivatedMessage" });
-        }
-      } catch (error) {
-        setStatusError(operationalErrorMessage(error, t, format, "projectImportStatusUpdateFailed"));
-      } finally {
-        setStatusSubmitting(false);
-      }
-      return;
-    }
-    setCommittedStatuses((current) => ({ ...current, [document.id]: requestedStatus }));
-  }
-
-  async function confirmStatusChange() {
-    if (!canEditLifecycle || !pendingStatusChange || statusSubmitting) return;
-    const change = pendingStatusChange;
-    setStatusSubmitting(true);
-    setStatusError("");
-    if (change.isLive) {
-      try {
-        if (change.lockVersion === undefined) throw new UiValidationError("projectImportMissingLockVersion");
-        const updated = await updateDocumentLifecycle(apiFetch, params.id, change.documentId, { lock_version: change.lockVersion, status: change.to, impact_confirmed: change.requiresConfirmation, reason: change.to === "deleted" ? "soft delete from project document list" : "lifecycle update from project document list" });
-        if (change.to === "deleted" || updated.status === "deleted") {
-          setLiveDocuments((current) => current.filter((item) => item.id !== change.documentId));
-          setCreatedImports((current) => current.filter((item) => item.id !== change.documentId));
-        } else {
-          setLiveDocuments((current) => current.map((item) => item.id === change.documentId ? liveDocumentFromSummary(updated, t) : item));
-          setCreatedImports((current) => current.map((item) => item.id === change.documentId ? liveDocumentFromSummary(updated, t) : item));
-        }
-        setCommittedStatuses((current) => {
-          const next = { ...current };
-          delete next[change.documentId];
-          return next;
-        });
-        setPendingStatusChange(null);
-      } catch (error) {
-        setStatusError(error instanceof Error && !(`status` in error) ? t("projectImportMissingLockVersion") : operationalErrorMessage(error, t, format, "projectImportStatusUpdateFailed"));
-      } finally {
-        setStatusSubmitting(false);
-      }
-      return;
-    }
-    window.setTimeout(() => {
-      if (change.to === "deleted") {
-        setCreatedImports((current) => current.filter((item) => item.id !== change.documentId));
-      } else {
-        setCommittedStatuses((current) => ({ ...current, [change.documentId]: change.to }));
-      }
-      setStatusSubmitting(false);
-      setPendingStatusChange(null);
-    }, 300);
-  }
-
+  const { renderStatusChangeModal } = createStatusChangeView(statusChangeState, statusChangeActions, { localize, t });
   const { renderProjectVersionModals } = createProjectVersionView(projectVersionState, projectVersionActions, { canEditLifecycle, format, locale, localize, syncRunLoading, refreshDataSourceSyncRuns, syncNow, t });
   const { renderProjectPermissionModal } = createProjectPermissionView(projectPermissionState, projectPermissionActions, { canManageProjectPermissions, currentUser, format, locale, project, t });
   return (
@@ -1083,33 +982,7 @@ function ProjectImportPage() {
 
       {renderProjectVersionModals()}
 
-      {pendingStatusChange ? (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !statusSubmitting) setPendingStatusChange(null);
-          }}
-          role="presentation"
-        >
-          <section aria-labelledby="status-change-title" aria-modal="true" className="modal-panel warning-modal" role="alertdialog">
-            <div className="modal-header">
-              <div><p className="eyebrow">{t("projectImportImpactWarning")}</p><h2 id="status-change-title">{pendingStatusChange.to === "inactive" ? t("projectImportDisableDocument") : t("projectImportDeleteDocument")}</h2></div>
-              <button aria-label={t("projectImportCloseLifecycleWarning")} className="icon-button" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button"><X size={18} /></button>
-            </div>
-	            <div className="warning-body"><AlertTriangle size={24} /><div><strong>{pendingStatusChange.documentTitle}</strong><small>{t("projectImportLifecycleWarningHelp")}</small></div></div>
-	            {statusError ? <FeedbackMessage tone="error"> {localize(statusError)}</FeedbackMessage> : null}
-	            <div className="status-change-preview">
-              <span><small>{t("projectImportCurrentStatus")}</small><strong>{documentStatusLabel(pendingStatusChange.from, t)}</strong></span>
-              <ArrowRight size={18} />
-              <span><small>{t("projectImportPendingStatus")}</small><strong>{documentStatusLabel(pendingStatusChange.to, t)}</strong></span>
-            </div>
-            <div className="impacted-projects">
-              {pendingStatusChange.projects.length ? pendingStatusChange.projects.map((project) => <span key={project}>{project}</span>) : <span>{t("projectImportNoReferenceProjects")}</span>}
-            </div>
-            <div className="modal-actions"><button className="action-button secondary" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={statusSubmitting} onClick={confirmStatusChange} type="button">{statusSubmitting ? t("projectImportSubmitting") : t("projectImportConfirmContinue")}</button></div>
-          </section>
-        </div>
-      ) : null}
+      {renderStatusChangeModal()}
     </AppShell>
   );
 }
