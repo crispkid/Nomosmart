@@ -1391,6 +1391,7 @@
   "projectImportCurrentUser": "Current user",
   "projectImportPipelineRunning": "Pipeline running",
   "projectImportPipelineRunningHelp": "Executing processing/publication work; excludes queues and review waits",
+  "projectImportTotalDocumentsHelp": "Active {active} / inactive {inactive}",
   "projectImportFailedItems": "Failed items",
   "projectImportFailedItemsHelp": "Failed items that need attention",
   "projectImportReadyForExtraction": "Ready for extraction",

@@ -1391,6 +1391,7 @@
   "projectImportCurrentUser": "目前使用者",
   "projectImportPipelineRunning": "Pipeline 執行中",
   "projectImportPipelineRunningHelp": "正在執行的處理／發布工作，不含排隊或等待審核",
+  "projectImportTotalDocumentsHelp": "啟用 {active}／停用 {inactive}",
   "projectImportFailedItems": "失敗項目",
   "projectImportFailedItemsHelp": "需要處理的失敗項目",
   "projectImportReadyForExtraction": "可開始萃取",
