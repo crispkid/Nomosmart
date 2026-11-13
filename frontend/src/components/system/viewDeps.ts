@@ -68,5 +68,6 @@ export type WorkspaceViewDeps = {
   filteredUsers: UserRow[];
   sectionReads: Record<string, SystemReadState>;
   runIdentitySync: () => Promise<void>;
+  systemReadScope: string;
   setClientNextCursor: Dispatch<SetStateAction<string | null>>;
 };

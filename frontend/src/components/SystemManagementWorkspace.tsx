@@ -1,7 +1,6 @@
 "use client";
 
 import { DropdownSelect } from "@/components/DropdownSelect";
-import ProtocolIdentityPanel from "./ProtocolIdentityPanel";
 import SystemParameterSettings from "./SystemParameterSettings";
 import { SectionHeader, StateBadge, operationStatusLabel } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
@@ -11,7 +10,7 @@ import { createModelActions, createModelView, useModelState } from "./system/use
 import { createPromptActions, createPromptView, usePromptState } from "./system/usePromptSection";
 import { createRoleActions, createRoleView, useRoleState } from "./system/useRoleSection";
 import { createUserActions, createUserView, useUserState } from "./system/useUserSection";
-import { createIdentityActions, useIdentityState } from "./system/useIdentitySection";
+import { createIdentityActions, createIdentityView, useIdentityState } from "./system/useIdentitySection";
 import { permissionStateFromResponse } from "./system/permissionHelpers";
 import { modelRow } from "./system/modelHelpers";
 import { useModalFocus } from "./useModalFocus";
@@ -26,7 +25,7 @@ import { formatCount } from "@/lib/numberFormat";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Activity, Bot, ChevronRight, KeyRound, Layers3, LockKeyhole, MessageSquareText, RefreshCw, Search, Settings2, ShieldCheck, SlidersHorizontal, Trash2, UsersRound, X } from "lucide-react";
-import { getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, type ApiError, type BreakGlassStatusResponse, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
+import { getBreakGlassStatus, getPermissions, getRoleUsers, getSystemStatus, listSystemPrompts, listExternalGroupMappings, listExternalGroups, listModels, listModelsPage, listRoles, listUsersPage, listRolesPage, listProjectsPage, listIntegrationClientsPage, getUser, getRole, getIntegrationClient, type ApiError, type ExternalGroupResponse, type OperationsStatusResponse, type ProjectResponse, type RoleResponse, listIdentitySyncRuns } from "@/lib/api";
 import { ForbiddenState } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
 import { type UserRow } from "@/lib/systemManagement";
@@ -55,50 +54,6 @@ const settingsSearchFields: Record<string, TranslationKey[]> = {
 };
 
 type TabId = SystemTabId;
-
-
-
-function breakGlassTone(status?: BreakGlassStatusResponse["status"]): "green" | "gold" | "gray" | "coral" {
-  if (status === "configured_disabled") return "green";
-  if (status === "attention_required") return "gold";
-  if (status === "unavailable") return "coral";
-  return "gray";
-}
-
-function evidenceText(value: boolean | null | undefined, t: (key: TranslationKey) => string) {
-  if (value === true) return t("identityVerified");
-  if (value === false) return t("identityNeedsAttention");
-  return t("identityNotVerified");
-}
-
-function evidenceStateText(value: string | null | undefined, t: (key: TranslationKey) => string) {
-  if (value === "configured") return t("identityVerified");
-  if (value === "deployment_only") return t("identityDeploymentOnly");
-  if (value === "missing") return t("identityNeedsAttention");
-  return t("identityNotVerified");
-}
-
-function breakGlassNormalStateText(status: BreakGlassStatusResponse | null, t: (key: TranslationKey) => string) {
-  if (!status) return t("identityNotVerified");
-  return status.enabled === false ? t("identityDisabled") : t("identityNeedsAttention");
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 type SystemManagementWorkspaceProps = { initialTab?: SystemTabId; initialPosition?: SettingsPosition };
 
@@ -498,7 +453,8 @@ export default function SystemManagementWorkspace({
   const { cacheRoles, applyMemberSnapshot, updateMappingProjection, readRoleMembers, togglePermission, savePermissions, refreshRolesAndMappings, submitRole, openRoleUsers, toggleRoleUserDraft, roleUserStatusLabels, roleUserIdentityLine, saveRoleUsers, openRoleMapping, saveRoleMapping, changeRoleLifecycle, openRoleDelete, submitRoleDelete, renderLocalRoleCard } = roleActions;
   // The factory only creates handlers; ref-reading dependencies run in events, not during render.
   // eslint-disable-next-line react-hooks/refs
-  const { localizedBreakGlassStatus, refreshIdentityData, runIdentitySync } = createIdentityActions(identityState, { apiFetch, errorMessage, refreshRolesAndMappings, reloadSystemSection, sectionReady, t });
+  const identityActions = createIdentityActions(identityState, { apiFetch, errorMessage, refreshRolesAndMappings, reloadSystemSection, sectionReady, t });
+  const { localizedBreakGlassStatus, refreshIdentityData, runIdentitySync } = identityActions;
   const activeRoleUserCandidates = liveUsers.filter((user) => user.status === "active" && memberCandidateIds.includes(user.id));
   const filteredRoleUserCandidates = activeRoleUserCandidates;
   const pendingAddUsers = liveUsers.filter((user) => user.status === "active" && draftRoleUserIds.has(user.id) && !originalManualRoleUserIds.has(user.id));
@@ -752,6 +708,7 @@ export default function SystemManagementWorkspace({
   // Views receive event handlers that read refs only when the user acts, never during render.
   // eslint-disable-next-line react-hooks/refs
   const { renderUserPanel, renderUserForm } = createUserView(userState, userActions, { canEditUsers, closeModal, discardModal, filteredUsers, format, locale, localizedStatus, modal, modalBlocked, renderListPager, runIdentitySync, sectionReads, sectionReady, setModal, submitting, t, userRowName });
+  const { renderIdentityPanel } = createIdentityView(identityState, identityActions, { canEditSystemManagement, format, locale, renderSectionReadNotice, systemReadScope, t });
   return (
     <section className="system-workspace">
       {systemLoading ? <div className="fixture-banner"><Settings2 size={17} /><div><strong>{t("loadingData")}</strong><span>{t("systemLoadingBackend")}</span></div></div> : null}
@@ -786,25 +743,7 @@ export default function SystemManagementWorkspace({
 
           {activeSection === "apiKeys" ? renderApiKeyPanel() : null}
 
-          {activeTab === "identity" ? <>
-            <ProtocolIdentityPanel key={systemReadScope} canEdit={canEditSystemManagement} onDirtyChange={setIdentityDirty} />
-            <section className="identity-settings-section settings-card" id="settings-panel-emergency" tabIndex={-1} aria-labelledby="identity-emergency-title">
-              {renderSectionReadNotice("breakGlass")}
-              <div className="system-subsection-title"><h3 id="identity-emergency-title">{t("identityEmergencyAccess")}</h3><StateBadge tone={breakGlassTone(breakGlassStatus?.status)}>{localizedBreakGlassStatus(breakGlassStatus?.status)}</StateBadge></div>
-              <p>{t("identityBreakGlassHelp")}</p>
-              <dl className="identity-oidc-meta">
-                <div><dt>{t("protocolUsername")}</dt><dd>{breakGlassStatus?.username || t("systemReadCountUnknown")}</dd></div>
-                <div><dt>{t("identityBreakGlassNormalState")}</dt><dd>{breakGlassNormalStateText(breakGlassStatus, t)}</dd></div>
-                <div><dt>{t("identityBreakGlassSystemAdmin")}</dt><dd>{evidenceText(breakGlassStatus?.system_admin_mapped, t)}</dd></div>
-                <div><dt>{t("identityCredential")}</dt><dd>{breakGlassStatus?.credential_source === "deployment_secret" ? t("identityDeploymentSecret") : t("identityNotVerified")}</dd></div>
-                <div><dt>{t("identityCredentialUpdate")}</dt><dd>{breakGlassStatus?.credential_update_required === true ? t("identityRequired") : breakGlassStatus?.credential_update_required === false ? t("protocolNotRequired") : t("identityNotVerified")}</dd></div>
-                <div><dt>{t("identityLifecycleControl")}</dt><dd>{evidenceStateText(breakGlassStatus?.lifecycle_control, t)}</dd></div>
-                <div><dt>{t("identityRunbookEvidence")}</dt><dd>{evidenceStateText(breakGlassStatus?.runbook_evidence, t)}</dd></div>
-                <div><dt>{t("identityAlertingEvidence")}</dt><dd>{evidenceStateText(breakGlassStatus?.alerting_evidence, t)}</dd></div>
-              </dl>
-              {breakGlassStatus?.checked_at ? <p>{format("identityBreakGlassCheckedAt", { time: new Date(breakGlassStatus.checked_at).toLocaleString(locale) })}</p> : null}
-            </section>
-          </> : null}
+          {activeTab === "identity" ? renderIdentityPanel() : null}
 
           {activeTab === "status" ? <>
             <SectionHeader action={<button className="action-button secondary" onClick={() => { void refreshSystemStatus(); }} type="button"><RefreshCw size={16} />{t("refresh")}</button>} description={t("systemStatusDescription")} title={t("systemStatus")} />
