@@ -145,6 +145,39 @@ export function pipelineSteps(detail: PipelineRunDetail | undefined, t: Translat
   }));
 }
 
+/** Applies a pipeline run detail to the document it belongs to; other projects, versions or runs leave it unchanged. */
+export function applyPipelineDetail(document: CreatedKnowledgeDocument, detail: PipelineRunDetail, projectId: string, t: Translate): CreatedKnowledgeDocument {
+  if (detail.project_id !== projectId || detail.document_id !== document.id
+    || detail.document_version_id !== document.latestVersionId || detail.id !== document.pipeline.id) return document;
+  const status = mapPipelineStatus(detail.status);
+  const versionStatus = detail.status === "submission_ready" ? "submission_ready" : detail.status === "failed" ? "failed" : document.versionStatus;
+  const outcome = extractionOutcome({ versionStatus, pipelineStatus: detail.status,
+    currentStep: detail.current_step_name, steps: pipelineSteps(detail, t) });
+  return {
+    ...document,
+    sourceState: "pipeline",
+    versionStatus,
+    chunks: versionStatus === "submission_ready" && document.versionStatus !== "submission_ready" ? null : document.chunks,
+    extractionSuccessful: outcome === "complete",
+    extractionOutcome: outcome,
+    versions: document.versions.map((version) => version.id === document.latestVersionId ? { ...version, status: versionStatus } : version),
+    pipeline: {
+      ...document.pipeline,
+      id: detail.id,
+      ...pipelineTimeFields(detail),
+      execution: detail.execution,
+      status,
+      progress: detail.progress_percent,
+      currentStep: detail.current_step_name ? pipelineStepLabel(detail.current_step_name, t) : publishStageCurrentStep(status, t),
+      eta: pipelineEtaForStatus(status, t),
+      error: detail.error_message ? t(ocrFailureKey(detail.steps.find(step => step.status === "failed"), detail.error_message)) : "",
+      observationInterrupted: false,
+      cleanupObservationStopped: false,
+      steps: pipelineSteps(detail, t)
+    }
+  };
+}
+
 export const UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS = 1200;
 export const UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS = 2500;
 

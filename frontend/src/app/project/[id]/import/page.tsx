@@ -13,7 +13,6 @@ import { AlertTriangle, ArrowLeft, Clock3, FilePlus2, MessageSquareText, Network
 import { AppShell, PageGrid, Panel, StatCard } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload } from "@/components/KnowledgeSourceModals";
 import { formatCount } from "@/lib/numberFormat";
-import { pipelineTimeFields } from "@/lib/pipelineElapsed";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
 import { fileProcessingPollDelay } from "@/lib/fileProcessingPolling";
 import { useAuth } from "@/components/AuthProvider";
@@ -22,13 +21,13 @@ import { t as translate } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { pipelineStepLabel } from "@/lib/pipelineSteps";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
-import { extractionOutcome, pipelineIsExecuting } from "@/lib/reviewPresentation";
+import { pipelineIsExecuting } from "@/lib/reviewPresentation";
 import { confirmedUploadResults, UploadAttemptGuard, uploadOutcomeUnknown, type UploadBatchResult } from "@/lib/uploadProgress";
 import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { extractionRunKey, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
-import { type Translate, isReviewLockedVersionStatus, mapPipelineStatus, publishStageCurrentStep, pipelineEtaForStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState } from "@/components/projectImport/importDocumentModel";
+import { applyPipelineDetail, type Translate, isReviewLockedVersionStatus, mapPipelineStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState } from "@/components/projectImport/importDocumentModel";
 import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelineCard";
 import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
@@ -37,7 +36,6 @@ import { ProjectFeatureDialog } from "@/components/projectImport/ProjectFeatureD
 import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
-
 
 export default function ImportPage() {
   const params = useParams<{ id: string }>();
@@ -209,35 +207,7 @@ function ProjectImportPage() {
   const { refreshDataSourceSyncRuns, syncNow } = dataSourceSyncActions;
 
   function applyPipelineDetailToDocument(document: CreatedKnowledgeDocument, detail: PipelineRunDetail): CreatedKnowledgeDocument {
-    if (detail.project_id !== params.id || detail.document_id !== document.id
-      || detail.document_version_id !== document.latestVersionId || detail.id !== document.pipeline.id) return document;
-    const status = mapPipelineStatus(detail.status);
-    const versionStatus = detail.status === "submission_ready" ? "submission_ready" : detail.status === "failed" ? "failed" : document.versionStatus;
-    const outcome = extractionOutcome({ versionStatus, pipelineStatus: detail.status,
-      currentStep: detail.current_step_name, steps: pipelineSteps(detail, t) });
-    return {
-      ...document,
-      sourceState: "pipeline",
-      versionStatus,
-      chunks: versionStatus === "submission_ready" && document.versionStatus !== "submission_ready" ? null : document.chunks,
-      extractionSuccessful: outcome === "complete",
-      extractionOutcome: outcome,
-      versions: document.versions.map((version) => version.id === document.latestVersionId ? { ...version, status: versionStatus } : version),
-      pipeline: {
-        ...document.pipeline,
-        id: detail.id,
-        ...pipelineTimeFields(detail),
-        execution: detail.execution,
-        status,
-        progress: detail.progress_percent,
-        currentStep: detail.current_step_name ? pipelineStepLabel(detail.current_step_name, t) : publishStageCurrentStep(status, t),
-        eta: pipelineEtaForStatus(status, t),
-        error: detail.error_message ? t(ocrFailureKey(detail.steps.find(step => step.status === "failed"), detail.error_message)) : "",
-        observationInterrupted: false,
-        cleanupObservationStopped: false,
-        steps: pipelineSteps(detail, t)
-      }
-    };
+    return applyPipelineDetail(document, detail, params.id, t);
   }
 
   async function pollPipelineUntilCompletionGate(document: CreatedKnowledgeDocument, onProgressDocuments?: (documents: CreatedKnowledgeDocument[]) => void, initialDetail?: PipelineRunDetail, canObserve: () => boolean = () => true) {
