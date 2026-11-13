@@ -10,6 +10,7 @@ import { settingsPositionUrl } from "@/lib/systemRouteState";
 import { apiJson, type ApiError, type UserSummary } from "@/lib/api";
 import { formatDateTime } from "@/lib/dateFormat";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
+import { useReadResource } from "@/lib/useReadResource";
 
 type Directory = { source_id: string; name: string; schema_type: "ldap" | "ad"; endpoints: string[]; start_tls: boolean; ca_reference: string; users_dn: string; groups_dn: string; bind_dn: string; user_filter: string; group_filter: string; login_attribute: string; object_id_attribute: string; group_id_attribute: string; group_member_attribute: "member" | "uniqueMember" | "memberUid"; employee_attribute: string; enabled_attribute: string; disabled_value: string; page_size: number; maximum_entries: number };
 type Oidc = { issuer: string; client_id: string; client_auth_method: "none" | "client_secret_basic" | "client_secret_post"; scopes: string; mapping_claim: string; mapping_attribute: "object_id" | "employee_id"; employee_id_immutable: boolean; discovery_url: string; token_url: string; jwks_url: string; ca_reference: string };
@@ -34,12 +35,10 @@ const defaultOidc: Oidc = { issuer: "", client_id: "", client_auth_method: "none
 export default function ProtocolIdentityPanel({ canEdit, onDirtyChange }: { canEdit: boolean; onDirtyChange?: (dirty: boolean) => void }) {
   const { apiFetch, currentUser } = useAuth();
   const { locale, t } = useI18n();
-  const [saved, setSaved] = useState<Snapshot | null>(null);
   const [cfg, setCfg] = useState<Configuration | null>(null);
   const [candidate, setCandidate] = useState<Candidate | null>(null);
   const [people, setPeople] = useState<UserSummary[]>([]);
   const [selectedPerson, setSelectedPerson] = useState("");
-  const [runs, setRuns] = useState<Run[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<TranslationKey | null>(null);
@@ -52,20 +51,6 @@ export default function ProtocolIdentityPanel({ canEdit, onDirtyChange }: { canE
   const dirtyRef = useRef(false);
   const [secretsDirty, setSecretsDirty] = useState(false);
   const [secretOperations, setSecretOperations] = useState<Record<string, string>>({});
-  const dirty = candidate !== null || secretsDirty || Boolean(cfg && saved && JSON.stringify(cfg) !== JSON.stringify(saved.configuration));
-  useEffect(() => { dirtyRef.current = dirty; onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
-  const loadHistory = useCallback(async () => {
-    const history = await apiJson<{ items: Run[] }>(apiFetch, "/identity-sync/runs?limit=10");
-    setRuns(history.items);
-  }, [apiFetch]);
-  const load = useCallback(async (reset = false) => {
-    const data = await apiJson<Snapshot>(apiFetch, "/system/identity-settings");
-    setSaved(data);
-    if (reset || !dirtyRef.current) { setCfg(data.configuration); setSecretsDirty(false); setSecretOperations({}); dirtyRef.current = false; if (reset) { setCandidate(null); sessionStorage.removeItem(pendingKey); } }
-    if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
-    if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLSelectElement>("select[data-secret-operation]").forEach(select => { select.value = "keep"; });
-    await loadHistory();
-  }, [apiFetch, loadHistory]);
   const failure = useCallback((e: unknown) => {
     const code = (e as ApiError).code;
     const messages: Record<string, TranslationKey> = { identity_settings_locked: "protocolLocked", identity_revision_conflict: "protocolRevisionChanged", identity_candidate_invalid: "protocolCandidateExpired", identity_binding_conflict: "protocolBindingConflict", identity_binding_invalid: "protocolBindingInvalid", invalid_credentials: "protocolFreshAuthFailed", fresh_authentication_failed: "protocolFreshAuthFailed", validation_error: "protocolInvalidSettings", directory_bind_failed: "protocolDirectoryFailed", directory_unavailable: "protocolDirectoryFailed", auth_endpoint_denied: "protocolEndpointDenied", identity_provider_unavailable: "protocolOIDCFailed", identity_sync_worker_unavailable: "protocolWorkerUnavailable", identity_sync_already_running: "protocolSyncAlreadyRunning" };
@@ -73,9 +58,38 @@ export default function ProtocolIdentityPanel({ canEdit, onDirtyChange }: { canE
   }, [t]);
   const failureRef = useRef(failure);
   useEffect(() => { failureRef.current = failure; }, [failure]);
+  // OPT424-035: settings and sync history are read resources. A load after a save may reset the
+  // editor; an automatic first read merges into a clean editor only. Failures show the panel error.
+  const resetNext = useRef(false);
+  const readSnapshot = useCallback((signal: AbortSignal) => apiJson<Snapshot>(apiFetch, "/system/identity-settings", { signal }), [apiFetch]);
+  const snapshotRead = useReadResource<Snapshot>(readSnapshot, "identity-settings", true, {
+    keepData: true,
+    onError: error => failureRef.current(error),
+    onData: data => {
+      const reset = resetNext.current;
+      resetNext.current = false;
+      if (reset || !dirtyRef.current) { setCfg(data.configuration); setSecretsDirty(false); setSecretOperations({}); dirtyRef.current = false; if (reset) { setCandidate(null); sessionStorage.removeItem(pendingKey); } }
+      if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
+      if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLSelectElement>("select[data-secret-operation]").forEach(select => { select.value = "keep"; });
+    },
+  });
+  const saved = snapshotRead.data;
+  const readHistory = useCallback(async (signal: AbortSignal) => (await apiJson<{ items: Run[] }>(apiFetch, "/identity-sync/runs?limit=10", { signal })).items, [apiFetch]);
+  // History follows the first committed settings read, as before.
+  const historyRead = useReadResource<Run[]>(readHistory, "identity-sync-history", saved !== null, { keepData: true, onError: error => failureRef.current(error) });
+  const runs = historyRead.data ?? [];
+  const setRuns = historyRead.update;
+  const loadHistory = historyRead.refresh;
+  const refreshSnapshot = snapshotRead.refresh;
+  const load = useCallback(async (reset = false) => {
+    resetNext.current = reset || resetNext.current;
+    await refreshSnapshot();
+    await loadHistory();
+  }, [refreshSnapshot, loadHistory]);
+  const dirty = candidate !== null || secretsDirty || Boolean(cfg && saved && JSON.stringify(cfg) !== JSON.stringify(saved.configuration));
+  useEffect(() => { dirtyRef.current = dirty; onDirtyChange?.(dirty); return () => onDirtyChange?.(false); }, [dirty, onDirtyChange]);
   useEffect(() => {
     if (leaveTimer.current) { clearTimeout(leaveTimer.current); leaveTimer.current = null; }
-    const initial = window.setTimeout(() => { void load().catch(error => failureRef.current(error)); }, 0);
     if (!completed.current && new URL(window.location.href).searchParams.get("reauth") === "success") {
       completed.current = true;
       const pending = new URL(window.location.href).searchParams.get("reauth_purpose") === "candidate" ? sessionStorage.getItem(pendingKey) : null;
@@ -83,7 +97,7 @@ export default function ProtocolIdentityPanel({ canEdit, onDirtyChange }: { canE
       void work.then(() => load()).catch(error => failureRef.current(error));
       const url = new URL(window.location.href); url.searchParams.delete("reauth"); url.searchParams.delete("reauth_purpose"); window.history.replaceState(null, "", settingsPositionUrl(url.href, { section: "identity", panel: "login" }));
     }
-    return () => { window.clearTimeout(initial); syncWatch.current?.abort(); leaveTimer.current = setTimeout(() => { void apiFetch(`${apiBaseUrl()}/system/identity-settings/lock`, { method: "POST", keepalive: true }).catch(() => undefined); }, 0); };
+    return () => { syncWatch.current?.abort(); leaveTimer.current = setTimeout(() => { void apiFetch(`${apiBaseUrl()}/system/identity-settings/lock`, { method: "POST", keepalive: true }).catch(() => undefined); }, 0); };
   }, [apiFetch, load]);
   useEffect(() => {
     const update = () => setRemaining(saved?.unlock_expires_at ? Math.max(0, Math.ceil((Date.parse(saved.unlock_expires_at) - Date.now()) / 1000)) : 0);

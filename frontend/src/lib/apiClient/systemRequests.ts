@@ -104,8 +104,8 @@ export async function replaceRoleUsers(apiFetch: ApiFetch, roleId: string, paylo
 export async function listExternalGroups(apiFetch: ApiFetch) { return apiJson<ExternalGroupResponse[]>(apiFetch, "/external-groups"); }
 export async function listExternalGroupMappings(apiFetch: ApiFetch) { return apiJson<ExternalGroupRoleMapping[]>(apiFetch, "/external-group-role-mappings"); }
 export async function setRoleExternalGroupMapping(apiFetch: ApiFetch, roleId: string, payload: { external_group_id: string | null; lock_version: number }) { return apiJson<RoleExternalGroupMappingResponse>(apiFetch, `/roles/${roleId}/external-group-mapping`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
-export async function getSystemParameters(apiFetch: ApiFetch) {
-  const value = await apiJson<SystemParametersPayload>(apiFetch, "/system/parameters");
+export async function getSystemParameters(apiFetch: ApiFetch, signal?: AbortSignal) {
+  const value = await apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { signal });
   const keys: (keyof SystemParameterApiValues)[] = ["default_timezone", "session_expired_form_draft_ttl_minutes", "max_upload_size_mb", "staging_index_ttl_days", "ocr_request_max_output_tokens", "ocr_document_max_tokens"];
   if (!value.section_revisions || !["general", "documents"].every(section => /^[a-f0-9]{64}$/.test(value.section_revisions[section as "general" | "documents"]))
     || !value.parameter_defaults || !value.parameter_metadata || !Number.isInteger(value.deployment_max_upload_size_mb)

@@ -76,15 +76,15 @@ export async function importProjectDocumentReferences(apiFetch: ApiFetch, projec
 export async function updateDocumentReferenceVersion(apiFetch: ApiFetch, referenceId: string, payload: { source_version_id: string; old_version_confirmed?: boolean }) {
   return apiJson<DocumentUpdateResponse>(apiFetch, `/document-references/${referenceId}/update`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function getProjectGraph(apiFetch: ApiFetch, projectId: string, nodeLimit = 120) {
-  return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph?node_limit=${nodeLimit}`);
+export async function getProjectGraph(apiFetch: ApiFetch, projectId: string, nodeLimit = 120, signal?: AbortSignal) {
+  return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph?node_limit=${nodeLimit}`, { signal });
 }
 export async function getProjectGraphNeighbors(apiFetch: ApiFetch, projectId: string, nodeId: string, nodeLimit = 80) {
   const params = new URLSearchParams({ node_id: nodeId, node_limit: String(nodeLimit) });
   return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/graph/neighbors?${params.toString()}`);
 }
-export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, nodeLimit = 120) {
-  return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/graph?node_limit=${nodeLimit}`);
+export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, nodeLimit = 120, signal?: AbortSignal) {
+  return apiJson<ProjectGraphResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/graph?node_limit=${nodeLimit}`, { signal });
 }
 export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string) {
   return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`);
@@ -172,7 +172,7 @@ export async function listNotificationPage(apiFetch: ApiFetch, filters: { resolv
   if (filters.cursor) query.set("cursor", filters.cursor);
   return apiJson<NotificationPage>(apiFetch, `/notifications${query.size ? `?${query}` : ""}`);
 }
-export async function getNotificationUnreadCount(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/unread-count"); }
+export async function getNotificationUnreadCount(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/unread-count", { signal }); }
 export async function markNotificationRead(apiFetch: ApiFetch, notificationId: string) { return apiJson<NotificationResponse>(apiFetch, `/notifications/${notificationId}/read`, { method: "POST" }); }
 export async function markAllNotificationsRead(apiFetch: ApiFetch) { return apiJson<NotificationCountResponse>(apiFetch, "/notifications/read-all", { method: "POST" }); }
 export async function resolveNotification(apiFetch: ApiFetch, notificationId: string) { return apiJson<NotificationResponse>(apiFetch, `/notifications/${notificationId}/resolve`, { method: "POST" }); }
