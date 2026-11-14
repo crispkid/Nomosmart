@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { FileText, X } from "lucide-react";
 import { useMemo, useState } from "react";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { ChunkMarkdownView, selectChunkMarkdownSource } from "@/components/ChunkMarkdownView";
 import { SafeMarkdown } from "@/components/SafeMarkdown";
 import { chunkContentPreview } from "@/lib/documentGraph";
@@ -48,7 +48,6 @@ export function ChatResponseEvidence({
 }) {
   const { format, t } = useI18n();
   const [selected, setSelected] = useState<SelectedCitation | null>(null);
-  const dialogRef = useModalFocus(Boolean(selected), () => setSelected(null));
   const normalizedAnswer = answer || answerFallback;
   const selectedDisplaySource = selected ? selectChunkMarkdownSource({
     content: selected.citation.content,
@@ -123,15 +122,7 @@ export function ChatResponseEvidence({
       </div>
 
       {selected ? (
-        <div className="modal-backdrop" role="presentation">
-          <section
-            aria-labelledby={`${idPrefix}-citation-dialog-title`}
-            aria-modal="true"
-            className="modal-panel chat-small-modal"
-            ref={dialogRef}
-            role="dialog"
-            tabIndex={-1}
-          >
+        <Modal onEscape={() => setSelected(null)} aria-labelledby={`${idPrefix}-citation-dialog-title`} className="modal-panel chat-small-modal">
             <div className="modal-header">
               <div>
                 <p className="eyebrow">[{selected.ordinal}] · {selected.citation.chunk_index !== null && selected.citation.chunk_index !== undefined ? format("chatCitationChunkNumber", { number: selected.citation.chunk_index }) : t("chatCitationChunkNumberUnavailable")}</p>
@@ -167,8 +158,7 @@ export function ChatResponseEvidence({
               <button className="action-button secondary" onClick={() => setSelected(null)} type="button">{t("closeDialog")}</button>
               {detailHref ? <Link className="action-button" href={detailHref}>{t("openExtraction")}</Link> : null}
             </div>
-          </section>
-        </div>
+          </Modal>
       ) : null}
     </>
   );

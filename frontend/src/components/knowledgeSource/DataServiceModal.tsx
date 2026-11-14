@@ -3,7 +3,7 @@
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackConfirm } from "../FeedbackConfirm";
 import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, ArrowLeft, ArrowRight, CalendarClock, Check, CheckCircle2, Cloud, FolderSync, KeyRound, LoaderCircle, LockKeyhole, Server, X } from "lucide-react";
 import type { DataSourceConnectionOptions } from "@/lib/api";
@@ -129,7 +129,6 @@ export function DataServiceModal({
   const dirty = Boolean(host || username || credential || credentialSecretRef || bucket || path || fileName || url || step > 1);
 
   // D424-18: Esc keeps the original close rules; the hook adds focus trap and return.
-  const dialogRef = useModalFocus(true, () => requestClose());
 
   function loadCredentialOptions() { invalidateConnection(); void optionsRead.reload(); }
   function renderCredentialField() { return <>
@@ -216,8 +215,7 @@ export function DataServiceModal({
   const cronPreviewHelp = frequency === "weekly" && cronMode === "friendly" ? t("serviceWeeklyPreview") : frequency === "minutes" ? format("serviceMinutesPreview", { interval }) : frequency === "hourly" ? format("serviceHourlyPreview", { interval }) : t("serviceDailyPreview");
   const footerHelp = step === 1 ? !connectionReady ? t("serviceFooterNeedConnection") : testState !== "success" ? t("serviceFooterNeedTest") : t("serviceFooterConnectionReady") : step === 2 ? !sourceValid ? t("serviceFooterNeedSource") : t("serviceFooterSourceReady") : t("serviceFooterReviewReady");
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }} role="presentation">
-    <section ref={dialogRef} tabIndex={-1} aria-labelledby="data-service-title" aria-modal="true" className="modal-panel source-modal data-service-modal optimized-source-modal" role="dialog">
+  return <Modal onEscape={() => requestClose()} onBackdropMouseDown={() => requestClose()} aria-labelledby="data-service-title" className="modal-panel source-modal data-service-modal optimized-source-modal">
       <header className="source-modal-header"><div><p className="eyebrow">{t("serviceEyebrow")}</p><h2 id="data-service-title">{t("serviceTitle")}</h2><small>{t("serviceHelp")}</small></div><button aria-label={t("serviceClose")} className="icon-button" disabled={submitting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="service-progress-shell"><ol aria-label={t("serviceStepsAria")} className="service-stepper">{stepLabels.map((label, index) => { const number = index + 1; const complete = number < step; const current = number === step; return <li aria-current={current ? "step" : undefined} className={complete ? "complete" : current ? "current" : "upcoming"} key={label}><span className="step-marker">{complete ? <Check size={16} /> : number}</span><div className="step-copy"><small>{format("serviceStepNumber", { number })}</small><strong>{label}</strong></div></li>; })}</ol><span aria-label={format("serviceProtocolAria", { type: serviceType, port })} className="service-protocol-pill">{serviceType} · {port}</span></div>
       <div className="source-modal-body wizard-body">
@@ -227,6 +225,5 @@ export function DataServiceModal({
       </div>
       <footer className="source-modal-footer wizard-footer"><small>{footerHelp}</small><div><button className="action-button secondary" disabled={submitting} onClick={requestClose} type="button">{t("cancel")}</button>{step > 1 ? <button className="action-button secondary" disabled={submitting} onClick={() => setStep((step - 1) as 1 | 2)} type="button"><ArrowLeft size={16} /> {t("previousStep")}</button> : null}{step < 3 ? <button className="action-button" disabled={step === 1 ? !stepOneValid : !stepTwoValid} onClick={() => setStep((step + 1) as 2 | 3)} type="button">{t("nextStep")} <ArrowRight size={16} /></button> : <button className="action-button" disabled={!formValid || submitting} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <FolderSync size={16} />} {t("serviceCreate")}</button>}</div></footer>
       {discardOpen ? <FeedbackConfirm title={t("serviceDiscardTitle")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => setDiscardOpen(false)} onConfirm={onClose}>{t("serviceDiscardHelp")}</FeedbackConfirm> : null}
-    </section>
-  </div>;
+    </Modal>;
 }

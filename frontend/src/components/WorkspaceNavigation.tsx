@@ -62,7 +62,7 @@ export default function WorkspaceNavigation({ items, activeArea, shellRef }: Nav
   const moreActive = secondary.some(item => item.href === activeArea);
 
   useEffect(() => {
-    const boundary = window.matchMedia("(max-width: 767px)");
+    const boundary = window.matchMedia("(max-width: 768px)");
     const closeOnResize = () => { setMoreOpen(false); setMobileOpen(false); };
     boundary.addEventListener("change", closeOnResize);
     return () => boundary.removeEventListener("change", closeOnResize);

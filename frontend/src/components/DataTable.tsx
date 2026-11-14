@@ -20,6 +20,8 @@ type DataTableProps<T> = {
   rowKey: (row: T, index: number) => Key;
   rowClassName?: (row: T) => string | undefined;
   onRowClick?: (row: T) => void;
+  /** Extra attributes on each row, e.g. a `data-*` hook used by live tests. */
+  rowAttributes?: (row: T) => Record<`data-${string}`, string>;
   /** Extra class on the scrolling wrapper, e.g. a page-specific width rule. */
   wrapClassName?: string;
   /** Content kept inside the wrapper after the table. */
@@ -32,11 +34,11 @@ type DataTableProps<T> = {
  * the header/body structure is defined once. Empty, loading and paging states
  * stay with the page that owns the data.
  */
-export function DataTable<T>({ columns, rows, rowKey, rowClassName, onRowClick, wrapClassName, children }: DataTableProps<T>) {
+export function DataTable<T>({ columns, rows, rowKey, rowClassName, onRowClick, rowAttributes, wrapClassName, children }: DataTableProps<T>) {
   return <div className={wrapClassName ? `system-table-wrap ${wrapClassName}` : "system-table-wrap"}>
     <table className="system-table">
       <thead><tr>{columns.map((column) => <th aria-label={column.headerLabel} className={column.className} key={column.key}>{column.header}</th>)}</tr></thead>
-      <tbody>{rows.map((row, index) => <tr className={rowClassName?.(row) || undefined} key={rowKey(row, index)} onClick={onRowClick ? () => onRowClick(row) : undefined}>
+      <tbody>{rows.map((row, index) => <tr {...rowAttributes?.(row)} className={rowClassName?.(row) || undefined} key={rowKey(row, index)} onClick={onRowClick ? () => onRowClick(row) : undefined}>
         {columns.map((column) => column.rowHeader
           ? <th className={column.className} key={column.key} scope="row">{column.cell(row, index)}</th>
           : <td className={column.className} key={column.key}>{column.cell(row, index)}</td>)}

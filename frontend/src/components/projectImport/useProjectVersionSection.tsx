@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { Modal } from "@/components/Modal";
 import { CheckCircle2, Clock3, FolderSync, Layers3, ListRestart, RotateCcw, UploadCloud, X } from "lucide-react";
 import { StatusBadge } from "@/components/AppShell";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
 import type { CreatedKnowledgeDocument } from "@/components/KnowledgeSourceModals";
 import { ReferenceVersionSelect } from "@/components/ReferenceVersionSelect";
 import { getPipelineDetail, listDataSourceSyncRuns, listProjectDocuments, listProjectReferenceSources, switchActiveDocumentVersion, updateDocumentReferenceVersion, updateProjectDocumentFile, type DataSyncRunResponse, type DocumentSummary, type ReferenceSourceVersionResponse } from "@/lib/api";
@@ -112,16 +112,13 @@ export function useProjectVersionState(deps: ProjectVersionStateDeps) {
     onError: (error) => setVersionUpdateError(operationalErrorMessage(error, t, format, "referenceLoadSourcesFailed")),
   });
   const referenceUpdateLoading = referenceKey !== null && referenceSourcesRead.status === "loading";
-  // D424-18: Esc, focus trap and focus return; Esc follows each dialog's close button.
-  const versionDialogRef = useModalFocus(Boolean(versionDocument), () => setVersionDocumentId(null));
-  const versionSwitchDialogRef = useModalFocus(Boolean(versionSwitchTarget), () => { if (!versionSwitchBusy) setVersionSwitchTarget(null); });
-  return { versionDialogRef, versionSwitchDialogRef, versionDocumentId, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, versionUpdateError, setVersionUpdateError, versionUpdateNotice, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, versionSwitchError, setVersionSwitchError, referenceUpdateVersions, setReferenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns };
+  return { versionDocumentId, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, versionUpdateError, setVersionUpdateError, versionUpdateNotice, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, versionSwitchError, setVersionSwitchError, referenceUpdateVersions, setReferenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns };
 }
 
 /** Document version actions, created each render once page dependencies exist. */
 export function createProjectVersionActions(state: ProjectVersionState, deps: ProjectVersionDeps) {
   const { apiFetch, format, params, t, projectReady, canEditLifecycle, replaceLiveDocuments, setCreatedImports, setLiveDocuments } = deps;
-  const { versionDialogRef, versionSwitchDialogRef, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, setVersionUpdateError, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, setVersionSwitchError, referenceUpdateVersions, referenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, versionDocument, versionReferenceSource } = state;
+  const { setVersionDocumentId, updateFileInputRef, versionUpdateBusy, setVersionUpdateBusy, setVersionUpdateError, setVersionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, setVersionSwitchBusy, setVersionSwitchError, referenceUpdateVersions, referenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, versionDocument, versionReferenceSource } = state;
 
   async function hydrateUpdatedDocument(document: DocumentSummary) {
     const versionId = document.latest_version?.id;
@@ -244,7 +241,7 @@ export type ProjectVersionActions = ReturnType<typeof createProjectVersionAction
 
 /** Document version dialogs: JSX moved verbatim from the project import page (OPT424-038). */
 export function createProjectVersionView(state: ProjectVersionState, actions: ProjectVersionActions, deps: ProjectVersionViewDeps) {
-  const { versionDialogRef, versionSwitchDialogRef, setVersionDocumentId, updateFileInputRef, versionUpdateBusy, versionUpdateError, versionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, versionSwitchError, referenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns } = state;
+  const { setVersionDocumentId, updateFileInputRef, versionUpdateBusy, versionUpdateError, versionUpdateNotice, versionSwitchTarget, setVersionSwitchTarget, versionSwitchReason, setVersionSwitchReason, versionSwitchBusy, versionSwitchError, referenceUpdateVersions, referenceUpdateVersionId, setReferenceUpdateVersionId, referenceUpdateOldConfirmed, setReferenceUpdateOldConfirmed, referenceUpdateLoading, versionDocument, versionReferenceSource, displayedVersions, versionDataSourceId, currentSyncRuns } = state;
   const { updateCurrentFileVersion, updateCurrentReferenceVersion, requestVersionSwitch, confirmVersionSwitch } = actions;
 
   function renderProjectVersionModals() {
@@ -252,8 +249,7 @@ export function createProjectVersionView(state: ProjectVersionState, actions: Pr
     return (
       <>
       {versionDocument ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={versionDialogRef} tabIndex={-1} aria-labelledby="version-modal-title" aria-modal="true" className="modal-panel version-modal" role="dialog">
+        <Modal onEscape={() => setVersionDocumentId(null)} aria-labelledby="version-modal-title" className="modal-panel version-modal">
             <div className="modal-header">
               <div>
                 <p className="eyebrow">{versionDocument.title}</p>
@@ -367,19 +363,11 @@ export function createProjectVersionView(state: ProjectVersionState, actions: Pr
                 );
               })}
             </div>
-          </section>
-        </div>
+          </Modal>
       ) : null}
 
       {versionSwitchTarget ? (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !versionSwitchBusy) setVersionSwitchTarget(null);
-          }}
-          role="presentation"
-        >
-          <section ref={versionSwitchDialogRef} tabIndex={-1} aria-labelledby="version-switch-title" aria-modal="true" className="modal-panel warning-modal" role="alertdialog">
+        <Modal onEscape={() => { if (!versionSwitchBusy) setVersionSwitchTarget(null); }} onBackdropMouseDown={() => { if (!versionSwitchBusy) setVersionSwitchTarget(null); }} aria-labelledby="version-switch-title" className="modal-panel warning-modal" role="alertdialog">
             <div className="modal-header">
               <div><p className="eyebrow">{versionSwitchTarget.document.title}</p><h2 id="version-switch-title">{t("projectImportSwitchActiveTitle")}</h2></div>
               <button aria-label={t("projectImportCloseVersionSwitchWarning")} className="icon-button" disabled={versionSwitchBusy} onClick={() => setVersionSwitchTarget(null)} type="button"><X size={18} /></button>
@@ -394,8 +382,7 @@ export function createProjectVersionView(state: ProjectVersionState, actions: Pr
               <button className="action-button secondary" disabled={versionSwitchBusy} onClick={() => setVersionSwitchTarget(null)} type="button">{t("cancel")}</button>
               <button className="action-button" disabled={versionSwitchBusy || !versionSwitchReason.trim()} onClick={() => { void confirmVersionSwitch(); }} type="button">{versionSwitchBusy ? t("projectImportSubmitting") : t("projectImportConfirmSwitchActive")}</button>
             </div>
-          </section>
-        </div>
+          </Modal>
       ) : null}
       </>
     );

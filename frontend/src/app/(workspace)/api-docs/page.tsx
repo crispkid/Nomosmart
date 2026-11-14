@@ -218,7 +218,7 @@ const quickCards: Array<{ icon: LucideIcon; title: TranslationKey; body: Transla
   { icon: Braces, title: "apiDocsQuickFeedbackTitle", body: "apiDocsQuickFeedbackBody" }
 ];
 
-const desktopLayoutQuery = "(min-width: 1101px)";
+const desktopLayoutQuery = "(min-width: 1025px)";
 const reducedMotionQuery = "(prefers-reduced-motion: reduce)";
 
 function sectionIdFromHash(hash: string) {

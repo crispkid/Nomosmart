@@ -2,7 +2,6 @@
 
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { resourcePageTitle } from "@/lib/browserTitle";
-import { useModalFocus } from "@/components/useModalFocus";
 import { UiValidationError } from "@/lib/transportError";
 import { useFeedback } from "@/components/FeedbackProvider";
 import { ocrFailureKey, ocrRetryBlocked } from "@/lib/ocrPresentation";
@@ -80,7 +79,6 @@ function ProjectImportPage() {
   const [documentQuery, setDocumentQuery] = useState("");
   const [sortBy, setSortBy] = useState("updatedAt");
   const [activeModal, setActiveModal] = useState<"graph" | "chat" | null>(null);
-  const featureDialogRef = useModalFocus(Boolean(activeModal), () => setActiveModal(null));
   const [fixedChatVersion, setFixedChatVersion] = useState<string | undefined>(requestedChatVersion);
   useEffect(() => {
     setFixedChatVersion(requestedChatVersion);
@@ -552,7 +550,7 @@ function ProjectImportPage() {
       </Panel>
 
       </div>
-      {activeModal ? <ProjectFeatureDialog activeModal={activeModal} dialogRef={featureDialogRef} fixedChatVersion={fixedChatVersion} onClose={() => setActiveModal(null)} projectId={params.id} t={t} /> : null}
+      {activeModal ? <ProjectFeatureDialog activeModal={activeModal} fixedChatVersion={fixedChatVersion} onClose={() => setActiveModal(null)} projectId={params.id} t={t} /> : null}
 
       {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
       {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}

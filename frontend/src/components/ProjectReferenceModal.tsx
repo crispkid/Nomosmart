@@ -1,6 +1,6 @@
 "use client";
 
-import { useModalFocus } from "./useModalFocus";
+import { Modal } from "@/components/Modal";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { useMemo, useState } from "react";
 import { AlertTriangle, Check, CheckCircle2, Copy, FileText, FolderKanban, Layers3, LoaderCircle, RefreshCcw, Search, Trash2, X } from "lucide-react";
@@ -36,7 +36,6 @@ export function ProjectReferenceModal({
   onCreate: (mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) => Promise<ImportResult>;
 }) {
   const { t, format, localize } = useI18n();
-  const dialogRef = useModalFocus(true, onClose);
   const [mode, setMode] = useState<"reference" | "copy">("reference");
   const [projectId, setProjectId] = useState<string>(() => sources[0]?.id ?? "");
   const [query, setQuery] = useState("");
@@ -97,8 +96,7 @@ export function ProjectReferenceModal({
   }
 
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} aria-labelledby="reference-project-title" aria-modal="true" className="modal-panel reference-picker-modal" role="dialog">
+    <Modal onEscape={onClose} aria-labelledby="reference-project-title" className="modal-panel reference-picker-modal">
         <div className="modal-header">
           <div><p className="eyebrow">{t("referenceModalEyebrow")}</p><h2 id="reference-project-title">{t("referenceModalTitle")}</h2></div>
           <button aria-label={t("referenceModalClose")} className="icon-button" onClick={onClose} type="button"><X size={18} /></button>
@@ -172,7 +170,6 @@ export function ProjectReferenceModal({
             {submitting ? t("projectImportSubmitting") : oldRiskOpen ? t("referenceConfirmOldRisk") : mode === "copy" ? format("referenceCopyExtraction", { count: selectedItems.length }) : t("referenceConfirmStart")}
           </button>
         </div>
-      </section>
-    </div>
+      </Modal>
   );
 }

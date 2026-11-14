@@ -64,7 +64,7 @@ export default function SystemManagementWorkspace({
   const navigationRef = useModalFocus(narrow && navOpen && !settingsLeave, () => setNavOpen(false));
   const leaveDialogRef = useModalFocus(Boolean(settingsLeave), () => setSettingsLeave(null));
   useEffect(() => {
-    const query = window.matchMedia("(max-width: 767px)");
+    const query = window.matchMedia("(max-width: 768px)");
     const update = () => setNarrow(query.matches); update();
     query.addEventListener("change", update); return () => query.removeEventListener("change", update);
   }, []);

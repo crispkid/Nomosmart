@@ -5,7 +5,7 @@ import { DropdownSelect } from "@/components/DropdownSelect";
 
 import { FeedbackField, FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
 import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
@@ -116,8 +116,6 @@ export default function ProjectsPage() {
   const [llmModelId, setLlmModelId] = useState("");
   const [embeddingModelId, setEmbeddingModelId] = useState("");
   const [ocrModelId, setOcrModelId] = useState("");
-  const createDialogRef = useModalFocus(isCreateOpen, () => setIsCreateOpen(false));
-  const archiveDialogRef = useModalFocus(Boolean(archiveTarget), closeArchive);
   const filterControlRef = useRef<HTMLDivElement>(null);
   const filterButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -390,8 +388,7 @@ export default function ProjectsPage() {
         </Panel>
 
         {isCreateOpen ? (
-          <div className="modal-backdrop" role="presentation">
-            <section ref={createDialogRef} tabIndex={-1} aria-labelledby="create-project-title" aria-modal="true" className="modal-panel create-project-modal" role="dialog">
+          <Modal onEscape={() => setIsCreateOpen(false)} aria-labelledby="create-project-title" className="modal-panel create-project-modal">
               <div className="modal-header"><div><p className="eyebrow">{t("knowledgeProjectLabel")}</p><h2 id="create-project-title">{t("projectsAddProject")}</h2></div><button aria-label={t("projectsCloseCreateProjectModal")} className="icon-button" onClick={() => setIsCreateOpen(false)} type="button"><X size={18} /></button></div>
               {nameInvalid ? <FeedbackMessage title={format("feedbackFieldSummary", { count: 1 })} actions={<button className="action-button secondary" onClick={() => nameInputRef.current?.focus()} type="button">{t("feedbackGoToField")}</button>} /> : null}
               {createError ? <FeedbackMessage tone="error"><strong>{errorMessage(createError)}</strong></FeedbackMessage> : null}
@@ -419,13 +416,11 @@ export default function ProjectsPage() {
               </div>
               {createDisabled && !readinessIsReason ? <p className="project-create-reason" id="project-create-disabled-reason" role={creating ? "status" : undefined}>{createDisabledDescription}</p> : null}
               <div className="modal-actions"><button className="action-button secondary" onClick={() => setIsCreateOpen(false)} type="button">{t("cancel")}</button><button aria-describedby={createReasonId} className="action-button" disabled={createDisabled} onClick={submitProject} type="button"><Plus size={16} /> {creating ? t("projectsCreating") : t("projectsCreateProject")}</button></div>
-            </section>
-          </div>
+            </Modal>
         ) : null}
 
         {archiveTarget ? (
-          <div className="modal-backdrop" role="presentation">
-            <section ref={archiveDialogRef} tabIndex={-1} aria-labelledby="archive-project-title" aria-modal="true" className="modal-panel project-archive-modal" role="dialog">
+          <Modal onEscape={closeArchive} aria-labelledby="archive-project-title" className="modal-panel project-archive-modal">
               <div className="modal-header"><div className="modal-title-with-icon"><span className="danger-icon"><AlertTriangle size={20} /></span><div><h2 id="archive-project-title">{t("projectsArchiveTitle")}</h2><p>{archiveTarget.name}</p></div></div><button aria-label={t("close")} className="icon-button" disabled={archiving} onClick={closeArchive} type="button"><X size={18} /></button></div>
               {archiveError ? <FeedbackMessage tone="error"><strong>{errorMessage(archiveError)}</strong></FeedbackMessage> : null}
               {loadingArchiveImpact ? <div className="archive-impact-loading"><LoaderCircle className="spin" size={20} /> {t("loadingData")}</div> : null}
@@ -444,8 +439,7 @@ export default function ProjectsPage() {
                 <label className="archive-confirmation-field"><span>{format("projectsArchiveConfirmationLabel", { name: archiveTarget.name })}</span><input autoComplete="off" onChange={(event) => setArchiveConfirmation(event.target.value)} value={archiveConfirmation} /></label>
               </> : null}
               <div className="modal-actions"><button className="action-button secondary" disabled={archiving} onClick={closeArchive} type="button">{t("cancel")}</button><button className="action-button danger" disabled={!archiveImpact || archiveConfirmation !== archiveTarget.name || archiving} onClick={() => void confirmArchive()} type="button">{archiving ? <LoaderCircle className="spin" size={16} /> : <Archive size={16} />} {archiving ? t("projectsArchiving") : t("projectsArchiveConfirm")}</button></div>
-            </section>
-          </div>
+            </Modal>
         ) : null}
       </>}
     </AppShell>

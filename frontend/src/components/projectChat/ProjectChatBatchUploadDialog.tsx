@@ -1,9 +1,9 @@
 "use client";
 
 import type { ChangeEvent, DragEvent } from "react";
+import { Modal } from "@/components/Modal";
 import { CheckCircle2, FileDown, FileText, Upload, Wrench, X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
 import type { ValidationRunResponse } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import type { CsvValidationQuestion } from "./projectChatModel";
@@ -20,7 +20,6 @@ type ProjectChatBatchUploadDialogProps = {
   selectUploadFile: (event: ChangeEvent<HTMLInputElement>) => Promise<void>;
   setUploadDragging: (value: boolean) => void;
   setUploadOpen: (value: boolean) => void;
-  uploadDialogRef: ReturnType<typeof useModalFocus>;
   uploadDragging: boolean;
   uploadError: string;
   uploadFileName: string;
@@ -29,11 +28,10 @@ type ProjectChatBatchUploadDialogProps = {
 };
 
 /** CSV batch validation upload dialog (OPT424-038). */
-export function ProjectChatBatchUploadDialog({ activeValidationRun, batchCompletedCount, canRetryFailedValidation, confirmBatchUpload, downloadQuestionTemplate, dropUploadFile, retryFailedValidationItems, scopeIds, selectUploadFile, setUploadDragging, setUploadOpen, uploadDialogRef, uploadDragging, uploadError, uploadFileName, uploadQuestions, validationFinished }: ProjectChatBatchUploadDialogProps) {
+export function ProjectChatBatchUploadDialog({ activeValidationRun, batchCompletedCount, canRetryFailedValidation, confirmBatchUpload, downloadQuestionTemplate, dropUploadFile, retryFailedValidationItems, scopeIds, selectUploadFile, setUploadDragging, setUploadOpen, uploadDragging, uploadError, uploadFileName, uploadQuestions, validationFinished }: ProjectChatBatchUploadDialogProps) {
   const { t, format, localize } = useI18n();
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section ref={uploadDialogRef} tabIndex={-1} aria-labelledby="project-batch-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
+    <Modal onEscape={() => setUploadOpen(false)} aria-labelledby="project-batch-upload-title" className="modal-panel chat-small-modal batch-chat-modal">
         <div className="modal-header">
           <div><p className="eyebrow">{t("batchValidation")}</p><h2 id="project-batch-upload-title">{t("uploadTestConversations")}</h2></div>
           <button aria-label={t("close")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button>
@@ -69,7 +67,6 @@ export function ProjectChatBatchUploadDialog({ activeValidationRun, batchComplet
           {canRetryFailedValidation ? <button className="action-button secondary" onClick={() => { void retryFailedValidationItems(); }} type="button">{t("projectChatRetryFailedQuestions")}</button> : null}
           {!activeValidationRun && !validationFinished ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError)} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}
         </div>
-      </section>
-    </div>
+      </Modal>
   );
 }

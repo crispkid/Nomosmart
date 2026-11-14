@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { Modal } from "@/components/Modal";
 import { AlertTriangle, ArrowRight, X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
 import type { useFeedback } from "@/components/FeedbackProvider";
 import { getDocumentLifecycleImpact, updateDocumentLifecycle } from "@/lib/api";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
@@ -29,9 +29,7 @@ export function useStatusChangeState() {
   const [statusSubmitting, setStatusSubmitting] = useState(false);
   const [statusError, setStatusError] = useState("");
 
-  // D424-18: Esc, focus trap and focus return for the lifecycle warning.
-  const statusDialogRef = useModalFocus(Boolean(pendingStatusChange), () => { if (!statusSubmitting) setPendingStatusChange(null); });
-  return { committedStatuses, setCommittedStatuses, pendingStatusChange, setPendingStatusChange, statusSubmitting, setStatusSubmitting, statusError, setStatusError, statusDialogRef };
+  return { committedStatuses, setCommittedStatuses, pendingStatusChange, setPendingStatusChange, statusSubmitting, setStatusSubmitting, statusError, setStatusError };
 }
 
 /** Document lifecycle status actions, created each render once page dependencies exist. */
@@ -141,7 +139,7 @@ export type StatusChangeActions = ReturnType<typeof createStatusChangeActions>;
 
 /** Document lifecycle impact dialog: JSX moved verbatim from the project import page (OPT424-038). */
 export function createStatusChangeView(state: StatusChangeState, actions: StatusChangeActions, deps: StatusChangeViewDeps) {
-  const { pendingStatusChange, setPendingStatusChange, statusSubmitting, statusError, statusDialogRef } = state;
+  const { pendingStatusChange, setPendingStatusChange, statusSubmitting, statusError } = state;
   const { confirmStatusChange } = actions;
 
   function renderStatusChangeModal() {
@@ -149,14 +147,7 @@ export function createStatusChangeView(state: StatusChangeState, actions: Status
     return (
       <>
       {pendingStatusChange ? (
-        <div
-          className="modal-backdrop"
-          onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !statusSubmitting) setPendingStatusChange(null);
-          }}
-          role="presentation"
-        >
-          <section ref={statusDialogRef} tabIndex={-1} aria-labelledby="status-change-title" aria-modal="true" className="modal-panel warning-modal" role="alertdialog">
+        <Modal onEscape={() => { if (!statusSubmitting) setPendingStatusChange(null); }} onBackdropMouseDown={() => { if (!statusSubmitting) setPendingStatusChange(null); }} aria-labelledby="status-change-title" className="modal-panel warning-modal" role="alertdialog">
             <div className="modal-header">
               <div><p className="eyebrow">{t("projectImportImpactWarning")}</p><h2 id="status-change-title">{pendingStatusChange.to === "inactive" ? t("projectImportDisableDocument") : t("projectImportDeleteDocument")}</h2></div>
               <button aria-label={t("projectImportCloseLifecycleWarning")} className="icon-button" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button"><X size={18} /></button>
@@ -172,8 +163,7 @@ export function createStatusChangeView(state: StatusChangeState, actions: Status
               {pendingStatusChange.projects.length ? pendingStatusChange.projects.map((project) => <span key={project}>{project}</span>) : <span>{t("projectImportNoReferenceProjects")}</span>}
             </div>
             <div className="modal-actions"><button className="action-button secondary" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={statusSubmitting} onClick={confirmStatusChange} type="button">{statusSubmitting ? t("projectImportSubmitting") : t("projectImportConfirmContinue")}</button></div>
-          </section>
-        </div>
+          </Modal>
       ) : null}
       </>
     );
