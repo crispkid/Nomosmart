@@ -24,7 +24,6 @@ import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, c
 import { deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
-import { VersionGraphPreview } from "@/components/VersionGraphPreview";
 import { useI18n } from "@/lib/i18nClient";
 import { useReadResource } from "@/lib/useReadResource";
 import { markdownArtifactReasonKey, sourceSelectionGroupsForChunks, sourceSelectionScrollBehavior } from "@/lib/markdownSourceMapping";
@@ -35,6 +34,8 @@ const DocumentContentEditorModal = dynamic(() => import("@/components/DocumentCo
 import { type Translate, type KnowledgeChunk, type DocumentView, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate } from "@/components/knowledgeDetail/knowledgeDetailModel";
 import { createKnowledgeTagActions, useKnowledgeTagState } from "@/components/knowledgeDetail/useKnowledgeTagSection";
 import { useManualChunkSection } from "@/components/knowledgeDetail/useManualChunkSection";
+import { ChunkListPager, useChunkPage } from "@/components/knowledgeDetail/ChunkListPager";
+import { ChunkDeleteDialog, DocumentGraphDialog } from "@/components/knowledgeDetail/KnowledgeDetailDialogs";
 import { ChunkPreview, TagResultStrip, KnowledgeDetailCompletionGate, TagEditor } from "@/components/knowledgeDetail/KnowledgeDetailParts";
 
 export default function KnowledgePage() {
@@ -84,6 +85,7 @@ export default function KnowledgePage() {
   const physicalPagesUnknown = liveDetail?.pipeline?.steps.some(step => step.input_mode === "native_pdf" && step.page_map_status === "unknown") ?? false;
   const selectedChunkIdSet = useMemo(() => new Set(selectedChunkIds), [selectedChunkIds]);
   const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIdSet.has(chunk.id)), [displayChunks, selectedChunkIdSet]);
+  const chunkPage = useChunkPage(displayChunks, selectedChunkIds); // D424-16: render 50 chunks per page
   const selectedChunk = selectedChunks[0];
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const rememberSourcePosition = useSourceViewPosition(articleViewerRef, documentView, markdownSourceText, selectedChunkIds.length);
@@ -215,19 +217,6 @@ export default function KnowledgePage() {
       lease.finish();
     }
   }
-
-  useEffect(() => {
-    if (!graphOpen) return;
-    const previousBodyOverflow = document.body.style.overflow;
-    const previousHtmlOverflow = document.documentElement.style.overflow;
-    document.body.style.overflow = "hidden";
-    document.documentElement.style.overflow = "hidden";
-
-    return () => {
-      document.body.style.overflow = previousBodyOverflow;
-      document.documentElement.style.overflow = previousHtmlOverflow;
-    };
-  }, [graphOpen]);
 
   useEffect(() => {
     if (documentView === "tags") {
@@ -490,7 +479,7 @@ export default function KnowledgePage() {
           }
         >
           <div className="chunk-list extraction-chunks" ref={chunkListRef}>
-            {displayChunks.map((chunk) => (
+            {chunkPage.items.map((chunk) => (
               // OPT424-033: the card holds edit, delete and tag controls, so it is a
               // plain container; selection has its own toggle button. Clicking the
               // card body still selects for pointer users.
@@ -549,6 +538,7 @@ export default function KnowledgePage() {
                 />
               </article>
             ))}
+            <ChunkListPager chunkPage={chunkPage} />
             {!loading && !loadError && displayChunks.length === 0 ? <div className="chunk-empty-state"><AlertTriangle size={20} /><strong>{t("knowledgeDetailNoChunksTitle")}</strong><p>{t("knowledgeDetailNoChunksHelp")}</p></div> : null}
           </div>
         </Panel>
@@ -561,34 +551,8 @@ export default function KnowledgePage() {
         <span>{liveDetail?.chat_access?.mode === "published" ? t("knowledgePublishedChat") : liveDetail?.next_stage_allowed ? t("knowledgeDetailReviewReady") : t(liveDetail?.next_stage_block_reason === "chunks_required" ? "knowledgeDetailChunksRequired" : "knowledgeDetailArtifactsNotReady")}</span>
       </div>}
 
-      {deleteTarget ? <div className="system-modal-backdrop" onKeyDown={(event) => { if (event.key === "Escape" && !deleteBusy) setDeleteTarget(null); }} onMouseDown={(event) => { if (event.target === event.currentTarget && !deleteBusy) setDeleteTarget(null); }} role="presentation">
-        <section aria-labelledby="delete-chunk-title" aria-modal="true" className="system-reauth-modal chunk-delete-modal" role="alertdialog">
-          <header><span className="danger-icon"><Trash2 size={20} /></span><div><small>{format("knowledgeDetailChunkLabel", { number: deleteTarget.index })}</small><h2 id="delete-chunk-title">{t("knowledgeDetailDeleteChunkTitle")}</h2></div><button aria-label={t("close")} className="modal-close-button" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button"><X size={18} /></button></header>
-          <p>{t("knowledgeDetailDeleteChunkHelp")}</p>
-          <blockquote>{deleteTarget.content.slice(0, 180)}{deleteTarget.content.length > 180 ? "..." : ""}</blockquote>
-          {deleteError ? <FeedbackMessage tone="error"><strong>{deleteError}</strong></FeedbackMessage> : null}
-          <footer><button className="action-button secondary" disabled={deleteBusy} onClick={() => setDeleteTarget(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={deleteBusy} onClick={() => void confirmChunkDeletion()} type="button">{deleteBusy ? <Loader2 className="spin" size={16} /> : <Trash2 size={16} />}{t("knowledgeDetailConfirmDeleteChunk")}</button></footer>
-        </section>
-      </div> : null}
-
-      {graphOpen ? (
-        <div className="modal-backdrop">
-          <section aria-labelledby="document-graph-title" aria-modal="true" className="modal-panel document-graph-modal" role="dialog">
-            <div className="modal-header">
-              <div>
-                <p className="eyebrow">{liveDetail ? `${liveDetail.document.title} · ${liveDetail.version.version_label}` : t("knowledgeDetailLiveGraphEyebrow")}</p>
-                <h2 id="document-graph-title">{t("knowledgeGraphPreview")}</h2>
-              </div>
-              <button className="icon-button" onClick={() => setGraphOpen(false)} type="button" aria-label={t("knowledgeDetailCloseGraphPreview")}>
-                <X size={18} />
-              </button>
-            </div>
-            {liveDetail ? <VersionGraphPreview projectId={params.id} documentId={liveDetail.document.id}
-              versionId={liveDetail.version.id} documentTitle={liveDetail.document.title}
-              version={liveDetail.version.version_label} /> : null}
-          </section>
-        </div>
-      ) : null}
+      {deleteTarget ? <ChunkDeleteDialog busy={deleteBusy} chunk={deleteTarget} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmChunkDeletion()} /> : null}
+      {graphOpen ? <DocumentGraphDialog detail={liveDetail ?? null} onClose={() => setGraphOpen(false)} projectId={params.id} /> : null}
         </>
       )}
       {contentEditor && liveDetail ? <DocumentContentEditorModal projectId={params.id} documentId={liveDetail.document.id} versionId={contentEditor.versionId} chunkId={contentEditor.chunkId} onClose={() => setContentEditor(null)} onSaved={handleContentSaved} /> : null}

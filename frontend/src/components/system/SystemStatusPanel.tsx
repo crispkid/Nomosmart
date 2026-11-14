@@ -1,6 +1,7 @@
 "use client";
 
 import { Check } from "lucide-react";
+import { DataTable } from "@/components/DataTable";
 import type { OperationsStatusResponse } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { SettingsCard } from "../SettingsCard";
@@ -20,14 +21,30 @@ export function SystemStatusPanel({ status, ready }: { status: OperationsStatusR
       </div>
       </SettingsCard><div className="system-status-columns">
       <SettingsCard panel="dependencies" title={t("systemDependencies")}>
-        <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemComponent")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemChecked")}</th></tr></thead><tbody>{status.dependencies.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge></td><td>{component.detail_code}</td><td>{component.checked_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div>
+        <DataTable rows={status.dependencies} rowKey={component => component.name} columns={[
+          { key: "component", header: t("systemComponent"), cell: component => <strong>{component.name}</strong> },
+          { key: "status", header: t("systemStatusColumn"), cell: component => <StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge> },
+          { key: "detail", header: t("systemDetail"), cell: component => component.detail_code },
+          { key: "checked", header: t("systemChecked"), cell: component => component.checked_at.slice(0, 16).replace("T", " ") },
+        ]} />
       </SettingsCard>
       <SettingsCard panel="providers" title={t("systemAiProviders")}>
-        <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemProviderRole")}</th><th>{t("systemStatusColumn")}</th><th>{t("systemDetail")}</th><th>{t("systemMetrics")}</th></tr></thead><tbody>{status.providers.map((component) => <tr key={component.name}><td><strong>{component.name}</strong></td><td><StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge></td><td>{component.detail_code}</td><td>{metricPairs(component.metrics).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "—"}</td></tr>)}</tbody></table></div>
+        <DataTable rows={status.providers} rowKey={component => component.name} columns={[
+          { key: "provider", header: t("systemProviderRole"), cell: component => <strong>{component.name}</strong> },
+          { key: "status", header: t("systemStatusColumn"), cell: component => <StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge> },
+          { key: "detail", header: t("systemDetail"), cell: component => component.detail_code },
+          { key: "metrics", header: t("systemMetrics"), cell: component => metricPairs(component.metrics).map(([key, value]) => `${key}: ${String(value)}`).join(" · ") || "—" },
+        ]} />
       </SettingsCard>
       </div>
       <SettingsCard panel="errors" title={t("systemRecentErrors")}>
-      {status.recent_errors.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemSourceColumn")}</th><th>{t("systemAction")}</th><th>{t("systemResult")}</th><th>{t("systemCode")}</th><th>{t("systemTime")}</th></tr></thead><tbody>{status.recent_errors.map((error) => <tr key={`${error.source}-${error.action}-${error.created_at}`}><td>{error.source}</td><td>{error.action}</td><td><StateBadge tone={statusTone(error.result === "success" ? "healthy" : "degraded")}>{operationStatusLabel(error.result, t)}</StateBadge></td><td>{error.detail_code}</td><td>{error.created_at.slice(0, 16).replace("T", " ")}</td></tr>)}</tbody></table></div> : <div className="empty-inline-state"><Check size={18} />{t("systemNoRecentErrors")}</div>}
+      {status.recent_errors.length ? <DataTable rows={status.recent_errors} rowKey={error => `${error.source}-${error.action}-${error.created_at}`} columns={[
+        { key: "source", header: t("systemSourceColumn"), cell: error => error.source },
+        { key: "action", header: t("systemAction"), cell: error => error.action },
+        { key: "result", header: t("systemResult"), cell: error => <StateBadge tone={statusTone(error.result === "success" ? "healthy" : "degraded")}>{operationStatusLabel(error.result, t)}</StateBadge> },
+        { key: "code", header: t("systemCode"), cell: error => error.detail_code },
+        { key: "time", header: t("systemTime"), cell: error => error.created_at.slice(0, 16).replace("T", " ") },
+      ]} /> : <div className="empty-inline-state"><Check size={18} />{t("systemNoRecentErrors")}</div>}
       </SettingsCard>
     </> : ready ? <EmptyInlineState>{t("systemStatusUnavailable")}</EmptyInlineState> : null
   );

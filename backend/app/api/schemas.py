@@ -1170,6 +1170,8 @@ class ProjectServingStatusResponse(BaseModel):
     ready_index_count: int
     graph_ready_count: int
     documents: list[ProjectServingDocumentStatus] = Field(default_factory=list)
+    # Present only in paged mode (OPT424-015, D424-15); null on the last page.
+    next_cursor: str | None = None
 
 
 class ProjectChatQueryPayload(BaseModel):

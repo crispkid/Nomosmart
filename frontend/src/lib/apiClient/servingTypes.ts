@@ -26,6 +26,8 @@ export type ProjectServingStatusResponse = {
     graph_node_count: number | null;
     graph_edge_count: number | null;
   }[];
+  /** Present only when cursor or limit is sent (OPT424-015, D424-15); null on the last page. */
+  next_cursor?: string | null;
 };
 
 export type ProjectChatQueryResponse = {

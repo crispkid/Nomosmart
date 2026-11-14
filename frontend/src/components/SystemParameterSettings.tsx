@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { DataTable } from "@/components/DataTable";
 import { RotateCcw, Save, RefreshCw } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useReadResource } from "@/lib/useReadResource";
@@ -125,7 +126,11 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   return <div className="settings-parameter-editor" data-session-draft-key="system.parameters">
     {loading ? <FeedbackMessage tone="info">{t("loadingData")}</FeedbackMessage> : null}
     {error || unknown ? <FeedbackMessage tone={unknown ? "warning" : "error"} title={t(unknown ? "feedbackResultUnknown" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflict" : "systemReadFailedTitle")} actions={<><button className="action-button secondary" type="button" disabled={checking} onClick={() => void compareCurrent()}><RefreshCw size={16} />{t("settingsCompare")}</button>{!unknown ? <button className="action-button secondary" type="button" disabled={dirty} onClick={() => { setError(null); void parametersRead.reload(); }}><RefreshCw size={16} />{t("retry")}</button> : null}</>}>{t(unknown ? "settingsUnknownHelp" : (error as ApiError)?.code === "system_parameters_conflict" ? "settingsConflictHelp" : "settingsSaveError")}</FeedbackMessage> : null}
-    {comparison ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemParameters")}</th><th>{t("systemUnsavedChanges")}</th><th>{t("settingsCurrentValue")}</th></tr></thead><tbody>{groups.flatMap(group => group.fields).map(field => <tr key={field.key}><th>{t(field.label)}</th><td>{draft[field.key]}</td><td>{String(comparison[field.key])}</td></tr>)}</tbody></table><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, String(comparison[key])])); parametersRead.update(() => comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></div> : null}
+    {comparison ? <DataTable rows={groups.flatMap(group => group.fields)} rowKey={field => field.key} columns={[
+      { key: "parameter", header: t("systemParameters"), rowHeader: true, cell: field => t(field.label) },
+      { key: "draft", header: t("systemUnsavedChanges"), cell: field => draft[field.key] },
+      { key: "current", header: t("settingsCurrentValue"), cell: field => String(comparison[field.key]) },
+    ]}><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, String(comparison[key])])); parametersRead.update(() => comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></DataTable> : null}
     {groups.map(group => <SettingsCard key={group.panel} panel={group.panel} title={t(group.title)}>
       {group.fields.map(field => {
         const id = `setting-${field.key}`, metadata = data?.parameter_metadata[field.key];

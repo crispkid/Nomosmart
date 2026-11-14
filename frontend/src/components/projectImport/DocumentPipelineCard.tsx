@@ -44,7 +44,7 @@ type DocumentPipelineCardProps = Pick<ImportPageDeps, "format" | "locale" | "t">
 
 /** One document card in the project import document list: JSX moved verbatim from the page (OPT424-038). */
 export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
-  const { document, t, format, locale, localize, projectId, projectAccess, canStartExtraction, canEditLifecycle, terminalCounts, elapsedNow, elapsedEnabled, committedStatuses, pendingStatusChange, statusSubmitting, manualStartPending, manualStartNotices, pipelineDetailLoading, pipelineRetryNotices, startManualExtraction, retryLivePipelineStep, requestStatusChange, setVersionDocumentId } = props;
+  const { document, t, format, locale, localize, projectId, projectAccess, canStartExtraction, canEditLifecycle, terminalCounts, elapsedNow, elapsedEnabled, committedStatuses, statusSubmitting, manualStartPending, manualStartNotices, pipelineDetailLoading, pipelineRetryNotices, startManualExtraction, retryLivePipelineStep, requestStatusChange, setVersionDocumentId } = props;
     const sourceState = getSourceState(document);
     const pipeline = document.pipeline;
     const displayedVersion = sourceState === "syncing" && document.versions.length === 0 ? t("projectImportVersionPending") : normalizeVersion(document.version);
@@ -118,7 +118,7 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
 	                    <div className="source-state-actions">
 	                      <button className="action-button secondary" onClick={() => setVersionDocumentId(document.id)} type="button"><ListRestart size={16} /> {t("projectImportVersionManagement")}</button>
 	                      {sourceState === "ready_for_extraction" ? <button className="action-button" disabled={Boolean(startDisabled)} onClick={() => startManualExtraction(document.id)} title={reviewLocked ? t("projectImportReviewExtractionLockedHelp") : undefined} type="button"><ArrowRight size={16} /> {t("projectImportStartExtraction")}</button> : null}
-	                      <button className="action-button danger" disabled={!canEditLifecycle || pendingStatusChange?.documentId === document.id || statusSubmitting} onClick={() => { void requestStatusChange(document, "deleted", committedStatuses[document.id] ?? document.documentStatus); }} title={!canEditLifecycle ? t("projectImportMissingLifecyclePermission") : undefined} type="button"><AlertTriangle size={16} /> {t("delete")}</button>
+	                      <button className="action-button danger" disabled={!canEditLifecycle || statusSubmitting} onClick={() => { void requestStatusChange(document, "deleted", committedStatuses[document.id] ?? document.documentStatus); }} title={!canEditLifecycle ? t("projectImportMissingLifecyclePermission") : undefined} type="button"><AlertTriangle size={16} /> {t("delete")}</button>
 	                    </div>
           </div>
         ) : <>
@@ -171,7 +171,7 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
 	                    <DropdownSelect
 	                      aria-label={format("projectImportDocumentStatusAria", { title: document.title })}
 	                      className="status-select"
-	                      disabled={!canEditLifecycle || pendingStatusChange?.documentId === document.id || statusSubmitting}
+	                      disabled={!canEditLifecycle || statusSubmitting}
 	                      onChange={(event) => { void requestStatusChange(document, event.target.value, effectiveStatus); }}
 	                      title={!canEditLifecycle ? t("projectImportMissingLifecyclePermission") : undefined}
 	                      value={effectiveStatus}

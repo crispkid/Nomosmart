@@ -162,10 +162,34 @@ def get_document_version_graph(
     return _hydrate_graph_chunk_content(session, graph, project.id, version_ids)
 
 
-@router.get("/projects/{project_id}/serving-status", response_model=ProjectServingStatusResponse)
-def get_project_serving_status(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ProjectServingStatusResponse:
+@router.get("/projects/{project_id}/serving-status", response_model=ProjectServingStatusResponse, response_model_exclude_unset=True)
+def get_project_serving_status(
+    project_id: UUID,
+    request: Request,
+    cursor: str | None = Query(default=None, max_length=1024),
+    limit: int | None = Query(default=None, ge=1, le=200),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> ProjectServingStatusResponse:
+    """Serving readiness; optional cursor/limit page the document list only (OPT424-015, D424-15).
+
+    The summary fields always cover every active document, so paging shrinks the
+    response but still verifies every graph. Without cursor and limit the response
+    is unchanged and carries no next_cursor.
+    """
     project = _get_scoped_project(session, project_id, context)
-    manifests = list(session.scalars(_active_retrieval_manifest_query(project.id).order_by(ActiveVersionManifest.created_at.desc())))
+    paged = cursor is not None or limit is not None
+    after: tuple[datetime, UUID] | None = None
+    if cursor is not None:
+        payload = decode_cursor(request.app.state.settings, namespace="serving-status", value=cursor)
+        try:
+            if payload.get("project") != str(project.id):
+                raise ValueError("cursor_project_mismatch")
+            after = (datetime.fromisoformat(str(payload["created_at"])), UUID(str(payload["id"])))
+        except (KeyError, TypeError, ValueError) as exc:
+            raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
+    manifests = list(session.scalars(_active_retrieval_manifest_query(project.id).order_by(ActiveVersionManifest.created_at.desc(), ActiveVersionManifest.id.desc())))
+    document_manifests: list[ActiveVersionManifest] = []
     documents: list[ProjectServingDocumentStatus] = []
     for manifest in manifests:
         document = session.get(Document, manifest.document_id)
@@ -190,6 +214,7 @@ def get_project_serving_status(project_id: UUID, context: IdentityContext = Depe
             graph_verified = actual.matches(projection)
         except AppError:
             graph_verified = False
+        document_manifests.append(manifest)
         documents.append(
             ProjectServingDocumentStatus(
                 document_id=document.id,
@@ -207,7 +232,20 @@ def get_project_serving_status(project_id: UUID, context: IdentityContext = Depe
     ready_index_count = sum(1 for item in documents if item.index_ready)
     graph_ready_count = sum(1 for item in documents if item.graph_sync_status == "completed")
     readiness = "empty" if not documents else "ready" if ready_index_count == len(documents) and graph_ready_count == len(documents) else "partial"
-    return ProjectServingStatusResponse(project_id=project.id, readiness=readiness, active_document_count=len(documents), ready_index_count=ready_index_count, graph_ready_count=graph_ready_count, documents=documents)
+    summary = {"project_id": project.id, "readiness": readiness, "active_document_count": len(documents), "ready_index_count": ready_index_count, "graph_ready_count": graph_ready_count}
+    if not paged:
+        return ProjectServingStatusResponse(**summary, documents=documents)
+    page_size = limit or 50
+    start = 0
+    if after is not None:
+        start = next((index for index, manifest in enumerate(document_manifests) if (manifest.created_at, manifest.id) < after), len(document_manifests))
+    page = list(zip(document_manifests[start:start + page_size + 1], documents[start:start + page_size + 1]))
+    next_cursor = None
+    if len(page) > page_size:
+        page = page[:page_size]
+        last = page[-1][0]
+        next_cursor = encode_cursor(request.app.state.settings, namespace="serving-status", payload={"project": str(project.id), "created_at": last.created_at.isoformat(), "id": str(last.id)})
+    return ProjectServingStatusResponse(**summary, documents=[item for _manifest, item in page], next_cursor=next_cursor)
 
 
 def _serving_manifest_chunk_count(session: Session, manifest: ActiveVersionManifest) -> int:
