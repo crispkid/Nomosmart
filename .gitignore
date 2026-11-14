@@ -26,6 +26,7 @@ playwright.config.*
 # --- Dependencies and build output ---
 node_modules/
 /frontend/.next/
+/frontend/.next-dev/
 /frontend/out/
 /frontend/coverage/
 /frontend/.vitest-attachments/
