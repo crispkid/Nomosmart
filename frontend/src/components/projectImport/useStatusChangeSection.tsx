@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { AlertTriangle, ArrowRight, X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
+import { useModalFocus } from "@/components/useModalFocus";
 import type { useFeedback } from "@/components/FeedbackProvider";
 import { getDocumentLifecycleImpact, updateDocumentLifecycle } from "@/lib/api";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
@@ -28,15 +29,9 @@ export function useStatusChangeState() {
   const [statusSubmitting, setStatusSubmitting] = useState(false);
   const [statusError, setStatusError] = useState("");
 
-  useEffect(() => {
-    if (!pendingStatusChange) return;
-    function handleEscape(event: KeyboardEvent) {
-      if (event.key === "Escape" && !statusSubmitting) setPendingStatusChange(null);
-    }
-    window.addEventListener("keydown", handleEscape);
-    return () => window.removeEventListener("keydown", handleEscape);
-  }, [pendingStatusChange, statusSubmitting]);
-  return { committedStatuses, setCommittedStatuses, pendingStatusChange, setPendingStatusChange, statusSubmitting, setStatusSubmitting, statusError, setStatusError };
+  // D424-18: Esc, focus trap and focus return for the lifecycle warning.
+  const statusDialogRef = useModalFocus(Boolean(pendingStatusChange), () => { if (!statusSubmitting) setPendingStatusChange(null); });
+  return { committedStatuses, setCommittedStatuses, pendingStatusChange, setPendingStatusChange, statusSubmitting, setStatusSubmitting, statusError, setStatusError, statusDialogRef };
 }
 
 /** Document lifecycle status actions, created each render once page dependencies exist. */
@@ -146,7 +141,7 @@ export type StatusChangeActions = ReturnType<typeof createStatusChangeActions>;
 
 /** Document lifecycle impact dialog: JSX moved verbatim from the project import page (OPT424-038). */
 export function createStatusChangeView(state: StatusChangeState, actions: StatusChangeActions, deps: StatusChangeViewDeps) {
-  const { pendingStatusChange, setPendingStatusChange, statusSubmitting, statusError } = state;
+  const { pendingStatusChange, setPendingStatusChange, statusSubmitting, statusError, statusDialogRef } = state;
   const { confirmStatusChange } = actions;
 
   function renderStatusChangeModal() {
@@ -161,7 +156,7 @@ export function createStatusChangeView(state: StatusChangeState, actions: Status
           }}
           role="presentation"
         >
-          <section aria-labelledby="status-change-title" aria-modal="true" className="modal-panel warning-modal" role="alertdialog">
+          <section ref={statusDialogRef} tabIndex={-1} aria-labelledby="status-change-title" aria-modal="true" className="modal-panel warning-modal" role="alertdialog">
             <div className="modal-header">
               <div><p className="eyebrow">{t("projectImportImpactWarning")}</p><h2 id="status-change-title">{pendingStatusChange.to === "inactive" ? t("projectImportDisableDocument") : t("projectImportDeleteDocument")}</h2></div>
               <button aria-label={t("projectImportCloseLifecycleWarning")} className="icon-button" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button"><X size={18} /></button>

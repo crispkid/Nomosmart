@@ -1,6 +1,7 @@
 "use client";
 
 import { DropdownSelect } from "@/components/DropdownSelect";
+import { DataTable } from "@/components/DataTable";
 
 import { FeedbackMessage, FeedbackSeverityBadge } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -368,7 +369,8 @@ function ReportEmptyState() {
 
 function ReportTable({ rows, columns }: { rows: CsvRow[]; columns: Array<[string, string]> }) {
   const { locale, t } = useI18n();
-  return <div className="system-table-wrap report-table-wrap"><table className="system-table"><thead><tr>{columns.map(([key, label]) => <th className={reportIdentityClass(key)} key={key}>{label}</th>)}</tr></thead><tbody>{rows.map((row, index) => <tr key={index}>{columns.map(([key]) => <td className={reportIdentityClass(key)} key={key}>{(key === "ocr_pages" || key === "ocr_images" || key === "input_tokens" || key === "output_tokens" || key === "total_tokens" || key === "embedding_tokens") ? reportCountValue(row, key, { unknown: t("reportCountUnknown"), notApplicable: t("reportCountNotApplicable"), partial: t("reportCountPartial") }) : key === "level" ? <FeedbackSeverityBadge severity={String(row[key] ?? "info")} /> : (() => { const display = reportDisplayValue(key, row[key], t); return display ? <span className="report-coded-value"><span>{display.label}</span>{display.code ? <small>{display.code}</small> : null}</span> : formatReportCell(key, row[key], locale, t("reportCostNotProvided")); })()}</td>)}</tr>)}</tbody></table></div>;
+  return <DataTable wrapClassName="report-table-wrap" rows={rows} rowKey={(_, index) => index} columns={columns.map(([key, label]) => ({ key, header: label, className: reportIdentityClass(key), cell: (row: CsvRow) =>
+    (key === "ocr_pages" || key === "ocr_images" || key === "input_tokens" || key === "output_tokens" || key === "total_tokens" || key === "embedding_tokens") ? reportCountValue(row, key, { unknown: t("reportCountUnknown"), notApplicable: t("reportCountNotApplicable"), partial: t("reportCountPartial") }) : key === "level" ? <FeedbackSeverityBadge severity={String(row[key] ?? "info")} /> : (() => { const display = reportDisplayValue(key, row[key], t); return display ? <span className="report-coded-value"><span>{display.label}</span>{display.code ? <small>{display.code}</small> : null}</span> : formatReportCell(key, row[key], locale, t("reportCostNotProvided")); })() }))} />;
 }
 
 function reportIdentityClass(key: string) {

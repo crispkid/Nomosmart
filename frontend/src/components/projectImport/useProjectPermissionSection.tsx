@@ -1,6 +1,7 @@
 "use client";
 
 import { FeedbackMessage } from "@/components/FeedbackMessage";
+import { useModalFocus } from "@/components/useModalFocus";
 import { useCallback, useState } from "react";
 import { AlertTriangle, Clock3, ShieldCheck, Trash2, UserPlus, UserRoundCog, X } from "lucide-react";
 import { ProjectMemberAutocomplete } from "@/components/ProjectMemberAutocomplete";
@@ -58,7 +59,9 @@ export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
             ? t("projectImportPermissionSearchMissingAccess")
             : t("projectImportPermissionSearchNoResults")
         : "";
-  return { permissionModalOpen, setPermissionModalOpen, projectMembers, setProjectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, setPermissionLoading, permissionError, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId, permissionRoleLabel, membersForActiveRole, searchPermissionCandidates, permissionCandidateSearch, permissionUsers, filteredPermissionUsers, permissionSearchMessage };
+  // D424-18: Esc, focus trap and focus return, matching the close buttons.
+  const permissionDialogRef = useModalFocus(permissionModalOpen && canManageProjectPermissions, () => setPermissionModalOpen(false));
+  return { permissionDialogRef, permissionModalOpen, setPermissionModalOpen, projectMembers, setProjectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, setPermissionLoading, permissionError, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId, permissionRoleLabel, membersForActiveRole, searchPermissionCandidates, permissionCandidateSearch, permissionUsers, filteredPermissionUsers, permissionSearchMessage };
 }
 
 /** Project member permission actions, created each render once workspace dependencies exist. */
@@ -166,7 +169,7 @@ export type ProjectPermissionActions = ReturnType<typeof createProjectPermission
 
 /** Project member permission view: JSX moved verbatim from the project import page (OPT424-038). */
 export function createProjectPermissionView(state: ProjectPermissionState, actions: ProjectPermissionActions, deps: Pick<ImportPageDeps, "canManageProjectPermissions" | "currentUser" | "format" | "locale" | "project" | "t">) {
-  const { setPermissionModalOpen, projectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, permissionError, permissionSavingUserId, permissionRemovingUserId, permissionRoleLabel, membersForActiveRole, filteredPermissionUsers, permissionSearchMessage } = state;
+  const { permissionDialogRef, setPermissionModalOpen, projectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, permissionError, permissionSavingUserId, permissionRemovingUserId, permissionRoleLabel, membersForActiveRole, filteredPermissionUsers, permissionSearchMessage } = state;
   const { loadProjectPermissions, saveProjectMemberRole, stagePermissionCandidate, commitPendingPermissionCandidates, removeProjectPermissionMember } = actions;
 
   function renderProjectPermissionModal() {
@@ -174,7 +177,7 @@ export function createProjectPermissionView(state: ProjectPermissionState, actio
     return (
       (
       <div className="modal-backdrop" role="presentation">
-        <section aria-labelledby="project-permissions-title" aria-modal="true" className="modal-panel project-permission-modal" role="dialog">
+        <section ref={permissionDialogRef} tabIndex={-1} aria-labelledby="project-permissions-title" aria-modal="true" className="modal-panel project-permission-modal" role="dialog">
           <div className="modal-header">
             <div className="modal-title-row">
               <span className="modal-title-icon"><UserRoundCog size={20} /></span>

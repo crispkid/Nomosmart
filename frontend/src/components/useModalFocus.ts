@@ -20,7 +20,7 @@ function focusStart(dialog: HTMLElement) {
   (controls(dialog)[0] ?? dialog).focus();
 }
 
-/** Scoped to the P1 dialogs; only the visible top dialog owns keyboard focus. */
+/** Shared dialog focus (OPT424-032, D424-18); only the visible top dialog owns keyboard focus. */
 export function useModalFocus(active: boolean, onEscape: () => void) {
   const ref = useRef<HTMLElement>(null);
   const close = useRef(onEscape);
@@ -35,6 +35,8 @@ export function useModalFocus(active: boolean, onEscape: () => void) {
     function keydown(event: KeyboardEvent) {
       if (!dialog || topDialog() !== dialog) return;
       if (event.key === "Escape") {
+        // D424-18: an expanded listbox or autocomplete collapses itself first.
+        if (event.target instanceof Element && event.target.closest('[aria-expanded="true"]')) return;
         event.preventDefault();
         event.stopPropagation();
         close.current();

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type Dispatch, type MutableRefObject, type ReactNode, type SetStateAction } from "react";
+import { DataTable } from "@/components/DataTable";
 import { Check, DatabaseZap, Ellipsis, Eye, Info, Link2, LoaderCircle, LockKeyhole, Pencil, Plus, Save, Search, ShieldCheck, Trash2, Unlink, UserRoundCog, UsersRound, X } from "lucide-react";
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackForm } from "@/components/FeedbackForm";
@@ -351,7 +352,13 @@ export function createRoleView(state: RoleState, actions: RoleActions, deps: Pic
         {renderListPager("roles", rolePage, rolePageSize, roleTotal, () => setRolePage(page => page - 1), rolePage * rolePageSize < roleTotal ? () => setRolePage(page => page + 1) : null, size => { setRolePageSize(size); setRolePage(1); })}
         {filteredLocalRoles.length ? <div className="system-role-grid">{filteredLocalRoles.map(renderLocalRoleCard)}</div> : sectionReady("roles") ? <EmptyInlineState>{liveRoles.length ? t("systemNoMatchingRoles") : t("systemNoLocalRoles")}</EmptyInlineState> : null}
       </> : null}
-      {rolesView === "ldap" ? <div className="system-ldap-groups"><div className="system-subsection-title"><div><h3><DatabaseZap size={18} />{t("systemLdapGroups")}</h3><p>{t("systemExternalGroupMappingsDescription")}</p></div></div>{ldapGroups.length ? <div className="system-table-wrap"><table className="system-table"><thead><tr><th>{t("systemLdapGroup")}</th><th>{t("systemLdapPath")}</th><th>{t("systemMembersColumn")}</th><th>{t("systemNomoSmartRole")}</th><th>{t("systemStatusColumn")}</th></tr></thead><tbody>{ldapGroups.map((group) => { const mapping = liveGroupMappings.find((item) => item.groupId === group.id); return <tr key={group.id}><td><strong>{group.group_name}</strong><small>{t("systemLdapReadOnly")}</small></td><td>{group.path}</td><td>{group.member_count}</td><td>{mapping?.role ?? t("systemNoMapping")}</td><td><StateBadge tone={group.is_active ? "green" : "gray"}>{group.is_active ? t("systemSynced") : t("systemDisabled")}</StateBadge></td></tr>; })}</tbody></table></div> : <EmptyInlineState />}</div> : null}
+      {rolesView === "ldap" ? <div className="system-ldap-groups"><div className="system-subsection-title"><div><h3><DatabaseZap size={18} />{t("systemLdapGroups")}</h3><p>{t("systemExternalGroupMappingsDescription")}</p></div></div>{ldapGroups.length ? <DataTable rows={ldapGroups} rowKey={group => group.id} columns={[
+        { key: "group", header: t("systemLdapGroup"), cell: group => <><strong>{group.group_name}</strong><small>{t("systemLdapReadOnly")}</small></> },
+        { key: "path", header: t("systemLdapPath"), cell: group => group.path },
+        { key: "members", header: t("systemMembersColumn"), cell: group => group.member_count },
+        { key: "role", header: t("systemNomoSmartRole"), cell: group => liveGroupMappings.find((item) => item.groupId === group.id)?.role ?? t("systemNoMapping") },
+        { key: "status", header: t("systemStatusColumn"), cell: group => <StateBadge tone={group.is_active ? "green" : "gray"}>{group.is_active ? t("systemSynced") : t("systemDisabled")}</StateBadge> },
+      ]} /> : <EmptyInlineState />}</div> : null}
     </SettingsCard>
     );
   }
