@@ -116,7 +116,7 @@ export type ProjectCreatePayload = {
   description?: string | null;
   llm_model_id: string;
   embedding_model_id: string;
-  ocr_model_id: string | null;
+  ocr_model_id: string;
   members?: { user_id: string; roles: string[] }[];
 };
 
