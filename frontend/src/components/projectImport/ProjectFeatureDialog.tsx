@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import type { RefObject } from "react";
+import { Modal } from "@/components/Modal";
 import { X } from "lucide-react";
 import { ProjectChatTest } from "@/components/ProjectChatTest";
 import type { ImportPageDeps } from "./pageDeps";
@@ -11,17 +11,15 @@ const ProjectGraphPreview = dynamic(() => import("@/components/ProjectGraphPrevi
 
 type ProjectFeatureDialogProps = Pick<ImportPageDeps, "t"> & {
   activeModal: "graph" | "chat";
-  dialogRef: RefObject<HTMLElement | null>;
   fixedChatVersion: string | undefined;
   onClose: () => void;
   projectId: string;
 };
 
 /** Knowledge graph and chat test dialog for the project import page (OPT424-038). */
-export function ProjectFeatureDialog({ activeModal, dialogRef, fixedChatVersion, onClose, projectId, t }: ProjectFeatureDialogProps) {
+export function ProjectFeatureDialog({ activeModal, fixedChatVersion, onClose, projectId, t }: ProjectFeatureDialogProps) {
   return (
-    <div className="modal-backdrop" role="presentation">
-      <section ref={dialogRef} tabIndex={-1} aria-labelledby="project-feature-title" aria-modal="true" className={`modal-panel project-feature-modal ${activeModal === "chat" ? "project-chat-modal" : "project-graph-modal"}`} role="dialog">
+    <Modal onEscape={onClose} aria-labelledby="project-feature-title" className={`modal-panel project-feature-modal ${activeModal === "chat" ? "project-chat-modal" : "project-graph-modal"}`}>
         <div className="modal-header">
           <div>
             <p className="eyebrow">{t("projectImportFeatureEyebrow")}</p>
@@ -43,7 +41,6 @@ export function ProjectFeatureDialog({ activeModal, dialogRef, fixedChatVersion,
         ) : (
           <ProjectChatTest fixedVersionId={fixedChatVersion} key={`${projectId}:${fixedChatVersion ?? "all"}`} />
         )}
-      </section>
-    </div>
+      </Modal>
   );
 }

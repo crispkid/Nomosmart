@@ -11,7 +11,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, X } from "lucide-react";
 import { AppShell, StatusBadge } from "@/components/AppShell";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { useAuth } from "@/components/AuthProvider";
 import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
@@ -50,7 +50,6 @@ export default function ChatTestPage() {
   const selectionEpoch = useRef(new ChatRequestEpoch());
   const [evaluations, setEvaluations] = useState<Record<string, AnswerEvaluation>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
-  const uploadDialogRef = useModalFocus(uploadOpen, () => setUploadOpen(false));
   const [uploadFileName, setUploadFileName] = useState("");
   const [uploadQuestions, setUploadQuestions] = useState<string[]>([]);
   const [uploadError, setUploadError] = useState("");
@@ -429,8 +428,7 @@ export default function ChatTestPage() {
       </section>
 
       {uploadOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={uploadDialogRef} aria-labelledby="batch-chat-upload-title" aria-modal="true" className="modal-panel chat-small-modal batch-chat-modal" role="dialog">
+        <Modal onEscape={() => setUploadOpen(false)} aria-labelledby="batch-chat-upload-title" className="modal-panel chat-small-modal batch-chat-modal">
             <div className="modal-header"><div><p className="eyebrow">{t("batchValidation")}</p><h2 id="batch-chat-upload-title">{t("uploadTestConversations")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button></div>
             {batchCompletedCount !== null ? <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t(validationRunning ? "documentChatBatchQueued" : "documentChatBatchFinished")}</strong><span>{activeValidationRun ? format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count }) : format("documentChatBatchCreated", { count: batchCompletedCount })}</span></div></div> : (
               <div className="batch-upload-body">
@@ -442,8 +440,7 @@ export default function ChatTestPage() {
               </div>
             )}
             <div className="modal-actions"><button className="action-button secondary" onClick={() => setUploadOpen(false)} type="button">{batchCompletedCount !== null ? t("closeDialog") : t("cancel")}</button>{batchCompletedCount === null ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError) || batchCreating} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}</div>
-          </section>
-        </div>
+          </Modal>
       ) : null}
     </AppShell>
   );

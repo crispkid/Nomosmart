@@ -4,7 +4,7 @@ import { isNativeOcrModel } from "@/lib/nativeOcrModels";
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackConfirm } from "./FeedbackConfirm";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useUploadWaitState } from "@/lib/useUploadWaitState";
 import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronRight, FileText, LoaderCircle, RotateCcw, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
@@ -159,7 +159,6 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
   }, [finishWait, onObservationEnd]);
 
   // D424-18: Esc keeps the original close rules; the hook adds focus trap and return.
-  const dialogRef = useModalFocus(true, () => requestClose());
 
   function leaveWaiting() {
     attempts.current.leave();
@@ -279,8 +278,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
   const uploadDisplayProgress = nativePending ? null : confirmedPipelinePercent(liveProgressDocument?.pipeline);
   const completedStepCount = uploadProgressSteps.filter((step) => step.status === "completed").length;
 
-  return <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) requestClose(); }} role="presentation">
-    <section ref={dialogRef} tabIndex={-1} aria-busy={submitting || retryingPipeline} aria-labelledby="upload-files-title" aria-modal="true" className={`modal-panel source-modal optimized-source-modal${modalLocked ? " source-modal-locked" : ""}`} role="dialog">
+  return <Modal onEscape={() => requestClose()} onBackdropMouseDown={() => requestClose()} aria-busy={submitting || retryingPipeline} aria-labelledby="upload-files-title" className={`modal-panel source-modal optimized-source-modal${modalLocked ? " source-modal-locked" : ""}`}>
       <header className="source-modal-header"><div><p className="eyebrow">{t("uploadModalEyebrow")}</p><h2 id="upload-files-title">{t("uploadModalTitle")}</h2><small>{t("uploadModalHelp")}</small></div><button aria-label={t("uploadModalClose")} className="icon-button" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="source-modal-body">
         <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> {t("uploadSupportedFormats")}</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: formatCount(maxUploadMb, locale) })}</span></div>
@@ -351,6 +349,5 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
         </div>
       </div> : null}
       {discardOpen ? <FeedbackConfirm title={t("uploadDiscardTitle")} cancelLabel={t("continueEditing")} confirmLabel={t("discardAndClose")} onCancel={() => setDiscardOpen(false)} onConfirm={onClose}>{t("uploadDiscardHelp")}</FeedbackConfirm> : null}
-    </section>
-  </div>;
+    </Modal>;
 }

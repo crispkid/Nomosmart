@@ -5,7 +5,7 @@ import { Bot, CheckCircle2, Wrench, X } from "lucide-react";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
 import { FeedbackField } from "@/components/FeedbackMessage";
-import { useModalFocus } from "@/components/useModalFocus";
+import { Modal } from "@/components/Modal";
 import { formatShortDateTime as formatDateTime } from "@/lib/dateFormat";
 import { t as translate } from "@/lib/i18n";
 import { useI18n } from "@/lib/i18nClient";
@@ -16,7 +16,6 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [revisionOpen, setRevisionOpen] = useState(false);
-  const revisionDialogRef = useModalFocus(revisionOpen, () => setRevisionOpen(false));
   const [revisionSuggestion, setRevisionSuggestion] = useState("");
 
   function openRevisionModal() {
@@ -57,12 +56,10 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
       </div>
 
       {revisionOpen ? (
-        <div className="modal-backdrop" role="presentation">
-          <section ref={revisionDialogRef} aria-labelledby={`${entry.id}-revision-title`} aria-modal="true" className="modal-panel chat-small-modal" role="dialog">
+        <Modal onEscape={() => setRevisionOpen(false)} aria-labelledby={`${entry.id}-revision-title`} className="modal-panel chat-small-modal">
             <div className="modal-header"><div><p className="eyebrow">{t("answerNeedsRevision")}</p><h2 id={`${entry.id}-revision-title`}>{t("revisionSuggestion")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setRevisionOpen(false)} type="button"><X size={18} /></button></div>
             <form className="revision-suggestion-form" onSubmit={submitRevision}><label htmlFor={`${entry.id}-revision`}>{t("revisionSuggestion")}</label><textarea autoFocus id={`${entry.id}-revision`} onChange={(event) => setRevisionSuggestion(event.target.value)} placeholder={t("revisionPlaceholder")} required rows={5} value={revisionSuggestion} /><div className="modal-actions"><button className="action-button secondary" onClick={() => setRevisionOpen(false)} type="button">{t("cancel")}</button><button className="action-button" disabled={!revisionSuggestion.trim()} type="submit">{t("saveSuggestion")}</button></div></form>
-          </section>
-        </div>
+          </Modal>
       ) : null}
     </article>
   );
