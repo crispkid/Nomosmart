@@ -26,6 +26,25 @@ Configure input/output prices per million tokens and a currency; historical page
 and image charges are not converted. Keep provider credentials in their existing
 secret fields or secret references, never in the capability JSON.
 
+The model's `max_output_tokens` must be at least the system parameter
+`ocr_request_max_output_tokens` (128000 after a new installation); a smaller
+declaration fails recognition with `ocr_native_output_limit_invalid`. Changing a
+model's capabilities does not affect a document whose recognition already
+started: its run keeps the earlier snapshot, so upload the document again.
+
+The connection test checks the capability declaration, confirms the model exists
+and calls the provider's input-token count endpoint with a short text. It does not
+send a recognition request.
+
+## Before the first upload
+
+A new installation must initialize the file-processing policy before any upload
+or extraction can run. Until then uploads fail with
+`file_processing_policy_missing` and System management > Status shows the
+`file_processing_policy` item as degraded. Follow
+[File-processing policy initialization](../deploy/README.md#file-processing-policy-initialization-new-installations)
+for the Docker Compose and Helm commands.
+
 ## Limits and processing
 
 Runtime transport ceilings are external settings:

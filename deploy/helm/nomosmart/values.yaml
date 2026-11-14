@@ -69,16 +69,16 @@ compatibility:
   publicApiContract: v1-scoped-graph-idempotent
   securityContract: chg260-mounted-secrets-password-only
 
-# Pin application images by digest with tag: "0.2.4@sha256:<digest>",
+# Pin application images by digest with tag: "0.2.5@sha256:<digest>",
 # the same form used for the migration image below.
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.2.4"
+    tag: "0.2.5"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.2.4"
+    tag: "0.2.5"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway
@@ -245,6 +245,8 @@ backend:
     NOMOSMART_PROVIDER_GEMINI_API_VERSION: v1beta
     NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL: https://api.anthropic.com/v1
     NOMOSMART_PROVIDER_ANTHROPIC_VERSION: "2023-06-01"
+    NOMOSMART_PROVIDER_OPENAI_DEFAULT_MAX_OUTPUT_TOKENS: "8000"
+    NOMOSMART_PROVIDER_PROBE_MAX_OUTPUT_TOKENS: "16"
   resources:
     requests: {cpu: 250m, memory: 512Mi}
     limits: {cpu: "1", memory: 1Gi}
@@ -256,9 +258,9 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.2.4 target from deploy/migrations/release-contract.json.
-  requiredVersion: "060"
-  requiredChecksum: "571486141"
+  # NomoSmart 0.2.5 target from deploy/migrations/release-contract.json.
+  requiredVersion: "061"
+  requiredChecksum: "1514288448"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

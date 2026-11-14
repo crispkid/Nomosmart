@@ -288,24 +288,81 @@ Other Helm profiles and operator-supplied credentials keep their prior contract.
 Missing minikube does not require installing it for Compose; host/port and other
 runtime checks remain in place.
 
+### File-processing policy initialization (new installations)
+
+A new database has no file-processing policy. Until it is initialized, every
+upload and extraction is refused with `file_processing_policy_missing`, and
+System management > Status shows `file_processing_policy` as degraded. The
+policy is not created automatically and has no settings screen; an
+administrator initializes it once with the maintenance command, using an
+application session of a user who has System management view and edit
+permissions. The session cookie goes through standard input only, never on the
+command line.
+
+1. Sign in to NomoSmart as that administrator and copy the value of the
+   `__Host-nomosmart_session` cookie from the browser.
+2. Pick a new deployment ID (any UUID, for example from `uuidgen`) and keep it
+   with the deployment records.
+3. Run the command in the backend workload.
+
+Docker Compose:
+
+```bash
+read -rs "c?Session cookie: " && print && printf '{"session_cookie":"%s"}' "$c" | docker compose --env-file deploy/docker/nomosmart.env exec -T backend python -m app.deployment.file_processing_policy initialize --expected-revision 0 --deployment-id "$(uuidgen | tr A-Z a-z)"; unset c
+```
+
+Helm (release `nomosmart` in namespace `nomosmart`; the backend Deployment is
+`<release>-backend`):
+
+```bash
+read -rs "c?Session cookie: " && print && printf '{"session_cookie":"%s"}' "$c" | kubectl -n nomosmart exec -i deploy/nomosmart-backend -- python -m app.deployment.file_processing_policy initialize --expected-revision 0 --deployment-id "$(uuidgen | tr A-Z a-z)"; unset c
+```
+
+The command prints the policy as JSON with `"revision": 1`. Use `read` instead
+of `initialize` (same input, without the extra flags) to check it later. Refresh
+System management > Status: `file_processing_policy` turns healthy and shows the
+revision. An existing installation keeps its policy across upgrades; do not run
+`initialize` again there.
+
+### OpenAI models in 0.2.5
+
+OpenAI Chat and Judge models only use the Responses API. The model API rejects
+`api_mode=chat_completions` and OpenAI endpoints ending in `/chat/completions`
+with `openai_chat_completions_unsupported`. V061 switches existing OpenAI Chat
+and Judge models to Responses, records the previous mode in
+`config.api_mode_migrated_from`, clears their saved connection-test result and
+writes one `ai_model.api_mode_migrated` audit row per model. Its NOTICE output
+flags models whose base URL is not `api.openai.com`: if such a model points to a
+proxy that only supports Chat Completions, change its provider to vLLM or Custom.
+Test every migrated model again after the upgrade.
+
+The connection test now sends one small real request after confirming that the
+model exists: a 16-token Chat/Judge request, one short embedding, or an OCR
+input-token count (no recognition). Chat, Judge and Embedding tests therefore
+incur a small provider charge. OpenAI Chat and Judge requests without their own
+`max_output_tokens` use `NOMOSMART_PROVIDER_OPENAI_DEFAULT_MAX_OUTPUT_TOKENS`
+(default 8000); the test request cap is `NOMOSMART_PROVIDER_PROBE_MAX_OUTPUT_TOKENS`
+(default 16).
+
 ### Migration contract
 
-Current source targets [V060](../sql/migrations/V060__backfill_document_version_creators.sql).
+Current source targets [V061](../sql/migrations/V061__openai_responses_only.sql).
 For an empty database, official Flyway applies the unchanged
 [B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 through V060. Existing databases retain their published migration chain and
-continue through V060. V058 only adds indexes; writes to the indexed tables wait while
+then V055 through V061. Existing databases retain their published migration chain and
+continue through V061. V058 only adds indexes; writes to the indexed tables wait while
 each index is built, so run it in the normal upgrade window. V059 only drops the
 retired Keycloak column defaults. V060 writes the recorded creator into document
-versions that have none, marked `version_created_by_source = "V060"`; each migration
-file lists its rollback SQL. No B060 or rewritten
+versions that have none, marked `version_created_by_source = "V060"`. V061 switches
+OpenAI Chat and Judge models to the Responses API (see below); each migration
+file lists its rollback SQL. No B061 or rewritten
 historical SQL is introduced. The source-bound
 [migration contract](migrations/release-contract.json) defines the current SQL
 target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=060`, `MIGRATION_REQUIRED_CHECKSUM=571486141`, and
+`MIGRATION_REQUIRED_VERSION=061`, `MIGRATION_REQUIRED_CHECKSUM=1514288448`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
 `migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
 contract validates the additive SQL target, rather than inventing a same-version

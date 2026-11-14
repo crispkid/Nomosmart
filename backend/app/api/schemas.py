@@ -1761,6 +1761,7 @@ class AIModelResponse(ORMModel):
     last_test_latency_ms: int | None = None
     last_test_detail_code: str | None = None
     last_test_actor_id: UUID | None = None
+    last_test_embedding_dimension: int | None = None  # CHG-425: test response only
     deleted_at: datetime | None = None
     deleted_by: UUID | None = None
 

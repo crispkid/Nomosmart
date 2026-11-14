@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
-  "release_version": "0.2.4",
-  "required_version": "060",
+  "release_version": "0.2.5",
+  "required_version": "061",
   "targets": {
     "SQL": {
-      "file": "V060__backfill_document_version_creators.sql",
-      "checksum": 571486141,
-      "sha256": "7224d628bcd604ae3f6f03441bf47421513e0b090d156272f584640f32add939"
+      "file": "V061__openai_responses_only.sql",
+      "checksum": 1514288448,
+      "sha256": "cbcf83571c52cd952c2681086196b629ddc438a90d5535632cb8e43fd0531cb6"
     }
   }
 }

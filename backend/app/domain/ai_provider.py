@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import re
 import urllib.parse
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -74,24 +74,8 @@ def generate_rag_answer(
     if model is None:
         raise AppError("model_configuration_required", "An active Chat Model is required to generate an answer", status_code=409)
     prompt = _build_citation_bound_prompt(question, citations, resolved_prompt.content)
-    provider = model.provider.strip().lower()
-    effective_settings = settings or get_settings()
-    if provider == "openai" and _uses_openai_responses_api(model):
-        payload = _invoke_openai_responses(model, prompt, effective_settings)
-        return _provider_result(answer=_openai_responses_answer(payload), token_usage=payload.get("usage"), system_prompt=resolved_prompt)
-    if provider in {"openai", "vllm", "custom"}:
-        payload = _invoke_openai_compatible(model, prompt, effective_settings)
-        return _provider_result(answer=_openai_answer(payload), token_usage=payload.get("usage"), system_prompt=resolved_prompt)
-    if provider == "ollama":
-        payload = _invoke_ollama(model, prompt, effective_settings)
-        return _provider_result(answer=_ollama_answer(payload), token_usage=_ollama_usage(payload), system_prompt=resolved_prompt)
-    if provider == "gemini":
-        payload = _invoke_gemini(model, prompt, effective_settings)
-        return _provider_result(answer=_gemini_answer(payload), token_usage=_gemini_usage(payload), system_prompt=resolved_prompt)
-    if provider in {"claude", "anthropic"}:
-        payload = _invoke_claude(model, prompt, effective_settings)
-        return _provider_result(answer=_claude_answer(payload), token_usage=_claude_usage(payload), system_prompt=resolved_prompt)
-    raise AppError("model_provider_unsupported", "Chat Model provider is not supported for RAG generation", status_code=422, details={"provider": model.provider})
+    payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Chat Model provider is not supported for RAG generation")
+    return _provider_result(answer=answer_of(payload), token_usage=usage, system_prompt=resolved_prompt)
 
 
 def stream_rag_answer(
@@ -127,20 +111,19 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
     provider = model.provider.strip().lower()
     config = model.config or {}
     headers = _auth_headers(model, settings)
-    if provider == "openai" and _uses_openai_responses_api(model):
+    if provider == "openai":
         body: dict[str, Any] = {
             "model": _model_name(model),
             "instructions": messages[0]["content"],
             "input": messages[1]["content"],
-            "max_output_tokens": _int(config.get("max_output_tokens") or config.get("max_tokens"), default=1024),
+            "max_output_tokens": _openai_max_output_tokens(config, settings),
             "stream": True,
         }
         async for chunk in _stream_sse_json(_openai_responses_url(config.get("base_url") or model.endpoint), body, headers, model, "responses"):
             yield chunk
         return
-    if provider in {"openai", "vllm", "custom"}:
-        default_url = settings.provider_openai_base_url if provider == "openai" else ""
-        base_url = _string(config.get("base_url") or model.endpoint or default_url).rstrip("/")
+    if provider in {"vllm", "custom"}:
+        base_url = _string(config.get("base_url") or model.endpoint).rstrip("/")
         if not base_url:
             raise AppError("model_endpoint_required", "Chat Model endpoint is required", status_code=422)
         body = {
@@ -283,25 +266,8 @@ def evaluate_rag_answer(
 ) -> AIJudgeResult:
     resolved_prompt = system_prompt or backend_default_prompt("Judge")
     prompt = _build_judge_prompt(question=question, answer=answer, expected_answer=expected_answer, expected_keywords=expected_keywords, citations=citations, system_prompt=resolved_prompt.content)
-    provider = model.provider.strip().lower()
-    effective_settings = settings or get_settings()
-    if provider == "openai" and _uses_openai_responses_api(model):
-        payload = _invoke_openai_responses(model, prompt, effective_settings)
-        return _judge_result(_openai_responses_answer(payload), payload.get("usage"), resolved_prompt)
-    if provider in {"openai", "vllm", "custom"}:
-        payload = _invoke_openai_compatible(model, prompt, effective_settings)
-        content = _openai_answer(payload)
-        return _judge_result(content, payload.get("usage"), resolved_prompt)
-    if provider == "ollama":
-        payload = _invoke_ollama(model, prompt, effective_settings)
-        return _judge_result(_ollama_answer(payload), _ollama_usage(payload), resolved_prompt)
-    if provider == "gemini":
-        payload = _invoke_gemini(model, prompt, effective_settings)
-        return _judge_result(_gemini_answer(payload), _gemini_usage(payload), resolved_prompt)
-    if provider in {"claude", "anthropic"}:
-        payload = _invoke_claude(model, prompt, effective_settings)
-        return _judge_result(_claude_answer(payload), _claude_usage(payload), resolved_prompt)
-    raise AppError("model_provider_unsupported", "Judge Model provider is not supported", status_code=422, details={"provider": model.provider})
+    payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Judge Model provider is not supported")
+    return _judge_result(answer_of(payload), usage, resolved_prompt)
 
 
 def generate_knowledge_tags(
@@ -318,29 +284,57 @@ def generate_knowledge_tags(
     if not trimmed:
         raise AppError("tagging_text_required", "Text is required for auto tagging", status_code=422)
     prompt = _build_tagging_prompt(trimmed, max_tags, resolved_prompt.content, allow_empty=allow_empty)
+    payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Chat Model provider is not supported for auto tagging")
+    return _provider_result(answer=json.dumps(_parse_tag_result(answer_of(payload), allow_empty=allow_empty), ensure_ascii=False), token_usage=usage, system_prompt=resolved_prompt)
+
+
+def _invoke_chat_provider(model: AIModel, prompt: list[dict[str, str]], settings: Settings, *, unsupported: str) -> tuple[dict[str, Any], Callable[[dict[str, Any]], str], dict[str, Any] | None]:
+    """Send one non-streaming Chat/Judge request with the model's real request assembly.
+
+    CHG-425 FIX425-005: the OpenAI provider always uses the Responses API; the
+    Chat Completions-compatible path is only for vLLM and Custom providers.
+    """
     provider = model.provider.strip().lower()
-    effective_settings = settings or get_settings()
-    if provider == "openai" and _uses_openai_responses_api(model):
-        payload = _invoke_openai_responses(model, prompt, effective_settings)
-        content = _openai_responses_answer(payload)
-        return _provider_result(answer=json.dumps(_parse_tag_result(content, allow_empty=allow_empty), ensure_ascii=False), token_usage=payload.get("usage"), system_prompt=resolved_prompt)
-    if provider in {"openai", "vllm", "custom"}:
-        payload = _invoke_openai_compatible(model, prompt, effective_settings)
-        content = _openai_answer(payload)
-        return _provider_result(answer=json.dumps(_parse_tag_result(content, allow_empty=allow_empty), ensure_ascii=False), token_usage=payload.get("usage"), system_prompt=resolved_prompt)
+    if provider == "openai":
+        payload = _invoke_openai_responses(model, prompt, settings)
+        return payload, _openai_responses_answer, payload.get("usage")
+    if provider in {"vllm", "custom"}:
+        payload = _invoke_openai_compatible(model, prompt, settings)
+        return payload, _openai_answer, payload.get("usage")
     if provider == "ollama":
-        payload = _invoke_ollama(model, prompt, effective_settings)
-        content = _ollama_answer(payload)
-        return _provider_result(answer=json.dumps(_parse_tag_result(content, allow_empty=allow_empty), ensure_ascii=False), token_usage=_ollama_usage(payload), system_prompt=resolved_prompt)
+        payload = _invoke_ollama(model, prompt, settings)
+        return payload, _ollama_answer, _ollama_usage(payload)
     if provider == "gemini":
-        payload = _invoke_gemini(model, prompt, effective_settings)
-        content = _gemini_answer(payload)
-        return _provider_result(answer=json.dumps(_parse_tag_result(content, allow_empty=allow_empty), ensure_ascii=False), token_usage=_gemini_usage(payload), system_prompt=resolved_prompt)
+        payload = _invoke_gemini(model, prompt, settings)
+        return payload, _gemini_answer, _gemini_usage(payload)
     if provider in {"claude", "anthropic"}:
-        payload = _invoke_claude(model, prompt, effective_settings)
-        content = _claude_answer(payload)
-        return _provider_result(answer=json.dumps(_parse_tag_result(content, allow_empty=allow_empty), ensure_ascii=False), token_usage=_claude_usage(payload), system_prompt=resolved_prompt)
-    raise AppError("model_provider_unsupported", "Chat Model provider is not supported for auto tagging", status_code=422, details={"provider": model.provider})
+        payload = _invoke_claude(model, prompt, settings)
+        return payload, _claude_answer, _claude_usage(payload)
+    raise AppError("model_provider_unsupported", unsupported, status_code=422, details={"provider": model.provider})
+
+
+PROBE_PROMPT = [
+    {"role": "system", "content": "This is a NomoSmart connection test. Reply with the single word OK."},
+    {"role": "user", "content": "OK"},
+]
+
+
+def probe_chat_invocation(model: AIModel, settings: Settings) -> dict[str, Any] | None:
+    """CHG-425 FIX425-001: send one minimal real request through the production assembly.
+
+    The answer is neither checked nor kept; a 2xx response proves the request is accepted.
+    Only the output cap differs, taken from NOMOSMART_PROVIDER_PROBE_MAX_OUTPUT_TOKENS.
+    """
+    cap = settings.provider_probe_max_output_tokens
+    config = dict(model.config or {})
+    config.update({"max_output_tokens": cap, "max_tokens": cap})
+    if model.provider.strip().lower() == "ollama":
+        config["num_predict"] = cap
+    probe_model = AIModel(id=model.id, name=model.name, model_type=model.model_type, provider=model.provider,
+        endpoint=model.endpoint, api_key_encrypted=model.api_key_encrypted, api_key_secret_ref=model.api_key_secret_ref,
+        is_active=model.is_active, is_default=False, config=config, config_version=model.config_version)
+    _payload, _answer_of, usage = _invoke_chat_provider(probe_model, PROBE_PROMPT, settings, unsupported="Chat Model provider is not supported")
+    return usage
 
 
 def _provider_result(*, answer: str, token_usage: dict[str, Any] | None, system_prompt: SystemPromptResolution) -> AIProviderResult:
@@ -421,11 +415,7 @@ def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: s
 
 def _invoke_openai_compatible(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
-    provider = model.provider.strip().lower()
-    if provider == "openai":
-        base_url = _string(config.get("base_url") or model.endpoint or settings.provider_openai_base_url).rstrip("/")
-    else:
-        base_url = _string(config.get("base_url") or model.endpoint).rstrip("/")
+    base_url = _string(config.get("base_url") or model.endpoint).rstrip("/")
     if not base_url:
         raise AppError("model_endpoint_required", "Chat Model endpoint is required", status_code=422)
     body = {
@@ -443,15 +433,6 @@ def _invoke_openai_compatible(model: AIModel, messages: list[dict[str, str]], se
     )
 
 
-def _uses_openai_responses_api(model: AIModel) -> bool:
-    config = model.config or {}
-    mode = _string(config.get("api_mode") or config.get("api_type") or config.get("endpoint_type")).lower()
-    if mode in {"responses", "response"}:
-        return True
-    configured = _string(config.get("base_url") or model.endpoint).rstrip("/").lower()
-    return configured.endswith("/responses")
-
-
 def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
     config = model.config or {}
     url = _openai_responses_url(config.get("base_url") or model.endpoint)
@@ -459,7 +440,7 @@ def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], set
         "model": _model_name(model),
         "instructions": messages[0]["content"],
         "input": messages[1]["content"],
-        "max_output_tokens": _int(config.get("max_output_tokens") or config.get("max_tokens"), default=1024),
+        "max_output_tokens": _openai_max_output_tokens(config, settings),
     }
     temperature = config.get("temperature")
     if temperature is not None:
@@ -471,6 +452,11 @@ def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], set
         timeout_seconds=_timeout(config),
         verify_tls=_verify_tls(config),
     )
+
+
+def _openai_max_output_tokens(config: dict[str, Any], settings: Settings) -> int:
+    """CHG-425 FIX425-007: model setting first, else the OpenAI typed default."""
+    return _int(config.get("max_output_tokens") or config.get("max_tokens"), default=settings.provider_openai_default_max_output_tokens)
 
 
 def _openai_responses_url(value: object) -> str:

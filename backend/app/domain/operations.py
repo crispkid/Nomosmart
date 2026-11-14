@@ -136,9 +136,28 @@ def _recent_errors(session: Session) -> list[OperationRecentError]:
     return errors
 
 
+def _file_processing_policy_component(session: Session, checked_at: datetime) -> OperationComponentStatus:
+    """CHG-425 FIX425-009: read-only view of the CLI-initialized file-processing policy."""
+    from app.core.errors import AppError
+    from app.db.models import FileProcessingPolicy
+    from app.domain.file_processing_settings import validated_policy
+    name = "file_processing_policy"
+    row = session.scalar(select(FileProcessingPolicy).where(FileProcessingPolicy.id == 1))
+    if row is None:
+        return OperationComponentStatus(name=name, status="degraded", detail_code="file_processing_policy_missing", checked_at=checked_at)
+    try:
+        snapshot = validated_policy(session, row)
+    except AppError as exc:
+        return OperationComponentStatus(name=name, status="degraded", detail_code="file_processing_policy_invalid", checked_at=checked_at,
+                                        metrics={"revision": row.revision, "error_code": exc.code})
+    return OperationComponentStatus(name=name, status="healthy", detail_code="file_processing_policy_ready", checked_at=checked_at,
+                                    metrics={"revision": snapshot.revision})
+
+
 def build_operations_status(session: Session, settings: Settings) -> OperationsStatusResponse:
     checked_at = _now()
     dependencies = [dependency_component(status, checked_at) for status in check_dependencies(settings)]
+    dependencies.append(_file_processing_policy_component(session, checked_at))
     providers = _provider_components(session, checked_at)
     queue = _queue_component(session, checked_at)
     worker = _worker_component(session, queue, checked_at, settings)
