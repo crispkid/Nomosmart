@@ -309,6 +309,9 @@ class Settings(MigrationProbeSettings):
     provider_gemini_api_version: str = Field(default="v1beta", validation_alias="NOMOSMART_PROVIDER_GEMINI_API_VERSION")
     provider_anthropic_base_url: str = Field(default="https://api.anthropic.com/v1", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_BASE_URL")
     provider_anthropic_version: str = Field(default="2023-06-01", validation_alias="NOMOSMART_PROVIDER_ANTHROPIC_VERSION")
+    # CHG-425 FIX425-007 / FIX425-001: OpenAI default output cap and connection-test probe output cap.
+    provider_openai_default_max_output_tokens: int = Field(default=8000, ge=16, le=128000, validation_alias="NOMOSMART_PROVIDER_OPENAI_DEFAULT_MAX_OUTPUT_TOKENS")
+    provider_probe_max_output_tokens: int = Field(default=16, ge=1, le=1024, validation_alias="NOMOSMART_PROVIDER_PROBE_MAX_OUTPUT_TOKENS")
     # Optional ceilings; DB policy remains required, with no local business fallback.
     file_processing_capabilities_json: str = "{}"
     file_processing_worker_runtime_id: str = ""

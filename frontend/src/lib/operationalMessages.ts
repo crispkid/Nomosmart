@@ -13,6 +13,14 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   file_processing_policy_version_invalid: "fileProcessingPolicyInvalid",
   file_processing_alias_conflict: "fileProcessingPolicyInvalid",
   file_processing_policy_migration_required: "fileProcessingPolicyInvalid",
+  // CHG-425 FIX425-008: an uninitialized policy names its own cause.
+  file_processing_policy_missing: "fileProcessingPolicyMissing",
+  // CHG-425 FIX425-004 / FIX425-005: connection tests separate missing model, credential and rejected request.
+  model_not_available: "modelNotAvailable",
+  model_authentication_failed: "modelAuthenticationFailed",
+  model_invocation_rejected: "modelInvocationRejected",
+  embedding_dimension_mismatch: "embeddingDimensionMismatch",
+  openai_chat_completions_unsupported: "openAiChatCompletionsUnsupported",
   approval_filter_invalid: "approvalFilterInvalid",
   approval_filter_conflict: "approvalFilterConflict",
   unsupported_upload_type: "uploadModalHelp",

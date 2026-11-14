@@ -26,6 +26,8 @@ class ConnectionProbeResult:
     fingerprint: str
     latency_ms: int
     detail_code: str
+    token_usage: dict | None = None
+    embedding_dimension: int | None = None
 
 
 def probe_ai_model(settings: Settings, model: AIModel) -> ConnectionProbeResult:
@@ -36,8 +38,89 @@ def probe_ai_model(settings: Settings, model: AIModel) -> ConnectionProbeResult:
         require_native_capabilities(model)
     api_key = _resolve_model_credential(settings, model)
     _probe_http_model(model, api_key, settings)
-    detail = "provider_model_ready"
-    return ConnectionProbeResult(ai_model_connection_fingerprint(model), _latency_ms(started), detail)
+    # CHG-425 FIX425-001..004: the model exists; now prove one real request is accepted.
+    usage, dimension = _probe_model_invocation(model, api_key, settings)
+    return ConnectionProbeResult(ai_model_connection_fingerprint(model), _latency_ms(started), "provider_invocation_ready",
+                                 token_usage=usage, embedding_dimension=dimension)
+
+
+PROBE_EMBEDDING_TEXT = "NomoSmart connection test"
+
+
+def _probe_model_invocation(model: AIModel, api_key: str | None, settings: Settings) -> tuple[dict | None, int | None]:
+    try:
+        if model.model_type in {"Chat", "Judge"}:
+            from app.domain.ai_provider import probe_chat_invocation
+            return probe_chat_invocation(model, settings), None
+        if model.model_type == "Embedding":
+            return _probe_embedding_invocation(model, settings)
+        if model.model_type == "OCR":
+            return _probe_ocr_token_count(model, api_key), None
+    except AppError as exc:
+        raise _invocation_error(exc) from exc
+    return None, None
+
+
+def _probe_embedding_invocation(model: AIModel, settings: Settings) -> tuple[dict | None, int]:
+    from app.domain.embeddings import _openai_embedding_vectors, _post_openai_embeddings
+    response = _post_openai_embeddings(model, settings, [PROBE_EMBEDDING_TEXT])
+    if not isinstance(response, dict):
+        raise AppError("embedding_response_invalid", "Embedding adapter response is invalid", status_code=502)
+    vectors = _openai_embedding_vectors(response)
+    if len(vectors) != 1 or not vectors[0]:
+        raise AppError("embedding_response_invalid", "Embedding adapter returned no probe vector", status_code=502)
+    dimension = len(vectors[0])
+    configured = (model.config or {}).get("embedding_dimension")
+    if type(configured) is int and configured > 0 and configured != dimension:
+        raise AppError("embedding_dimension_mismatch", "Embedding dimension does not match the model setting", status_code=422,
+                       details={"configured": configured, "actual": dimension})
+    usage = response.get("usage") if isinstance(response.get("usage"), dict) else None
+    return usage, dimension
+
+
+def _probe_ocr_token_count(model: AIModel, api_key: str | None) -> dict | None:
+    """Count input tokens only; no recognition or generation request is sent (FIX425-003)."""
+    from app.domain.ocr_capabilities import require_native_capabilities
+    from app.domain.ocr_native import _tls
+    from app.domain.ocr_timeout_policy import OCRRequestWindow
+    from app.integrations.ocr_transport import post_ocr_json
+    if not api_key:
+        raise AppError("model_credential_required", "Model provider credential is required", status_code=422)
+    capabilities = require_native_capabilities(model)
+    config = model.config or {}
+    timeout = max(1, min(int(config.get("timeout_seconds") or config.get("timeout") or 30), 120))
+    started = time.monotonic()
+    window = OCRRequestWindow(started, started + timeout, "connection_test")
+    body = {"model": capabilities.model_name, "input": PROBE_EMBEDDING_TEXT, "truncation": "disabled"}
+    count = post_ocr_json(url=capabilities.count_url, headers={"Content-Type": "application/json", "Authorization": "Bearer " + api_key},
+        body=body, verify=_tls(config), window=window, max_request_bytes=65536, max_response_bytes=65536)
+    tokens = count.get("input_tokens")
+    if type(tokens) is not int or tokens <= 0:
+        raise AppError("ocr_native_token_count_unavailable", "Provider input-token count is unavailable", status_code=502)
+    return {"input_tokens": tokens, "output_tokens": 0, "total_tokens": tokens}
+
+
+REJECTION_CODES = {"model_invocation_failed", "embedding_adapter_provider_rejected", "ocr_adapter_provider_rejected"}
+UNAVAILABLE_CODES = {"model_provider_unavailable", "embedding_adapter_unavailable"}
+
+
+def _invocation_error(exc: AppError) -> AppError:
+    """Map a probe request failure onto the connection-test codes (FIX425-004).
+
+    Only the provider HTTP status code is carried; provider bodies, URLs and
+    credentials never leave this function.
+    """
+    status = exc.details.get("status_code") if isinstance(exc.details, dict) else None
+    if exc.code in REJECTION_CODES:
+        if status in {401, 403}:
+            return AppError("model_authentication_failed", "Model provider authentication failed", status_code=503)
+        if isinstance(status, int) and 300 <= status < 400:
+            return AppError("model_redirect_not_allowed", "Model provider redirect is not allowed", status_code=422)
+        return AppError("model_invocation_rejected", "Model exists but the provider rejected the test request", status_code=503,
+                        details={"status_code": status} if isinstance(status, int) else {})
+    if exc.code in UNAVAILABLE_CODES:
+        return AppError("model_connection_failed", "Model provider connection failed", status_code=503)
+    return exc
 
 
 def probe_data_source_candidate(settings: Settings, payload: DataSourceConnectionPayload) -> ConnectionProbeResult:

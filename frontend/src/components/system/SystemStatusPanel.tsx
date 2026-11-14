@@ -2,6 +2,7 @@
 
 import { Check } from "lucide-react";
 import { DataTable } from "@/components/DataTable";
+import { FeedbackMessage } from "@/components/FeedbackMessage";
 import type { OperationsStatusResponse } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { SettingsCard } from "../SettingsCard";
@@ -10,6 +11,9 @@ import { EmptyInlineState, StateBadge, metricPairs, operationStatusLabel, status
 /** Runtime, dependency, provider and recent-error status cards (OPT424-038). */
 export function SystemStatusPanel({ status, ready }: { status: OperationsStatusResponse | null; ready: boolean }) {
   const { t, format } = useI18n();
+  // CHG-425 FIX425-009: explain how to recover when the CLI-initialized policy is missing or invalid.
+  const policy = status?.dependencies.find((component) => component.name === "file_processing_policy");
+  const policyNotReady = policy !== undefined && policy.status !== "healthy";
   return (
     status ? <>
       <SettingsCard panel="runtime" title={t("settingsRuntime")}><div className="system-status-grid">
@@ -27,6 +31,7 @@ export function SystemStatusPanel({ status, ready }: { status: OperationsStatusR
           { key: "detail", header: t("systemDetail"), cell: component => component.detail_code },
           { key: "checked", header: t("systemChecked"), cell: component => component.checked_at.slice(0, 16).replace("T", " ") },
         ]} />
+        {policyNotReady ? <FeedbackMessage announce={false} title={t(policy.detail_code === "file_processing_policy_missing" ? "systemFileProcessingPolicyMissingTitle" : "systemFileProcessingPolicyInvalidTitle")} tone="warning">{t("systemFileProcessingPolicyGuidance")}</FeedbackMessage> : null}
       </SettingsCard>
       <SettingsCard panel="providers" title={t("systemAiProviders")}>
         <DataTable rows={status.providers} rowKey={component => component.name} columns={[

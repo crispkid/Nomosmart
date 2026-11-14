@@ -377,15 +377,17 @@ def _normalized_config(
             _require_credential(provider, has_credential)
         _require_config(normalized, "model_name", provider)
         normalized.setdefault("base_url", endpoint or get_settings().provider_openai_base_url)
-        if model_type in {"Chat", "Judge"} and "api_mode" in normalized:
-            api_mode = str(normalized.get("api_mode") or "").strip().lower()
-            if api_mode not in {"responses", "chat_completions"}:
+        if model_type in {"Chat", "Judge"}:
+            # CHG-425 FIX425-005: OpenAI Chat/Judge only use the Responses API.
+            api_mode = str(normalized.get("api_mode") or "responses").strip().lower()
+            endpoints = (endpoint, normalized.get("base_url"), normalized.get("endpoint"))
+            if api_mode != "responses" or any(str(value or "").rstrip("/").lower().endswith("/chat/completions") for value in endpoints):
                 raise AppError(
-                    "invalid_openai_api_mode",
-                    "OpenAI Chat and Judge api_mode must be responses or chat_completions",
+                    "openai_chat_completions_unsupported",
+                    "OpenAI Chat and Judge models use the Responses API; use the vLLM or Custom provider for Chat Completions services",
                     status_code=422,
                 )
-            normalized["api_mode"] = api_mode
+            normalized["api_mode"] = "responses"
         if model_type == "Embedding":
             normalized.setdefault("embedding_dimension", None)
         if model_type == "OCR" and (require_credential or "native_pdf" in normalized):
@@ -687,13 +689,19 @@ def record_connection_test(
         usage_purpose="connection_test",
         source_channel="system_management",
         status="success",
+        token_usage=result.token_usage,
         latency_ms=result.latency_ms,
         actor_user_id=context.user_id,
         correlation_id=getattr(request.state, "request_id", None),
     )
-    add_audit(session, actor_user_id=context.user_id, action="ai_model.connection_test", resource_type="ai_model", resource_id=model.id, result="success", request_id=request.state.request_id, summary={"detail_code": result.detail_code, "fingerprint": result.fingerprint[:12], "latency_ms": result.latency_ms})
+    summary = {"detail_code": result.detail_code, "fingerprint": result.fingerprint[:12], "latency_ms": result.latency_ms}
+    if result.embedding_dimension is not None:
+        summary["embedding_dimension"] = result.embedding_dimension
+    add_audit(session, actor_user_id=context.user_id, action="ai_model.connection_test", resource_type="ai_model", resource_id=model.id, result="success", request_id=request.state.request_id, summary=summary)
     session.commit()
     session.refresh(model)
+    # CHG-425 FIX425-002: report the measured dimension on this response only (not persisted).
+    model.last_test_embedding_dimension = result.embedding_dimension
     return model
 
 

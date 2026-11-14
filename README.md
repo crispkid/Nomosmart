@@ -4,7 +4,7 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart is an enterprise knowledge management platform for turning documents and connected data into reviewed, searchable knowledge with traceable answers.
 
-Version: **0.2.4**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+Version: **0.2.5**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
 
 ## Features
 
@@ -43,7 +43,7 @@ The Backend owns authentication, authorization, configuration and dispatch. Work
 | Authoritative data | PostgreSQL 18.4; forward-only Flyway migrations |
 | Object storage | S3-compatible storage; RustFS for bundled deployments |
 | Search and graph | OpenSearch 2.19 and Neo4j 5.26 Community |
-| Deployment | Docker Compose v2 and Helm Chart 0.2.4 |
+| Deployment | Docker Compose v2 and Helm Chart 0.2.5 |
 
 ## PDF and model configuration
 

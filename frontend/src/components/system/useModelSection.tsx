@@ -4,7 +4,7 @@ import { useState, type Dispatch, type SetStateAction } from "react";
 import { DataTable } from "@/components/DataTable";
 import { createModel, deleteModel, setDefaultModel, testModel, updateModel, type AIModelPayload, type ApiError, type ApiFetch } from "@/lib/api";
 import { Bot, ChevronDown, ChevronLeft, ChevronRight, LoaderCircle, LockKeyhole, Plus, RefreshCw, Save, Settings2, Trash2 } from "lucide-react";
-import { AIModelCredentialClearControl, OpenAiApiModeField } from "@/components/AIModelCompatibilityFields";
+import { AIModelCredentialClearControl } from "@/components/AIModelCompatibilityFields";
 import { aiModelProviderName } from "@/components/AIModelInventoryFields";
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { FeedbackForm } from "@/components/FeedbackForm";
@@ -170,7 +170,8 @@ export function createModelActions(state: ModelState, deps: ModelDeps) {
       if (timeoutSeconds > 0) config.timeout_seconds = timeoutSeconds;
       if (provider === "vLLM") config.openai_compatible = true;
       if (provider === "OpenAI" && (modelType === "Chat" || modelType === "Judge")) {
-        config.api_mode = String(formData.get("api_mode") || "responses");
+        // CHG-425 FIX425-005: OpenAI Chat/Judge only use the Responses API.
+        config.api_mode = "responses";
       } else {
         delete config.api_mode;
       }
@@ -285,7 +286,6 @@ export function createModelView(state: ModelState, actions: ModelActions, deps: 
         <label><span>{t("labelBaseUrl")}</span><input defaultValue={modelConfigValue(modal.model, "base_url", modal.model?.endpoint || "https://api.openai.com/v1")} name="base_url" /></label>
         <label><span>{t("systemOrganizationIdOptional")}</span><input defaultValue={modelConfigValue(modal.model, "organization_id")} name="organization_id" /></label>
         <label><span>{t("systemProjectIdOptional")}</span><input defaultValue={modelConfigValue(modal.model, "project_id")} name="project_id" /></label>
-        <OpenAiApiModeField existingMode={modelConfigValue(modal.model, "api_mode")} isExisting={Boolean(modal.model)} modelType={modelTypeDraft} />
         {modelTypeDraft === "Embedding" ? <label><span>{t("systemEmbeddingDimensionOptional")}</span><input defaultValue={modelConfigValue(modal.model, "embedding_dimension")} min={1} name="embedding_dimension" type="number" /></label> : null}
       </div> : null}
       {modelProviderDraft === "Gemini" ? <div className="identity-form-grid settings-child-fields"><label><span>{t("labelApiVersion")}</span><input defaultValue={modelConfigValue(modal.model, "api_version", "v1beta")} name="api_version" /></label></div> : null}
