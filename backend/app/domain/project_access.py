@@ -71,7 +71,7 @@ def resolve_project_models(
     llm_model_id: UUID | None,
     ocr_model_id: UUID | None,
     embedding_model_id: UUID | None,
-) -> tuple[UUID, UUID, UUID | None]:
+) -> tuple[UUID, UUID, UUID]:
     """Resolve the required active project model set before any project writes."""
 
     requested_models = (
@@ -81,11 +81,14 @@ def resolve_project_models(
     )
     resolved: dict[str, AIModel] = {}
     missing_model_types: list[str] = []
+    # CHG-426 REL426-013: OCR is required again when a project is created or its
+    # model settings change (PROJECT-007); existing projects are only checked here.
     for public_type, database_type, requested_id in requested_models:
-        if public_type == "ocr" and requested_id is None:
-            continue
         model = session.get(AIModel, requested_id) if requested_id is not None else None
         if model is None or not model.is_active or model.deleted_at is not None or model.model_type != database_type:
+            missing_model_types.append(public_type)
+            continue
+        if public_type == "ocr" and _pdf_configuration(model) != "configured":
             missing_model_types.append(public_type)
             continue
         resolved[public_type] = model
@@ -93,13 +96,12 @@ def resolve_project_models(
     if missing_model_types:
         raise AppError(
             "project_model_configuration_required",
-            "Active Chat and Embedding models are required; PDF recognition additionally requires OCR",
+            "Active Chat, Embedding and native PDF OCR models are required",
             status_code=422,
             details={"missing_model_types": missing_model_types},
         )
 
     chat_model = resolved["chat"]
-    ocr_model = resolved.get("ocr")
     embedding_model = resolved["embedding"]
     if not _chat_accepts_embedding(chat_model, embedding_model):
         raise AppError(
@@ -109,10 +111,7 @@ def resolve_project_models(
             details={"llm_model_id": str(chat_model.id), "embedding_model_id": str(embedding_model.id)},
         )
 
-    if ocr_model is not None:
-        from app.domain.ocr_capabilities import require_native_capabilities
-        require_native_capabilities(ocr_model)
-    return chat_model.id, embedding_model.id, ocr_model.id if ocr_model else None
+    return chat_model.id, embedding_model.id, resolved["ocr"].id
 
 
 def _is_active_model(model, kind: str) -> bool:

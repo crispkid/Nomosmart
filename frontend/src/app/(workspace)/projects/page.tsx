@@ -167,10 +167,12 @@ export default function ProjectsPage() {
   const missingModelTypes = [
     !activeChatModels.length ? t("projectsModelTypeChat") : null,
     !activeEmbeddingModels.length ? t("projectsModelTypeEmbedding") : null,
+    // CHG-426 REL426-013: a native PDF OCR model is required to create a project.
+    !activeOcrModels.length ? t("projectsModelTypeOcr") : null,
   ].filter((value): value is string => Boolean(value));
   const missingModelList = new Intl.ListFormat(locale === "zh" ? "zh-Hant" : "en", { style: "long", type: "conjunction" }).format(missingModelTypes);
   const modelReadinessBlocked = modelLoadState !== "ready" || missingModelTypes.length > 0 || !hasCompatibleModelPair;
-  const selectionBlocked = !selectedLlmModel || !hasActivePairedEmbeddingModel || !effectiveEmbeddingModelId;
+  const selectionBlocked = !selectedLlmModel || !hasActivePairedEmbeddingModel || !ocrModelId || !effectiveEmbeddingModelId;
   const createDisabled = !canCreate || creating || modelReadinessBlocked || selectionBlocked;
   const readinessIsReason = canCreate && !creating && modelReadinessBlocked;
   const createDisabledDescription = !canCreate ? t("apiForbidden") : creating ? t("projectsCreating") : t("projectsCreateSelectModels");
@@ -185,7 +187,7 @@ export default function ProjectsPage() {
       return;
     }
     setNameInvalid(false);
-    if (modelReadinessBlocked || !llmModelId || !effectiveEmbeddingModelId) {
+    if (modelReadinessBlocked || !llmModelId || !effectiveEmbeddingModelId || !ocrModelId) {
       setCreateError(Object.assign(new Error("project_model_configuration_required"), { status: 422, code: "project_model_configuration_required" }) as ApiError);
       return;
     }
@@ -200,7 +202,7 @@ export default function ProjectsPage() {
         description: description.trim() || null,
         llm_model_id: llmModelId,
         embedding_model_id: effectiveEmbeddingModelId,
-        ocr_model_id: ocrModelId || null
+        ocr_model_id: ocrModelId
       });
       setIsCreateOpen(false);
       setName("");
