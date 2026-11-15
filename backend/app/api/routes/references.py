@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
+from app.domain.tag_store import get_or_create_project_tag
 
 from app.api.routes.documents import _pipeline_summary, _project_document
 from app.domain.project_access import get_scoped_project as _get_scoped_project
@@ -580,13 +581,7 @@ def _copy_chunk_tags(session: Session, target_project_id: UUID, source_chunk_id:
 
 
 def _get_or_create_tag(session: Session, project_id: UUID, name: str) -> Tag:
-    tag = session.scalar(select(Tag).where(Tag.project_id == project_id, Tag.name == name))
-    if tag is not None:
-        return tag
-    tag = Tag(id=uuid4(), project_id=project_id, name=name[:255], created_at=datetime.now(UTC))
-    session.add(tag)
-    session.flush()
-    return tag
+    return get_or_create_project_tag(session, project_id, name[:255])
 
 
 def _next_document_code(session: Session, project_id: UUID) -> str:

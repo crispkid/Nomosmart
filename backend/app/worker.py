@@ -557,13 +557,40 @@ def run_document_extraction(self, pipeline_run_id: str, task_id: str | None = No
                     pipeline.error_message = "Project state changed before extraction completed"
                     pipeline.completed_at = datetime.now(UTC)
                     session.commit()
+            elif isinstance(exc, AppError) and exc.code in FENCE_CODES:
+                raise  # Lost authority: the reconciler and REL426-022 own recovery.
             else:
-                # No fabricated completion on an unclassified interruption.
-                raise
+                # REL426-023: an in-process failure is observed by this claimant, so
+                # record it as a retryable failure while still holding the claim.
+                # Process loss (kill/OOM/stop) never reaches here and stays fenced.
+                session.rollback()
+                if not _fail_claimed_run(factory, claim, exc):
+                    raise
+                disposition = "failed"
     # All business calls are now closed; this is the last operation by this task.
     # A separate dispatcher finalizer verifies this receipt and releases the slot.
     with factory.begin() as session:
         quiesce_task(session, claim, disposition=disposition)
+
+
+FENCE_CODES = frozenset({"file_processing_task_fenced", "file_processing_generation_stale", "file_processing_scope_stale"})
+
+
+def _fail_claimed_run(factory, claim, exc: Exception) -> bool:
+    """Mark the run failed only while this claimant still holds the claim."""
+    from app.domain.document_interruption import UNEXPECTED_MESSAGE, mark_run_failed
+    try:
+        with factory.begin() as session:
+            require_claim(session, claim, check_scope=False)
+            mark_run_failed(session, claim.run_id, message=UNEXPECTED_MESSAGE,
+                            error_code="document_processing_unexpected_error")
+    except AppError as fence:
+        if fence.code in FENCE_CODES:
+            return False
+        raise
+    logger.error("document_processing_unexpected_error", extra={"task_id": str(claim.task_id),
+        "run_id": str(claim.run_id), "error_type": type(exc).__name__})
+    return True
 
 
 class _DocumentTaskHeartbeat:

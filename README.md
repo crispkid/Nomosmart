@@ -165,7 +165,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 | `/api-docs` | In-product API guide |
 | `/api/v1/health`, `/api/v1/ready` | Process health and dependency/bootstrap readiness |
 
-Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. Logs must not contain credentials, tokens, cookies or document bodies.
+Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
 This version reuses completed local deployment, critical workflow, data-preservation, signing and restore evidence. Complete-source coverage is measured; 80% is an improvement target. Missing/failed critical scenarios or unaddressed serious risks still block readiness. Production multi-host capacity, HA, network-isolation and production-backup qualification retain their existing limits and cannot be inferred from local acceptance.
 

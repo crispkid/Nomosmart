@@ -165,7 +165,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 | `/api-docs` | 產品內 API 說明 |
 | `/api/v1/health`、`/api/v1/ready` | 程序健康與依賴／初始化就緒狀態 |
 
-日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。日誌不應包含密碼、token、cookie 或文件正文。
+日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
 本版沿用已完成的本機部署、必要業務情境、資料保持、簽署及回復證據。完整來源覆蓋率持續量測，80%為改善目標；必要情境缺證、失敗或未處置重大風險仍會阻擋就緒。正式多主機容量、高可用、正式網路隔離與正式備份資格保留原範圍，不能由本機驗收推論通過。
 

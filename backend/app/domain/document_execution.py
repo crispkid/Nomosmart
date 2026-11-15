@@ -288,3 +288,35 @@ def release_operator_failed_parser(session: Session, *, execution_id: UUID, gene
     row.state = row.phase = "failed"
     row.released_at = row.updated_at = datetime.now(UTC)
     session.flush()
+
+
+OPERATOR_DOCUMENT_RECOVERY_SOURCE = "operator_document_recovery_v1"
+
+
+def release_operator_recovered_document(session: Session, *, execution_id: UUID, generation: UUID,
+                                        evidence: dict) -> None:
+    """REL426-022: maintenance-only release of a crashed document execution.
+
+    Only a document execution left recovery_required without any claimant
+    epilogue qualifies. The maintenance caller owns identity, scope, heartbeat
+    and operator-confirmation checks plus the audit in the same transaction.
+    No API uses this function; release_execution keeps its own source checks.
+    """
+    row = _locked(session, execution_id, generation)
+    required = {"source", "scope_sha256", "generation", "worker_identity", "worker_stopped_confirmed", "actor_id"}
+    if (type(evidence) is not dict or set(evidence) != required
+            or evidence["source"] != OPERATOR_DOCUMENT_RECOVERY_SOURCE or evidence["generation"] != str(generation)
+            or evidence["worker_stopped_confirmed"] is not True
+            or not isinstance(evidence["scope_sha256"], str) or not re.fullmatch(r"[a-f0-9]{64}", evidence["scope_sha256"])
+            or row.kind != "document" or row.parent_id is not None or row.state != "recovery_required"
+            or row.stop_evidence is not None or row.output_evidence is not None):
+        raise policy_error("document_execution_recovery_not_eligible")
+    if session.scalar(select(Execution.id).where(Execution.parent_id == row.id, Execution.released_at.is_(None)).limit(1)):
+        raise policy_error("file_processing_child_still_occupied")
+    transition_execution(session, execution_id=row.id, generation=generation, state="stopping")
+    session.flush()
+    row.stop_evidence = dict(evidence)
+    row.state = row.phase = "failed"
+    row.safe_error_code = "document_execution_interrupted"
+    row.released_at = row.updated_at = datetime.now(UTC)
+    session.flush()
