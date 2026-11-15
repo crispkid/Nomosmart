@@ -324,6 +324,40 @@ System management > Status: `file_processing_policy` turns healthy and shows the
 revision. An existing installation keeps its policy across upgrades; do not run
 `initialize` again there.
 
+### Recovering a stuck document execution (0.2.5)
+
+If a worker process disappears in the middle of a document (killed, out of
+memory, container stopped), its execution stays `recovery_required` after the
+heartbeat expires. While any execution is in that state, no new document is
+admitted. Errors inside the worker no longer cause this: the worker marks the
+document failed and finishes normally. For the remaining cases, an administrator
+releases one execution at a time with the maintenance command, using the same
+application session as policy initialization (System management view and edit,
+cookie through standard input only).
+
+1. Find the stuck execution ID (for example from the worker logs or
+   `SELECT id FROM file_processing_executions WHERE state = 'recovery_required' AND kind = 'document' AND released_at IS NULL`).
+2. Confirm the worker named by `worker_identity` in the preview is no longer
+   running (its container restarted or the process is gone).
+3. Preview, then commit with the returned `scope`:
+
+```bash
+read -rs "c?Session cookie: " && print && printf '{"session_cookie":"%s","execution_id":"%s"}' "$c" "<execution-id>" | docker compose --env-file deploy/docker/nomosmart.env exec -T backend python -m app.deployment.document_execution_recovery preview > /tmp/nms-recovery-preview.json; unset c
+```
+
+```bash
+read -rs "c?Session cookie: " && print && jq -c --arg c "$c" --arg w "<worker_identity from preview>" '{session_cookie:$c, scope:.scope, confirmation:{worker_identity:$w, worker_stopped_confirmed:true}}' /tmp/nms-recovery-preview.json | docker compose --env-file deploy/docker/nomosmart.env exec -T backend python -m app.deployment.document_execution_recovery commit; unset c
+```
+
+For Helm, replace `docker compose ... exec -T backend` with
+`kubectl -n nomosmart exec -i deploy/nomosmart-backend --`. A successful commit
+prints `"status": "recovered_failed"`; repeating it prints `already_recovered`.
+The document and its interrupted step become failed and new documents are
+admitted again; users reprocess it with the normal retry. Every commit is audited
+(`file_processing.document_execution.recovered` or `.recovery_rejected`).
+Rejections such as a recent heartbeat, a different `worker_identity` or rows that
+changed after the preview leave all data unchanged; preview again and retry.
+
 ### OpenAI models in 0.2.5
 
 OpenAI Chat and Judge models only use the Responses API. The model API rejects
