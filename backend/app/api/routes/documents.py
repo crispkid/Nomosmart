@@ -16,6 +16,7 @@ from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from app.domain.tag_store import get_or_create_project_tag
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
 from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
@@ -1911,14 +1912,7 @@ def _require_tag_edit_permission(session: Session, project_id: UUID, context: Id
 
 
 def _get_or_create_tag(session: Session, project_id: UUID, tag_text: str) -> Tag:
-    normalized = _normalize_tag_text(tag_text)
-    tag = session.scalar(select(Tag).where(Tag.project_id == project_id, Tag.name == normalized))
-    if tag is not None:
-        return tag
-    tag = Tag(project_id=project_id, name=normalized, created_at=datetime.now(UTC))
-    session.add(tag)
-    session.flush()
-    return tag
+    return get_or_create_project_tag(session, project_id, _normalize_tag_text(tag_text))
 
 
 def _attach_chunk_tag(session: Session, project_id: UUID, chunk_id: UUID, tag_text: str, source: str, actor_user_id: UUID, metadata: dict, confidence_score: float | None = None) -> None:

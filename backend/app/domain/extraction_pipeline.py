@@ -18,6 +18,7 @@ from uuid import UUID, uuid4, uuid5
 
 from sqlalchemy import delete, desc, select
 from sqlalchemy.orm import Session
+from app.domain.tag_store import get_or_create_project_tag
 
 from app.core.config import Settings, get_settings
 from app.core.errors import AppError
@@ -1605,14 +1606,7 @@ def _tag_metadata(result: AIProviderResult, *, model: AIModel, pipeline: Pipelin
 
 
 def _get_or_create_tag(session: Session, project_id: UUID, tag_text: str) -> Tag:
-    normalized = _normalize_tag_text(tag_text)
-    tag = session.scalar(select(Tag).where(Tag.project_id == project_id, Tag.name == normalized))
-    if tag is not None:
-        return tag
-    tag = Tag(id=uuid4(), project_id=project_id, name=normalized, created_at=datetime.now(UTC))
-    session.add(tag)
-    session.flush()
-    return tag
+    return get_or_create_project_tag(session, project_id, _normalize_tag_text(tag_text))
 
 
 def _attach_chunk_tag(session: Session, project_id: UUID, chunk_id: UUID, tag_text: str, *, source: str, actor_user_id: UUID | None, metadata: dict[str, object], confidence_score: float | None = None) -> None:
