@@ -913,8 +913,21 @@ def _replace_manifest(directory: Path, payload: dict[str, object]) -> None:
     os.replace(temporary, target)
 
 
-def _compose_image_settings(compose_project: str, *, trusted_release_fingerprint: str = "") -> tuple[str, ...]:
-    root = Path(__file__).resolve().parents[2]
+TRUSTED_FINGERPRINT_ENV = "NOMOSMART_TRUSTED_FINGERPRINT"
+# CHG-426 REL426-017: where the signed-package signer fingerprint came from (never the value itself).
+RELEASE_FINGERPRINT_SOURCE: dict[str, str] = {}
+
+
+def _release_fingerprint(argument: str) -> tuple[str, str]:
+    """The command argument wins; the README's verification variable is the fallback."""
+    if argument.strip():
+        return argument.strip(), "argument"
+    value = os.environ.get(TRUSTED_FINGERPRINT_ENV, "").strip()
+    return (value, "environment") if value else ("", "")
+
+
+def _compose_image_settings(compose_project: str, *, trusted_release_fingerprint: str = "", root: Path | None = None) -> tuple[str, ...]:
+    root = (root or Path(__file__).resolve().parents[2]).resolve()
     manifest = root / "release-manifest.json"
     if manifest.exists() or manifest.is_symlink() or (root / "SHA256SUMS").exists():
         sys.path.insert(0, str(root / "deploy/release"))
@@ -924,7 +937,18 @@ def _compose_image_settings(compose_project: str, *, trusted_release_fingerprint
         try:
             payload = _load_json(_bounded_file(root, "release-manifest.json"), label="release manifest")
             _bounded_file(root, "SHA256SUMS")
-            if payload.get("schema_version") == 4:
+            if payload.get("schema_version") == 5:
+                from nomosmart_release.contract_v5 import PURPOSE as reviewed_purpose, validate_manifest as validate_reviewed_manifest
+                validate_reviewed_manifest(payload)
+                fingerprint, source = _release_fingerprint(trusted_release_fingerprint)
+                if not fingerprint:
+                    raise PackageError("signed release package initialization requires an independently trusted release fingerprint: "
+                                       f"pass --trusted-release-fingerprint or set {TRUSTED_FINGERPRINT_ENV}")
+                from nomosmart_release.contract import verify_release_package
+                verify_release_package(root, purpose=reviewed_purpose, trusted_fingerprint=fingerprint)
+                RELEASE_FINGERPRINT_SOURCE["source"] = source
+                images = payload["application_images"]
+            elif payload.get("schema_version") == 4:
                 from nomosmart_release.contract_v4 import validate_manifest as validate_local_manifest
                 validate_local_manifest(payload)
                 if not trusted_release_fingerprint:
@@ -1212,6 +1236,7 @@ def init_package(args: argparse.Namespace, *, rotating: bool = False) -> int:
                 "generation_id": generation_id,
                 "deployment_state": deployment_state,
                 "tls_source": certificates["active_source"],
+                **({"release_fingerprint_source": RELEASE_FINGERPRINT_SOURCE["source"]} if RELEASE_FINGERPRINT_SOURCE else {}),
             },
             sort_keys=True,
         )
@@ -1397,7 +1422,7 @@ def _parser() -> argparse.ArgumentParser:
     init_parser.add_argument("--profile", choices=(FACTORY_PROFILE, PRODUCTION_PROFILE), required=True)
     init_parser.add_argument("--app-env", choices=("development", "production"), required=True)
     init_parser.add_argument("--no-display", action="store_true")
-    init_parser.add_argument("--trusted-release-fingerprint", default="", help="independently trusted OpenPGP signer for a local verified package")
+    init_parser.add_argument("--trusted-release-fingerprint", default="", help="independently trusted OpenPGP signer for a signed release package (schema 5 also reads NOMOSMART_TRUSTED_FINGERPRINT)")
     init_parser.add_argument("--random-initial-credentials", action="store_true",
                              help="generate random first-use local credentials in protected files")
     init_parser.add_argument("--postgresql-standalone", action="store_true",
