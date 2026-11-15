@@ -116,6 +116,15 @@ def _artifact_parts(uri: str):
     return parsed.netloc, parsed.path.lstrip("/")
 
 
+def native_output_limit(tokens, capabilities) -> int:
+    """CHG-426 REL426-020: per-request output cap = min(system request cap, remaining document
+    budget, model capability). Reject only when that is below the model minimum."""
+    output_limit = min(tokens.request_limit(tokens.document), capabilities.limit("max_output_tokens"))
+    if output_limit < capabilities.limit("min_output_tokens"):
+        raise AppError("ocr_native_output_limit_invalid", "Configured request output is below the model minimum", status_code=422)
+    return output_limit
+
+
 @dataclass(repr=False)
 class PreparedNativeOCRCall:
     journal: object
@@ -164,9 +173,7 @@ class NativePDFOCRAdapter:
         tokens = native_from_snapshot(snapshot)
         if tokens is None:
             raise AppError("ocr_token_settings_missing", "Native OCR requires versioned document output settings", status_code=503)
-        output_limit = tokens.request_limit(tokens.document)
-        if not capabilities.limit("min_output_tokens") <= output_limit <= capabilities.limit("max_output_tokens"):
-            raise AppError("ocr_native_output_limit_invalid", "Configured request output exceeds model capabilities", status_code=422)
+        output_limit = native_output_limit(tokens, capabilities)
         seconds = snapshot.get("ocr_document_timeout_seconds")
         if type(seconds) is not int or not 1 <= seconds <= 1800:
             raise AppError("ocr_timeout_config_invalid", "Native OCR document deadline is missing or invalid", status_code=422)

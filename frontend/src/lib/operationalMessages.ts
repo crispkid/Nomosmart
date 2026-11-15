@@ -15,6 +15,8 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   file_processing_policy_migration_required: "fileProcessingPolicyInvalid",
   // CHG-425 FIX425-008: an uninitialized policy names its own cause.
   file_processing_policy_missing: "fileProcessingPolicyMissing",
+  // CHG-426 REL426-019: review waits until the worker has finalized the document execution.
+  document_processing_finalizing: "documentProcessingFinalizing",
   // CHG-425 FIX425-004 / FIX425-005: connection tests separate missing model, credential and rejected request.
   model_not_available: "modelNotAvailable",
   model_authentication_failed: "modelAuthenticationFailed",

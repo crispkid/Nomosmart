@@ -2797,5 +2797,6 @@
   "settingsCurrentValue": "目前儲存值",
   "stagingRetentionExpired": "暫存檢索已到期；仍可閱讀文件與審核紀錄，或建立新修訂版。",
   "settingsUseCurrent": "放棄輸入，使用目前設定",
-  "settingsGoDocuments": "上傳、退回暫存與 OCR 設定請前往「文件處理」"
+  "settingsGoDocuments": "上傳、退回暫存與 OCR 設定請前往「文件處理」",
+  "documentProcessingFinalizing": "文件處理正在收尾，請過幾秒後再送審。"
 }

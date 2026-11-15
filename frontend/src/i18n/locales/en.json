@@ -2797,5 +2797,6 @@
   "settingsCurrentValue": "Current saved value",
   "stagingRetentionExpired": "Staging search has expired. You can still read the document and review history, or create a new revision.",
   "settingsUseCurrent": "Discard input and use current settings",
-  "settingsGoDocuments": "Open Document processing for uploads, retention and OCR settings"
+  "settingsGoDocuments": "Open Document processing for uploads, retention and OCR settings",
+  "documentProcessingFinalizing": "Document processing is still finalizing; submit for review again in a few seconds"
 }
