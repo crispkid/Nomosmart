@@ -27,6 +27,7 @@ from app.db.models import (
     DocumentVersion,
     EmbeddingBuild,
     EmbeddingProfile,
+    FileProcessingExecution,
     GraphSyncJob,
     PipelineRun,
     PipelineRunStep,
@@ -374,6 +375,14 @@ def submit_review(
 ) -> ApprovalRequest:
     if version.status != "submission_ready":
         raise AppError("version_not_submission_ready", "Document version is not ready for review", status_code=409)
+    # CHG-426 REL426-019: the worker finalizer must release the document execution
+    # (which requires pipeline submission_ready) before review can advance the pipeline.
+    finalizing = session.scalar(select(FileProcessingExecution.id).join(PipelineRun, PipelineRun.id == FileProcessingExecution.run_id)
+        .where(PipelineRun.document_version_id == version.id, FileProcessingExecution.kind == "document",
+               FileProcessingExecution.released_at.is_(None)).limit(1))
+    if finalizing is not None:
+        raise AppError("document_processing_finalizing",
+            "Document processing is still finalizing; submit for review again in a few seconds", status_code=409)
     existing = session.scalar(select(ApprovalRequest).where(ApprovalRequest.document_version_id == version.id, ApprovalRequest.status.in_(("pending_manager_review", "pending_owner_review", "approved"))))
     if existing:
         raise AppError("approval_already_in_progress", "Document version already has an active approval request", status_code=409)

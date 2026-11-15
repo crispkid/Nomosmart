@@ -317,8 +317,13 @@ def dispatch_document_outbox(factory) -> None:
     with factory() as session:
         completed = finalizable_task_ids(session)
     for task_id in completed:
-        with factory.begin() as session:
-            finalize_task(session, task_id)
+        # CHG-426 REL426-019: one task's finalization failure must not block every
+        # other task and the pending dispatch queue (head-of-line blocking).
+        try:
+            with factory.begin() as session:
+                finalize_task(session, task_id)
+        except AppError as exc:
+            logger.warning("document_finalize_skipped", extra={"task_id": str(task_id), "error_code": exc.code})
     with factory() as session:
         now = datetime.now(UTC)
         candidates = list(session.scalars(select(OutboxEvent.id).where(OutboxEvent.topic == DOCUMENT_TOPIC,
