@@ -544,6 +544,11 @@ class Workflow:
             fresh = not (self.env_file.exists() or self.env_file.is_symlink() or self.current.exists() or self.current.is_symlink())
             if fresh and self.current.parent.exists() and any(self.current.parent.iterdir()):
                 raise WorkflowError(2, "UNKNOWN_GENERATION", "Inspect the incomplete generated directory; preserve its material and restore matching configuration before up.")
+            fingerprint = (args.trusted_release_fingerprint or os.environ.get("NOMOSMART_TRUSTED_FINGERPRINT", "")).strip()
+            signed_package = (self.root / "release-manifest.json").exists() or (self.root / "release-manifest.json").is_symlink()
+            if fresh and signed_package and not fingerprint:
+                # CHG-426 REL426-017: stop before any name check, credential or file generation.
+                raise WorkflowError(2, "RELEASE_FINGERPRINT_REQUIRED", "Verify the package, then pass --trusted-release-fingerprint or set NOMOSMART_TRUSTED_FINGERPRINT to the signer fingerprint obtained through an independent trusted channel.")
             if fresh:
                 self.settings = selectors({"NOMOSMART_PUBLIC_HOST": args.public_host or package.DEFAULT_PUBLIC_HOST,
                                            "COMPOSE_PROJECT_NAME": args.project_name or "nomosmart",
@@ -561,7 +566,8 @@ class Workflow:
                 self.process([sys.executable, "-B", str(self.root / "deploy/package/nomosmart_package.py"), "init", "--target", "compose",
                               "--profile", "factory_acceptance", "--app-env", "development", "--no-display", "--random-initial-credentials",
                               "--public-host", self.settings["host"], "--compose-project", self.settings["project"],
-                              "--http-port", str(self.settings["http"]), "--https-port", str(self.settings["https"])], limit=None)
+                              "--http-port", str(self.settings["http"]), "--https-port", str(self.settings["https"]),
+                              *(["--trusted-release-fingerprint", fingerprint] if signed_package else [])], limit=None)
             self.progress("CONFIG_VALIDATE")
             self.load()
             for key, value in (("host", args.public_host), ("project", args.project_name), ("http", args.http_port), ("https", args.https_port)):
@@ -692,6 +698,7 @@ def parser() -> argparse.ArgumentParser:
     up.add_argument("--https-port", type=int)
     up.add_argument("--timeout", type=int, default=1800)
     up.add_argument("--build", action="store_true")
+    up.add_argument("--trusted-release-fingerprint", default="", help="signer fingerprint for a fresh install from a signed release package (or NOMOSMART_TRUSTED_FINGERPRINT)")
     status = commands.add_parser("status", help="Read live readiness and service states")
     status.add_argument("--json", action="store_true")
     logs = commands.add_parser("logs", help="Show bounded operational logs with sensitive content suppressed")

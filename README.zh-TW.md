@@ -100,7 +100,17 @@ cp -n deploy/docker/nomosmart.env.example deploy/docker/nomosmart.env
 chmod 600 deploy/docker/nomosmart.env
 ```
 
-依[部署操作指南](deploy/README.md#docker-compose)準備設定所引用的 Secret／TLS 檔，填入已檢視的映像、真實服務及[目錄 bootstrap 設定](deploy/docker/auth-bootstrap.example.json)。使用原始碼時才建置應用映像；版本包應使用其清單指定的映像。
+已簽署的版本包可用打包工具產生平台 Secret／TLS 檔並帶入清單指定的映像。工具會先驗證版本包，請提供同一個從獨立可信管道取得的簽署指紋，可用參數或環境變數 `NOMOSMART_TRUSTED_FINGERPRINT`（兩者都有時以參數為準）：
+
+```sh
+./deploy/package/nomosmart-package init --target compose --profile factory_acceptance --app-env development \
+  --no-display --random-initial-credentials --public-host nomosmart.local \
+  --trusted-release-fingerprint "$NOMOSMART_TRUSTED_FINGERPRINT"
+```
+
+全新安裝時 `./nomosmart up --trusted-release-fingerprint …` 也接受同樣的輸入。指紋缺少、錯誤或版本包檔案被改過時，工具會在寫入任何設定或憑證前停止。
+
+不使用打包工具時，依[部署操作指南](deploy/README.md#docker-compose)準備設定所引用的 Secret／TLS 檔，填入已檢視的映像、真實服務及[目錄 bootstrap 設定](deploy/docker/auth-bootstrap.example.json)。使用原始碼時才建置應用映像；版本包應使用其清單指定的映像。
 
 ```sh
 docker compose --env-file deploy/docker/nomosmart.env config --quiet
@@ -139,7 +149,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 1. 驗證版本包與映像摘要，保留可回復的既有資料、設定、加密金鑰與 TLS／CA；檢視目標部署差異。
 2. 暫停舊匯入／同步 producer，停止舊 Worker／Beat，協調更新 Frontend、Backend、Worker 與 Beat，避免新舊寫入者混用。
 3. 使用完整的新認證設定：選定 LDAP／AD 或 OIDC，保留內部 UUID、使用者／角色關係及歷史。移除舊 `keycloak.*` 等部署欄位；Helm 使用已檢視的完整 values 與 `--reset-values`，不要以 `--reuse-values` 帶回舊設定。
-4. 讓正常 migration 流程將既有資料庫依序升到 **056**；全新資料庫使用 B054 基線後套 V055、V056。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
+4. 讓正常 migration 流程將既有資料庫依序升到 **061**；全新資料庫使用 B054 基線後套 V055–V061。由 0.2.4 建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.2.5 前請改為 `MIGRATION_REQUIRED_VERSION=061`、`MIGRATION_REQUIRED_CHECKSUM=1514288448`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
 5. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
 6. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
 

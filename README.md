@@ -100,7 +100,17 @@ cp -n deploy/docker/nomosmart.env.example deploy/docker/nomosmart.env
 chmod 600 deploy/docker/nomosmart.env
 ```
 
-Prepare the referenced Secret/TLS files following the [deployment guide](deploy/README.md#docker-compose), then provide reviewed images, real services and [directory bootstrap configuration](deploy/docker/auth-bootstrap.example.json). Build application images only for source deployments; version packages use the images pinned in their manifest.
+In a signed version package, the package tool can generate the platform Secret/TLS inputs and pin the manifest images. It verifies the package first, so supply the same independently trusted fingerprint as an argument or through `NOMOSMART_TRUSTED_FINGERPRINT` (the argument wins):
+
+```sh
+./deploy/package/nomosmart-package init --target compose --profile factory_acceptance --app-env development \
+  --no-display --random-initial-credentials --public-host nomosmart.local \
+  --trusted-release-fingerprint "$NOMOSMART_TRUSTED_FINGERPRINT"
+```
+
+`./nomosmart up --trusted-release-fingerprint …` accepts the same input for a fresh install. A missing, wrong or untrusted fingerprint, or a changed package file, stops before any configuration or credential is written.
+
+Otherwise prepare the referenced Secret/TLS files following the [deployment guide](deploy/README.md#docker-compose), then provide reviewed images, real services and [directory bootstrap configuration](deploy/docker/auth-bootstrap.example.json). Build application images only for source deployments; version packages use the images pinned in their manifest.
 
 ```sh
 docker compose --env-file deploy/docker/nomosmart.env config --quiet
@@ -139,7 +149,7 @@ Copy the [target TOML](deploy/installer/nomosmart-install.protocol.example.toml)
 1. Verify package/image identities and retain recoverable existing data, configuration, encryption keys and TLS/CA materials. Review the target deployment difference.
 2. Pause old import/synchronization producers and stop old Workers/Beat. Coordinate Frontend, Backend, Worker and Beat updates to avoid mixed-version writers.
 3. Supply complete current authentication settings, select LDAP/AD or OIDC, and retain internal UUIDs, user/role relationships and history. Remove retired `keycloak.*` deployment fields. Use reviewed complete Helm values with `--reset-values`, not `--reuse-values`.
-4. Use the normal migration flow to advance existing databases to **056**. Fresh databases use B054 followed by V055 and V056. Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
+4. Use the normal migration flow to advance existing databases to **061**. Fresh databases use B054 followed by V055–V061. Compose installations created by 0.2.4 pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=061` and `MIGRATION_REQUIRED_CHECKSUM=1514288448` before starting 0.2.5, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
 5. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
 6. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
 
