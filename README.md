@@ -4,9 +4,9 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart is an enterprise knowledge management platform for turning documents and connected data into reviewed, searchable knowledge with traceable answers.
 
-Version: **0.3.0** (in development, not yet released; the latest release is 0.2.5). Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+Version: **0.3.0**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
 
-## What's new in 0.3.0 (not yet released)
+## What's new in 0.3.0
 
 - **One question-answering API (Open Responses)**: the in-product chat test and integration clients use the same Open Responses compatible `POST …/responses` contract (JSON, or SSE with `stream: true`). The chat test streams answers as they arrive. The previous `/chat`, `/chat/stream`, `/chat/responses/{id}/feedback` and `/chat/query` endpoints are removed.
 - **Multi-turn conversations**: each question chooses single- or multi-turn with `previous_response_id`. Earlier turns come only from stored answers of the same API key and employee (or the same chat-test user), follow-ups are rewritten into a standalone search question, and answers cite only passages found for that turn. The chat test picks single- or multi-turn when a conversation starts.
@@ -18,7 +18,7 @@ Version: **0.3.0** (in development, not yet released; the latest release is 0.2.
 
 ## Features
 
-- Import PDF, UTF-8 TXT and Markdown files, plus S3 and HTTP API sources (FTP, FTPS and SFTP sources were removed after 0.2.5).
+- Import PDF, UTF-8 TXT and Markdown files, plus S3 and HTTP API sources (FTP, FTPS and SFTP sources were removed in 0.3.0).
 - Send original PDFs directly to a configured LLM for Markdown output; read TXT/Markdown directly.
 - Create knowledge chunks, tags and embeddings while preserving original documents, versions and citations.
 - Submit, reject and publish content under project permissions, retaining completed work and review history.
@@ -54,7 +54,7 @@ The Backend owns authentication, authorization, configuration and dispatch. Work
 | Authoritative data | PostgreSQL 18.4; forward-only Flyway migrations |
 | Object storage | S3-compatible storage; RustFS for bundled deployments |
 | Search and graph | OpenSearch 2.19 and Neo4j 5.26 Community |
-| Deployment | Docker Compose v2 and Helm Chart 0.2.5 |
+| Deployment | Docker Compose v2 and Helm Chart 0.3.0 |
 
 ## PDF and model configuration
 
@@ -181,7 +181,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 
 Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
-0.2.5 was qualified on its own source and images: all 31 mandatory scenarios and 19 release gates were rerun, and the package was signed and verified, including tamper and wrong-fingerprint checks and a real `init`. Complete-denominator line coverage is 26.25% (frontend) and 46.0% (backend); 80% is an improvement target and does not decide readiness. Its three plaintext-FTP High findings are accepted for 0.2.5 only until 2026-12-15 08:00 (Taipei). 0.3.0 removes the FTP code (no High static-analysis findings remain), but 0.3.0 has not yet completed release qualification or signing; until it does, 0.2.5 remains the qualified release. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
+0.3.0 is qualified on its own source and images: all 34 mandatory scenarios (including Open Responses, multi-turn conversations and multi-turn validation) and 19 release gates are run, and the package is signed and verified, including tamper and wrong-fingerprint checks and a real `init`. The evidence, including complete-denominator coverage, ships with the [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0); 80% coverage is an improvement target and does not decide readiness. The FTP code is removed, so no FTP risk acceptance applies. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
 
 ## Repository and development
 
