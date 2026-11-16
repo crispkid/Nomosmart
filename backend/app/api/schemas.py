@@ -1386,42 +1386,6 @@ class PublicApiChatPayload(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
 
 
-class PublicApiChatCitation(BaseModel):
-    """Stable public citation shape; internal canonical indexes stay private."""
-
-    model_config = ConfigDict(from_attributes=True)
-
-    document_id: UUID
-    document_version_id: UUID
-    chunk_id: UUID
-    title: str | None = None
-    score: float | None = None
-    excerpt: str | None = None
-    content_type: str | None = None
-    page: int | None = None
-    source_mapping: list[Any] = Field(default_factory=list)
-    index_name: str | None = None
-
-
-class PublicApiChatResponse(BaseModel):
-    response_id: UUID
-    answer: str
-    citations: list[PublicApiChatCitation]
-    status: Literal["answered", "no_answer"] = "answered"
-    retrieval_strategy: Literal["keyword", "vector", "hybrid"] = "hybrid"
-    selected_document_ids: list[UUID] = Field(default_factory=list)
-    selected_document_version_ids: list[UUID] = Field(default_factory=list)
-    prompt_version: str | None = None
-    system_prompt_source: str | None = None
-    system_prompt_version_id: UUID | None = None
-    system_prompt_content_hash: str | None = None
-    system_prompt_layers: list[dict[str, Any]] | None = None
-    llm_model_id: UUID | None = None
-    token_usage: dict[str, Any] | None = None
-    latency_ms: int | None = None
-    request_id: str | None = None
-
-
 class PublicApiFeedbackPayload(BaseModel):
     feedback: Literal["good", "bad"]
     comment: str | None = Field(default=None, max_length=4000)
@@ -1430,7 +1394,7 @@ class PublicApiFeedbackPayload(BaseModel):
 
 class PublicApiFeedbackResponse(BaseModel):
     feedback_event_id: UUID
-    response_id: UUID
+    response_id: str  # CHG-434: Open Responses id, resp_<UUID>
     latest_feedback: Literal["good", "bad"]
     comment: str | None
     created_at: datetime

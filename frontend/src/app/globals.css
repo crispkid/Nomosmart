@@ -4450,6 +4450,15 @@ small {
   text-decoration: line-through;
 }
 
+/* CHG-434: answer text shown while the Open Responses stream is still arriving. */
+.chat-streaming-answer {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  line-height: 1.6;
+}
+
 .chat-waiting-status {
   display: inline-flex;
   align-items: center;

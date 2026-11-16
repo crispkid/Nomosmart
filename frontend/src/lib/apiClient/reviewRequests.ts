@@ -1,6 +1,7 @@
 // Approval, lifecycle, reference, graph, chat, report and notification requests (split from lib/api.ts, OPT424-038).
 import { apiBaseUrl } from "@/lib/oidc";
-import { apiJson, apiResponseError, type ApiFetch } from "./core";
+import { MutationOutcomeUnknown, TransportError } from "@/lib/transportError";
+import { apiJson, apiResponseError, type ApiError, type ApiFetch } from "./core";
 import type { DocumentSummary, DocumentUpdateResponse } from "./documentTypes";
 import type {
   ApprovalPendingPublishResponse, ApprovalRequestResponse, ApprovalTaskDetail, ApprovalTaskResponse,
@@ -85,8 +86,111 @@ export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: str
 export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
   return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`, { signal });
 }
-export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, payload: { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null }) {
-  return apiJson<ProjectChatQueryResponse>(apiFetch, `/projects/${projectId}/chat/query`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+type ChatQueryPayload = { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null };
+type OpenResponsesCitation = ProjectChatQueryResponse["citations"][number];
+type OpenResponsesResource = {
+  id: string;
+  output?: { content?: { text?: string; annotations?: { "nomosmart:citation"?: OpenResponsesCitation }[] }[] }[];
+  "nomosmart:answer_status"?: "answered" | "no_answer";
+  "nomosmart:conversation"?: { id?: string; title?: string };
+  "nomosmart:manifest_version_ids"?: string[];
+  "nomosmart:selected_document_version_ids"?: string[];
+  "nomosmart:llm_model_id"?: string | null;
+  "nomosmart:latency_ms"?: number | null;
+  "nomosmart:prompt_version"?: string | null;
+  "nomosmart:system_prompt"?: { source?: string | null; version_id?: string | null; content_hash?: string | null };
+};
+
+/** CHG-434: chat test asks through the Open Responses entry `POST /responses` and streams the answer. */
+export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, payload: ChatQueryPayload, onDelta?: (answer: string) => void): Promise<ProjectChatQueryResponse> {
+  const scope: Record<string, unknown> = { mode: payload.scope_mode };
+  if (payload.document_version_ids) scope.document_version_ids = payload.document_version_ids;
+  const conversation: Record<string, string> = {};
+  if (payload.conversation_id) conversation.id = payload.conversation_id;
+  if (payload.conversation_title) conversation.title = payload.conversation_title;
+  const body: Record<string, unknown> = { model: `nomosmart:project/${projectId}`, input: payload.question, stream: true, "nomosmart:scope": scope };
+  if (payload.top_k) body["nomosmart:top_k"] = payload.top_k;
+  if (Object.keys(conversation).length) body["nomosmart:conversation"] = conversation;
+  let response: Response;
+  try { response = await apiFetch(`${apiBaseUrl()}/responses`, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", accept: "text/event-stream" }, body: JSON.stringify(body) }); }
+  catch (error) {
+    if (error instanceof TransportError || (error instanceof Error && ["AbortError", "TimeoutError"].includes(error.name))) throw new MutationOutcomeUnknown();
+    throw error;
+  }
+  if (!response.ok) throw await openResponsesError(response);
+  if (!response.body) throw new MutationOutcomeUnknown();
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let answer = "";
+  for (;;) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    let boundary = buffer.indexOf("\n\n");
+    while (boundary >= 0) {
+      const event = parseSseEvent(buffer.slice(0, boundary));
+      buffer = buffer.slice(boundary + 2);
+      boundary = buffer.indexOf("\n\n");
+      if (!event) continue;
+      if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+        answer += event.delta;
+        onDelta?.(answer);
+      } else if (event.type === "error") {
+        throw streamError(event.error as Record<string, unknown> | undefined, response.status);
+      } else if (event.type === "response.completed") {
+        return chatQueryResult(event.response as OpenResponsesResource);
+      }
+    }
+    if (done) break;
+  }
+  throw new MutationOutcomeUnknown();
+}
+
+function parseSseEvent(block: string): Record<string, unknown> | null {
+  const data = block.split("\n").filter((line) => line.startsWith("data:")).map((line) => line.slice(5).trimStart()).join("\n");
+  if (!data || data === "[DONE]") return null;
+  try { return JSON.parse(data) as Record<string, unknown>; } catch { return null; }
+}
+
+function streamError(error: Record<string, unknown> | undefined, status: number): ApiError {
+  const result = new Error(String(error?.message || "Chat request failed")) as ApiError;
+  result.status = status >= 400 ? status : 502;
+  result.code = String(error?.code || "api_error");
+  result.details = { param: error?.param ?? null };
+  return result;
+}
+
+async function openResponsesError(response: Response): Promise<ApiError> {
+  const body = await response.clone().json().catch(() => ({})) as { error?: Record<string, unknown>; "nomosmart:request_id"?: string };
+  if (!body.error || typeof body.error !== "object") return apiResponseError(response);
+  const error = streamError(body.error, response.status);
+  error.requestId = body["nomosmart:request_id"];
+  return error;
+}
+
+function chatQueryResult(resource: OpenResponsesResource): ProjectChatQueryResponse {
+  const part = resource.output?.[0]?.content?.[0];
+  const citations: OpenResponsesCitation[] = [];
+  const seen = new Set<string>();
+  for (const annotation of part?.annotations ?? []) {
+    const citation = annotation["nomosmart:citation"];
+    if (citation && !seen.has(citation.chunk_id)) { seen.add(citation.chunk_id); citations.push(citation); }
+  }
+  const prompt = resource["nomosmart:system_prompt"];
+  return {
+    chat_record_id: resource.id.replace(/^resp_/, ""),
+    conversation_id: resource["nomosmart:conversation"]?.id ?? null,
+    conversation_title: resource["nomosmart:conversation"]?.title ?? null,
+    answer: part?.text ?? "",
+    citations,
+    manifest_version_ids: resource["nomosmart:manifest_version_ids"] ?? [],
+    selected_version_ids: resource["nomosmart:selected_document_version_ids"] ?? [],
+    status: resource["nomosmart:answer_status"],
+    retrieval_strategy: "hybrid",
+    prompt_version: resource["nomosmart:prompt_version"] ?? null,
+    system_prompt_source: prompt?.source ?? null,
+    system_prompt_version_id: prompt?.version_id ?? null,
+  };
 }
 export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string; signal?: AbortSignal }) {
   const params = new URLSearchParams();

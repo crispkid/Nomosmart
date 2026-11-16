@@ -388,7 +388,10 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
       return;
     }
     try {
-      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text });
+      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text }, (partial) => {
+        if (!scopeEpoch.current.isCurrent(scope)) return;
+        setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, answer: partial } : entry) } : conversation));
+      });
       if (!scopeEpoch.current.isCurrent(scope)) return;
       setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, id: result.conversation_id || conversation.id, persisted: Boolean(result.conversation_id) || conversation.persisted, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, recordId: result.chat_record_id ?? undefined, answer: result.answer, citations: result.citations, status: result.status, retrievalStrategy: result.retrieval_strategy, loading: false } : entry), updatedAt: Date.now() } : conversation));
       setHistoryStatus("ready");

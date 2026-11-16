@@ -43,7 +43,7 @@ Browser -- HTTPS -- Next.js Frontend / Same-origin Proxy -- FastAPI Backend
                               PDF -> Markdown                         Files/search/relations
 ```
 
-The Backend owns authentication, authorization, configuration and dispatch. Workers run imports and knowledge processing; Beat schedules tasks. Chat, Embedding, PDF recognition and Judge use organization-configured model services. Integration clients use the separate public API within their authorized project scope.
+The Backend owns authentication, authorization, configuration and dispatch. Workers run imports and knowledge processing; Beat schedules tasks. Chat, Embedding, PDF recognition and Judge use organization-configured model services. Integration clients use the separate public API within their authorized project scope; it follows the Open Responses format, and the in-product chat test uses the same contract through `/api/v1/responses`.
 
 | Component | Technology and purpose |
 | --- | --- |
@@ -172,7 +172,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 | Endpoint | Purpose |
 | --- | --- |
 | `/api/v1` | Internal Backend API; server sessions and Backend permission checks |
-| `/api/public/v1` | Integration API; independent API keys and project scope |
+| `/api/public/v1` | Integration API; Open Responses compatible `POST /responses` (JSON or `stream: true`) and feedback; independent API keys and project scope |
 | `/openapi.json`, `/docs` | Backend OpenAPI/Swagger |
 | `/api-docs` | In-product API guide |
 | `/api/v1/health`, `/api/v1/ready` | Process health and dependency/bootstrap readiness |

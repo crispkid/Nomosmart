@@ -28,7 +28,7 @@ export function ProjectChatEntryPair({ access, authorName, entry, judgments, per
         <div className="message-avatar"><Bot size={17} /></div>
         <div className="assistant-message-body">
           <small>NomoSmart · {retrievalLabel(entry.retrievalStrategy)}</small>
-          {entry.loading ? <ChatWaitingIndicator label={t("projectChatQueryingPublishedKnowledge")} /> : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
+          {entry.loading ? (entry.answer ? <p className="chat-streaming-answer">{entry.answer}</p> : <ChatWaitingIndicator label={t("projectChatQueryingPublishedKnowledge")} />) : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
             <ChatResponseEvidence
               answer={entry.answer}
               answerFallback={t("projectChatNoBackendAnswer")}

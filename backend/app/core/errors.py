@@ -41,6 +41,10 @@ def unhandled_error_response(request: Request) -> JSONResponse:
 
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
+    if _open_responses_request(request):
+        from app.domain.responses_service import error_payload
+
+        return JSONResponse(status_code=exc.status_code, content=error_payload(exc, request_id))
     payload = ErrorBody(
         code=exc.code,
         message=exc.message,
@@ -53,6 +57,13 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
+    if _open_responses_request(request):
+        # CHG-434 D434-02: Open Responses reports malformed requests as 400 invalid_request.
+        from app.domain.responses_service import error_payload
+
+        location = [str(part) for part in (exc.errors()[0]["loc"] if exc.errors() else []) if part != "body"]
+        error = AppError("invalid_request_body", "Request body is not valid JSON for this endpoint", details={"param": ".".join(location) or None})
+        return JSONResponse(status_code=400, content=error_payload(error, request_id))
     details = {"errors": [{"location": list(error["loc"]), "type": error["type"]} for error in exc.errors()]}
     payload = ErrorBody(code="validation_error", message="Request validation failed", details=details, request_id=request_id)
     return JSONResponse(status_code=422, content=payload.model_dump())
@@ -63,3 +74,10 @@ async def http_error_handler(request: Request, exc: StarletteHTTPException) -> J
     code = "not_found" if exc.status_code == 404 else "http_error"
     payload = ErrorBody(code=code, message="Resource was not found" if exc.status_code == 404 else "Request failed", request_id=request_id)
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
+
+
+def _open_responses_request(request: Request) -> bool:
+    """CHG-434 ORESP434-006: the Open Responses entry points use its error envelope."""
+    from app.domain.responses_service import is_open_responses_path
+
+    return is_open_responses_path(request.url.path)

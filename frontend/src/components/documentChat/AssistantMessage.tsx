@@ -37,7 +37,7 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
       <div className="message-avatar"><Bot size={18} /></div>
       <div className="assistant-message-body">
         <small>{t("brandNomoSmartLiveBackend")} {entry.answeredAt ? `· ${formatDateTime(entry.answeredAt, locale)}` : ""}</small>
-        {entry.loading ? <ChatWaitingIndicator label={t("documentChatQueryingStaging")} /> : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
+        {entry.loading ? (entry.answer ? <p className="chat-streaming-answer">{entry.answer}</p> : <ChatWaitingIndicator label={t("documentChatQueryingStaging")} />) : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
           <ChatResponseEvidence
             answer={entry.answer}
             answerFallback={t("documentChatNoVerifiableAnswer")}

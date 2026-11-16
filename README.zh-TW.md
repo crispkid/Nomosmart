@@ -43,7 +43,7 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
                        PDF → Markdown                           檔案／搜尋／知識關係
 ```
 
-Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及知識處理，Beat 負責排程。Chat、Embedding、PDF 辨識與 Judge 使用組織設定的模型服務。API Client 可透過獨立的對外 API 存取授權專案。
+Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及知識處理，Beat 負責排程。Chat、Embedding、PDF 辨識與 Judge 使用組織設定的模型服務。API Client 可透過獨立的對外 API 存取授權專案；格式相容 Open Responses，產品內的對話測試也透過 `/api/v1/responses` 使用同一份格式。
 
 | 元件 | 技術／用途 |
 | --- | --- |
@@ -172,7 +172,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 | 入口 | 用途 |
 | --- | --- |
 | `/api/v1` | Backend 內部 API；工作階段與後端權限檢查 |
-| `/api/public/v1` | 整合 API；獨立 API Key 與專案 scope |
+| `/api/public/v1` | 整合 API；相容 Open Responses 的 `POST /responses`（一般或 `stream: true`）與回饋；獨立 API Key 與專案 scope |
 | `/openapi.json`、`/docs` | Backend OpenAPI／Swagger |
 | `/api-docs` | 產品內 API 說明 |
 | `/api/v1/health`、`/api/v1/ready` | 程序健康與依賴／初始化就緒狀態 |

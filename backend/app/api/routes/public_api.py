@@ -6,8 +6,10 @@ from datetime import UTC, datetime, timedelta
 from time import perf_counter
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Header, Request
-from fastapi.responses import StreamingResponse
+from typing import Any
+
+from fastapi import APIRouter, Body, Depends, Header, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -20,7 +22,7 @@ from app.api.routes.serving import (
 from app.api.schemas import (
     ProjectChatCitation,
     PublicApiChatPayload,
-    PublicApiChatResponse,
+    PublicApiChatScope,
     PublicApiFeedbackPayload,
     PublicApiFeedbackResponse,
 )
@@ -40,6 +42,16 @@ from app.domain.ai_provider import stream_rag_answer
 from app.domain.chat_citations import CitationStreamCompactor, citation_persistence_payload, compact_citation_view, validate_citation_markers
 from app.domain.integration_api_keys import api_key_hash
 from app.domain.model_usage import record_model_usage
+from app.domain.responses_service import (
+    CreateRequest,
+    ResponseEventStream,
+    answer_extensions,
+    build_response,
+    citation_annotations,
+    format_response_id,
+    parse_create_request,
+    parse_response_id,
+)
 from app.domain.public_api_controls import IdempotencyReplay, begin_idempotent_operation, complete_idempotent_operation, encrypt_payload, end_user_identity_hash, enforce_rate_limit, fail_idempotent_operation, keyed_fingerprint
 from app.domain.system_prompts import resolve_system_prompt
 
@@ -87,69 +99,51 @@ def get_public_integration_client(request: Request, session: Session = Depends(g
     return client
 
 
-@router.post("/projects/{project_id}/chat", response_model=PublicApiChatResponse)
-def public_project_chat(
-    project_id: UUID,
-    payload: PublicApiChatPayload,
+@router.post("/responses")
+def create_public_response(
     request: Request,
+    body: Any = Body(default=None),
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
     client: IntegrationClient = Depends(get_public_integration_client),
     session: Session = Depends(get_db),
-) -> PublicApiChatResponse:
+):
+    """CHG-434 ORESP434-002..006: Open Responses create, JSON or SSE (`stream: true`)."""
     settings = request.app.state.settings
+    parsed = parse_create_request(body, channel="public")
+    payload = PublicApiChatPayload(
+        question=parsed.question,
+        end_user=parsed.end_user,
+        scope=PublicApiChatScope(document_ids=parsed.document_ids) if parsed.document_ids is not None else None,
+        top_k=parsed.top_k,
+    )
+    response_mode = "sse" if parsed.stream else "json"
     replay, operation = begin_idempotent_operation(
         session,
         settings,
-        scope=f"public-chat:{client.id}:{project_id}:json",
-        raw_key=idempotency_key,
-        request_payload=payload.model_dump(mode="json"),
+        scope=f"public-responses:{client.id}:{parsed.project_id}:{response_mode}",
+        raw_key=_idempotency_key_or_single_use(idempotency_key),
+        request_payload=body,
     )
     if replay is not None:
-        return _chat_replay(replay)
+        if replay.status_code >= 400:
+            _raise_replay_error(replay)
+        resource = dict(replay.body)
+        if not parsed.stream:
+            return JSONResponse(resource)
+        return _event_stream_response(_replay_events(resource))
     session.commit()
-    try:
-        return _run_public_chat(session, request, client, project_id, payload, operation)
-    except AppError as exc:
-        _record_public_error(session, request, client, project_id, payload, exc, response_mode="json")
-        operation = session.get(IdempotencyKey, operation.id)
-        if operation is not None:
-            fail_idempotent_operation(operation, exc)
-            session.commit()
-        raise
+    if not parsed.stream:
+        try:
+            return JSONResponse(_run_public_chat(session, request, client, parsed, payload, operation))
+        except AppError as exc:
+            _record_public_error(session, request, client, parsed.project_id, payload, exc, response_mode="json")
+            operation = session.get(IdempotencyKey, operation.id)
+            if operation is not None:
+                fail_idempotent_operation(operation, exc)
+                session.commit()
+            raise
 
-
-@router.post("/projects/{project_id}/chat/stream")
-def public_project_chat_stream(
-    project_id: UUID,
-    payload: PublicApiChatPayload,
-    request: Request,
-    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
-    client: IntegrationClient = Depends(get_public_integration_client),
-    session: Session = Depends(get_db),
-) -> StreamingResponse:
-    settings = request.app.state.settings
-    replay, operation = begin_idempotent_operation(
-        session,
-        settings,
-        scope=f"public-chat:{client.id}:{project_id}:sse",
-        raw_key=idempotency_key,
-        request_payload=payload.model_dump(mode="json"),
-    )
-    if replay is not None:
-        result = _chat_replay(replay)
-
-        async def replay_events():
-            yield _sse_event("metadata", {"response_id": str(result.response_id), "status": result.status, "request_id": result.request_id, "replay": True})
-            if result.answer:
-                yield _sse_event("delta", {"text": result.answer})
-            yield _sse_event("citations", {"citations": [citation.model_dump(mode="json") for citation in result.citations]})
-            if result.token_usage:
-                yield _sse_event("usage", result.token_usage)
-            yield _sse_event("done", result.model_dump(mode="json"))
-
-        return StreamingResponse(replay_events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
-
-    session.commit()
+    project_id = parsed.project_id
     try:
         prepared = _prepare_public_chat(session, request, client, project_id, payload, response_mode="sse")
         system_prompt = resolve_system_prompt(session, model=prepared[4], model_type="Chat") if prepared[4] is not None else None
@@ -183,15 +177,32 @@ def public_project_chat_stream(
         raise
 
     selected_docs = sorted({manifest.document_id for manifest in prepared[0] if manifest.document_version_id in prepared[2]}, key=str)
-    status = "answered" if prepared[3] else "no_answer"
+    answer_status = "answered" if prepared[3] else "no_answer"
+    created_at = log.started_at
+    request_id = log.request_id
     started = perf_counter()
+
+    def extensions(token_latency: int | None) -> dict:
+        return answer_extensions(
+            request_id=request_id,
+            answer_status=answer_status,
+            selected_document_version_ids=prepared[2],
+            system_prompt_source=provider_stream.system_prompt_source,
+            system_prompt_version_id=provider_stream.system_prompt_version_id,
+            system_prompt_content_hash=provider_stream.system_prompt_content_hash,
+            llm_model_id=prepared[4].id if prepared[4] else None,
+            latency_ms=token_latency,
+            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs]},
+        )
 
     async def events():
         answer_parts: list[str] = []
         display_parts: list[str] = []
         stream_compactor = CitationStreamCompactor(len(prepared[3]))
         token_usage: dict | None = None
-        yield _sse_event("metadata", {"response_id": str(log.id), "status": status, "request_id": log.request_id})
+        events_out = ResponseEventStream(log.id)
+        for event in events_out.start(build_response(response_uuid=log.id, request=parsed, created_at=created_at, status="in_progress", answer=None, annotations=None, token_usage=None, extensions=extensions(None))):
+            yield event
         try:
             async for chunk in provider_stream.chunks:
                 if await request.is_disconnected():
@@ -202,13 +213,13 @@ def public_project_chat_stream(
                     display_text = stream_compactor.feed(chunk.text)
                     if display_text:
                         display_parts.append(display_text)
-                        yield _sse_event("delta", {"text": display_text})
+                        yield events_out.delta(display_text)
                 if chunk.token_usage:
                     token_usage = chunk.token_usage
             trailing_text = stream_compactor.finish()
             if trailing_text:
                 display_parts.append(trailing_text)
-                yield _sse_event("delta", {"text": trailing_text})
+                yield events_out.delta(trailing_text)
             raw_answer = "".join(answer_parts)
             validate_citation_markers(raw_answer, len(prepared[3]))
             compact = compact_citation_view(raw_answer, prepared[3])
@@ -218,42 +229,37 @@ def public_project_chat_stream(
                     "Streamed Chat Model response does not match the final citation view",
                     status_code=502,
                 )
-            result = PublicApiChatResponse(
-                response_id=log.id,
+            latency_ms = max(0, int((perf_counter() - started) * 1000))
+            completed_at = datetime.now(UTC)
+            resource = build_response(
+                response_uuid=log.id,
+                request=parsed,
+                created_at=created_at,
+                completed_at=completed_at,
+                status="completed",
                 answer=compact.answer or "",
-                citations=compact.citations,
-                status=status,
-                retrieval_strategy="hybrid",
-                selected_document_ids=selected_docs,
-                selected_document_version_ids=sorted(prepared[2], key=str),
-                prompt_version=provider_stream.prompt_version,
-                system_prompt_source=provider_stream.system_prompt_source,
-                system_prompt_version_id=provider_stream.system_prompt_version_id,
-                system_prompt_content_hash=provider_stream.system_prompt_content_hash,
-                system_prompt_layers=provider_stream.system_prompt_layers,
-                llm_model_id=prepared[4].id if prepared[4] else None,
+                annotations=citation_annotations(compact.answer or "", compact.citations, project_id=project_id, frontend_origin=settings.frontend_app_origin, channel="public"),
                 token_usage=token_usage,
-                latency_ms=max(0, int((perf_counter() - started) * 1000)),
-                request_id=log.request_id,
+                extensions=extensions(latency_ms),
             )
-            await _persist_stream_success(log.id, operation.id, client.id, settings, result, raw_answer=raw_answer)
-            yield _sse_event("citations", {"citations": [citation.model_dump(mode="json") for citation in result.citations]})
-            if token_usage:
-                yield _sse_event("usage", token_usage)
-            yield _sse_event("done", result.model_dump(mode="json"))
+            await _persist_stream_success(log.id, operation.id, client.id, settings, resource, answer_status=answer_status, token_usage=token_usage, latency_ms=latency_ms, raw_answer=raw_answer)
+            for event in events_out.finish(resource):
+                yield event
         except asyncio.CancelledError:
             await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "cancelled", started)
             raise
         except AppError as exc:
             await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "failed", started, exc)
-            yield _sse_event("error", {"code": exc.code, "message": exc.message, "response_id": str(log.id)})
+            failed = build_response(response_uuid=log.id, request=parsed, created_at=created_at, completed_at=datetime.now(UTC), status="failed", answer=None, annotations=None, token_usage=token_usage, extensions=extensions(None), error=exc)
+            for event in events_out.fail(failed, exc, request_id):
+                yield event
 
-    return StreamingResponse(events(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+    return _event_stream_response(events())
 
 
-@router.post("/chat/responses/{response_id}/feedback", response_model=PublicApiFeedbackResponse)
+@router.post("/responses/{response_id}/feedback", response_model=PublicApiFeedbackResponse)
 def create_public_feedback(
-    response_id: UUID,
+    response_id: str,
     payload: PublicApiFeedbackPayload,
     request: Request,
     idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
@@ -261,18 +267,21 @@ def create_public_feedback(
     session: Session = Depends(get_db),
 ) -> PublicApiFeedbackResponse:
     settings = request.app.state.settings
+    response_uuid = parse_response_id(response_id)
+    if response_uuid is None:
+        raise AppError("public_response_not_found", "Public API response was not found", status_code=404)
     replay, operation = begin_idempotent_operation(
         session,
         settings,
-        scope=f"public-feedback:{client.id}:{response_id}",
-        raw_key=idempotency_key,
+        scope=f"public-feedback:{client.id}:{response_uuid}",
+        raw_key=_idempotency_key_or_single_use(idempotency_key),
         request_payload=payload.model_dump(mode="json"),
     )
     if replay is not None:
         if replay.status_code >= 400:
             _raise_replay_error(replay)
         return PublicApiFeedbackResponse.model_validate(replay.body)
-    log = session.get(PublicApiRequestLog, response_id)
+    log = session.get(PublicApiRequestLog, response_uuid)
     identity_hash = end_user_identity_hash(settings, payload.end_user.employee_id)
     if (
         log is None
@@ -306,7 +315,7 @@ def create_public_feedback(
     )
     session.add(event)
     session.flush()
-    result = PublicApiFeedbackResponse(feedback_event_id=event.id, response_id=log.id, latest_feedback=payload.feedback, comment=event.comment, created_at=event.created_at)
+    result = PublicApiFeedbackResponse(feedback_event_id=event.id, response_id=format_response_id(log.id), latest_feedback=payload.feedback, comment=event.comment, created_at=event.created_at)
     complete_idempotent_operation(operation, result.model_dump(mode="json"), status_code=200)
     session.commit()
     return result
@@ -316,10 +325,11 @@ def _run_public_chat(
     session: Session,
     request: Request,
     client: IntegrationClient,
-    project_id: UUID,
+    parsed: CreateRequest,
     payload: PublicApiChatPayload,
     operation: IdempotencyKey,
-) -> PublicApiChatResponse:
+) -> dict:
+    project_id = parsed.project_id
     manifests, _manifest_ids, selected_version_ids, citations, chat_model = _prepare_public_chat(session, request, client, project_id, payload, response_mode="json")
     started = perf_counter()
     provider_result = None
@@ -344,6 +354,7 @@ def _run_public_chat(
         raise
     latency_ms = max(0, int((perf_counter() - started) * 1000))
     selected_docs = sorted({manifest.document_id for manifest in manifests if manifest.document_version_id in selected_version_ids}, key=str)
+    answer_status = "answered" if citations else "no_answer"
     log = _create_public_log(
         session,
         request,
@@ -351,14 +362,15 @@ def _run_public_chat(
         project_id,
         payload,
         response_mode="json",
-        lifecycle_status="answered" if citations else "no_answer",
+        lifecycle_status=answer_status,
         operation=operation,
         manifests=manifests,
         selected_version_ids=selected_version_ids,
         citations=citations,
         chat_model=chat_model,
     )
-    log.answer_encrypted = encrypt_payload(request.app.state.settings, log.id, "answer", provider_result.answer)
+    settings = request.app.state.settings
+    log.answer_encrypted = encrypt_payload(settings, log.id, "answer", provider_result.answer)
     log.prompt_version = provider_result.prompt_version
     log.system_prompt_source = provider_result.system_prompt_source
     log.system_prompt_version_id = provider_result.system_prompt_version_id
@@ -386,27 +398,61 @@ def _run_public_chat(
             correlation_id=log.request_id,
         )
     compact = compact_citation_view(provider_result.answer, citations)
-    result = PublicApiChatResponse(
-        response_id=log.id,
+    resource = build_response(
+        response_uuid=log.id,
+        request=parsed,
+        created_at=log.started_at,
+        completed_at=log.completed_at,
+        status="completed",
         answer=compact.answer or "",
-        citations=compact.citations,
-        status="answered" if citations else "no_answer",
-        retrieval_strategy="hybrid",
-        selected_document_ids=selected_docs,
-        selected_document_version_ids=sorted(selected_version_ids, key=str),
-        prompt_version=provider_result.prompt_version,
-        system_prompt_source=provider_result.system_prompt_source,
-        system_prompt_version_id=provider_result.system_prompt_version_id,
-        system_prompt_content_hash=provider_result.system_prompt_content_hash,
-        system_prompt_layers=provider_result.system_prompt_layers,
-        llm_model_id=chat_model.id if chat_model else None,
+        annotations=citation_annotations(compact.answer or "", compact.citations, project_id=project_id, frontend_origin=settings.frontend_app_origin, channel="public"),
         token_usage=provider_result.token_usage,
-        latency_ms=latency_ms,
-        request_id=log.request_id,
+        extensions=answer_extensions(
+            request_id=log.request_id,
+            answer_status=answer_status,
+            selected_document_version_ids=selected_version_ids,
+            system_prompt_source=provider_result.system_prompt_source,
+            system_prompt_version_id=provider_result.system_prompt_version_id,
+            system_prompt_content_hash=provider_result.system_prompt_content_hash,
+            llm_model_id=chat_model.id if chat_model else None,
+            latency_ms=latency_ms,
+            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs]},
+        ),
     )
-    complete_idempotent_operation(operation, result.model_dump(mode="json"), status_code=200)
+    resource = json.loads(json.dumps(resource, default=str))
+    complete_idempotent_operation(operation, resource, status_code=200)
     session.commit()
-    return result
+    return resource
+
+
+def _idempotency_key_or_single_use(raw_key: str | None) -> str:
+    """CHG-434 D434-03 (Peter 2026-11-16 "C"): Idempotency-Key is optional on the public entry.
+
+    A caller key keeps replay protection. Without one, a server-generated single-use key still
+    records the operation (audit and failure state) but can never match a retry, so each call
+    is a new answer, as with other Open Responses servers.
+    """
+    if raw_key is not None and raw_key.strip():
+        return raw_key
+    return f"single-use-{uuid4()}"
+
+
+def _event_stream_response(events) -> StreamingResponse:
+    return StreamingResponse(events, media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
+
+async def _replay_events(resource: dict):
+    """A replayed idempotent stream re-emits the stored final response as standard events."""
+    response_uuid = parse_response_id(str(resource.get("id", ""))) or uuid4()
+    events_out = ResponseEventStream(response_uuid)
+    started = {**resource, "status": "in_progress", "output": [], "usage": None, "completed_at": None}
+    for event in events_out.start(started):
+        yield event
+    text = resource["output"][0]["content"][0]["text"] if resource.get("output") else ""
+    if text:
+        yield events_out.delta(text)
+    for event in events_out.finish(resource):
+        yield event
 
 
 def _prepare_public_chat(session: Session, request: Request, client: IntegrationClient, project_id: UUID, payload: PublicApiChatPayload, *, response_mode: str):
@@ -449,7 +495,7 @@ def _create_public_log(
         integration_client_id=client.id,
         project_id=project_id,
         request_id=getattr(request.state, "request_id", None),
-        endpoint=f"/api/public/v1/projects/{project_id}/chat" + ("/stream" if response_mode == "sse" else ""),
+        endpoint="/api/public/v1/responses",
         response_mode=response_mode,
         result="processing",
         http_status=200,
@@ -482,7 +528,18 @@ def _create_public_log(
     return log
 
 
-async def _persist_stream_success(log_id: UUID, operation_id: UUID, client_id: UUID, settings, result: PublicApiChatResponse, *, raw_answer: str) -> None:
+async def _persist_stream_success(
+    log_id: UUID,
+    operation_id: UUID,
+    client_id: UUID,
+    settings,
+    resource: dict,
+    *,
+    answer_status: str,
+    token_usage: dict | None,
+    latency_ms: int,
+    raw_answer: str,
+) -> None:
     with get_session_factory()() as session:
         log = session.get(PublicApiRequestLog, log_id)
         operation = session.get(IdempotencyKey, operation_id)
@@ -490,11 +547,11 @@ async def _persist_stream_success(log_id: UUID, operation_id: UUID, client_id: U
         if log is None or operation is None or client is None:
             return
         log.answer_encrypted = encrypt_payload(settings, log.id, "answer", raw_answer)
-        log.lifecycle_status = result.status
+        log.lifecycle_status = answer_status
         log.result = "success"
-        log.retrieval_status = result.status
-        log.token_usage = result.token_usage
-        log.latency_ms = result.latency_ms
+        log.retrieval_status = answer_status
+        log.token_usage = token_usage
+        log.latency_ms = latency_ms
         log.completed_at = datetime.now(UTC)
         client.success_count += 1
         client.last_used_at = log.completed_at
@@ -507,14 +564,14 @@ async def _persist_stream_success(log_id: UUID, operation_id: UUID, client_id: U
                 usage_purpose="public_api_chat",
                 source_channel="public_api",
                 status="success",
-                token_usage=result.token_usage,
-                latency_ms=result.latency_ms,
+                token_usage=token_usage,
+                latency_ms=latency_ms,
                 project_id=log.project_id,
                 public_api_request_log_id=log.id,
                 integration_client_id=client.id,
                 correlation_id=log.request_id,
             )
-        complete_idempotent_operation(operation, result.model_dump(mode="json"), status_code=200)
+        complete_idempotent_operation(operation, json.loads(json.dumps(resource, default=str)), status_code=200)
         session.commit()
 
 
@@ -605,7 +662,7 @@ def _record_public_error(session: Session, request: Request, client: Integration
                 integration_client_id=client.id,
                 project_id=project_id,
                 request_id=getattr(request.state, "request_id", None),
-                endpoint=f"/api/public/v1/projects/{project_id}/chat" + ("/stream" if response_mode == "sse" else ""),
+                endpoint="/api/public/v1/responses",
                 response_mode=response_mode,
                 result="failure",
                 http_status=exc.status_code,
@@ -646,12 +703,6 @@ def _record_invalid_auth_rate(request: Request, token: str) -> None:
     )
 
 
-def _chat_replay(replay: IdempotencyReplay) -> PublicApiChatResponse:
-    if replay.status_code >= 400:
-        _raise_replay_error(replay)
-    return PublicApiChatResponse.model_validate(replay.body)
-
-
 def _raise_replay_error(replay: IdempotencyReplay) -> None:
     error = replay.body.get("error") if isinstance(replay.body, dict) else None
     raise AppError(
@@ -675,10 +726,6 @@ def _extract_api_key(request: Request) -> str:
 
 def _source_address(request: Request) -> str:
     return request.client.host if request.client is not None else "unknown"
-
-
-def _sse_event(event: str, data: object) -> str:
-    return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False, default=str)}\n\n"
 
 
 def _clean_optional(value: str | None) -> str | None:
