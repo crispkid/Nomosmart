@@ -10,11 +10,11 @@ import type { ImportPageDeps } from "./pageDeps";
 
 type DocumentList = ReturnType<typeof useDocumentList>;
 /** Page dependencies shared with the data source sync actions. */
-export type DataSourceSyncDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "locale" | "params" | "t"> & Pick<DocumentList, "setCreatedImports" | "setLiveDocuments"> & {
+type DataSourceSyncDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "locale" | "params" | "t"> & Pick<DocumentList, "setCreatedImports" | "setLiveDocuments"> & {
   projectReady: boolean;
 };
 
-export type DataSourceSyncState = ReturnType<typeof useDataSourceSyncState>;
+type DataSourceSyncState = ReturnType<typeof useDataSourceSyncState>;
 
 /** Data source sync run state (split from the project import page, OPT424-038). */
 export function useDataSourceSyncState() {

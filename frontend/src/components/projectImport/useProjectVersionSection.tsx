@@ -22,7 +22,7 @@ type ProjectVersionStateDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "par
   setSyncRunLoading: Dispatch<SetStateAction<Record<string, boolean>>>;
 };
 /** Page dependencies shared with the document version actions. */
-export type ProjectVersionDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "replaceLiveDocuments" | "setCreatedImports" | "setLiveDocuments"> & {
+type ProjectVersionDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "replaceLiveDocuments" | "setCreatedImports" | "setLiveDocuments"> & {
   projectReady: boolean;
   canEditLifecycle: boolean;
 };
@@ -34,7 +34,7 @@ type ProjectVersionViewDeps = Pick<ImportPageDeps, "format" | "locale" | "t"> & 
   syncNow: (document: DocumentItem) => Promise<void>;
 };
 
-export type ProjectVersionState = ReturnType<typeof useProjectVersionState>;
+type ProjectVersionState = ReturnType<typeof useProjectVersionState>;
 
 /** Reads one data source's sync runs into the shared per-source map and loading flags (OPT424-035). */
 function useDataSourceSyncRunsRead(
@@ -237,7 +237,7 @@ export function createProjectVersionActions(state: ProjectVersionState, deps: Pr
   return { updateCurrentFileVersion, updateCurrentReferenceVersion, requestVersionSwitch, confirmVersionSwitch };
 }
 
-export type ProjectVersionActions = ReturnType<typeof createProjectVersionActions>;
+type ProjectVersionActions = ReturnType<typeof createProjectVersionActions>;
 
 /** Document version dialogs: JSX moved verbatim from the project import page (OPT424-038). */
 export function createProjectVersionView(state: ProjectVersionState, actions: ProjectVersionActions, deps: ProjectVersionViewDeps) {

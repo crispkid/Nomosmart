@@ -1,6 +1,6 @@
 // Session, project, integration client, member, document and knowledge requests (split from lib/api.ts, OPT424-038).
 import { apiBaseUrl } from "@/lib/oidc";
-import { apiJson, apiResponseError, type ApiFetch, type CurrentUser } from "./core";
+import { apiJson, apiResponseError, type ApiFetch } from "./core";
 import type {
   DataSourceConnectionPayload, DataSourceConnectionTestResponse, DataSourceCreateResponse, DataSyncRunResponse,
   DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, PipelineRunDetail, PipelineSummary
@@ -13,9 +13,6 @@ import type {
 } from "./projectTypes";
 import type { ApprovalRequestResponse, ApprovalSummary, KnowledgeDetailResponse, SubmissionEvidenceResponse } from "./reviewTypes";
 import type { SessionDraftRestoreResponse } from "./servingTypes";
-import { collectOffsetPages } from "./systemRequests";
-
-export async function getCurrentUser(apiFetch: ApiFetch) { return apiJson<CurrentUser>(apiFetch, "/auth/me"); }
 export async function restoreSessionDraft(apiFetch: ApiFetch, draftId: string, payload: { return_path: string; nonce: string }) { return apiJson<SessionDraftRestoreResponse>(apiFetch, `/auth/session-drafts/${draftId}/restore`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function discardSessionDraft(apiFetch: ApiFetch, draftId: string, payload: { return_path: string; nonce: string }) { return apiJson<{ status: string }>(apiFetch, `/auth/session-drafts/${draftId}/discard`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListOptions = {}): Promise<ProjectListPage> {
@@ -39,25 +36,11 @@ export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListO
   if (!Array.isArray(items) || header === null || !/^\d+$/.test(header) || !Number.isSafeInteger(total)) throw new Error("pagination_metadata_invalid");
   return { items, total };
 }
-export async function listProjects(apiFetch: ApiFetch, status: "active" | "archived" = "active") { return collectOffsetPages(offset => listProjectsPage(apiFetch, { status, offset, limit: 200 })); }
 export async function getProject(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`, { signal }); }
 export async function createProject(apiFetch: ApiFetch, payload: ProjectCreatePayload) { return apiJson<ProjectResponse>(apiFetch, "/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getProjectArchiveImpact(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectArchiveImpactResponse>(apiFetch, `/projects/${projectId}/archive-impact`); }
 export async function archiveProject(apiFetch: ApiFetch, projectId: string, payload: { lock_version: number; confirmation_name: string }) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function retryProjectArchiveCleanup(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive-cleanup/retry`, { method: "POST" }); }
-export async function listIntegrationClients(apiFetch: ApiFetch) {
-  const items = new Map<string, IntegrationClientResponse>();
-  const cursors = new Set<string>();
-  let cursor: string | undefined;
-  do {
-    const page = await listIntegrationClientsPage(apiFetch, { cursor, limit: 100 });
-    page.items.forEach(item => items.set(item.id, item));
-    if (!page.has_more) return [...items.values()];
-    if (!page.next_cursor || cursors.has(page.next_cursor)) throw new Error("pagination_metadata_invalid");
-    cursors.add(page.next_cursor); cursor = page.next_cursor;
-  } while (cursor);
-  throw new Error("pagination_metadata_invalid");
-}
 export async function listIntegrationClientsPage(apiFetch: ApiFetch, options: { name?: string; cursor?: string; limit?: number; signal?: AbortSignal } = {}) {
   const params = new URLSearchParams({ limit: String(options.limit ?? 20) });
   if (options.name?.trim()) params.set("name", options.name.trim());

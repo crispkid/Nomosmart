@@ -17,7 +17,7 @@ import type { WorkspaceViewDeps } from "./viewDeps";
 
 type OperationGuard = ReturnType<typeof useOperationGuard>["guard"];
 /** Workspace values the outcome checks read and update. */
-export type OutcomeQueryDeps = Pick<WorkspaceViewDeps, "apiFetch" | "format" | "locale" | "localizedStatus" | "modal" | "setModal" | "t">
+type OutcomeQueryDeps = Pick<WorkspaceViewDeps, "apiFetch" | "format" | "locale" | "localizedStatus" | "modal" | "setModal" | "t">
   & Pick<RoleActions, "applyMemberSnapshot" | "cacheRoles" | "refreshRolesAndMappings" | "updateMappingProjection">
   & Pick<UserActions, "cacheUsers"> & Pick<ModelActions, "refreshModels">
   & Pick<ApiKeyState, "setIntegrationClients"> & Pick<ModelState, "setModelTableRows"> & Pick<RoleState, "setRoleUsersReadback"> & {

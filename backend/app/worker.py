@@ -14,7 +14,7 @@ from sqlalchemy import or_, select
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, IdentitySyncProviderResult, IdentitySyncRun, OutboxEvent, PipelineRun, Project, ValidationRun
+from app.db.models import DataConnection, DataSyncRun, Document, DocumentVersion, IdentitySyncRun, OutboxEvent, PipelineRun, Project, ValidationRun
 from app.db.session import get_session_factory
 from app.domain.data_sync import execute_data_source_sync, queue_due_scheduled_data_syncs
 from app.domain.chunk_artifacts import RECONCILIATION_TOPIC, execute_chunk_artifact_reconciliation
@@ -141,8 +141,6 @@ def _record_worker_runtime_heartbeat(**_: object) -> None:
         logger.warning("worker_heartbeat_failed", exc_info=True, extra={"worker_task": "runtime_heartbeat"})
 
 
-
-
 class _IdentityRunHeartbeat:
     def __init__(self, factory, run_id: UUID, lease_token: UUID, interval_seconds: int) -> None:
         self.factory = factory
@@ -179,29 +177,6 @@ class _IdentityRunHeartbeat:
         self.thread.join(timeout=2.0)
 
 
-def _active_identity_run_for_lease(session, run_id: UUID, lease_token: UUID) -> IdentitySyncRun | None:
-    return session.scalar(
-        select(IdentitySyncRun)
-        .where(
-            IdentitySyncRun.id == run_id,
-            IdentitySyncRun.status == "running",
-            IdentitySyncRun.lease_token == lease_token,
-        )
-        .with_for_update()
-    )
-
-
-def _identity_provider_result(session, run_id: UUID, provider_id: str) -> IdentitySyncProviderResult | None:
-    return session.scalar(
-        select(IdentitySyncProviderResult)
-        .where(
-            IdentitySyncProviderResult.run_id == run_id,
-            IdentitySyncProviderResult.provider_id == provider_id,
-        )
-        .with_for_update()
-    )
-
-
 @celery_app.task(name="app.worker.record_runtime_heartbeat")
 def record_runtime_heartbeat() -> None:
     record_worker_heartbeat(settings)
@@ -221,7 +196,6 @@ def run_identity_sync(run_id: str, lease_token: str | None = None) -> None:
     factory = get_session_factory()
     with _IdentityRunHeartbeat(factory, parsed_id, parsed_lease, settings.identity_sync_heartbeat_seconds):
         execute_directory_sync(settings, factory, parsed_id, parsed_lease)
-
 
 
 @celery_app.task(name="app.worker.queue_scheduled_directory_sync_v2")

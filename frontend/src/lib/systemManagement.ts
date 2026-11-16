@@ -20,7 +20,7 @@ export function roleMemberCounts(response: RoleUsersResponse) {
   };
 }
 
-export type SystemParameterValues = {
+type SystemParameterValues = {
   uploadLimitMb: number;
   timezone: string;
   stagingTtlDays: number;
@@ -64,5 +64,3 @@ export function validateSystemParameters(values: SystemParameterValues) {
 export function hasParameterErrors(errors: ReturnType<typeof validateSystemParameters>) {
   return Object.keys(errors).length > 0;
 }
-
-export type DirectorySyncScope = "people" | "groups" | "people_and_groups";

@@ -73,7 +73,7 @@ export type ApprovalPendingPublishResponse = {
   approved_at: string | null;
 };
 
-export type ReviewRecordResponse = {
+type ReviewRecordResponse = {
   id: string;
   review_stage: string;
   reviewer_id: string;
@@ -112,7 +112,7 @@ export type KnowledgeTagResponse = {
   created_at: string;
 };
 
-export type ApprovalChatEvidence = {
+type ApprovalChatEvidence = {
   id: string;
   conversation_id: string;
   conversation_title: string | null;
@@ -188,7 +188,7 @@ export type KnowledgeDetailResponse = {
   chunks: ApprovalChunkEvidence[];
 };
 
-export type SubmissionEvidenceActor = {
+type SubmissionEvidenceActor = {
   user_id: string;
   given_name: string | null;
   family_name: string | null;
@@ -219,7 +219,7 @@ export type SubmissionEvidenceResponse = {
   validation_runs: Array<Record<string, unknown>>;
 };
 
-export type DocumentLayoutArtifact = {
+type DocumentLayoutArtifact = {
   status: "available" | "partial" | "missing" | "failed";
   reason_code: string | null;
   source: string | null;
@@ -236,7 +236,7 @@ export type DocumentLayoutPage = {
   blocks: DocumentLayoutBlock[];
 };
 
-export type DocumentLayoutSourceFragment = {
+type DocumentLayoutSourceFragment = {
   fragment_id: string;
   kind: "text" | "table_header" | "table_cell" | "list_item" | "code" | "image";
   ordinal_path: number[];
@@ -248,7 +248,7 @@ export type DocumentLayoutSourceFragment = {
   text_end_offset?: number | null;
 };
 
-export type DocumentLayoutBlock = {
+type DocumentLayoutBlock = {
   id: string;
   type: "heading" | "paragraph" | "list" | "table" | "image" | "caption" | "code" | "blockquote" | "horizontal_rule" | "unknown";
   source_anchor: string | null;
@@ -279,7 +279,7 @@ export type DocumentLayoutBlock = {
   source_fragments?: DocumentLayoutSourceFragment[];
 };
 
-export type DocumentLayoutListItem = {
+type DocumentLayoutListItem = {
   text: string;
   inline_markdown?: string | null;
   value?: number | null;
@@ -336,7 +336,7 @@ export type LifecycleImpactResponse = {
   requires_confirmation: boolean;
 };
 
-export type DocumentReferenceResponse = {
+type DocumentReferenceResponse = {
   id: string;
   target_project_id: string;
   target_document_id: string;
@@ -361,7 +361,7 @@ export type ReferenceSourceVersionResponse = {
   created_at: string;
 };
 
-export type ReferenceExistingTargetResponse = {
+type ReferenceExistingTargetResponse = {
   target_document_id: string;
   target_title: string;
   source_version_label: string;

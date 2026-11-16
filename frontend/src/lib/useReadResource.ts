@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 type ReadState<T> = { scope: unknown; load: (signal: AbortSignal) => Promise<T>; data: T | null; status: "loading" | "ready" | "error"; error: unknown };
 
-export type ReadResourceOptions<T> = {
+type ReadResourceOptions<T> = {
   /** Keep the last committed data (and show it) while a newer read for the same scope runs or fails. */
   keepData?: boolean;
   /** Called once per committed read, after the data is stored; use it to sync dependent state. */

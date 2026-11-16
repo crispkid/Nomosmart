@@ -6,7 +6,7 @@ import type { ApiFetch, KnowledgeDetailResponse } from "@/lib/api";
 import { addChunkTag, addDocumentTag, autoTagChunk, autoTagDocument, deleteChunkTag, deleteDocumentTag } from "@/lib/api";
 
 /** Page dependencies shared with the knowledge tag actions. */
-export type KnowledgeTagDeps = {
+type KnowledgeTagDeps = {
   apiFetch: ApiFetch;
   params: { id: string; knowledgeId: string };
   liveDetail: KnowledgeDetailResponse | null;
@@ -14,7 +14,7 @@ export type KnowledgeTagDeps = {
   setSelectedChunkIds: Dispatch<SetStateAction<string[]>>;
 };
 
-export type KnowledgeTagState = ReturnType<typeof useKnowledgeTagState>;
+type KnowledgeTagState = ReturnType<typeof useKnowledgeTagState>;
 
 /** Document and chunk tag editing state (split from the knowledge detail page, OPT424-038). */
 export function useKnowledgeTagState() {

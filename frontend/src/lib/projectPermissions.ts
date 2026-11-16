@@ -3,7 +3,7 @@ import type { ProjectMemberCandidate, ProjectMemberResponse } from "@/lib/api";
 
 export type { ProjectMemberCandidate } from "@/lib/api";
 export type ProjectMemberRole = "owner" | "editor" | "viewer";
-export type ProjectMemberOwnerProtection = "last_owner" | "self_owner";
+type ProjectMemberOwnerProtection = "last_owner" | "self_owner";
 
 
 export function projectMemberOwnerProtection(

@@ -2,7 +2,7 @@
 import { type OcrProgress } from "@/lib/ocrPresentation";
 
 export type SourceState = "pipeline" | "ready_for_extraction" | "syncing" | "sync_failed";
-export type PipelineStatus =
+type PipelineStatus =
   | "queued"
   | "running"
   | "submission_ready"
@@ -29,7 +29,7 @@ export type ServiceSource = {
   nextRun?: string;
 };
 
-export type ReferenceSource = {
+type ReferenceSource = {
   referenceId?: string | null;
   sourceProjectId?: string;
   sourceDocumentId?: string;

@@ -13,12 +13,10 @@ from app.db.models import AuthEmergencyAccess, Role, RoleUser, SystemParameter
 from app.db.session import get_db
 from app.domain import system_parameter_store as store
 from pydantic import ValidationError
-from app.domain.ocr_token_settings import (NativeOCRTokenSettings, NATIVE_KEYS as OCR_KEYS,
-    legacy_page_from_rows, PAGE_KEY, REQUEST_KEY, DOCUMENT_KEY, NATIVE_POLICY)
+from app.domain.ocr_token_settings import NativeOCRTokenSettings, NATIVE_KEYS as OCR_KEYS, legacy_page_from_rows, PAGE_KEY, NATIVE_POLICY
 from app.domain.operations import build_operations_status
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import MENU_SYSTEM_MANAGEMENT, PermissionAction, require_menu_permission
-from app.services.audit import add_audit
 
 
 router = APIRouter(prefix="/system", tags=["system"])

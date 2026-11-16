@@ -45,7 +45,7 @@ export function TagResultStrip({ className = "", label, tags, t }: { className?:
   );
 }
 
-export function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked, onRetry, t, format, embedded = false }: { detail: KnowledgeDetailResponse | null; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format; embedded?: boolean }) {
+function LayoutPipelineFallback({ detail, retryingStep, retryError, reviewLocked, onRetry, t, format, embedded = false }: { detail: KnowledgeDetailResponse | null; retryingStep: string | null; retryError: boolean; reviewLocked: boolean; onRetry: (stepName: string) => void; t: Translate; format: Format; embedded?: boolean }) {
   const pipeline = detail?.pipeline ?? null;
   const failedStep = failedPipelineStep(pipeline);
   const active = isPipelineActive(pipeline);

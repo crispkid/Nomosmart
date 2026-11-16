@@ -14,13 +14,13 @@ import type { ImportPageDeps } from "./pageDeps";
 
 type DocumentList = ReturnType<typeof useDocumentList>;
 /** Page dependencies shared with the document lifecycle status actions. */
-export type StatusChangeDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "setCreatedImports" | "setLiveDocuments"> & {
+type StatusChangeDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "setCreatedImports" | "setLiveDocuments"> & {
   canEditLifecycle: boolean;
   notify: ReturnType<typeof useFeedback>["notify"];
 };
 type StatusChangeViewDeps = Pick<ImportPageDeps, "t"> & { localize: (message: string) => string };
 
-export type StatusChangeState = ReturnType<typeof useStatusChangeState>;
+type StatusChangeState = ReturnType<typeof useStatusChangeState>;
 
 /** Document lifecycle status change state (split from the project import page, OPT424-038). */
 export function useStatusChangeState() {
@@ -135,7 +135,7 @@ export function createStatusChangeActions(state: StatusChangeState, deps: Status
   return { requestStatusChange, confirmStatusChange };
 }
 
-export type StatusChangeActions = ReturnType<typeof createStatusChangeActions>;
+type StatusChangeActions = ReturnType<typeof createStatusChangeActions>;
 
 /** Document lifecycle impact dialog: JSX moved verbatim from the project import page (OPT424-038). */
 export function createStatusChangeView(state: StatusChangeState, actions: StatusChangeActions, deps: StatusChangeViewDeps) {

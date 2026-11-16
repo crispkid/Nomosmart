@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18nClient";
 /** Chunks per page on the knowledge detail page (OPT424-036, D424-16). */
 export const CHUNK_PAGE_SIZE = 50;
 
-export type ChunkPage<T> = { items: T[]; page: number; pageCount: number; total: number; setPage: (page: number) => void };
+type ChunkPage<T> = { items: T[]; page: number; pageCount: number; total: number; setPage: (page: number) => void };
 
 /**
  * Client-side paging of the chunk list (D424-16). The API still returns every

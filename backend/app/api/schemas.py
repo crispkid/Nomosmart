@@ -1908,30 +1908,6 @@ class IdentitySettingsCandidate(BaseModel):
     timezone: str = "Asia/Taipei"
 
 
-class IdentitySettingsResponse(BaseModel):
-    state: str
-    configuration: dict[str, Any]
-    secret_configured: bool
-    editable: bool
-    configuration_source: Literal["deployment", "database"]
-    revision: int | None = None
-
-
-class DirectoryProviderResponse(BaseModel):
-    id: str
-    name: str
-    vendor: str
-    enabled: bool
-    custom_user_search_filter: str
-    config_hash: str
-    checked_at: datetime
-
-
-class DirectoryProviderFilterUpdate(BaseModel):
-    custom_user_search_filter: str = Field(default="", max_length=2048)
-    config_hash: str = Field(min_length=64, max_length=64, pattern=r"^[0-9a-f]{64}$")
-
-
 class BreakGlassStatusResponse(BaseModel):
     username: str | None
     status: Literal["configured_disabled", "not_configured", "attention_required", "unavailable"]

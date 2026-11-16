@@ -27,10 +27,10 @@ export type ProjectConversation = {
   validationRunId?: string;
 };
 
-export type Translate = (key: TranslationKey) => string;
-export type Format = (key: TranslationKey, values: Record<string, string | number>) => string;
+type Translate = (key: TranslationKey) => string;
+type Format = (key: TranslationKey, values: Record<string, string | number>) => string;
 
-export function parseCsv(text: string) {
+function parseCsv(text: string) {
   const rows: string[][] = [];
   let row: string[] = [];
   let cell = "";
@@ -98,7 +98,7 @@ export function sameScopeIds(left: string[], right: string[]) {
   return left.length === right.length && left.slice().sort().join() === right.slice().sort().join();
 }
 
-export function timestamp(value: string) {
+function timestamp(value: string) {
   const parsed = new Date(value).getTime();
   return Number.isFinite(parsed) ? parsed : Date.now();
 }

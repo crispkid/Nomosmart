@@ -82,7 +82,7 @@ function pipelineStatusFromVersion(status?: string, pipelineStatus?: string): Cr
   return mappedPipeline;
 }
 
-export function publishStageCurrentStep(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
+function publishStageCurrentStep(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
   const labels: Record<CreatedKnowledgeDocument["pipeline"]["status"], string> = {
     queued: t("projectImportStageQueued"),
     running: t("projectImportStageRunning"),
@@ -113,7 +113,7 @@ function publishStageWaitingRole(status: CreatedKnowledgeDocument["pipeline"]["s
   return "";
 }
 
-export function pipelineEtaForStatus(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
+function pipelineEtaForStatus(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
   if (status === "submission_ready") return t("projectImportWaitingSubmission");
   if (status === "pending_manager_review" || status === "pending_owner_review") return t("projectImportWaitingApprovalAction");
   if (status === "approved" || status === "publish_ready") return t("projectImportWaitingPublishAction");

@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import subprocess
 import time
 from dataclasses import dataclass
 from pathlib import PurePosixPath
@@ -303,8 +302,6 @@ def _candidate_fingerprint(payload: DataSourceConnectionPayload, *, credential_c
 
 def _object_key(remote_path: str, file_name: str) -> str:
     return str(PurePosixPath(remote_path.strip("/") or ".") / file_name).removeprefix("./")
-
-
 
 
 def _latency_ms(started: float) -> int:

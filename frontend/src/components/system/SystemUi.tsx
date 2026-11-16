@@ -6,7 +6,7 @@ import type { OperationComponentStatus } from "@/lib/api";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 
 /** Shared system-management primitives (split from SystemManagementWorkspace, OPT424-038). */
-export type StateTone = "green" | "gold" | "gray" | "coral";
+type StateTone = "green" | "gold" | "gray" | "coral";
 
 const stateBadgeIcons = { green: CheckCircle2, gold: AlertTriangle, gray: MinusCircle, coral: XCircle } as const;
 

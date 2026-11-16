@@ -1,7 +1,7 @@
 import { isMutationResultUnknown } from "./transportError.ts";
 
-export type OperationPhase = "idle" | "submitting" | "unknown" | "accepted" | "read_failed" | "failed";
-export type OperationSnapshot = Readonly<{ phase: OperationPhase; checking: boolean; checked: boolean }>;
+type OperationPhase = "idle" | "submitting" | "unknown" | "accepted" | "read_failed" | "failed";
+type OperationSnapshot = Readonly<{ phase: OperationPhase; checking: boolean; checked: boolean }>;
 
 /** Synchronous dispatch fence. Presentation text never controls mutation eligibility. */
 export function createOperationGuard(scope = "native") {
@@ -60,7 +60,7 @@ export function createOperationGuard(scope = "native") {
   };
 }
 
-export type OperationGuard = ReturnType<typeof createOperationGuard>;
+type OperationGuard = ReturnType<typeof createOperationGuard>;
 
 /** Login-owned metadata only. Unconfirmed fences survive closing their editor. */
 export function createOperationGuardRegistry(owner = "") {

@@ -517,13 +517,9 @@ def _validated_scope(scope: str) -> str:
     return normalized
 
 
-
-
 def _validate_date_range(date_from: datetime | None, date_to: datetime | None) -> None:
     if date_from and date_to and date_from > date_to:
         raise AppError("report_date_range_invalid", "date_from must be before date_to", status_code=422)
-
-
 
 
 def _scope_project_count(session: Session, project_ids: set[UUID] | None) -> int:
@@ -531,8 +527,6 @@ def _scope_project_count(session: Session, project_ids: set[UUID] | None) -> int
     if project_ids is not None:
         statement = statement.where(Project.id.in_(project_ids))
     return int(session.scalar(statement) or 0)
-
-
 
 
 def _summary_metrics(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> list[ReportMetricCard]:
@@ -1141,7 +1135,6 @@ def _alert_mapping(session: Session, row) -> dict:
         "count": int(mapping["count"]),
         "oldest_at": _iso(mapping["oldest_at"]),
     }
-
 
 
 def _date_conditions(date_column, date_from: datetime | None, date_to: datetime | None) -> list:
@@ -1926,29 +1919,6 @@ def _references(session: Session, project_ids: set[UUID] | None, date_from: date
     return list(session.scalars(query))
 
 
-def _count_references(
-    session: Session,
-    project_id: UUID,
-    direction: str,
-    date_from: datetime | None,
-    date_to: datetime | None,
-) -> int:
-    project_column = (
-        DocumentReference.source_project_id
-        if direction == "source"
-        else DocumentReference.target_project_id
-    )
-    query = select(func.count()).select_from(DocumentReference).where(
-        DocumentReference.status == "active",
-        project_column == project_id,
-    )
-    if date_from is not None:
-        query = query.where(DocumentReference.created_at >= date_from)
-    if date_to is not None:
-        query = query.where(DocumentReference.created_at <= date_to)
-    return int(session.scalar(query) or 0)
-
-
 def _project_date_filters(query, model, date_column, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None):
     if project_ids is not None and hasattr(model, "project_id"):
         query = query.where(model.project_id.in_(project_ids))
@@ -1959,21 +1929,6 @@ def _project_date_filters(query, model, date_column, project_ids: set[UUID] | No
     return query
 
 
-def _active_user_count(session: Session, project_ids: set[UUID]) -> int:
-    return int(
-        session.scalar(
-            select(func.count(func.distinct(ChatRecord.created_by))).where(
-                ChatRecord.project_id.in_(project_ids)
-            )
-        )
-        or 0
-    )
-
-
-def _count_approval(session: Session, project_ids: set[UUID], status: str) -> int:
-    return int(session.scalar(select(func.count()).select_from(ApprovalRequest).where(ApprovalRequest.project_id.in_(project_ids), ApprovalRequest.status == status)) or 0)
-
-
 def _count_reference_events(session: Session, project_ids: set[UUID], date_from: datetime | None, date_to: datetime | None) -> int:
     query = select(func.count()).select_from(DocumentReferenceEvent).where(DocumentReferenceEvent.source_project_id.in_(project_ids), DocumentReferenceEvent.resolved_at.is_(None))
     if date_from:
@@ -1981,49 +1936,6 @@ def _count_reference_events(session: Session, project_ids: set[UUID], date_from:
     if date_to:
         query = query.where(DocumentReferenceEvent.created_at <= date_to)
     return int(session.scalar(query) or 0)
-
-
-def _count_notifications(session: Session, project_ids: set[UUID], *, unresolved_only: bool) -> int:
-    query = select(func.count()).select_from(Notification).where(Notification.project_id.in_(project_ids))
-    if unresolved_only:
-        query = query.where(Notification.resolved_at.is_(None))
-    return int(session.scalar(query) or 0)
-
-
-
-
-def _no_answer_rate(session: Session, project_ids: set[UUID], date_from: datetime | None, date_to: datetime | None) -> float:
-    query = _chat_filters(
-        select(
-            func.count(ChatRecord.id).label("total"),
-            func.sum(
-                case((ChatRecord.answer.like("無法確認%"), 1), else_=0)
-            ).label("no_answer"),
-        ),
-        project_ids,
-        date_from,
-        date_to,
-    )
-    row = session.execute(query).one()
-    return _rate(int(row.no_answer or 0), int(row.total or 0))
-
-
-def _validation_pass_rate(session: Session, project_ids: set[UUID], date_from: datetime | None, date_to: datetime | None) -> float:
-    query = _project_date_filters(
-        select(
-            func.count(ValidationRun.id).label("total"),
-            func.sum(
-                case((ValidationRun.status == "completed", 1), else_=0)
-            ).label("completed"),
-        ),
-        ValidationRun,
-        ValidationRun.created_at,
-        project_ids,
-        date_from,
-        date_to,
-    )
-    row = session.execute(query).one()
-    return _rate(int(row.completed or 0), int(row.total or 0))
 
 
 def _human_correct_rate(session: Session, project_ids: set[UUID], date_from: datetime | None, date_to: datetime | None) -> float:
@@ -2057,8 +1969,6 @@ def _alert_level(items: list[Notification]) -> str:
 
 def _rate(numerator: int | float, denominator: int | float) -> float:
     return round(float(numerator) / float(denominator), 6) if denominator else 0.0
-
-
 
 
 def _float(value) -> float | None:

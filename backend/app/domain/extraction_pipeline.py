@@ -11,7 +11,6 @@ import urllib.request
 from base64 import b64encode
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from pathlib import Path
 from time import perf_counter
 from typing import Any, Protocol
 from uuid import UUID, uuid4, uuid5

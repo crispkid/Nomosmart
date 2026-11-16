@@ -1,6 +1,6 @@
 const sensitiveParts = ["password", "otp", "token", "secret", "credential", "api_key", "apikey", "authorization", "bearer", "pkce", "private_key", "refresh"];
 
-export type CapturedSessionDraft = {
+type CapturedSessionDraft = {
   formKey: string;
   payload: Record<string, string | number | boolean | null | Array<string | number | boolean | null>>;
 };
@@ -41,7 +41,7 @@ export function captureSessionDraft(): CapturedSessionDraft | null {
   return Object.keys(payload).length ? { formKey, payload } : null;
 }
 
-export function isSensitiveField(key: string, field?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): boolean {
+function isSensitiveField(key: string, field?: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement): boolean {
   const haystack = `${key} ${field?.name ?? ""} ${field?.id ?? ""} ${field instanceof HTMLInputElement ? field.type : ""}`.toLowerCase().replace(/-/g, "_");
   return sensitiveParts.some((part) => haystack.includes(part));
 }

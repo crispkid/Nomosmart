@@ -1,13 +1,13 @@
 // Typed API client for the NomoSmart backend. The implementation is split by domain into lib/apiClient/* (OPT424-038);
 // this module re-exports the public names so every "@/lib/api" import is unchanged.
 export { can, canAnyView, apiJson } from "./apiClient/core";
-export type { PermissionAction, PermissionGrant, CurrentUser, ApiError, ApiFetch } from "./apiClient/core";
+export type { PermissionAction, CurrentUser, ApiError, ApiFetch } from "./apiClient/core";
 export type {
-  UserRoleSummary, UserSummary, RoleResponse, PermissionValue, PermissionMatrixResponse, RoleUsersResponse,
+  UserSummary, RoleResponse, PermissionMatrixResponse, RoleUsersResponse,
   CountedPage, SystemListOptions, DataSourceConnectionOptions, ExternalGroupResponse, ExternalGroupRoleMapping,
-  RoleExternalGroupMappingResponse, IdentitySyncProviderResultResponse, IdentitySyncRunResponse,
-  OperationComponentStatus, OperationRecentError, OperationsStatusResponse, AIModelResponse, AIModelListPage,
-  SystemPromptVersionResponse, SystemPromptResponse
+  RoleExternalGroupMappingResponse, IdentitySyncRunResponse,
+  OperationComponentStatus, OperationsStatusResponse, AIModelResponse, AIModelListPage,
+  SystemPromptResponse
 } from "./apiClient/identityTypes";
 export type {
   ProjectResponse, ProjectCapabilities, ProjectListOptions, ProjectListPage, ProjectArchiveImpactResponse,
@@ -17,31 +17,27 @@ export type {
 } from "./apiClient/projectTypes";
 export type {
   PipelineExecution, PipelineSummary, ChunkingIssue, PipelineStepSummary, PipelineRunDetail,
-  DocumentVersionSummary, DocumentSummary, DocumentServiceSourceSummary, DocumentReferenceSourceSummary,
-  DocumentUploadResult, DocumentUploadResponse, DocumentUpdateResponse, DataSourceConnectionPayload,
-  DataSourceConnectionTestResponse, DataSourceResponse, DataSyncRunResponse, DataSourceCreateResponse
+  DocumentVersionSummary, DocumentSummary, DocumentUploadResult, DocumentUploadResponse, DocumentUpdateResponse, DataSourceConnectionPayload,
+  DataSourceConnectionTestResponse, DataSyncRunResponse, DataSourceCreateResponse
 } from "./apiClient/documentTypes";
 export type {
-  ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ReviewRecordResponse,
-  ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalChatEvidence, ApprovalTaskDetail, KnowledgeDetailResponse,
-  SubmissionEvidenceActor, SubmissionEvidenceResponse, DocumentLayoutArtifact, DocumentLayoutPage,
-  DocumentLayoutSourceFragment, DocumentLayoutBlock, DocumentLayoutListItem, OriginalFileViewerMetadata,
-  ApprovalSummary, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, DocumentReferenceResponse,
-  ReferenceSourceVersionResponse, ReferenceExistingTargetResponse, ReferenceSourceDocumentResponse,
+  ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse,
+  SubmissionEvidenceResponse, DocumentLayoutPage,
+  OriginalFileViewerMetadata,
+  ApprovalSummary, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
   ReferenceSourceProjectResponse, DocumentReferenceImportResponse
 } from "./apiClient/reviewTypes";
 export type {
   ProjectGraphResponse, ProjectServingStatusResponse, ProjectChatQueryResponse, ProjectChatCitation,
   ProjectChatRecordResponse, ProjectChatConversationResponse, ProjectChatConversationPage,
-  ProjectChatConversationDeleteResponse, ValidationRunResponse, ReportMetricCard, ReportProjectRankingItem,
-  ReportSummaryResponse, ReportFilterOptionsResponse, NotificationResponse, NotificationCountResponse,
+  ProjectChatConversationDeleteResponse, ValidationRunResponse, ReportSummaryResponse, ReportFilterOptionsResponse, NotificationResponse, NotificationCountResponse,
   SystemParametersPayload, SystemParameterApiValues, SystemParameterSectionResponse,
-  SystemParametersUpdatePayload, UploadConfigResponse, SessionDraftRestoreResponse, BreakGlassStatusResponse,
+  UploadConfigResponse, SessionDraftRestoreResponse, BreakGlassStatusResponse,
   AIModelPayload, AIModelUpdatePayload, SystemPromptPayload, SystemPromptVersionPayload
 } from "./apiClient/servingTypes";
 export {
-  getCurrentUser, restoreSessionDraft, discardSessionDraft, listProjectsPage, listProjects, getProject,
-  createProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup, listIntegrationClients,
+  restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject,
+  createProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
   listIntegrationClientsPage, getIntegrationClient, getDataSourceConnectionOptions, createIntegrationClient,
   updateIntegrationClient, replaceIntegrationClientProjectScopes, rotateIntegrationClientKey,
   activateIntegrationClient, deactivateIntegrationClient, revokeIntegrationClient, listProjectMembers,
@@ -54,8 +50,7 @@ export {
 } from "./apiClient/projectRequests";
 export {
   listApprovalFilterOptions, listPendingApprovalsPage, listApprovalHistoryPage, listRejectedApprovalsPage,
-  listMyApprovalSubmissionsPage, listPendingApprovals, listApprovalHistory, listRejectedApprovals,
-  listMyApprovalSubmissions, listPendingPublishApprovals, listPendingPublishApprovalsPage, getApprovalTask,
+  listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask,
   approveApprovalTask, rejectApprovalTask, publishDocumentVersion, switchActiveDocumentVersion,
   getDocumentLifecycleImpact, updateDocumentLifecycle, listProjectReferenceSources,
   importProjectDocumentReferences, updateDocumentReferenceVersion, getProjectGraph, getProjectGraphNeighbors,
@@ -67,15 +62,14 @@ export {
   resolveNotification
 } from "./apiClient/reviewRequests";
 export type {
-  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters, ModelUsageReportFilters,
-  ReportQueryParams, NotificationPage
+  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters
 } from "./apiClient/reviewRequests";
 export {
-  listUsersPage, listRolesPage, getUser, getRole, listUsers, updateUser, updateUserStatus, listRoles, createRole,
+  listUsersPage, listRolesPage, getUser, getRole, updateUser, updateUserStatus, listRoles, createRole,
   updateRole, deleteRole, listModelsPage, listModels, createModel, updateModel, deleteModel, setDefaultModel,
   testModel, listSystemPrompts, createSystemPrompt, addSystemPromptVersion, activateSystemPrompt,
   deactivateSystemPrompt, getPermissions, replacePermissions, getRoleUsers, replaceRoleUsers, listExternalGroups,
   listExternalGroupMappings, setRoleExternalGroupMapping, getSystemParameters, getUploadConfig,
-  updateSystemParameters, getSystemStatus, getBreakGlassStatus, queueIdentitySync, listIdentitySyncRuns,
+  getSystemStatus, getBreakGlassStatus, queueIdentitySync, listIdentitySyncRuns,
   getIdentitySyncRun, patchSystemParameters
 } from "./apiClient/systemRequests";

@@ -13,7 +13,7 @@ from app.core.errors import AppError
 from app.db.models import Document, DocumentVersion, Project, ProjectArchiveRun, ProjectMember, ProjectOwner, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
-from app.domain.project_access import get_scoped_project as _get_scoped_project, project_response_projection as _project_response_projection, require_project_owner as _require_project_owner, resolve_project_model as _resolve_model, resolve_project_models as _resolve_models
+from app.domain.project_access import get_scoped_project as _get_scoped_project, project_response_projection as _project_response_projection, require_project_owner as _require_project_owner, resolve_project_models as _resolve_models
 from app.domain.project_archival import archive_impact, begin_project_archive, retry_project_archive_cleanup
 from app.domain.project_members import lock_project_for_member_mutation as _lock_project_for_member_mutation, reject_protected_owner_mutation as _reject_protected_owner_mutation, search_project_member_candidates as _search_project_member_candidates, validate_project_member_candidates as _validate_project_member_candidates
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission

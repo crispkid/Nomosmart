@@ -22,7 +22,7 @@ import type { WorkspaceViewDeps } from "./viewDeps";
 export type QuickMutationTarget = { kind: "model" | "role"; id: string; field: "is_active" | "is_default"; value: boolean };
 
 /** Workspace dependencies shared with the model section. */
-export type ModelDeps = {
+type ModelDeps = {
   apiFetch: ApiFetch;
   t: (key: TranslationKey) => string;
   modal: ModalState | null;
@@ -61,7 +61,7 @@ export function useModelState() {
 
 /** AI model management actions, created each render once workspace dependencies exist. */
 export function createModelActions(state: ModelState, deps: ModelDeps) {
-  const { modelTableRows, setModelTableRows, modelTableTotal, setModelTableTotal, modelTableReceived, setModelTableReceived, modelTablePage, setModelTablePage, modelTablePageSize, setModelTablePageSize, modelTableType, setModelTableType, modelTableLoading, setModelTableLoading, modelTableError, setModelTableError, modelDeleteConfirmation, setModelDeleteConfirmation, modelDeleteDependencies, setModelDeleteDependencies, modelProviderDraft, setModelProviderDraft, modelTypeDraft, setModelTypeDraft, modelPairDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = state;
+  const { setModelTableRows, modelDeleteConfirmation, setModelDeleteConfirmation, setModelDeleteDependencies, setModelProviderDraft, setModelTypeDraft, setModelPairDraft, modelCredentialClearDraft, setModelCredentialClearDraft, modelCredentialClearConfirmation, setModelCredentialClearConfirmation } = state;
   const { t } = deps;
 
   const modelDeleteDependencyLabel = (type: string) => {

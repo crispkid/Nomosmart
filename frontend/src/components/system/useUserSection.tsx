@@ -16,13 +16,13 @@ import type { ModalState } from "./modalState";
 import type { WorkspaceViewDeps } from "./viewDeps";
 
 /** Workspace dependencies shared with the user section. */
-export type UserDeps = {
+type UserDeps = {
   apiFetch: ApiFetch;
   modal: ModalState | null;
   runModalMutation: <T>(write: (accepted: () => void, current: () => boolean) => Promise<T>, apply: (result: T, current: () => boolean) => void | Promise<void>, title?: TranslationKey) => Promise<void>;
 };
 
-export type UserState = ReturnType<typeof useUserState>;
+type UserState = ReturnType<typeof useUserState>;
 
 /** User maintenance state (split from SystemManagementWorkspace, OPT424-038). */
 export function useUserState() {
@@ -39,7 +39,7 @@ export function useUserState() {
 
 /** User maintenance actions, created each render once workspace dependencies exist. */
 export function createUserActions(state: UserState, deps: UserDeps) {
-  const { liveUsers, setLiveUsers, userTableIds, setUserTableIds, userTotal, setUserTotal, userOverallTotal, setUserOverallTotal, userPage, setUserPage, userPageSize, setUserPageSize, userQuery, setUserQuery, userSourceFilter, setUserSourceFilter } = state;
+  const { setLiveUsers } = state;
 
   function cacheUsers(rows: UserSummary[]) {
     setLiveUsers(current => {

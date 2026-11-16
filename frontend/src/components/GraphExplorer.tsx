@@ -10,7 +10,7 @@ import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useI18n } from "@/lib/i18nClient";
 import { type GraphExplorerNode, type GraphExplorerEdge, MIN_ZOOM, MAX_ZOOM, type VisibleGraphExplorerNode, type GraphPanExtent, contentTypeLabelKeys, clamp, semanticZoomBand, visualScaleForZoom, constrainGraphPan, nodeVisibilityAtZoom, nodeDimensions, edgePath, edgeLabelPosition, nodeTypeKey, GraphNodeIcon, useRelationMap } from "./graphExplorer/graphExplorerModel";
 
-export type { GraphExplorerNodeKind, GraphExplorerContentType, GraphExplorerSemanticLayer, GraphExplorerMeta, GraphExplorerNode, GraphExplorerEdge } from "./graphExplorer/graphExplorerModel";
+export type { GraphExplorerNode, GraphExplorerEdge } from "./graphExplorer/graphExplorerModel";
 
 type GraphExplorerProps = {
   edges: GraphExplorerEdge[];

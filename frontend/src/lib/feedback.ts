@@ -25,7 +25,7 @@ export function feedbackFailureReporter() {
 }
 
 /** Values used by public UI messages, never arbitrary server/exception payloads. */
-export function safeFeedback(message: FeedbackMessage): FeedbackMessage {
+function safeFeedback(message: FeedbackMessage): FeedbackMessage {
   const params: Record<string, string | number> = {};
   for (const [key, value] of Object.entries(message.params ?? {})) {
     if (/^(count|completed|total|limit|seconds|version|requestId)$/.test(key) &&
@@ -36,14 +36,14 @@ export function safeFeedback(message: FeedbackMessage): FeedbackMessage {
     reason: message.reason, critical: message.critical, params };
 }
 
-export function recordFeedback(records: FeedbackRecord[], message: FeedbackMessage, limit: number, now: number): FeedbackRecord[] {
+function recordFeedback(records: FeedbackRecord[], message: FeedbackMessage, limit: number, now: number): FeedbackRecord[] {
   const safe = safeFeedback(message);
   const previous = records.find(item => item.id === safe.id && item.scope === safe.scope);
   return [{ ...safe, createdAt: previous?.createdAt ?? now },
     ...records.filter(item => item.id !== safe.id || item.scope !== safe.scope)].slice(0, limit);
 }
 
-export type FeedbackSettings = { toastDurationMs: number; toastVisibleLimit: number; recentLimit: number };
+type FeedbackSettings = { toastDurationMs: number; toastVisibleLimit: number; recentLimit: number };
 export function feedbackInteger(value: string | number | undefined, fallback: number, min: number, max: number): number {
   if (value === undefined) return fallback;
   if ((typeof value === "string" && !/^\d+$/.test(value)) || !Number.isInteger(Number(value)) || Number(value) < min || Number(value) > max)

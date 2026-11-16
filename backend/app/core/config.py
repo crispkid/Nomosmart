@@ -9,13 +9,13 @@ from pathlib import Path
 import ssl
 import stat
 import threading
-from typing import Annotated, Any
+from typing import Any
 from typing import Literal, Self
 from urllib.parse import urlparse
 
 from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic.fields import FieldInfo
-from pydantic_settings import BaseSettings, NoDecode, PydanticBaseSettingsSource, SettingsConfigDict
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 
 SECRET_FILE_FIELDS = frozenset(

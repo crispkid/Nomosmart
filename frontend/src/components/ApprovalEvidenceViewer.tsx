@@ -17,7 +17,7 @@ import type { DocumentLayoutPage, KnowledgeTagResponse, OriginalFileViewerMetada
 
 type EvidenceTag = Pick<KnowledgeTagResponse, "tag_id" | "tag_text" | "source">;
 
-export type EvidenceChunk = {
+type EvidenceChunk = {
   id: string;
   index?: number;
   type: "text" | "image" | "table" | "chart";

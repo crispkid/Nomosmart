@@ -41,7 +41,7 @@ from app.domain.document_execution import execution_projection
 from app.domain.extraction_pipeline import retry_failed_step
 from app.domain.markdown_artifacts import normalize_source_mappings, resolve_manual_source_mapping, resolve_markdown_artifact
 from app.domain.markdown_structure import MarkdownStructureParser
-from app.domain.multipart_upload import MultipartPayload, parse_multipart as _parse_multipart
+from app.domain.multipart_upload import MultipartPayload
 from app.domain.upload_stream import receive_upload
 from app.domain.system_parameter_store import intake_settings
 from app.domain.staging_retention import retention_state

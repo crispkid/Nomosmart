@@ -30,5 +30,3 @@ export function pipelineStepLabel(stepName: string | null | undefined, t: (key: 
   const key = PIPELINE_STEP_LABELS[stepName];
   return key ? t(key) : stepName.replaceAll("_", " ");
 }
-
-export const knownPipelineSteps = Object.keys(PIPELINE_STEP_LABELS);

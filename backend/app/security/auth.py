@@ -11,14 +11,14 @@ from uuid import UUID
 
 import jwt
 from fastapi import Depends, Request
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi.security import HTTPBearer
 from jwt import PyJWKClient
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError
-from app.db.models import IdentitySetting, RevokedAuthToken
+from app.db.models import RevokedAuthToken
 from app.db.session import get_db
 
 
@@ -121,8 +121,6 @@ def _timestamp_to_datetime(value: Any) -> datetime:
 
 
 bearer = HTTPBearer(auto_error=False)
-
-
 
 
 def build_identity_jwt_validator(settings: Settings, configuration: dict[str, Any]) -> JWTValidator:

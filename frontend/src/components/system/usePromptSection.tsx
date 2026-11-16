@@ -17,7 +17,7 @@ import type { WorkspaceViewDeps } from "./viewDeps";
 type OperationGuard = ReturnType<typeof useOperationGuard>;
 
 /** Workspace dependencies shared with the prompt section. */
-export type PromptDeps = {
+type PromptDeps = {
   apiFetch: ApiFetch;
   t: (key: TranslationKey) => string;
   format: (key: TranslationKey, params: Record<string, string | number>) => string;
@@ -34,7 +34,7 @@ export type PromptDeps = {
   systemReadVersions: MutableRefObject<Record<string, number>>;
 };
 
-export type PromptState = ReturnType<typeof usePromptState>;
+type PromptState = ReturnType<typeof usePromptState>;
 
 /** System prompt management state (split from SystemManagementWorkspace, OPT424-038). */
 export function usePromptState() {
@@ -62,7 +62,7 @@ export function usePromptState() {
 
 /** System prompt management actions, created each render once workspace dependencies exist. */
 export function createPromptActions(state: PromptState, deps: PromptDeps) {
-  const { systemPrompts, setSystemPrompts, selectedPromptId, setSelectedPromptId, promptDraft, setPromptDraft, promptDraftSourceVersion, setPromptDraftSourceVersion, promptModelDraft, setPromptModelDraft, promptNotice, setPromptNotice, promptError, setPromptError, promptSaving, setPromptSaving, promptEditorOpen, setPromptEditorOpen, promptEditorPrompt, setPromptEditorPrompt, promptBaseline, setPromptBaseline, promptLeave, setPromptLeave, promptMessage, setPromptMessage, promptDialogRef, promptFocusRef, promptReceipt, promptMutationScope, promptIntent } = state;
+  const { systemPrompts, setSystemPrompts, selectedPromptId, setSelectedPromptId, promptDraft, setPromptDraft, promptDraftSourceVersion, setPromptDraftSourceVersion, promptModelDraft, promptNotice, promptError, setPromptError, promptSaving, setPromptSaving, promptEditorOpen, setPromptEditorOpen, promptEditorPrompt, setPromptEditorPrompt, promptBaseline, setPromptBaseline, promptLeave, setPromptLeave, promptMessage, setPromptMessage, promptDialogRef, promptFocusRef, promptReceipt, promptMutationScope, promptIntent } = state;
 
   async function refreshPrompts(current: () => boolean = () => true) {
     const { reloadSystemSection } = deps;
@@ -234,11 +234,11 @@ export function createPromptActions(state: PromptState, deps: PromptDeps) {
   return { refreshPrompts, requestPromptLeave, runPromptMutation, queryPromptOutcome, createGlobalPrompt, createModelPrompt, savePromptVersion, togglePromptActive, selectPrompt, loadPromptVersionDraft, renderPromptFeedback, handlePromptDialogKey, renderPromptEditor };
 }
 
-export type PromptActions = ReturnType<typeof createPromptActions>;
+type PromptActions = ReturnType<typeof createPromptActions>;
 
 /** System prompt view: JSX moved verbatim from SystemManagementWorkspace (OPT424-038). */
 export function createPromptView(state: PromptState, actions: PromptActions, deps: Pick<WorkspaceViewDeps, "canCreateModels" | "format" | "globalChatPrompt" | "globalJudgePrompt" | "liveModels" | "modelSpecificPrompts" | "promptBlocked" | "promptModelOptions" | "sectionReady" | "t">) {
-  const { systemPrompts, selectedPromptId, promptModelDraft, setPromptModelDraft, promptSaving, promptEditorOpen } = state;
+  const { selectedPromptId, promptModelDraft, setPromptModelDraft, promptSaving, promptEditorOpen } = state;
   const { createGlobalPrompt, createModelPrompt, selectPrompt, renderPromptFeedback } = actions;
 
   function renderPromptPanel() {

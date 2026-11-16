@@ -9,7 +9,7 @@ import { codePointLength } from "@/lib/markdownSourceMapping";
 import type { ArticleView, ManualTextSelection } from "./knowledgeDetailModel";
 
 /** Page dependencies shared with the manual chunk section. */
-export type ManualChunkDeps = {
+type ManualChunkDeps = {
   apiFetch: ApiFetch;
   params: { id: string; knowledgeId: string };
   liveDetail: KnowledgeDetailResponse | null;

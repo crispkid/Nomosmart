@@ -14,7 +14,7 @@ import { modalScope, type ModalState } from "./modalState";
 import type { WorkspaceViewDeps } from "./viewDeps";
 
 /** Dependencies shared with the rest of the workspace, read when a handler runs. */
-export type ApiKeySectionDeps = {
+type ApiKeySectionDeps = {
   apiFetch: ApiFetch;
   t: (key: TranslationKey) => string;
   format: (key: TranslationKey, params: Record<string, string | number>) => string;
@@ -49,7 +49,7 @@ export function useApiKeyState() {
 
 /** Integration client (API key) actions; created each render once workspace dependencies exist. */
 export function createApiKeyActions(state: ApiKeyState, deps: ApiKeySectionDeps) {
-  const { integrationClients, setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, apiKeyOneTime, setApiKeyOneTime, clientQuery, setClientQuery, clientCursors, setClientCursors, clientPageSize, setClientPageSize } = state;
+  const { setIntegrationClients, apiKeyDateValidation, setApiKeyDateValidation, apiKeyProjectDraft, setApiKeyProjectDraft, apiKeyScopeDrafts, setApiKeyScopeDrafts, setApiKeyOneTime } = state;
 
   async function refreshIntegrationClients(current?: () => boolean) {
     const { reloadSystemSection } = deps;
@@ -193,7 +193,7 @@ export function createApiKeyActions(state: ApiKeyState, deps: ApiKeySectionDeps)
   return { refreshIntegrationClients, toggleApiKeyProjectDraft, toggleApiKeyScopeDraft, apiDateValues, renderApiKeyDateField, sameApiKeyScope, syncIntegrationClient, openApiKeyCreateModal, openApiKeyManageModal, submitApiKey, saveApiKeyManagement, rotateApiKey, setApiKeyStatus, revokeApiKey, apiKeyStatusLabel };
 }
 
-export type ApiKeyActions = ReturnType<typeof createApiKeyActions>;
+type ApiKeyActions = ReturnType<typeof createApiKeyActions>;
 
 /** API key view: JSX moved verbatim from SystemManagementWorkspace (OPT424-038). */
 export function createApiKeyView(state: ApiKeyState, actions: ApiKeyActions, deps: Pick<WorkspaceViewDeps, "activeProjects" | "canCreateSystemManagement" | "canDeleteSystemManagement" | "canEditSystemManagement" | "clientNextCursor" | "closeModal" | "discardModal" | "format" | "modal" | "modalBlocked" | "projectNameById" | "renderListPager" | "renderProjectSearch" | "renderSectionReadNotice" | "sectionReady" | "setModal" | "submitting" | "t">) {

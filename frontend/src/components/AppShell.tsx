@@ -233,7 +233,3 @@ export function Panel({ title, action, children }: { title: string; action?: Rea
     </section>
   );
 }
-
-export function ActionButton({ children, variant = "primary" }: { children: React.ReactNode; variant?: "primary" | "secondary" | "danger" }) {
-  return <button className={`action-button ${variant}`}>{children}</button>;
-}

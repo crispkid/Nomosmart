@@ -1,5 +1,5 @@
 /** Bounded request forwarding. Never clone/tee/buffer a multipart body. */
-export type UploadProxyLimits = { requestBytes: number; inflight: number; chunkBytes: number; idleMs: number; totalMs: number };
+type UploadProxyLimits = { requestBytes: number; inflight: number; chunkBytes: number; idleMs: number; totalMs: number };
 
 function integer(name: string, fallback: number, min: number, max: number): number {
   const value = process.env[name];

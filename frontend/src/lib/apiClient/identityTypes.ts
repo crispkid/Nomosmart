@@ -1,6 +1,6 @@
 // User, role, permission, directory, operations status, AI model and prompt types (split from lib/api.ts, OPT424-038).
 
-export type UserRoleSummary = { id: string; name: string; sources: string[] };
+type UserRoleSummary = { id: string; name: string; sources: string[] };
 
 export type UserSummary = {
   id: string;
@@ -34,7 +34,7 @@ export type RoleResponse = {
   lock_version: number;
 };
 
-export type PermissionValue = {
+type PermissionValue = {
   module_name: string;
   function_name: string;
   can_view: boolean;
@@ -52,7 +52,7 @@ export type DataSourceConnectionOptions = { credential_modes: ("secret_reference
 export type ExternalGroupResponse = { id: string; source: string; external_group_id: string; group_dn: string | null; group_name: string; path: string | null; identity_origin: "ldap" | "ad" | "keycloak_local"; is_active: boolean; last_synced_at: string | null; member_count: number; mapped_role_id: string | null };
 export type ExternalGroupRoleMapping = { external_group_id: string; role_id: string };
 export type RoleExternalGroupMappingResponse = { role_id: string; external_group_id: string | null; lock_version: number; derived_member_count: number };
-export type IdentitySyncProviderResultResponse = { id: string; provider_id: string; provider_name: string; provider_vendor: string; requested_scope: "people" | "groups" | "people_and_groups"; status: string; user_sync_status: string; group_sync_status: string; users_added: number; users_updated: number; users_removed: number; users_failed: number; users_ignored: number; user_sync_ignored: boolean; error_code: string | null; started_at: string | null; heartbeat_at: string | null; completed_at: string | null };
+type IdentitySyncProviderResultResponse = { id: string; provider_id: string; provider_name: string; provider_vendor: string; requested_scope: "people" | "groups" | "people_and_groups"; status: string; user_sync_status: string; group_sync_status: string; users_added: number; users_updated: number; users_removed: number; users_failed: number; users_ignored: number; user_sync_ignored: boolean; error_code: string | null; started_at: string | null; heartbeat_at: string | null; completed_at: string | null };
 export type IdentitySyncRunResponse = { id: string; source: string; status: string; trigger_type: string; requested_scope: "people" | "groups" | "people_and_groups"; phase: string; queued_at: string; started_at: string | null; heartbeat_at: string | null; completed_at: string | null; users_created: number; users_updated: number; users_disabled: number; groups_created: number; groups_updated: number; role_memberships_updated: number; error_message: string | null; error_code: string | null; attempt: number; provider_results: IdentitySyncProviderResultResponse[] };
 
 
@@ -64,7 +64,7 @@ export type OperationComponentStatus = {
   metrics: Record<string, string | number | boolean | null>;
 };
 
-export type OperationRecentError = {
+type OperationRecentError = {
   source: string;
   action: string;
   result: string;
@@ -110,7 +110,7 @@ export type AIModelListPage = {
   total: number;
 };
 
-export type SystemPromptVersionResponse = {
+type SystemPromptVersionResponse = {
   id: string;
   prompt_id: string;
   version_number: number;

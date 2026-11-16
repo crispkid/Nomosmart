@@ -9,7 +9,7 @@ export function uploadWaitNoticeMs(value?: unknown): number {
   return parsed;
 }
 
-export type UploadReceipt = {
+type UploadReceipt = {
   index: number;
   status: "success" | "failed";
   documentId?: string | null;
@@ -17,7 +17,7 @@ export type UploadReceipt = {
   errorCode?: string | null;
 };
 export type UploadBatchResult<T> = { documents: T[]; receipts: UploadReceipt[] };
-export type UploadFileResult = { name: string; ok: boolean; reason: string };
+type UploadFileResult = { name: string; ok: boolean; reason: string };
 
 /** Reconcile by submitted index (not filename); duplicates may be valid files. */
 export function confirmedUploadResults(validation: UploadFileResult[], receipts: UploadReceipt[]): UploadFileResult[] {
