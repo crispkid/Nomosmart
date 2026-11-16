@@ -4,17 +4,17 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.2.5**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.3.0**（開發中，尚未發佈；最新發佈版為 0.2.5）。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
 
-## 0.2.5 更新重點
+## 0.3.0 更新重點（尚未發佈）
 
-- **OpenAI Chat／Judge 改用 Responses API**：連線測試會送出極小的實際請求，區分「模型不存在」「認證失敗」「呼叫格式被拒」；既有 OpenAI 模型由 V061 自動遷移。
-- **專案必須設定 OCR 模型**：建立專案或修改專案模型時，需要有啟用中、具原生 PDF 能力的 OCR 模型。
-- **卡住的文件處理可救援**：工作程式中途消失時，維運人員可用指令一次釋放一筆卡住的處理紀錄；程式內錯誤改為標記「失敗、可重試」，不再暫停全部文件處理。
-- **簽署安裝包初始化**：`nomosmart-package init` 與 `./nomosmart up` 支援已簽署的 v5 安裝包，需提供獨立取得的可信指紋。
-- **修正**：文件仍在背景收尾時送審改回 `409 document_processing_finalizing`，不再卡住其他文件；原生 OCR 輸出上限自動配合模型能力；同時自動貼標不再造成處理停滯。
+- **統一的問答 API（Open Responses）**：產品內的對話測試與外部整合使用同一份相容 Open Responses 的 `POST …/responses` 格式（一般回應，或 `stream: true` 以 SSE 串流）；對話測試的回答改為逐字顯示。舊的 `/chat`、`/chat/stream`、`/chat/responses/{id}/feedback` 與 `/chat/query` 端點已移除。
+- **多輪對話**：每次提問以 `previous_response_id` 自行決定單輪或多輪。前文只來自同一個 API Key 與員工編號（或同一位對話測試使用者）存過的回答；追問會先改寫成可獨立搜尋的問題，答案只引用本輪找到的段落。對話測試在新增對話時選單輪或多輪。
+- **批次驗證多輪情境**：CSV 中相同 `conversation_key` 的列依 `turn` 順序組成一段對話；Judge 會看到前文，某一題失敗時同情境後續題目略過，結果顯示情境通過率。
+- **移除 FTP、FTPS、SFTP**：資料服務只支援 S3 與 HTTP API；`paramiko` 套件及相關 Compose／Helm 設定一併移除。
+- **清理**：移除未使用的前後端程式與翻譯鍵。
 
-完整內容與升級說明：[GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5)（[升級說明](https://github.com/crispkid/Nomosmart/releases/download/v0.2.5/UPGRADING-v0.2.5.zh-TW.md)）。
+0.3.0 含 API 與 Helm 的破壞性變更，請見[從舊版升級](#從舊版升級)。0.2.5 的內容：[GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5)。
 
 ## 核心功能
 
@@ -23,6 +23,7 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
 - 建立知識切片、標籤與 Embedding，保存原始文件、版本及來源引用。
 - 依專案權限送審、退審及發布；保留已完成成果與審核歷程。
 - 提供關鍵字、向量與混合搜尋、知識圖譜，以及附來源引用的問答。
+- 以單輪或多輪對話測試回答，並以 CSV 批次驗證多輪情境，含 Judge 評分與情境通過率。
 - 管理企業目錄、角色、模型、用量、API Client、報表與稽核紀錄。
 
 ## 系統架構
@@ -161,9 +162,10 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 1. 驗證版本包與映像摘要，保留可回復的既有資料、設定、加密金鑰與 TLS／CA；檢視目標部署差異。
 2. 暫停舊匯入／同步 producer，停止舊 Worker／Beat，協調更新 Frontend、Backend、Worker 與 Beat，避免新舊寫入者混用。
 3. 使用完整的新認證設定：選定 LDAP／AD 或 OIDC，保留內部 UUID、使用者／角色關係及歷史。移除舊 `keycloak.*` 等部署欄位；Helm 使用已檢視的完整 values 與 `--reset-values`，不要以 `--reuse-values` 帶回舊設定。
-4. 讓正常 migration 流程將既有資料庫依序升到 **061**；全新資料庫使用 B054 基線後套 V055–V061。由 0.2.4 建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.2.5 前請改為 `MIGRATION_REQUIRED_VERSION=061`、`MIGRATION_REQUIRED_CHECKSUM=1514288448`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
-5. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
-6. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
+4. 讓正常 migration 流程將既有資料庫依序升到 **063**；全新資料庫使用 B054 基線後套 V055–V063，V062、V063 只新增欄位。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.3.0 前請改為 `MIGRATION_REQUIRED_VERSION=063`、`MIGRATION_REQUIRED_CHECKSUM=1135291166`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
+5. 依 0.3.0 API 更新整合程式（破壞性變更）：改用 `POST /api/public/v1/responses` 並以 `model: "nomosmart:project/<project_id>"` 指定專案，取代 `/projects/{id}/chat` 與 `/chat/stream`；回饋改送 `/responses/resp_<id>/feedback`；回應與錯誤改為 Open Responses 格式。`Idempotency-Key` 改為選填。移除 Helm 的 `ftpsCa` 與 `sftpKnownHosts`（values schema 已不接受）。可選的新設定（皆有預設值）：`CHAT_HISTORY_MAX_TURNS`（5）、`CHAT_HISTORY_MAX_CHARACTERS`（12000）、`VALIDATION_SCENARIO_MAX_TURNS`（20）。
+6. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
+7. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
 
 移轉與版本回復是不同操作。不要以刪新表降版，或直接讓舊 Worker 寫入新版政策；依既有快照及相容版本做協調回復。[認證升級指南](docs/AUTHENTICATION.zh-TW.md)與[PDF 操作指南](docs/NATIVE-PDF-OCR-OPERATIONS.md)保留具體限制。發布版本不會自動更新既有部署。
 
@@ -171,22 +173,22 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 | 入口 | 用途 |
 | --- | --- |
-| `/api/v1` | Backend 內部 API；工作階段與後端權限檢查 |
-| `/api/public/v1` | 整合 API；相容 Open Responses 的 `POST /responses`（一般或 `stream: true`，以 `previous_response_id` 支援多輪）與回饋；獨立 API Key 與專案 scope |
+| `/api/v1` | Backend 內部 API；工作階段與後端權限檢查；對話測試透過 `POST /api/v1/responses` 提問 |
+| `/api/public/v1` | 整合 API；相容 Open Responses 的 `POST /responses`（一般或 `stream: true`，以 `previous_response_id` 支援多輪）與 `POST /responses/{response_id}/feedback`；獨立 API Key 與專案 scope |
 | `/openapi.json`、`/docs` | Backend OpenAPI／Swagger |
 | `/api-docs` | 產品內 API 說明 |
 | `/api/v1/health`、`/api/v1/ready` | 程序健康與依賴／初始化就緒狀態 |
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-0.2.5 以本版原始碼與映像重新驗證：31 項必要情境與 19 項發佈關卡全部重跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。完整分母行覆蓋率為前端 26.25%、後端 46.0%；80% 為改善目標，不決定是否就緒。既有三項明文 FTP High 僅在核准來源範圍接受至 2026-12-15 08:00（台北）。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
+0.2.5 以本版原始碼與映像重新驗證：31 項必要情境與 19 項發佈關卡全部重跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。完整分母行覆蓋率為前端 26.25%、後端 46.0%；80% 為改善目標，不決定是否就緒。0.2.5 的三項明文 FTP High 僅在 0.2.5 核准來源範圍接受至 2026-12-15 08:00（台北）。0.3.0 已移除 FTP 程式（靜態分析不再有 High 發現），但 0.3.0 尚未完成發佈驗收與簽署；在此之前，已驗收的版本仍是 0.2.5。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 
 ```text
 frontend/                 Next.js UI、同源代理與多語系
 backend/                  FastAPI、模型／目錄整合與背景工作
-sql/migrations/           B054 基線及向前移轉歷史（目前 061）
+sql/migrations/           B054 基線及向前移轉歷史（目前 063）
 deploy/docker/            Compose 設定範例、入口與Secret工具
 deploy/helm/nomosmart/     Helm Chart、ConfigMap／Secret引用與probes
 deploy/installer/          協定安裝與初始化工具
