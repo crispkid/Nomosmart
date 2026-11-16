@@ -6,6 +6,16 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
 
 版本：**0.2.5**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
 
+## 0.2.5 更新重點
+
+- **OpenAI Chat／Judge 改用 Responses API**：連線測試會送出極小的實際請求，區分「模型不存在」「認證失敗」「呼叫格式被拒」；既有 OpenAI 模型由 V061 自動遷移。
+- **專案必須設定 OCR 模型**：建立專案或修改專案模型時，需要有啟用中、具原生 PDF 能力的 OCR 模型。
+- **卡住的文件處理可救援**：工作程式中途消失時，維運人員可用指令一次釋放一筆卡住的處理紀錄；程式內錯誤改為標記「失敗、可重試」，不再暫停全部文件處理。
+- **簽署安裝包初始化**：`nomosmart-package init` 與 `./nomosmart up` 支援已簽署的 v5 安裝包，需提供獨立取得的可信指紋。
+- **修正**：文件仍在背景收尾時送審改回 `409 document_processing_finalizing`，不再卡住其他文件；原生 OCR 輸出上限自動配合模型能力；同時自動貼標不再造成處理停滯。
+
+完整內容與升級說明：[GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5)（[升級說明](https://github.com/crispkid/Nomosmart/releases/download/v0.2.5/UPGRADING-v0.2.5.zh-TW.md)）。
+
 ## 核心功能
 
 - 匯入 PDF、UTF-8 TXT、Markdown，以及 FTP／FTPS／SFTP、S3 與 HTTP API 資料來源。
@@ -50,11 +60,13 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 所有新 PDF 都以原檔送至組織明確設定、支援 `openai_responses` 的原生文件模型，包含已有文字的 PDF。新處理路徑不再使用本機 OCR、抽文字、轉圖、拆頁或自動備援。
 
 - 在系統管理中設定服務、模型、價格與實際的 `native_pdf` 能力；系統不依模型名稱猜測容量。
-- 專案的基本 Chat／Embedding 設定與 PDF 辨識能力分開；純文字處理不要求 OCR 模型。
+- 每個專案都需要啟用中、具原生 PDF 能力的 OCR 模型：沒有時，建立專案或修改其 Chat、Embedding、OCR 模型會被拒絕（`project_model_configuration_required`）；既有未設定 OCR 的專案照常使用，直到修改模型時才需補上。
+- OpenAI 的 Chat 與 Judge 模型使用 Responses API；連線測試會送出極小的實際請求，分別回報模型不存在、認證失敗或呼叫格式被拒。
 - 輸入計數會把文件送至模型供應商，計數與生成都可能產生費用；後續標註及 Embedding 依專案設定處理。
 - 超過模型或部署上限、無可信輸入計數、回應截斷或不完整時停止，不自動拆檔，也不發布部分成果。
 - 新結果追溯至原始文件與版本；無可信實體頁碼時顯示「未知」，不讓模型猜頁碼。
 - 已送出的付費請求若結果不明，不自動重送；先核對原收據及用量。取消工作仍保留已確認的帳務。
+- 文件處理仍在背景收尾時送審，會回 `409 document_processing_finalizing`，幾秒後再送即可。
 
 詳細能力欄位、傳輸上限、文件預算及復原方式見 [PDF 辨識操作指南](docs/NATIVE-PDF-OCR-OPERATIONS.md)。
 
@@ -167,14 +179,14 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-本版沿用已完成的本機部署、必要業務情境、資料保持、簽署及回復證據。完整來源覆蓋率持續量測，80%為改善目標；必要情境缺證、失敗或未處置重大風險仍會阻擋就緒。正式多主機容量、高可用、正式網路隔離與正式備份資格保留原範圍，不能由本機驗收推論通過。
+0.2.5 以本版原始碼與映像重新驗證：31 項必要情境與 19 項發佈關卡全部重跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。完整分母行覆蓋率為前端 26.25%、後端 46.0%；80% 為改善目標，不決定是否就緒。既有三項明文 FTP High 僅在核准來源範圍接受至 2026-12-15 08:00（台北）。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 
 ```text
 frontend/                 Next.js UI、同源代理與多語系
 backend/                  FastAPI、模型／目錄整合與背景工作
-sql/migrations/           B054 基線及向前移轉歷史（目前056）
+sql/migrations/           B054 基線及向前移轉歷史（目前 061）
 deploy/docker/            Compose 設定範例、入口與Secret工具
 deploy/helm/nomosmart/     Helm Chart、ConfigMap／Secret引用與probes
 deploy/installer/          協定安裝與初始化工具

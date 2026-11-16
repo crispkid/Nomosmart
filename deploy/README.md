@@ -119,8 +119,8 @@ do not increase memory limits or remove the cap just to make validation pass.
 
 ### Database and worker limits
 
-All values below are optional; defaults keep the PostgreSQL and Celery behavior
-of 0.2.4. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
+All values below are optional; the defaults keep the PostgreSQL and Celery
+behavior unchanged from earlier versions. Set them in `deploy/docker/nomosmart.env` or Helm `backend.env`.
 
 | Setting | Default | Recommended production value |
 | --- | --- | --- |
@@ -550,11 +550,29 @@ The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Bea
 
 既有 `nodeSelector` 現在一致套用到後端、前端、Worker、兩種 Beat，以及 migration／bootstrap／finalize 工作。預設 `{}` 由排程器安排；需要指定節點時在環境 values 填入節點標籤。外部服務仍由操作人員管理其節點位置；單節點驗證不代表跨節點網路或 HA 已通過。
 
-## Current protocol release contract (draft v4)
+## Release package contract (v5, 0.2.5)
 
-The current source adds the `local-verified-release` v4 format and the separate [protocol dependency lock](release/external-dependencies.protocol.lock.json); historical v2/v3 validation retains its own lock and contract. The current lock has no mandatory Keycloak image. This source is not a qualified or signed package.
+0.2.5 is published as a signed **v5** package (`schema_version` 5, package type
+`nomosmart-local-risk-reviewed-release`, purpose `local-risk-reviewed-release`). It is
+assembled with `deploy/release/nomosmart-release assemble-reviewed-local` from a clean
+detached source and evidence for all 19 required gates, the quality policy readiness
+decision, coverage measurement and the critical E2E summary, then signed with OpenPGP.
+Missing live prerequisites or skipped tests cannot become passed gates. The
+[protocol dependency lock](release/external-dependencies.protocol.lock.json) has no
+mandatory Keycloak image.
 
-Inspect the draft interface with `PYTHONPATH=deploy/release python3 -m nomosmart_release.cli assemble-local --help`. Assembly requires a clean detached source, complete same-source test/coverage/security/image evidence, actual platform-scope approval and independent signer trust. Missing live prerequisites or skipped tests cannot become passed gates. Do not use an old package/manifest to qualify this checkout. See current verification and remaining work.
+Verify a downloaded package with a signer fingerprint obtained through an independent
+trusted channel; the public key inside the package does not establish trust:
+
+```sh
+python3 deploy/release/nomosmart-release verify-package --package /operator/path/nomosmart-0.2.5 \
+  --purpose local-risk-reviewed-release --trusted-fingerprint "$NOMOSMART_TRUSTED_FINGERPRINT"
+```
+
+Historical formats keep their own contracts: v4 `local-verified-release`
+(`assemble-local`) and v2/v3 production validation with their own lock. Do not use an
+old package or manifest to qualify a newer checkout. Unsigned protocol test candidates
+are a separate package type; see [TEST-CANDIDATE.md](release/TEST-CANDIDATE.md).
 
 既有部署相容性：Compose 啟動準備仍可為已掛載的舊版 IdP 憑證參照建立私有 tmpfs 檔案，供尚未升級的容器安全讀取。此相容處理不建立 Keycloak 服務，也不變更登入協定。既有容器更換憑證時應沿用其已核對的映像與掛載，先確認啟動腳本相容，再依維護計畫重啟；認證架構切換與資料庫升級仍走各自的升級程序。
 

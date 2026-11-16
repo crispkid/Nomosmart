@@ -26,9 +26,13 @@ Configure input/output prices per million tokens and a currency; historical page
 and image charges are not converted. Keep provider credentials in their existing
 secret fields or secret references, never in the capability JSON.
 
-The model's `max_output_tokens` must be at least the system parameter
-`ocr_request_max_output_tokens` (128000 after a new installation); a smaller
-declaration fails recognition with `ocr_native_output_limit_invalid`. Changing a
+Each recognition request asks for the smallest of three limits: the system
+parameter `ocr_request_max_output_tokens` (128000 after a new installation), the
+output budget left in the document (`ocr_document_max_tokens` minus what earlier
+requests used), and the model's declared `max_output_tokens`. A model that
+declares, for example, 32000 therefore works with the default system parameter.
+Recognition fails with `ocr_native_output_limit_invalid` only when that smallest
+value is below the model's `min_output_tokens` (0.2.5, REL426-020). Changing a
 model's capabilities does not affect a document whose recognition already
 started: its run keeps the earlier snapshot, so upload the document again.
 

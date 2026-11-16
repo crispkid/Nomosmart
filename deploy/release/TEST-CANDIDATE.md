@@ -1,5 +1,19 @@
 # Unqualified protocol test candidate / 協定安裝測試候選
 
+> **Not the 0.2.5 release package.** A test candidate has `schema_version` 5 but the
+> package type `nomosmart-protocol-test-candidate` and no trusted signature. The signed
+> 0.2.5 package is a different type (`nomosmart-local-risk-reviewed-release`), produced
+> by `assemble-reviewed-local` and verified with
+> `verify-package --purpose local-risk-reviewed-release` (see
+> [deploy/README.md](../README.md#release-package-contract-v5-025)); that check rejects
+> test candidates, and `assemble-reviewed-local` never promotes one.
+>
+> **這不是 0.2.5 的正式發佈包。** 測試候選的 `schema_version` 也是 5，但套件類型為
+> `nomosmart-protocol-test-candidate`，沒有可信簽章。0.2.5 正式發佈包是另一種類型
+> （`nomosmart-local-risk-reviewed-release`），由 `assemble-reviewed-local` 產生、以
+> `verify-package --purpose local-risk-reviewed-release` 驗證；該驗證會拒絕測試候選，
+> `assemble-reviewed-local` 也不會把測試候選升級為正式包。
+
 Schema 5 is local test material. It is never a release, a trusted signature, or a
 replacement for full tests, security review, separate 80% coverage, or schema 4.
 Existing `verify-package` purposes reject it. SHA256 verifies content only;
