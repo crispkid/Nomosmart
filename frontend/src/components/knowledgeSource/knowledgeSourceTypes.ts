@@ -21,7 +21,7 @@ type PipelineStatus =
   | "skipped";
 
 export type ServiceSource = {
-  serviceType: "FTP" | "FTPS" | "SFTP" | "S3" | "HTTP_API";
+  serviceType: "S3" | "HTTP_API";
   location: string;
   scheduleMode: "once" | "cron";
   cronExpression?: string;

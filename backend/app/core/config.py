@@ -317,8 +317,6 @@ class Settings(MigrationProbeSettings):
     file_processing_worker_runtime_id: str = ""
     http_source_allowed_hosts: str = ""
     http_source_allowed_cidrs: str = ""
-    sftp_known_hosts_path: str = "/etc/nomosmart/ssh_known_hosts"
-    ftps_ca_cert_path: str = Field(default="", validation_alias="FTPS_CA_CERT_PATH")
     public_api_rate_limit_window_seconds: int = Field(default=60, ge=1, le=3600)
     public_api_invalid_auth_requests_per_minute: int = Field(default=20, ge=1, le=10000)
     public_api_idempotency_ttl_hours: int = Field(default=24, ge=1, le=720)

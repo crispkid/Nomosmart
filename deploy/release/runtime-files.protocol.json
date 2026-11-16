@@ -20,7 +20,6 @@
     "deploy/docker/nomosmart_cli.py",
     "deploy/docker/postgresql-init.sh",
     "deploy/docker/secret-env-entrypoint.sh",
-    "deploy/docker/ssh_known_hosts.example",
     "deploy/helm/nomosmart/Chart.yaml",
     "deploy/helm/nomosmart/NOTES.txt",
     "deploy/helm/nomosmart/cluster_preflight.py",

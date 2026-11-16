@@ -369,9 +369,6 @@
               "pattern": "^[0-9]+$"
             },
             "IDENTITY_SYNC_KEYCLOAK_PROVIDER_TIMEOUT_SECONDS": false,
-            "FTPS_CA_CERT_PATH": {
-              "type": "string"
-            },
             "KEYCLOAK_SYNC_CLIENT_ID": false,
             "KEYCLOAK_ADMIN_API_URL": false,
             "KEYCLOAK_ADMIN_INTERNAL_URL": false
@@ -750,23 +747,6 @@
       "required": [
         "mode"
       ]
-    },
-    "ftpsCa": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "configMapName",
-        "key"
-      ],
-      "properties": {
-        "configMapName": {
-          "type": "string"
-        },
-        "key": {
-          "type": "string",
-          "minLength": 1
-        }
-      }
     },
     "authentication": {
       "type": "object",

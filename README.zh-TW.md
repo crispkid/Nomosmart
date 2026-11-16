@@ -18,7 +18,7 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
 
 ## 核心功能
 
-- 匯入 PDF、UTF-8 TXT、Markdown，以及 FTP／FTPS／SFTP、S3 與 HTTP API 資料來源。
+- 匯入 PDF、UTF-8 TXT、Markdown，以及 S3 與 HTTP API 資料來源（FTP、FTPS、SFTP 來源已在 0.2.5 之後移除）。
 - PDF 原檔直接交給已設定的 LLM 產生 Markdown；TXT／Markdown 直接讀取。
 - 建立知識切片、標籤與 Embedding，保存原始文件、版本及來源引用。
 - 依專案權限送審、退審及發布；保留已完成成果與審核歷程。

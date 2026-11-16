@@ -72,17 +72,6 @@ spec:
           volumeMounts:
             {{- include "nomosmart.runtimeSecretVolumeMount" . | nindent 12 }}
             {{- include "nomosmart.internalCaVolumeMount" . | nindent 12 }}
-          {{- if .Values.ftpsCa.configMapName }}
-            - name: ftps-ca
-              mountPath: /etc/nomosmart/ftps-ca
-              readOnly: true
-          {{- end }}
-          {{- if .Values.sftpKnownHosts.configMapName }}
-            - name: sftp-known-hosts
-              mountPath: /etc/nomosmart/ssh_known_hosts
-              subPath: ssh_known_hosts
-              readOnly: true
-          {{- end }}
           securityContext:
             {{- toYaml .Values.securityContext | nindent 12 }}
           resources:
@@ -90,22 +79,6 @@ spec:
       volumes:
         {{- include "nomosmart.runtimeSecretVolume" . | nindent 8 }}
         {{- include "nomosmart.internalCaVolume" . | nindent 8 }}
-      {{- if .Values.ftpsCa.configMapName }}
-        - name: ftps-ca
-          configMap:
-            name: {{ .Values.ftpsCa.configMapName | quote }}
-            items:
-              - key: {{ .Values.ftpsCa.key | quote }}
-                path: ca.crt
-      {{- end }}
-      {{- if .Values.sftpKnownHosts.configMapName }}
-        - name: sftp-known-hosts
-          configMap:
-            name: {{ .Values.sftpKnownHosts.configMapName }}
-            items:
-              - key: {{ .Values.sftpKnownHosts.key }}
-                path: ssh_known_hosts
-      {{- end }}
       {{- if .Values.highAvailability.enabled }}
       affinity:
         {{- include "nomosmart.haAffinity" (dict "root" . "component" "worker") | nindent 8 }}

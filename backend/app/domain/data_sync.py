@@ -17,7 +17,7 @@ from app.domain.document_imports import ObjectStorage, UploadedFilePayload, vali
 from app.domain.system_parameter_store import intake_settings
 from app.domain.reference_events import create_source_reference_events
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension
-from app.integrations.remote_sources import FTPRemoteSourceClient, FTPSRemoteSourceClient, HTTPRemoteSourceClient, SFTPRemoteSourceClient
+from app.integrations.remote_sources import HTTPRemoteSourceClient
 from app.integrations.s3_storage import S3ClientConfig, S3ObjectStorage
 from app.services.audit import add_audit
 from app.security.secrets import resolve_runtime_secret
@@ -295,23 +295,6 @@ def _fetch_remote_object(*, settings: Settings, connection: DataConnection, remo
         if not bucket:
             raise AppError("s3_connection_bucket_required", "S3 connection bucket is required", status_code=422)
         return _s3_connection_storage(settings, connection).get_object(bucket=bucket, key=_remote_object_key(connection), max_bytes=max_bytes)
-    if connection.service_type in {"FTP", "FTPS", "SFTP"}:
-        credential = _decrypted_credential(settings, connection)
-        common = {
-            "host": str(metadata.get("host") or ""),
-            "port": int(metadata.get("port") or (21 if connection.service_type == "FTP" else 22)),
-            "username": str(metadata.get("username") or ""),
-            "credential": credential,
-            "remote_path": str((connection.source_identity or {}).get("remote_path") or ""),
-            "file_name": _remote_file_name(connection),
-            "timeout_seconds": int(metadata.get("timeout_seconds") or 30),
-            "max_bytes": max_bytes,
-        }
-        if connection.service_type == "FTP":
-            return FTPRemoteSourceClient().get_object(**common)
-        if connection.service_type == "FTPS":
-            return FTPSRemoteSourceClient().get_object(**common, ca_cert_path=settings.ftps_ca_cert_path)
-        return SFTPRemoteSourceClient().get_object(**common, verify_host_key=bool(metadata.get("verify_host_key", True)), known_hosts_path=settings.sftp_known_hosts_path)
     if connection.service_type == "HTTP_API":
         return HTTPRemoteSourceClient().get_object(
             url=str((connection.source_identity or {}).get("url") or ""),

@@ -100,7 +100,6 @@ def parser() -> argparse.ArgumentParser:
     result.add_argument("--schema-contract")
     result.add_argument("--public-api-contract")
     result.add_argument("--security-contract")
-    result.add_argument("--sftp-known-hosts-configmap")
     result.add_argument("--deployment-configmap")
     result.add_argument("--require-operational", action="store_true")
     return result
@@ -136,8 +135,6 @@ def main() -> int:
         else ("ca.crt",)
     )
     validate_secret(args.opensearch_tls_secret, args.namespace, opensearch_keys)
-    if args.sftp_known_hosts_configmap:
-        validate_configmap_key(args.sftp_known_hosts_configmap, args.namespace, "ssh_known_hosts")
     if args.require_operational:
         if not args.deployment_configmap:
             raise PreflightError(

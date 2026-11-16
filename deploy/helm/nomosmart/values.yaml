@@ -130,15 +130,6 @@ autoscaling:
     maxReplicas: 6
     targetCPUUtilizationPercentage: 70
 
-sftpKnownHosts:
-  configMapName: ""
-  key: ssh_known_hosts
-
-# Existing ConfigMap containing only a public enterprise CA (never private keys).
-ftpsCa:
-  configMapName: ""
-  key: ca.crt
-
 frontend:
   # Read-only root filesystem with writable emptyDir for .next/cache and /tmp.
   readOnlyRootFilesystem: false
@@ -226,8 +217,6 @@ backend:
     NOMOSMART_EMBEDDING_CAPABILITIES_FILE: "/etc/nomosmart/embedding-capabilities.json"
     HTTP_SOURCE_ALLOWED_HOSTS: ""
     HTTP_SOURCE_ALLOWED_CIDRS: ""
-    SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
-    FTPS_CA_CERT_PATH: ""
     VALIDATION_MAX_ATTEMPTS: "3"
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"

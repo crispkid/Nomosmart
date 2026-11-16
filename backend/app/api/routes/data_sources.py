@@ -114,7 +114,7 @@ def test_saved_data_source_connection(
     connection = session.get(DataConnection, data_source_id)
     if connection is None or connection.project_id != project.id:
         raise AppError("data_source_not_found", "Data source was not found", status_code=404)
-    fingerprint = data_connection_fingerprint(connection, ftps_ca_cert_path=request.app.state.settings.ftps_ca_cert_path)
+    fingerprint = data_connection_fingerprint(connection)
     started = datetime.now(UTC)
     try:
         probe = probe_stored_data_connection(request.app.state.settings, connection)
@@ -236,7 +236,7 @@ def create_data_source(
     session.refresh(version)
     session.refresh(sync_run)
     return DataSourceCreateResponse(
-        data_source=_data_source_response(connection, ftps_ca_cert_path=request.app.state.settings.ftps_ca_cert_path),
+        data_source=_data_source_response(connection),
         document=_project_document(session, document, version, None, visible_project_ids=set(context.visible_project_ids)),
         sync_run=sync_run,
     )
@@ -296,8 +296,6 @@ def _validate_data_source_payload(payload: DataSourceConnectionPayload, *, setti
     if payload.service_type == "HTTP_API":
         _validate_http_source_payload(payload)
     else:
-        if payload.service_type in {"FTP", "FTPS", "SFTP"} and not payload.host:
-            raise AppError("data_source_host_required", "Remote file data source requires a host", status_code=422)
         if not payload.username:
             raise AppError("data_source_username_required", "Data source requires a username or access key", status_code=422)
     if payload.service_type == "S3" and not payload.bucket:
@@ -308,10 +306,6 @@ def _validate_data_source_payload(payload: DataSourceConnectionPayload, *, setti
         s3_endpoint = urlparse(payload.host)
         if s3_endpoint.scheme not in {"http", "https"} or not s3_endpoint.hostname or s3_endpoint.username or s3_endpoint.password or s3_endpoint.query:
             raise AppError("s3_connection_endpoint_invalid", "S3 endpoint must be an HTTP(S) URL without credentials or query parameters", status_code=422)
-    if payload.service_type == "SFTP" and not payload.verify_host_key:
-        raise AppError("sftp_host_key_verification_required", "SFTP host-key verification is required", status_code=422)
-    if payload.service_type == "FTPS" and not payload.verify_tls:
-        raise AppError("ftps_tls_verification_required", "FTPS certificate verification is required", status_code=422)
     credential_required = payload.service_type != "HTTP_API" or payload.auth_mode in {"bearer", "api_key_header"}
     if credential_required and not (payload.credential or payload.credential_secret_ref):
         raise AppError("data_source_credential_required", "Data source requires a credential or secret reference", status_code=422)
@@ -361,10 +355,7 @@ def _remote_uri(payload: DataSourceConnectionPayload) -> str:
     if payload.service_type == "HTTP_API":
         return payload.url or ""
     path = str(PurePosixPath(payload.remote_path.strip("/") or ".") / sanitize_original_filename(payload.file_name))
-    if payload.service_type == "S3":
-        return f"s3://{payload.bucket}/{path}"
-    scheme = payload.service_type.lower()
-    return f"{scheme}://{payload.host}:{payload.port}/{path}"
+    return f"s3://{payload.bucket}/{path}"
 
 
 def _connection_metadata(payload: DataSourceConnectionPayload) -> dict[str, object]:
@@ -375,7 +366,6 @@ def _connection_metadata(payload: DataSourceConnectionPayload) -> dict[str, obje
         "bucket": payload.bucket,
         "region": payload.region,
         "verify_tls": payload.verify_tls,
-        "verify_host_key": payload.verify_host_key,
         "credential_configured": bool(payload.credential or payload.credential_secret_ref),
     }
     if payload.service_type == "S3":
@@ -433,10 +423,8 @@ def _credential_plaintext(payload: DataSourceConnectionPayload) -> str | None:
     return json.dumps({"access_key": payload.username, "secret_key": payload.credential}, separators=(",", ":"), sort_keys=True)
 
 
-def _data_source_response(connection: DataConnection, *, ftps_ca_cert_path: str = "") -> DataSourceResponse:
+def _data_source_response(connection: DataConnection) -> DataSourceResponse:
     test_status = connection.last_test_status
-    if connection.service_type == "FTPS" and test_status == "success" and connection.last_test_fingerprint != data_connection_fingerprint(connection, ftps_ca_cert_path=ftps_ca_cert_path):
-        test_status = "stale"
     return DataSourceResponse(
         id=connection.id,
         project_id=connection.project_id,

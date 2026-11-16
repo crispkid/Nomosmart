@@ -160,7 +160,7 @@ export type DocumentUpdateResponse = {
 };
 
 export type DataSourceConnectionPayload = {
-  service_type: "FTP" | "FTPS" | "SFTP" | "S3" | "HTTP_API";
+  service_type: "S3" | "HTTP_API";
   name: string;
   host: string;
   port: number;
@@ -175,7 +175,6 @@ export type DataSourceConnectionPayload = {
   cron_expression?: string | null;
   timezone: string;
   verify_tls?: boolean;
-  verify_host_key?: boolean;
   url?: string | null;
   headers?: Record<string, string>;
   auth_mode?: "none" | "bearer" | "api_key_header";
