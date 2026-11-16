@@ -3,8 +3,8 @@
   "policy_id": "nomosmart-risk-quality-v1",
   "scope": "local-risk-reviewed-release",
   "authority": {
-    "change_id": "CHG-419",
-    "approval_sha256": "8d44de3fcd791846cea49700408bfb8a1b53ccfc41f261f5b29bac78f1d56e97"
+    "change_id": "CHG-438",
+    "approval_sha256": "5d5c62f8b00c60e53e2e73921ed8b8173a5819b3b237d7d5cbeadfa8b8d63e5b"
   },
   "coverage": {
     "measurement_required": true,
@@ -168,8 +168,32 @@
     {
       "id": "public_api",
       "group": "retrieval",
-      "requirement": "knowledge search; graph; citation; public API",
-      "behavior": "對外API金鑰、scope、撤銷及限速與應用登入分離",
+      "requirement": "knowledge search; graph; citation; public API; ORESP434",
+      "behavior": "對外API（/api/public/v1/responses）金鑰、scope、撤銷及限速與應用登入分離",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "open_responses",
+      "group": "retrieval",
+      "requirement": "ORESP434-001..012",
+      "behavior": "兩個/responses入口同步與SSE回應、事件順序、錯誤格式、Idempotency-Key重放與衝突、舊端點不存在",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "multi_turn",
+      "group": "retrieval",
+      "requirement": "MTURN435-001..012",
+      "behavior": "previous_response_id接續、身分不符404、前文上限與truncation、追問改寫與用量、對話測試單輪／多輪規則",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "validation_multi_turn",
+      "group": "governance",
+      "requirement": "MTVAL436-001..011",
+      "behavior": "CSV多輪情境檢查422、依序接續、中途失敗blocked、重試從失敗題開始、情境通過率與匯出",
       "mandatory": true,
       "verification_level": "live"
     },

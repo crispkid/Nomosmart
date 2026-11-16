@@ -4,9 +4,9 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.3.0**（開發中，尚未發佈；最新發佈版為 0.2.5）。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.3.0**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
 
-## 0.3.0 更新重點（尚未發佈）
+## 0.3.0 更新重點
 
 - **統一的問答 API（Open Responses）**：產品內的對話測試與外部整合使用同一份相容 Open Responses 的 `POST …/responses` 格式（一般回應，或 `stream: true` 以 SSE 串流）；對話測試的回答改為逐字顯示。舊的 `/chat`、`/chat/stream`、`/chat/responses/{id}/feedback` 與 `/chat/query` 端點已移除。
 - **多輪對話**：每次提問以 `previous_response_id` 自行決定單輪或多輪。前文只來自同一個 API Key 與員工編號（或同一位對話測試使用者）存過的回答；追問會先改寫成可獨立搜尋的問題，答案只引用本輪找到的段落。對話測試在新增對話時選單輪或多輪。
@@ -18,7 +18,7 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
 
 ## 核心功能
 
-- 匯入 PDF、UTF-8 TXT、Markdown，以及 S3 與 HTTP API 資料來源（FTP、FTPS、SFTP 來源已在 0.2.5 之後移除）。
+- 匯入 PDF、UTF-8 TXT、Markdown，以及 S3 與 HTTP API 資料來源（FTP、FTPS、SFTP 來源已在 0.3.0 移除）。
 - PDF 原檔直接交給已設定的 LLM 產生 Markdown；TXT／Markdown 直接讀取。
 - 建立知識切片、標籤與 Embedding，保存原始文件、版本及來源引用。
 - 依專案權限送審、退審及發布；保留已完成成果與審核歷程。
@@ -54,7 +54,7 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 | 權威資料 | PostgreSQL 18.4；Flyway 管理只能向前套用的移轉 |
 | 檔案儲存 | S3 相容服務；內建部署使用 RustFS |
 | 搜尋／圖譜 | OpenSearch 2.19、Neo4j 5.26 Community |
-| 部署 | Docker Compose v2、Helm Chart 0.2.5 |
+| 部署 | Docker Compose v2、Helm Chart 0.3.0 |
 
 ## PDF 與模型設定
 
@@ -181,7 +181,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-0.2.5 以本版原始碼與映像重新驗證：31 項必要情境與 19 項發佈關卡全部重跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。完整分母行覆蓋率為前端 26.25%、後端 46.0%；80% 為改善目標，不決定是否就緒。0.2.5 的三項明文 FTP High 僅在 0.2.5 核准來源範圍接受至 2026-12-15 08:00（台北）。0.3.0 已移除 FTP 程式（靜態分析不再有 High 發現），但 0.3.0 尚未完成發佈驗收與簽署；在此之前，已驗收的版本仍是 0.2.5。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
+0.3.0 以本版原始碼與映像驗證：34 項必要情境（含 Open Responses、多輪對話與批次驗證多輪情境）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 
