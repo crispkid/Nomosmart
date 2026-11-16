@@ -4,17 +4,17 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart is an enterprise knowledge management platform for turning documents and connected data into reviewed, searchable knowledge with traceable answers.
 
-Version: **0.2.5**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+Version: **0.3.0** (in development, not yet released; the latest release is 0.2.5). Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
 
-## What's new in 0.2.5
+## What's new in 0.3.0 (not yet released)
 
-- **OpenAI Chat/Judge on the Responses API**: connection tests send a minimal real request and distinguish an unknown model, failed authentication and a rejected call format. Existing OpenAI models are migrated by V061.
-- **OCR model required for projects**: creating a project, or changing its models, needs an active OCR model with native PDF capability.
-- **Stuck document recovery**: an operator command releases one execution left behind by a worker that disappeared; in-process errors now finish as "failed, retryable" instead of pausing all document processing.
-- **Signed package initialization**: `nomosmart-package init` and `./nomosmart up` accept the signed v5 package with an independently trusted fingerprint.
-- **Fixes**: submitting for review during background finalization returns `409 document_processing_finalizing` instead of blocking other documents; native OCR output limits adapt to the model; concurrent auto-tagging no longer stalls processing.
+- **One question-answering API (Open Responses)**: the in-product chat test and integration clients use the same Open Responses compatible `POST …/responses` contract (JSON, or SSE with `stream: true`). The chat test streams answers as they arrive. The previous `/chat`, `/chat/stream`, `/chat/responses/{id}/feedback` and `/chat/query` endpoints are removed.
+- **Multi-turn conversations**: each question chooses single- or multi-turn with `previous_response_id`. Earlier turns come only from stored answers of the same API key and employee (or the same chat-test user), follow-ups are rewritten into a standalone search question, and answers cite only passages found for that turn. The chat test picks single- or multi-turn when a conversation starts.
+- **Multi-turn CSV validation**: rows sharing a `conversation_key` run in `turn` order as one conversation; the Judge sees the earlier turns, a failed turn skips the rest of its scenario, and results report a scenario pass rate.
+- **FTP, FTPS and SFTP removed**: data services support S3 and HTTP API only; the `paramiko` dependency and the related Compose/Helm settings are gone.
+- **Clean-up**: unused frontend and backend code and translation keys were removed.
 
-Full notes and upgrade guides: [GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5) ([upgrade guide](https://github.com/crispkid/Nomosmart/releases/download/v0.2.5/UPGRADING-v0.2.5.en.md)).
+0.3.0 contains breaking API and Helm changes; see [Upgrading](#upgrading-from-an-older-version). Changes in 0.2.5: [GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5).
 
 ## Features
 
@@ -23,6 +23,7 @@ Full notes and upgrade guides: [GitHub Release v0.2.5](https://github.com/crispk
 - Create knowledge chunks, tags and embeddings while preserving original documents, versions and citations.
 - Submit, reject and publish content under project permissions, retaining completed work and review history.
 - Use keyword, vector and hybrid search, knowledge graphs and answers with source citations.
+- Test answers in single- or multi-turn conversations, and run CSV validation with multi-turn scenarios, Judge scoring and a scenario pass rate.
 - Manage directories, roles, models, usage, API clients, reports and audit records.
 
 ## Architecture
@@ -161,9 +162,10 @@ Copy the [target TOML](deploy/installer/nomosmart-install.protocol.example.toml)
 1. Verify package/image identities and retain recoverable existing data, configuration, encryption keys and TLS/CA materials. Review the target deployment difference.
 2. Pause old import/synchronization producers and stop old Workers/Beat. Coordinate Frontend, Backend, Worker and Beat updates to avoid mixed-version writers.
 3. Supply complete current authentication settings, select LDAP/AD or OIDC, and retain internal UUIDs, user/role relationships and history. Remove retired `keycloak.*` deployment fields. Use reviewed complete Helm values with `--reset-values`, not `--reuse-values`.
-4. Use the normal migration flow to advance existing databases to **061**. Fresh databases use B054 followed by V055–V061. Compose installations created by 0.2.4 pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=061` and `MIGRATION_REQUIRED_CHECKSUM=1514288448` before starting 0.2.5, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
-5. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
-6. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
+4. Use the normal migration flow to advance existing databases to **063**. Fresh databases use B054 followed by V055–V063; V062 and V063 only add columns. Compose installations created by an earlier version pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=063` and `MIGRATION_REQUIRED_CHECKSUM=1135291166` before starting 0.3.0, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
+5. Update integrations for the 0.3.0 API (breaking): ask questions with `POST /api/public/v1/responses` and `model: "nomosmart:project/<project_id>"` instead of `/projects/{id}/chat` and `/chat/stream`, send feedback to `/responses/resp_<id>/feedback`, and read Open Responses responses and errors. `Idempotency-Key` is now optional. Remove the Helm values `ftpsCa` and `sftpKnownHosts`, which the values schema now rejects. Optional new settings with defaults: `CHAT_HISTORY_MAX_TURNS` (5), `CHAT_HISTORY_MAX_CHARACTERS` (12000) and `VALIDATION_SCENARIO_MAX_TURNS` (20).
+6. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
+7. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
 
 Application rollback and schema rollback are different operations. Do not drop new tables to downgrade or let old Workers write the new policy. Coordinate recovery using retained snapshots and compatible versions. The [authentication upgrade guide](docs/AUTHENTICATION.en.md) and [PDF operations guide](docs/NATIVE-PDF-OCR-OPERATIONS.md) describe limits. Publishing a version does not update existing deployments.
 
@@ -171,22 +173,22 @@ Application rollback and schema rollback are different operations. Do not drop n
 
 | Endpoint | Purpose |
 | --- | --- |
-| `/api/v1` | Internal Backend API; server sessions and Backend permission checks |
-| `/api/public/v1` | Integration API; Open Responses compatible `POST /responses` (JSON or `stream: true`, multi-turn with `previous_response_id`) and feedback; independent API keys and project scope |
+| `/api/v1` | Internal Backend API; server sessions and Backend permission checks; the chat test asks through `POST /api/v1/responses` |
+| `/api/public/v1` | Integration API; Open Responses compatible `POST /responses` (JSON or `stream: true`, multi-turn with `previous_response_id`) and `POST /responses/{response_id}/feedback`; independent API keys and project scope |
 | `/openapi.json`, `/docs` | Backend OpenAPI/Swagger |
 | `/api-docs` | In-product API guide |
 | `/api/v1/health`, `/api/v1/ready` | Process health and dependency/bootstrap readiness |
 
 Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
-0.2.5 was qualified on its own source and images: all 31 mandatory scenarios and 19 release gates were rerun, and the package was signed and verified, including tamper and wrong-fingerprint checks and a real `init`. Complete-denominator line coverage is 26.25% (frontend) and 46.0% (backend); 80% is an improvement target and does not decide readiness. The three existing plaintext-FTP High findings are accepted for the approved sources only until 2026-12-15 08:00 (Taipei). Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
+0.2.5 was qualified on its own source and images: all 31 mandatory scenarios and 19 release gates were rerun, and the package was signed and verified, including tamper and wrong-fingerprint checks and a real `init`. Complete-denominator line coverage is 26.25% (frontend) and 46.0% (backend); 80% is an improvement target and does not decide readiness. Its three plaintext-FTP High findings are accepted for 0.2.5 only until 2026-12-15 08:00 (Taipei). 0.3.0 removes the FTP code (no High static-analysis findings remain), but 0.3.0 has not yet completed release qualification or signing; until it does, 0.2.5 remains the qualified release. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
 
 ## Repository and development
 
 ```text
 frontend/                 Next.js UI, same-origin proxy and localization
 backend/                  FastAPI, model/directory integrations and background work
-sql/migrations/           B054 baseline and forward migration history (currently 061)
+sql/migrations/           B054 baseline and forward migration history (currently 063)
 deploy/docker/            Compose configuration examples, entry point and Secret tools
 deploy/helm/nomosmart/     Helm chart, ConfigMap/Secret references and probes
 deploy/installer/          Protocol installation and onboarding tools
