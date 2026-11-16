@@ -145,8 +145,10 @@ annotation. Pin images by digest with `tag: "<version>@sha256:<digest>"`.
 
 ### Public API edge routing
 
-The external contract remains `POST /api/public/v1/projects/{project_id}/chat`,
-the same path plus `/stream`, and `POST /api/public/v1/chat/responses/{response_id}/feedback`.
+The external contract is the Open Responses compatible `POST /api/public/v1/responses`
+(JSON, or SSE with `stream: true`) and `POST /api/public/v1/responses/{response_id}/feedback`.
+The previous `/projects/{project_id}/chat`, `/chat/stream` and `/chat/responses/{id}/feedback`
+routes were removed in 0.3.0 (CHG-434); the edge path prefix below is unchanged.
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP

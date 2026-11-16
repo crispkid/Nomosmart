@@ -265,8 +265,12 @@ def _serving_manifest_chunk_count(session: Session, manifest: ActiveVersionManif
     )
 
 
-@router.post("/projects/{project_id}/chat/query", response_model=ProjectChatQueryResponse)
-def query_project_chat(project_id: UUID, payload: ProjectChatQueryPayload, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ProjectChatQueryResponse:
+def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, context: IdentityContext, session: Session) -> ProjectChatQueryResponse:
+    """Chat-test answer for the internal Open Responses entry (CHG-434 ORESP434-001/002).
+
+    The former `POST /projects/{project_id}/chat/query` route was removed (ORESP434-008);
+    `api/routes/responses.py` is the only caller.
+    """
     project = _get_scoped_project(session, project_id, context)
     conversation_id = payload.conversation_id or uuid4()
     if payload.scope_mode == "document_staging" and len(set(payload.document_version_ids or [])) != 1:

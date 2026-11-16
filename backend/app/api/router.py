@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import approvals, auth, compatibility, data_sources, documents, health, identity, integration_clients, models, projects, public_api, references, reports, roles, serving, system, system_prompts, users
+from app.api.routes import approvals, auth, compatibility, data_sources, documents, health, identity, integration_clients, models, projects, public_api, references, reports, responses, roles, serving, system, system_prompts, users
 from app.api.routes import protocol_auth, protocol_identity
 
 
@@ -19,6 +19,7 @@ api_router.include_router(data_sources.router)
 api_router.include_router(references.router)
 api_router.include_router(approvals.router)
 api_router.include_router(serving.router)
+api_router.include_router(responses.router)
 api_router.include_router(reports.router)
 api_router.include_router(system.router)
 api_router.include_router(integration_clients.router)

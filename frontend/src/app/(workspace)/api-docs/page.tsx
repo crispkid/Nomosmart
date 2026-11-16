@@ -33,60 +33,90 @@ type DocSection = {
   variant?: "bullet" | "checklist" | "ordered";
 };
 
-const jsonQuestionExample = `POST /api/public/v1/projects/<project_id>/chat
+const jsonQuestionExample = `POST /api/public/v1/responses
 Authorization: Bearer <api_key>
 Idempotency-Key: <unique_request_key>
 Content-Type: application/json
 
 {
-  "question": "How does this policy apply to onboarding?",
-  "end_user": {
+  "model": "nomosmart:project/<project_id>",
+  "input": "How does this policy apply to onboarding?",
+  "nomosmart:end_user": {
     "employee_id": "E12345",
     "employee_name": "Alex Chen",
     "department": "Legal"
   },
-  "scope": {
+  "nomosmart:scope": {
     "document_ids": ["<document_id>"]
   },
-  "top_k": 5
+  "nomosmart:top_k": 5
 }`;
 
 const jsonAnswerExample = `{
-  "response_id": "<response_id>",
-  "status": "answered",
-  "answer": "...",
-  "citations": [
-    {
-      "document_id": "<document_id>",
-      "document_version_id": "<document_version_id>",
-      "chunk_id": "<chunk_id>",
-      "score": 0.8123
-    }
-  ],
-  "request_id": "<request_id>"
+  "id": "resp_<response_id>",
+  "object": "response",
+  "status": "completed",
+  "model": "nomosmart:project/<project_id>",
+  "output": [{
+    "type": "message",
+    "role": "assistant",
+    "status": "completed",
+    "content": [{
+      "type": "output_text",
+      "text": "... [1]",
+      "annotations": [{
+        "type": "url_citation",
+        "url": "https://<nomosmart_host>/project/<project_id>/knowledge/<document_id>",
+        "title": "<document_title>",
+        "start_index": 4,
+        "end_index": 7,
+        "nomosmart:citation": {
+          "document_id": "<document_id>",
+          "document_version_id": "<document_version_id>",
+          "chunk_id": "<chunk_id>",
+          "excerpt": "...",
+          "score": 0.8123
+        }
+      }]
+    }]
+  }],
+  "usage": { "input_tokens": 120, "output_tokens": 48, "total_tokens": 168 },
+  "nomosmart:answer_status": "answered",
+  "nomosmart:request_id": "<request_id>"
 }`;
 
-const sseExample = `POST /api/public/v1/projects/<project_id>/chat/stream
-X-NomoSmart-API-Key: <api_key>
+const sseExample = `POST /api/public/v1/responses
+Authorization: Bearer <api_key>
 Idempotency-Key: <unique_request_key>
 Accept: text/event-stream
 
-event: metadata
-data: {"response_id":"<response_id>","request_id":"<request_id>"}
+{ "model": "nomosmart:project/<project_id>", "input": "...", "stream": true,
+  "nomosmart:end_user": { "employee_id": "E12345" } }
 
-event: delta
-data: {"text":"..."}
+event: response.created
+data: {"type":"response.created","sequence_number":1,"response":{...}}
 
-event: citations
-data: {"citations":[...]}
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"delta":"..."}
 
-event: usage
-data: {"input_tokens":120,"output_tokens":48}
+event: response.output_text.annotation.added
+data: {"type":"response.output_text.annotation.added","annotation":{"type":"url_citation",...}}
 
-event: done
-data: {"status":"answered"}`;
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_<response_id>",...}}`;
 
-const feedbackExample = `POST /api/public/v1/chat/responses/<response_id>/feedback
+const sdkExample = `from openai import OpenAI
+
+client = OpenAI(base_url="https://<nomosmart_host>/api/public/v1", api_key="<api_key>")
+response = client.responses.create(
+    model="nomosmart:project/<project_id>",
+    input="How does this policy apply to onboarding?",
+    extra_headers={"Idempotency-Key": "<unique_request_key>"},
+    extra_body={"nomosmart:end_user": {"employee_id": "E12345"}},
+)
+print(response.output_text)`;
+
+const feedbackExample = `POST /api/public/v1/responses/resp_<response_id>/feedback
 Authorization: Bearer <api_key>
 Idempotency-Key: <unique_request_key>
 Content-Type: application/json
@@ -101,10 +131,12 @@ Content-Type: application/json
 
 const errorExample = `{
   "error": {
+    "type": "permission_error",
     "code": "integration_project_scope_denied",
     "message": "API key cannot access this project",
-    "request_id": "<request_id>"
-  }
+    "param": null
+  },
+  "nomosmart:request_id": "<request_id>"
 }`;
 
 const sections: DocSection[] = [
@@ -166,7 +198,7 @@ X-NomoSmart-API-Key: <api_key>`
     title: "apiDocsJsonTitle",
     description: "apiDocsJsonDescription",
     method: "POST",
-    endpoint: "/api/public/v1/projects/<project_id>/chat",
+    endpoint: "/api/public/v1/responses",
     bullets: ["apiDocsJsonProjectScope", "apiDocsJsonEndUser", "apiDocsJsonDocumentScope"],
     code: `${jsonQuestionExample}\n\n${jsonAnswerExample}`
   },
@@ -177,9 +209,18 @@ X-NomoSmart-API-Key: <api_key>`
     title: "apiDocsSseTitle",
     description: "apiDocsSseDescription",
     method: "POST",
-    endpoint: "/api/public/v1/projects/<project_id>/chat/stream",
+    endpoint: "/api/public/v1/responses",
     bullets: ["apiDocsSseParity", "apiDocsSseEvents", "apiDocsSseTerminal"],
     code: sseExample
+  },
+  {
+    id: "sdk",
+    icon: Braces,
+    label: "apiDocsNavSdk",
+    title: "apiDocsSdkTitle",
+    description: "apiDocsSdkDescription",
+    bullets: ["apiDocsSdkBaseUrl", "apiDocsSdkExtensions", "apiDocsSdkUnsupported"],
+    code: sdkExample
   },
   {
     id: "feedback",
@@ -188,7 +229,7 @@ X-NomoSmart-API-Key: <api_key>`
     title: "apiDocsFeedbackTitle",
     description: "apiDocsFeedbackDescription",
     method: "POST",
-    endpoint: "/api/public/v1/chat/responses/<response_id>/feedback",
+    endpoint: "/api/public/v1/responses/<response_id>/feedback",
     bullets: ["apiDocsFeedbackAppendOnly", "apiDocsFeedbackLatest", "apiDocsFeedbackIdentity"],
     code: feedbackExample
   },
@@ -198,7 +239,7 @@ X-NomoSmart-API-Key: <api_key>`
     label: "apiDocsNavErrors",
     title: "apiDocsErrorsTitle",
     description: "apiDocsErrorsDescription",
-    bullets: ["apiDocsError401", "apiDocsError403", "apiDocsError409", "apiDocsError429"],
+    bullets: ["apiDocsError400", "apiDocsError401", "apiDocsError403", "apiDocsError409", "apiDocsError429"],
     code: errorExample
   },
   {

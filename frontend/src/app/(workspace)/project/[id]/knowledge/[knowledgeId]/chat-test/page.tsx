@@ -206,7 +206,10 @@ export default function ChatTestPage() {
     setConversationEntries((entries) => [...entries, { id: localId, question: trimmedQuestion, askedAt, citations: [], loading: true }]);
     setQuestion("");
     try {
-      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: conversationId, conversation_title: detail?.document.title ?? trimmedQuestion });
+      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: conversationId, conversation_title: detail?.document.title ?? trimmedQuestion }, (partial) => {
+        if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
+        setConversationEntries((entries) => entries.map((entry) => entry.id === localId ? { ...entry, answer: partial } : entry));
+      });
       if (!scopeEpoch.current.isCurrent(scope)) return;
       if (selectionEpoch.current.isCurrent(selection)) {
       setActiveConversationId(result.conversation_id ?? conversationId);
