@@ -121,7 +121,7 @@ def create_public_response(
         session,
         settings,
         scope=f"public-responses:{client.id}:{parsed.project_id}:{response_mode}",
-        raw_key=idempotency_key,
+        raw_key=_idempotency_key_or_single_use(idempotency_key),
         request_payload=body,
     )
     if replay is not None:
@@ -274,7 +274,7 @@ def create_public_feedback(
         session,
         settings,
         scope=f"public-feedback:{client.id}:{response_uuid}",
-        raw_key=idempotency_key,
+        raw_key=_idempotency_key_or_single_use(idempotency_key),
         request_payload=payload.model_dump(mode="json"),
     )
     if replay is not None:
@@ -423,6 +423,18 @@ def _run_public_chat(
     complete_idempotent_operation(operation, resource, status_code=200)
     session.commit()
     return resource
+
+
+def _idempotency_key_or_single_use(raw_key: str | None) -> str:
+    """CHG-434 D434-03 (Peter 2026-11-16 "C"): Idempotency-Key is optional on the public entry.
+
+    A caller key keeps replay protection. Without one, a server-generated single-use key still
+    records the operation (audit and failure state) but can never match a retry, so each call
+    is a new answer, as with other Open Responses servers.
+    """
+    if raw_key is not None and raw_key.strip():
+        return raw_key
+    return f"single-use-{uuid4()}"
 
 
 def _event_stream_response(events) -> StreamingResponse:

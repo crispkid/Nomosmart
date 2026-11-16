@@ -111,7 +111,6 @@ client = OpenAI(base_url="https://<nomosmart_host>/api/public/v1", api_key="<api
 response = client.responses.create(
     model="nomosmart:project/<project_id>",
     input="How does this policy apply to onboarding?",
-    extra_headers={"Idempotency-Key": "<unique_request_key>"},
     extra_body={"nomosmart:end_user": {"employee_id": "E12345"}},
 )
 print(response.output_text)`;

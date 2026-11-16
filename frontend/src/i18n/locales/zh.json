@@ -1531,7 +1531,7 @@
   "apiDocsAuthBearer": "支援 Authorization Bearer header；也支援 X-NomoSmart-API-Key header。",
   "apiDocsAuthHeader": "每次請求都需要指定單一專案，API Key 必須被授權可查詢該專案。",
   "apiDocsAuthLifecycle": "API Key 可能因未生效、停用、到期或撤銷而被拒絕。",
-  "apiDocsIdempotency": "問答與 Feedback 都必須帶入 8 至 255 字元的 Idempotency-Key；相同 key 與內容會重播結果，不同內容會回傳 409。使用 SDK 時請以 extra_headers 帶入。",
+  "apiDocsIdempotency": "Idempotency-Key 為選填（8 至 255 字元）：帶入時，相同 key 與內容會重播原結果、不同內容回傳 409；不帶時每次呼叫都是新的問答或回饋。需要安全重試時請帶入。",
   "apiDocsJsonTitle": "Open Responses 知識問答",
   "apiDocsJsonDescription": "依 Open Responses 規格同步回傳 response 物件：答案在 output 的 output_text，引用以 url_citation 標註，另含 usage 與 nomosmart: 開頭的稽核欄位。",
   "apiDocsJsonProjectScope": "以 model 指定專案，格式為 nomosmart:project/<project_id>；每次只能一個專案，預設查詢該專案所有已發布且可服務內容。",
@@ -2424,6 +2424,6 @@
   "apiDocsSdkTitle": "使用 OpenAI SDK",
   "apiDocsSdkDescription": "端點相容 Open Responses，可直接使用支援 Responses API 的 SDK 呼叫。",
   "apiDocsSdkBaseUrl": "base_url 設為 https://<主機>/api/public/v1，api_key 填 NomoSmart 的 API Key。",
-  "apiDocsSdkExtensions": "nomosmart: 開頭的欄位以 extra_body 帶入，Idempotency-Key 以 extra_headers 帶入。",
+  "apiDocsSdkExtensions": "nomosmart: 開頭的欄位以 extra_body 帶入；需要安全重試時，以 extra_headers 帶入 Idempotency-Key。",
   "apiDocsSdkUnsupported": "目前只支援單輪文字問答；不支援 instructions、工具呼叫、圖片、WebSocket 與取樣參數，送出時會回 400。"
 }

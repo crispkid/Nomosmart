@@ -1531,7 +1531,7 @@
   "apiDocsAuthBearer": "Authorization Bearer header is supported; X-NomoSmart-API-Key is also supported.",
   "apiDocsAuthHeader": "Each request targets exactly one project, and the API key must be authorized for that project.",
   "apiDocsAuthLifecycle": "Requests may be denied when a key is not yet valid, inactive, expired, or revoked.",
-  "apiDocsIdempotency": "Q&A and feedback require an 8-255 character Idempotency-Key. The same key and payload replay the result; a different payload returns 409. With an SDK, pass it in extra_headers.",
+  "apiDocsIdempotency": "Idempotency-Key is optional (8-255 characters). With a key, the same key and payload replay the original result and a different payload returns 409; without one, every call is a new answer or feedback. Send one when you retry.",
   "apiDocsJsonTitle": "Open Responses knowledge Q&A",
   "apiDocsJsonDescription": "Returns an Open Responses response object: the answer is the output_text in output, citations are url_citation annotations, plus usage and nomosmart: audit fields.",
   "apiDocsJsonProjectScope": "Set model to nomosmart:project/<project_id>. Each request targets one project and by default queries all its published serving content.",
@@ -2424,6 +2424,6 @@
   "apiDocsSdkTitle": "Using the OpenAI SDK",
   "apiDocsSdkDescription": "The endpoint is Open Responses compatible, so SDKs that support the Responses API can call it directly.",
   "apiDocsSdkBaseUrl": "Set base_url to https://<host>/api/public/v1 and api_key to the NomoSmart API key.",
-  "apiDocsSdkExtensions": "Pass nomosmart: fields in extra_body and the Idempotency-Key in extra_headers.",
+  "apiDocsSdkExtensions": "Pass nomosmart: fields in extra_body; to retry safely, pass an Idempotency-Key in extra_headers.",
   "apiDocsSdkUnsupported": "Only single-turn text Q&A is supported; instructions, tool calling, images, WebSocket and sampling parameters return 400."
 }
