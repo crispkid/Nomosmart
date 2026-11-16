@@ -6,6 +6,16 @@ NomoSmart is an enterprise knowledge management platform for turning documents a
 
 Version: **0.2.5**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
 
+## What's new in 0.2.5
+
+- **OpenAI Chat/Judge on the Responses API**: connection tests send a minimal real request and distinguish an unknown model, failed authentication and a rejected call format. Existing OpenAI models are migrated by V061.
+- **OCR model required for projects**: creating a project, or changing its models, needs an active OCR model with native PDF capability.
+- **Stuck document recovery**: an operator command releases one execution left behind by a worker that disappeared; in-process errors now finish as "failed, retryable" instead of pausing all document processing.
+- **Signed package initialization**: `nomosmart-package init` and `./nomosmart up` accept the signed v5 package with an independently trusted fingerprint.
+- **Fixes**: submitting for review during background finalization returns `409 document_processing_finalizing` instead of blocking other documents; native OCR output limits adapt to the model; concurrent auto-tagging no longer stalls processing.
+
+Full notes and upgrade guides: [GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5) ([upgrade guide](https://github.com/crispkid/Nomosmart/releases/download/v0.2.5/UPGRADING-v0.2.5.en.md)).
+
 ## Features
 
 - Import PDF, UTF-8 TXT and Markdown files, plus FTP/FTPS/SFTP, S3 and HTTP API sources.
@@ -50,11 +60,13 @@ The Backend owns authentication, authorization, configuration and dispatch. Work
 Every new PDF, including PDFs with selectable text, is sent intact to an explicitly configured native document model supporting `openai_responses`. The current path no longer uses local OCR, local text extraction, rasterization, page splitting or automatic fallback.
 
 - Configure the service, model, prices and actual `native_pdf` capabilities in system management. Capacity is never inferred from a model name.
-- Basic project Chat/Embedding configuration is separate from PDF eligibility. Plain text processing does not require an OCR model.
+- Every project needs an active OCR model with native PDF capability: creating a project, or changing its Chat, Embedding or OCR model, is rejected without one (`project_model_configuration_required`). Existing projects without OCR keep working until their models are changed.
+- OpenAI Chat and Judge models use the Responses API. The connection test sends a minimal real request and reports an unknown model, failed authentication or a rejected call format separately.
 - Input counting sends the document to the provider; counting and generation may incur charges. Later tagging and embeddings follow the project configuration.
 - Oversized documents, unavailable trustworthy input counts, truncated or incomplete responses stop processing. Documents are not automatically split, and partial output is not published.
 - New results trace to the original document and version. Physical page numbers remain unknown unless trustworthy; the model does not guess them.
 - A paid request with an unknown result is not automatically replayed. Reconcile its receipt and usage first. Cancellation retains confirmed accounting.
+- Submitting a version for review while its processing is still finalizing returns `409 document_processing_finalizing`; submit again after a few seconds.
 
 See [PDF recognition operations](docs/NATIVE-PDF-OCR-OPERATIONS.md) for capability fields, transport ceilings, document budgets and recovery.
 
@@ -167,14 +179,14 @@ Application rollback and schema rollback are different operations. Do not drop n
 
 Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
-This version reuses completed local deployment, critical workflow, data-preservation, signing and restore evidence. Complete-source coverage is measured; 80% is an improvement target. Missing/failed critical scenarios or unaddressed serious risks still block readiness. Production multi-host capacity, HA, network-isolation and production-backup qualification retain their existing limits and cannot be inferred from local acceptance.
+0.2.5 was qualified on its own source and images: all 31 mandatory scenarios and 19 release gates were rerun, and the package was signed and verified, including tamper and wrong-fingerprint checks and a real `init`. Complete-denominator line coverage is 26.25% (frontend) and 46.0% (backend); 80% is an improvement target and does not decide readiness. The three existing plaintext-FTP High findings are accepted for the approved sources only until 2026-12-15 08:00 (Taipei). Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
 
 ## Repository and development
 
 ```text
 frontend/                 Next.js UI, same-origin proxy and localization
 backend/                  FastAPI, model/directory integrations and background work
-sql/migrations/           B054 baseline and forward migration history (currently056)
+sql/migrations/           B054 baseline and forward migration history (currently 061)
 deploy/docker/            Compose configuration examples, entry point and Secret tools
 deploy/helm/nomosmart/     Helm chart, ConfigMap/Secret references and probes
 deploy/installer/          Protocol installation and onboarding tools
