@@ -59,6 +59,7 @@ from app.domain.project_retrieval import (
 from app.domain.chat_citations import citation_persistence_payload, compact_citation_view, hydrate_citation_groups, validate_citation_markers
 from app.domain.model_usage import record_model_usage
 from app.domain.conversation_history import chat_test_context
+from app.domain.validation_scenarios import normalized_key, scenario_summary, validate_scenarios
 from app.domain.chunk_artifacts import chunk_artifact_state
 from app.domain.system_prompts import resolve_system_prompt
 from app.security.context import IdentityContext, get_identity_context
@@ -685,6 +686,8 @@ def create_project_chat_validation_run(project_id: UUID, payload: ValidationRunC
             status_code=422,
         )
     max_attempts = get_settings().validation_max_attempts
+    # CHG-436 MTVAL436-002: a malformed scenario refuses the whole file before anything is created.
+    validate_scenarios(payload.questions, max_turns=get_settings().validation_scenario_max_turns)
     execution_manifest = _validation_execution_manifest(
         session,
         project=project,
@@ -732,6 +735,10 @@ def create_project_chat_validation_run(project_id: UUID, payload: ValidationRunC
             "category": item.category,
             "priority": item.priority,
         }
+        conversation_key = normalized_key(item.conversation_key)
+        if conversation_key is not None:
+            # Single-turn rows keep their previous content hash; scenario rows also bind their position.
+            input_payload.update(conversation_key=conversation_key, turn=item.turn)
         session.add(
             ValidationRunItem(
                 id=uuid4(),
@@ -745,6 +752,8 @@ def create_project_chat_validation_run(project_id: UUID, payload: ValidationRunC
                 selected_document_ids=input_payload["selected_document_ids"],
                 category=item.category,
                 priority=item.priority,
+                conversation_key=conversation_key,
+                turn_index=item.turn if conversation_key is not None else None,
                 status="pending",
                 created_at=now,
             )
@@ -905,7 +914,13 @@ def export_project_chat_validation_run(
         "error_code",
         "latency_ms",
         "token_usage",
+        # CHG-436 MTVAL436-008: scenario columns, empty for single-turn rows.
+        "conversation_key",
+        "turn",
+        "rewritten_query",
+        "history_turns",
     ]
+    records = _validation_chat_records(session, items)
     allowed_version_ids = _citation_version_ids([item.reference_docs for item in items])
     if run.document_version_id is not None:
         allowed_version_ids.add(run.document_version_id)
@@ -954,6 +969,10 @@ def export_project_chat_validation_run(
                     item.error_code,
                     item.latency_ms,
                     json.dumps(item.token_usage or {}, ensure_ascii=False),
+                    item.conversation_key,
+                    item.turn_index,
+                    records[item.chat_record_id].rewritten_query if item.chat_record_id in records else None,
+                    records[item.chat_record_id].history_turns if item.chat_record_id in records and item.conversation_key else None,
                 ]
             )
 
@@ -1035,10 +1054,20 @@ def retry_failed_project_chat_validation_items(project_id: UUID, run_id: UUID, c
         raise AppError("validation_run_not_found", "Validation run was not found", status_code=404)
     if run.created_by != context.user_id:
         raise AppError("validation_run_forbidden", "Validation run belongs to another user", status_code=403)
-    failed_items = list(session.scalars(select(ValidationRunItem).where(ValidationRunItem.run_id == run.id, ValidationRunItem.is_current.is_(True), ValidationRunItem.status.in_(("failed", "error"))).order_by(ValidationRunItem.input_ordinal, ValidationRunItem.id)))
+    current_items = list(session.scalars(select(ValidationRunItem).where(ValidationRunItem.run_id == run.id, ValidationRunItem.is_current.is_(True)).order_by(ValidationRunItem.input_ordinal, ValidationRunItem.id)))
+    failed_items = [item for item in current_items if item.status in ("failed", "error", "blocked")]
     if not failed_items:
         raise AppError("validation_retry_not_available", "Validation run has no failed items to retry", status_code=409)
     retryable_items = [item for item in failed_items if item.attempt < run.max_attempts]
+    # CHG-436 MTVAL436-005 / D436-02: a scenario re-runs from its earliest failed turn to its end,
+    # because every later turn continues from the answer being replaced.
+    restart_turn: dict[str, int] = {}
+    for item in retryable_items:
+        if item.conversation_key is not None:
+            restart_turn[item.conversation_key] = min(restart_turn.get(item.conversation_key, item.turn_index), item.turn_index)
+    chosen = {item.id for item in retryable_items}
+    retryable_items = [item for item in current_items if item.id in chosen or (
+        item.conversation_key in restart_turn and item.turn_index >= restart_turn[item.conversation_key])]
     if not retryable_items:
         raise AppError(
             "validation_retry_limit_reached",
@@ -1064,6 +1093,8 @@ def retry_failed_project_chat_validation_items(project_id: UUID, run_id: UUID, c
                 selected_document_ids=item.selected_document_ids,
                 category=item.category,
                 priority=item.priority,
+                conversation_key=item.conversation_key,
+                turn_index=item.turn_index,
                 reference_docs=[],
                 status="pending",
                 created_at=now,
@@ -1072,7 +1103,7 @@ def retry_failed_project_chat_validation_items(project_id: UUID, run_id: UUID, c
     completed_count = session.scalar(select(func.count()).select_from(ValidationRunItem).where(ValidationRunItem.run_id == run.id, ValidationRunItem.is_current.is_(True), ValidationRunItem.status.in_(("passed", "needs_review", "completed", "skipped")))) or 0
     run.status = "queued"
     run.completed_count = int(completed_count)
-    run.failed_count = len(failed_items) - len(retryable_items)
+    run.failed_count = len([item for item in failed_items if item.id not in {retried.id for retried in retryable_items}])
     run.completed_at = None
     session.add(OutboxEvent(topic="validation.run.requested", aggregate_type="validation_run", aggregate_id=run.id, project_id=project.id, project_generation=project.work_generation, payload={"run_id": str(run.id), "project_id": str(project.id), "project_generation": project.work_generation, "retry": "failed", "execution_manifest_hash": run.execution_manifest_hash}, status="pending", attempts=0, available_at=now, created_at=now))
     session.commit()
@@ -1741,6 +1772,7 @@ def _validation_run_response(session: Session, run: ValidationRun) -> Validation
         item.id: citations
         for item, citations in zip(items, hydrated_groups, strict=True)
     }
+    records = _validation_chat_records(session, items)
     return ValidationRunResponse(
         id=run.id,
         project_id=run.project_id,
@@ -1761,9 +1793,11 @@ def _validation_run_response(session: Session, run: ValidationRun) -> Validation
             _validation_item_response(
                 item,
                 citations=hydrated_by_item_id.get(item.id, []),
+                record=records.get(item.chat_record_id),
             )
             for item in items
         ],
+        scenario_summary=scenario_summary(items),
     )
 
 
@@ -1788,7 +1822,12 @@ def _validation_run_metadata(run: ValidationRun) -> ValidationRunResponse:
     )
 
 
-def _validation_item_response(item: ValidationRunItem, *, citations: list | None = None) -> ValidationRunItemResponse:
+def _validation_chat_records(session: Session, items: list[ValidationRunItem]) -> dict[UUID, ChatRecord]:
+    ids = [item.chat_record_id for item in items if item.chat_record_id is not None]
+    return {record.id: record for record in session.scalars(select(ChatRecord).where(ChatRecord.id.in_(ids)))} if ids else {}
+
+
+def _validation_item_response(item: ValidationRunItem, *, citations: list | None = None, record: ChatRecord | None = None) -> ValidationRunItemResponse:
     compact = compact_citation_view(
         item.answer,
         item.reference_docs if citations is None else citations,
@@ -1821,6 +1860,11 @@ def _validation_item_response(item: ValidationRunItem, *, citations: list | None
         system_prompt_version_id=item.system_prompt_version_id,
         system_prompt_content_hash=item.system_prompt_content_hash,
         system_prompt_layers=item.system_prompt_layers,
+        conversation_key=item.conversation_key,
+        turn=item.turn_index,
+        history_turns=record.history_turns if record is not None else 0,
+        rewritten_query=record.rewritten_query if record is not None else None,
+        rewrite_status=record.rewrite_status if record is not None else "not_needed",
     )
 
 

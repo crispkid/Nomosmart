@@ -65,6 +65,8 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   previous_response_not_latest: "chatPreviousNotLatest",
   conversation_mode_mismatch: "chatConversationModeMismatch",
   previous_response_not_found: "chatPreviousNotFound",
+  previous_turn_failed: "validationBlockedPreviousTurn",
+  validation_scenario_invalid: "validationScenarioInvalid",
   conversation_busy: "chatConversationBusy",
   conversation_identity_conflict: "chatConversationIdentityConflict",
   conversation_not_found: "apiNotFound",

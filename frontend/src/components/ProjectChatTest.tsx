@@ -13,6 +13,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked } from "@/lib/chatConversationAccess";
 import { ChatModePicker } from "@/components/ChatModePicker";
+import { recordTurnContext } from "@/components/ChatTurnContextNote";
 import type { ConversationMode } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { useReadResource } from "@/lib/useReadResource";
@@ -268,6 +269,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
             ...entry,
             recordId: item.chat_record_id ?? entry.recordId,
             answer: validationItemMessage(item.status, item.answer, t),
+            context: recordTurnContext(item),
             citations: item.citations,
             loading: ["pending", "running"].includes(item.status),
             error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined,
@@ -467,8 +469,8 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
   }
 
   function downloadQuestionTemplate() {
-    const template = "\uFEFFquestion,expected_answer,expected_keywords,selected_document_ids,category,priority\n"
-      + `"${t("projectChatTemplateQuestion")}","${t("projectChatTemplateExpectedAnswer")}","${t("projectChatTemplateKeywords")}","${scopeIds.join(";")}","Model Risk","High"\n`;
+    const template = "\uFEFFquestion,expected_answer,expected_keywords,selected_document_ids,category,priority,conversation_key,turn\n"
+      + `"${t("projectChatTemplateQuestion")}","${t("projectChatTemplateExpectedAnswer")}","${t("projectChatTemplateKeywords")}","${scopeIds.join(";")}","Model Risk","High","",""\n`;
     downloadCsv(template, "nomosmart-project-chat-test-template.csv");
   }
 
@@ -485,7 +487,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
         if (!scopeEpoch.current.isCurrent(scope)) return;
         setActiveValidationRun(run);
         setValidationConversationId(localConversationId);
-        const validationEntries: Entry[] = run.items.map((item, index) => ({ id: started + index, validationItemId: item.id, question: item.question, answer: validationItemMessage(item.status, item.answer, t), citations: item.citations, loading: ["pending", "running"].includes(item.status), error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined, status: item.answer ? "answered" as const : undefined }));
+        const validationEntries: Entry[] = run.items.map((item, index) => ({ id: started + index, validationItemId: item.id, question: item.conversation_key ? `${format("validationScenarioTurnLabel", { key: item.conversation_key, turn: item.turn ?? 0 })}｜${item.question}` : item.question, context: recordTurnContext(item), answer: validationItemMessage(item.status, item.answer, t), citations: item.citations, loading: ["pending", "running"].includes(item.status), error: item.status === "error" ? operationalCodeMessage(item.error_code, t, format, "projectChatRetrievalFailed") : undefined, status: item.answer ? "answered" as const : undefined }));
         setConversations((current) => {
           if (current.some((conversation) => conversation.id === localConversationId)) {
             return current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: [...conversation.entries, ...validationEntries], updatedAt: started } : conversation);

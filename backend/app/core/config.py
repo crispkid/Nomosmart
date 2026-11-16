@@ -327,6 +327,8 @@ class Settings(MigrationProbeSettings):
     # CHG-435 MTURN435-004: multi-turn context sent with a follow-up question (D435-01: characters).
     chat_history_max_turns: int = Field(default=5, ge=1, le=20)
     chat_history_max_characters: int = Field(default=12000, ge=1000, le=100000)
+    # CHG-436 MTVAL436-002: questions allowed in one multi-turn validation scenario.
+    validation_scenario_max_turns: int = Field(default=20, ge=2, le=50)
     report_export_batch_size: int = Field(default=500, ge=50, le=2000)
     report_export_timeout_seconds: int = Field(default=300, ge=30, le=3600)
     deployment_bootstrap_release: str = ""

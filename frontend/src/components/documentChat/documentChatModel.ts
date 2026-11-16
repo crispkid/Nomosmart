@@ -1,5 +1,6 @@
 // Document chat test model: types and pure helpers (split from the chat-test page, OPT424-038).
 import { UiValidationError } from "@/lib/transportError";
+import { recordTurnContext } from "@/components/ChatTurnContextNote";
 import { type ChatTurnContext, type ValidationRunResponse, type ProjectChatCitation } from "@/lib/api";
 import { type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
@@ -29,8 +30,9 @@ export function validationEntries(run: ValidationRunResponse, t: Translate, form
     id: item.id,
     recordId: item.chat_record_id ?? undefined,
     validationStatus: item.status,
-    question: item.question,
-    answer: item.answer ?? undefined,
+    question: item.conversation_key ? `${format("validationScenarioTurnLabel", { key: item.conversation_key, turn: item.turn ?? 0 })}｜${item.question}` : item.question,
+    answer: item.answer ?? (item.status === "blocked" ? t("validationBlockedPreviousTurn") : undefined),
+    context: recordTurnContext(item),
     askedAt: new Date(Date.parse(run.created_at) + index).toISOString(),
     answeredAt: item.answer ? run.completed_at : null,
     citations: item.citations,

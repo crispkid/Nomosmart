@@ -1423,6 +1423,9 @@ class ValidationRunQuestionPayload(BaseModel):
     selected_document_ids: list[UUID] | None = None
     category: str | None = Field(default=None, max_length=100)
     priority: str | None = Field(default=None, max_length=32)
+    # CHG-436 MTVAL436-001: rows sharing conversation_key form one multi-turn scenario, in turn order.
+    conversation_key: str | None = Field(default=None, max_length=100)
+    turn: int | None = Field(default=None, ge=1)
 
 
 class ValidationRunCreatePayload(BaseModel):
@@ -1449,7 +1452,7 @@ class ValidationRunItemResponse(BaseModel):
     answer: str | None = None
     citations: list[ProjectChatCitation] = Field(default_factory=list)
     chat_record_id: UUID | None = None
-    status: Literal["pending", "running", "passed", "failed", "needs_review", "error", "completed", "skipped", "cancelled"]
+    status: Literal["pending", "running", "passed", "failed", "needs_review", "error", "completed", "skipped", "cancelled", "blocked"]
     score: float | None = None
     evaluation_reason: str | None = None
     error_message: str | None = None
@@ -1460,6 +1463,18 @@ class ValidationRunItemResponse(BaseModel):
     system_prompt_version_id: UUID | None = None
     system_prompt_content_hash: str | None = None
     system_prompt_layers: list[dict[str, Any]] | None = None
+    # CHG-436 MTVAL436-007: scenario membership and the multi-turn context of the answer.
+    conversation_key: str | None = None
+    turn: int | None = None
+    history_turns: int = 0
+    rewritten_query: str | None = None
+    rewrite_status: Literal["not_needed", "rewritten", "failed"] = "not_needed"
+
+
+class ValidationScenarioSummary(BaseModel):
+    scenario_count: int = 0
+    passed_scenario_count: int = 0
+    pass_rate: float | None = None
 
 
 class ValidationRunResponse(BaseModel):
@@ -1479,6 +1494,7 @@ class ValidationRunResponse(BaseModel):
     started_at: datetime | None = None
     completed_at: datetime | None = None
     items: list[ValidationRunItemResponse] = Field(default_factory=list)
+    scenario_summary: ValidationScenarioSummary | None = None
 
 
 class ValidationRunPage(BaseModel):

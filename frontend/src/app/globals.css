@@ -4450,6 +4450,9 @@ small {
   text-decoration: line-through;
 }
 
+/* CHG-436: multi-turn scenario summary in the CSV upload preview. */
+.batch-scenario-preview { margin: 0; color: var(--text-secondary); font-size: 13px; }
+
 /* CHG-435: conversation mode picker and the context a multi-turn answer used. */
 .chat-mode-picker {
   display: flex;

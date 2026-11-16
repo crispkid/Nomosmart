@@ -159,7 +159,7 @@ export type ValidationRunResponse = {
     answer: string | null;
     citations: ProjectChatCitation[];
     chat_record_id: string | null;
-    status: "pending" | "running" | "passed" | "failed" | "needs_review" | "error" | "completed" | "skipped" | "cancelled";
+    status: "pending" | "running" | "passed" | "failed" | "needs_review" | "error" | "completed" | "skipped" | "cancelled" | "blocked";
     score: number | null;
     evaluation_reason: string | null;
     error_message: string | null;
@@ -170,7 +170,14 @@ export type ValidationRunResponse = {
     system_prompt_version_id?: string | null;
     system_prompt_content_hash?: string | null;
     system_prompt_layers?: Array<Record<string, unknown>> | null;
+    /** CHG-436: scenario membership and multi-turn context. */
+    conversation_key?: string | null;
+    turn?: number | null;
+    history_turns?: number;
+    rewritten_query?: string | null;
+    rewrite_status?: ChatTurnContext["rewrite_status"];
   }[];
+  scenario_summary?: { scenario_count: number; passed_scenario_count: number; pass_rate: number | null } | null;
 };
 
 type ReportMetricCard = { key: string; label: string; value: number; unit: string | null };

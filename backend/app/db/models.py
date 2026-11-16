@@ -1332,6 +1332,9 @@ class ValidationRunItem(UUIDPrimaryKeyMixin, Base):
         default=lambda: uuid4().int % 2_000_000_000,
     )
     input_content_hash: Mapped[str] = mapped_column(String(64), nullable=False, default="0" * 64)
+    # CHG-436 MTVAL436-009 (V063): multi-turn scenario membership; both NULL for single-turn rows.
+    conversation_key: Mapped[str | None] = mapped_column(String(100))
+    turn_index: Mapped[int | None] = mapped_column(Integer)
     question: Mapped[str] = mapped_column(Text, nullable=False)
     expected_answer: Mapped[str | None] = mapped_column(Text)
     expected_keywords: Mapped[list | None] = mapped_column(JSONB)

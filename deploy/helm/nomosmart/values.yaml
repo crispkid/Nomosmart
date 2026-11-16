@@ -221,6 +221,7 @@ backend:
     # Multi-turn Q&A: earlier turns and characters sent with a follow-up (CHG-435).
     CHAT_HISTORY_MAX_TURNS: "5"
     CHAT_HISTORY_MAX_CHARACTERS: "12000"
+    VALIDATION_SCENARIO_MAX_TURNS: "20"
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"
     NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS: "10"
@@ -250,9 +251,9 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # Migration target from deploy/migrations/release-contract.json (062 since CHG-435).
-  requiredVersion: "062"
-  requiredChecksum: "-1938258038"
+  # Migration target from deploy/migrations/release-contract.json (063 since CHG-436).
+  requiredVersion: "063"
+  requiredChecksum: "1135291166"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

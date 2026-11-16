@@ -151,7 +151,9 @@ The previous `/projects/{project_id}/chat`, `/chat/stream` and `/chat/responses/
 routes were removed in 0.3.0 (CHG-434); the edge path prefix below is unchanged.
 Multi-turn questions (CHG-435) send `previous_response_id`; `CHAT_HISTORY_MAX_TURNS`
 (default 5) and `CHAT_HISTORY_MAX_CHARACTERS` (default 12000) bound the earlier turns sent
-to the model. Migration `V062` only adds columns and is required (contract 062).
+to the model. Migration `V062` only adds columns. CSV validation (CHG-436) can group rows into
+multi-turn scenarios with `conversation_key` and `turn`; `VALIDATION_SCENARIO_MAX_TURNS`
+(default 20) caps a scenario, and `V063` only adds columns (contract 063).
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP
