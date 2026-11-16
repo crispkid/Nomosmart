@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.2.5",
-  "required_version": "062",
+  "required_version": "063",
   "targets": {
     "SQL": {
-      "file": "V062__multi_turn_conversation_context.sql",
-      "checksum": -1938258038,
-      "sha256": "43c02a7edde8cea403510d04220fb97432ad495f5ac1ec371fde3b96a1cba799"
+      "file": "V063__validation_multi_turn_scenarios.sql",
+      "checksum": 1135291166,
+      "sha256": "de0d682a9a7e7b39199243376dd913e0f52666584a78c8d723b8e6d2ac5f9013"
     }
   }
 }

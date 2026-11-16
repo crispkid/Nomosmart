@@ -2445,5 +2445,17 @@
   "apiDocsMultiTurnPrevious": "Earlier turns come only from records NomoSmart stored; input still takes one user message and cannot carry assistant answers. You may continue from any earlier response (branching).",
   "apiDocsMultiTurnIdentity": "Only successful answers from the same API key, employee_id and project can be continued; anything else returns 404 previous_response_not_found.",
   "apiDocsMultiTurnLimits": "Up to the latest 5 turns and 12000 characters (deployment settings); truncation: auto leaves out older turns, disabled returns 400 context_length_exceeded instead.",
-  "apiDocsMultiTurnContext": "A follow-up is rewritten into a standalone search question; nomosmart:context reports the turns used, whether any were left out and the rewrite. Answers cite only passages found for this turn."
+  "apiDocsMultiTurnContext": "A follow-up is rewritten into a standalone search question; nomosmart:context reports the turns used, whether any were left out and the rewrite. Answers cite only passages found for this turn.",
+  "validationScenarioPairRequired": "Row {rows}: conversation_key and turn must both be filled or both be empty.",
+  "validationScenarioTurnInvalid": "Row {rows} (scenario {key}): turn must be a whole number of 1 or more.",
+  "validationScenarioDuplicateTurn": "Scenario {key} (rows {rows}): a turn is repeated.",
+  "validationScenarioTurnsNotConsecutive": "Scenario {key} (rows {rows}): turns must run 1, 2, 3 … without gaps.",
+  "validationScenarioTooManyTurns": "Scenario {key} (rows {rows}): a scenario has at most {max} questions.",
+  "validationScenarioScopeDiffers": "Scenario {key} (rows {rows}): every row of a scenario needs the same selected_document_ids.",
+  "validationScenarioPreview": "{singles} single questions, {scenarios} multi-turn scenarios ({turns} questions)",
+  "validationScenarioTurnLabel": "Scenario {key} · question {turn}",
+  "validationScenarioPassRate": "Scenarios passed {passed} of {total} ({rate}%)",
+  "validationBlockedPreviousTurn": "The previous question has no answer, so this one was skipped; retry failed questions to run it again.",
+  "validationScenarioCsvHelp": "Multi-turn scenarios: rows sharing a conversation_key are asked in turn order; leave both empty for single questions.",
+  "validationScenarioInvalid": "The multi-turn scenarios in the CSV are invalid. Check conversation_key and turn."
 }

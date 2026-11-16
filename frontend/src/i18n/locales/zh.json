@@ -2445,5 +2445,17 @@
   "apiDocsMultiTurnPrevious": "前文只來自 NomoSmart 存過的紀錄；input 仍只接受一則使用者訊息，不能自行附上助理回答。可從鏈上任一題接續（分支）。",
   "apiDocsMultiTurnIdentity": "只能接續同一個 API Key、同一個 employee_id、同一個專案的成功回答；其他情況回 404 previous_response_not_found。",
   "apiDocsMultiTurnLimits": "最多帶最近 5 輪、12000 字元（依部署設定）；truncation: auto 會省略較早的對話，disabled 超過上限時回 400 context_length_exceeded。",
-  "apiDocsMultiTurnContext": "追問會先改寫成完整的搜尋問題；nomosmart:context 回報實際帶入的輪數、是否省略與改寫結果。答案只引用這一輪搜尋到的段落。"
+  "apiDocsMultiTurnContext": "追問會先改寫成完整的搜尋問題；nomosmart:context 回報實際帶入的輪數、是否省略與改寫結果。答案只引用這一輪搜尋到的段落。",
+  "validationScenarioPairRequired": "第 {rows} 列：conversation_key 與 turn 必須同時填寫或同時空白。",
+  "validationScenarioTurnInvalid": "第 {rows} 列（情境 {key}）：turn 必須是 1 以上的整數。",
+  "validationScenarioDuplicateTurn": "情境 {key}（第 {rows} 列）：turn 重複。",
+  "validationScenarioTurnsNotConsecutive": "情境 {key}（第 {rows} 列）：turn 必須從 1 開始連續編號。",
+  "validationScenarioTooManyTurns": "情境 {key}（第 {rows} 列）：每個情境最多 {max} 題。",
+  "validationScenarioScopeDiffers": "情境 {key}（第 {rows} 列）：同一情境的 selected_document_ids 必須相同。",
+  "validationScenarioPreview": "{singles} 題單輪、{scenarios} 個多輪情境（共 {turns} 題）",
+  "validationScenarioTurnLabel": "情境 {key} · 第 {turn} 題",
+  "validationScenarioPassRate": "情境通過 {passed}／{total}（{rate}%）",
+  "validationBlockedPreviousTurn": "前一題沒有產生答案，這一題已略過；可用「重試失敗題目」從失敗處重跑。",
+  "validationScenarioCsvHelp": "多輪情境：同一個 conversation_key 的列依 turn 順序接續提問；兩欄空白為單輪。",
+  "validationScenarioInvalid": "CSV 的多輪情境格式不正確，請檢查 conversation_key 與 turn。"
 }

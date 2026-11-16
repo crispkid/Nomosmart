@@ -5,6 +5,7 @@ import { Modal } from "@/components/Modal";
 import { CheckCircle2, FileDown, FileText, Upload, Wrench, X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import type { ValidationRunResponse } from "@/lib/api";
+import { scenarioPreview } from "@/lib/validationScenarios";
 import { useI18n } from "@/lib/i18nClient";
 import type { CsvValidationQuestion } from "./projectChatModel";
 
@@ -37,13 +38,13 @@ export function ProjectChatBatchUploadDialog({ activeValidationRun, batchComplet
           <button aria-label={t("close")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button>
         </div>
     
-        {activeValidationRun ? <div className="batch-file-status"><Wrench size={17} /><span><strong>{format("documentChatValidationRun", { id: activeValidationRun.status })}</strong><small>{format("projectChatValidationRunProgress", { completed: activeValidationRun.completed_count + activeValidationRun.failed_count, total: activeValidationRun.total_count })}</small></span></div> : null}
+        {activeValidationRun ? <div className="batch-file-status"><Wrench size={17} /><span><strong>{format("documentChatValidationRun", { id: activeValidationRun.status })}</strong><small>{format("projectChatValidationRunProgress", { completed: activeValidationRun.completed_count + activeValidationRun.failed_count, total: activeValidationRun.total_count })}</small>{activeValidationRun.scenario_summary ? <small>{format("validationScenarioPassRate", { passed: activeValidationRun.scenario_summary.passed_scenario_count, total: activeValidationRun.scenario_summary.scenario_count, rate: Math.round((activeValidationRun.scenario_summary.pass_rate ?? 0) * 100) })}</small> : null}</span></div> : null}
         {validationFinished ? (
           <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t("batchCompleted")}</strong><span>{format("projectChatBatchCompletedHelp", { count: batchCompletedCount ?? uploadQuestions.length })}</span></div></div>
         ) : (
           <div className="batch-upload-body">
             <div className="batch-template-row">
-              <div><strong>{t("csvTemplate")}</strong><small>question, expected_answer, expected_keywords, selected_document_ids, category, priority</small></div>
+              <div><strong>{t("csvTemplate")}</strong><small>question, expected_answer, expected_keywords, selected_document_ids, category, priority, conversation_key, turn</small><small>{t("validationScenarioCsvHelp")}</small></div>
               <button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button>
             </div>
             <label
@@ -59,6 +60,7 @@ export function ProjectChatBatchUploadDialog({ activeValidationRun, batchComplet
             </label>
             {uploadFileName ? <div className="batch-file-status"><FileText size={17} /><span><strong>{uploadFileName}</strong><small>{uploadError ? localize(uploadError) : format("projectChatValidQuestionCount", { questions: uploadQuestions.length, documents: scopeIds.length })}</small></span></div> : null}
             {uploadError ? <FeedbackMessage tone="error">{localize(uploadError)}</FeedbackMessage> : null}
+            {uploadQuestions.some((question) => question.conversation_key) ? <p className="batch-scenario-preview">{(() => { const preview = scenarioPreview(uploadQuestions); return format("validationScenarioPreview", { singles: preview.singles, scenarios: preview.scenarios.length, turns: preview.scenarios.reduce((sum, item) => sum + item.turns, 0) }); })()}</p> : null}
             {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((value, index) => <li key={`${value.question}-${index}`}>{value.question}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
           </div>
         )}

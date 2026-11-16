@@ -265,9 +265,10 @@ def evaluate_rag_answer(
     model: AIModel,
     settings: Settings | None = None,
     system_prompt: SystemPromptResolution | None = None,
+    history: list[tuple[str, str]] | None = None,
 ) -> AIJudgeResult:
     resolved_prompt = system_prompt or backend_default_prompt("Judge")
-    prompt = _build_judge_prompt(question=question, answer=answer, expected_answer=expected_answer, expected_keywords=expected_keywords, citations=citations, system_prompt=resolved_prompt.content)
+    prompt = _build_judge_prompt(question=question, answer=answer, expected_answer=expected_answer, expected_keywords=expected_keywords, citations=citations, system_prompt=resolved_prompt.content, history=history)
     payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Judge Model provider is not supported")
     return _judge_result(answer_of(payload), usage, resolved_prompt)
 
@@ -427,7 +428,7 @@ def _build_citation_bound_prompt(question: str, citations: list[ProjectChatCitat
     return [{"role": "system", "content": system}, *earlier, {"role": "user", "content": user}]
 
 
-def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: str | None, expected_keywords: list | None, citations: list[ProjectChatCitation], system_prompt: str) -> list[dict[str, str]]:
+def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: str | None, expected_keywords: list | None, citations: list[ProjectChatCitation], system_prompt: str, history: list[tuple[str, str]] | None = None) -> list[dict[str, str]]:
     citation_text = "\n".join(f"- {citation.title or citation.chunk_id}: {(citation.excerpt or '').strip()}" for citation in citations if citation.excerpt)
     keywords = ", ".join(str(item) for item in expected_keywords or [])
     user = (
@@ -438,6 +439,10 @@ def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: s
         f"Citations:\n{citation_text}\n"
         "Evaluate whether the answer is grounded in citations and satisfies the expectation."
     )
+    if history:
+        # CHG-436 MTVAL436-006: a follow-up is judged with the conversation it continues.
+        earlier = "\n".join(f"User: {asked}\nAssistant: {answered}" for asked, answered in history)
+        user = f"Earlier conversation (oldest first):\n{earlier}\n\n{user}"
     return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user}]
 
 

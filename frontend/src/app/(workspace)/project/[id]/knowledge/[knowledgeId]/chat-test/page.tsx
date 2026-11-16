@@ -23,6 +23,7 @@ import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
 import { ChatModePicker } from "@/components/ChatModePicker";
+import { checkScenarios, scenarioFields } from "@/lib/validationScenarios";
 import { recordTurnContext } from "@/components/ChatTurnContextNote";
 import type { ConversationMode } from "@/lib/api";
 import { type Judgment, type AnswerEvaluation, type Translate, type ConversationEntry, validationEntries, parseCsv, downloadTextFile, retrievalErrorMessage } from "@/components/documentChat/documentChatModel";
@@ -55,7 +56,7 @@ export default function ChatTestPage() {
   const [evaluations, setEvaluations] = useState<Record<string, AnswerEvaluation>>({});
   const [uploadOpen, setUploadOpen] = useState(false);
   const [uploadFileName, setUploadFileName] = useState("");
-  const [uploadQuestions, setUploadQuestions] = useState<string[]>([]);
+  const [uploadQuestions, setUploadQuestions] = useState<{ question: string; conversation_key?: string | null; turn?: number | null }[]>([]);
   const [uploadError, setUploadError] = useState("");
   const [batchCompletedCount, setBatchCompletedCount] = useState<number | null>(null);
   const chatThreadRef = useRef<HTMLDivElement>(null);
@@ -273,8 +274,8 @@ export default function ChatTestPage() {
   }
 
   function downloadQuestionTemplate() {
-    const template = "\uFEFFquestion,expected_answer,expected_keywords,selected_document_ids,category,priority\n"
-      + `"${t("documentChatTemplateQuestion")}","","","","",""\n`;
+    const template = "\uFEFFquestion,expected_answer,expected_keywords,selected_document_ids,category,priority,conversation_key,turn\n"
+      + `"${t("documentChatTemplateQuestion")}","","","","","","",""\n`;
     downloadTextFile(template, "nomosmart-chat-test-template.csv");
   }
 
@@ -310,8 +311,16 @@ export default function ChatTestPage() {
       const headers = rows[0]?.map((header, index) => (index === 0 ? header.replace(/^\uFEFF/, "") : header).trim()) ?? [];
       const questionIndex = headers.indexOf("question");
       if (questionIndex < 0) throw new UiValidationError("projectChatCsvMissingQuestion");
-      const questions = rows.slice(1).map((row) => row[questionIndex]?.trim() ?? "").filter(Boolean);
+      // CHG-436: optional conversation_key and turn group rows into multi-turn scenarios.
+      const rowNumbers: number[] = [];
+      const questions = rows.slice(1).flatMap((row, index) => {
+        const text = row[questionIndex]?.trim() ?? "";
+        if (!text) return [];
+        rowNumbers.push(index + 1);
+        return [{ question: text, ...scenarioFields(headers, row, index + 1, format) }];
+      });
       if (!questions.length) throw new UiValidationError("projectChatCsvNoQuestions");
+      checkScenarios(questions, format, rowNumbers);
       setUploadQuestions(questions);
     } catch (error) {
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
@@ -330,7 +339,7 @@ export default function ChatTestPage() {
         uploaded_file_name: uploadFileName || null,
         scope_mode: "document_staging",
         selected_document_version_ids: [versionId],
-        questions: uploadQuestions.map((value) => ({ question: value, selected_document_ids: [versionId] }))
+        questions: uploadQuestions.map((value) => ({ ...value, selected_document_ids: [versionId] }))
       });
       if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
       // Validation items have independent Backend conversation IDs, not turns
@@ -420,7 +429,7 @@ export default function ChatTestPage() {
           </header>
           <div className="chat-thread" aria-live="polite" ref={chatThreadRef}>
             {(activeConversationId || batchDisplay) && !canContinue ? <FeedbackMessage tone="info">{t(otherConversation ? "chatOtherConversationReadOnly" : "chatConversationWriteDenied")}</FeedbackMessage> : null}
-            {activeValidationRun ? <p role="status"><StatusBadge status={activeValidationRun.status} /> {format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count })}</p> : null}
+            {activeValidationRun ? <p role="status"><StatusBadge status={activeValidationRun.status} /> {format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count })}{activeValidationRun.scenario_summary ? ` · ${format("validationScenarioPassRate", { passed: activeValidationRun.scenario_summary.passed_scenario_count, total: activeValidationRun.scenario_summary.scenario_count, rate: Math.round((activeValidationRun.scenario_summary.pass_rate ?? 0) * 100) })}` : ""}</p> : null}
             {conversationEntries.length === 0 ? <div className="chat-empty-state"><MessageSquarePlus size={22} /><span>{t("emptyConversation")}</span></div> : null}
             {conversationEntries.map((entry) => (
               <div className="chat-response-pair" key={entry.id}>
@@ -444,11 +453,11 @@ export default function ChatTestPage() {
             <div className="modal-header"><div><p className="eyebrow">{t("batchValidation")}</p><h2 id="batch-chat-upload-title">{t("uploadTestConversations")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setUploadOpen(false)} type="button"><X size={18} /></button></div>
             {batchCompletedCount !== null ? <div className="batch-upload-complete"><CheckCircle2 size={24} /><div><strong>{t(validationRunning ? "documentChatBatchQueued" : "documentChatBatchFinished")}</strong><span>{activeValidationRun ? format("documentChatBatchProgress", { completed: activeValidationRun.completed_count, failed: activeValidationRun.failed_count, total: activeValidationRun.total_count }) : format("documentChatBatchCreated", { count: batchCompletedCount })}</span></div></div> : (
               <div className="batch-upload-body">
-                <div className="batch-template-row"><div><strong>{t("csvTemplate")}</strong><small>question、expected_answer、expected_keywords、selected_document_ids、category、priority</small></div><button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button></div>
+                <div className="batch-template-row"><div><strong>{t("csvTemplate")}</strong><small>question、expected_answer、expected_keywords、selected_document_ids、category、priority、conversation_key、turn</small><small>{t("validationScenarioCsvHelp")}</small></div><button className="action-button secondary" onClick={downloadQuestionTemplate} type="button"><FileDown size={16} /> {t("downloadTemplate")}</button></div>
                 <label className="csv-upload-field"><Upload size={22} /><span><strong>{t("selectCsvFile")}</strong><small>.csv · UTF-8</small></span><input accept=".csv,text/csv" onChange={selectCsvFile} type="file" /></label>
                 {uploadFileName ? <div className="batch-file-status"><FileText size={17} /><span><strong>{uploadFileName}</strong><small>{uploadError ? localize(uploadError) : format("documentChatValidQuestionCount", { count: uploadQuestions.length })}</small></span></div> : null}
                 {uploadError ? <FeedbackMessage tone="error">{localize(uploadError)}</FeedbackMessage> : null}
-                {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((item, index) => <li key={`${item}-${index}`}>{item}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
+                {uploadQuestions.length ? <ol className="batch-question-preview">{uploadQuestions.slice(0, 3).map((item, index) => <li key={`${item.question}-${index}`}>{item.conversation_key ? `${format("validationScenarioTurnLabel", { key: item.conversation_key, turn: item.turn ?? 0 })}｜` : ""}{item.question}</li>)}{uploadQuestions.length > 3 ? <li>{format("projectChatMoreQuestions", { count: uploadQuestions.length - 3 })}</li> : null}</ol> : null}
               </div>
             )}
             <div className="modal-actions"><button className="action-button secondary" onClick={() => setUploadOpen(false)} type="button">{batchCompletedCount !== null ? t("closeDialog") : t("cancel")}</button>{batchCompletedCount === null ? <button className="action-button" disabled={!uploadQuestions.length || Boolean(uploadError) || batchCreating} onClick={confirmBatchUpload} type="button">{t("confirmUpload")}</button> : null}</div>

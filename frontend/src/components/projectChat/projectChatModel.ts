@@ -2,6 +2,7 @@
 import { UiValidationError } from "@/lib/transportError";
 import { type ChatTurnContext, type ConversationMode, type ProjectChatCitation, type ProjectChatConversationResponse } from "@/lib/api";
 import { recordTurnContext } from "@/components/ChatTurnContextNote";
+import { checkScenarios, scenarioFields } from "@/lib/validationScenarios";
 import { type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -15,6 +16,8 @@ export type CsvValidationQuestion = {
   selected_document_ids?: string[];
   category?: string | null;
   priority?: string | null;
+  conversation_key?: string | null;
+  turn?: number | null;
 };
 export type ProjectConversation = {
   id: string;
@@ -137,6 +140,7 @@ export function conversationFromHistory(item: ProjectChatConversationResponse): 
 
 export function validationItemMessage(status: string, answer: string | null | undefined, t: Translate) {
   if (answer) return answer;
+  if (status === "blocked") return t("validationBlockedPreviousTurn");
   if (status === "running") return t("projectChatValidationRunning");
   if (status === "error") return t("projectChatValidationFailed");
   if (status === "failed") return t("projectChatValidationFailedScore");
@@ -158,18 +162,22 @@ export function parseValidationQuestionsCsv(contents: string, scopeIds: string[]
   const priorityIndex = headers.indexOf("priority");
   const splitList = (value: string | undefined) => (value ?? "").split(/[;,|]/).map((id) => id.trim()).filter(Boolean);
   const valueAt = (row: string[], index: number) => index >= 0 ? (row[index] ?? "").trim() : "";
-  const questions = rows.slice(1).map((row): CsvValidationQuestion | null => {
+  const rowNumbers: number[] = [];
+  const questions = rows.slice(1).map((row, index): CsvValidationQuestion | null => {
     const questionText = valueAt(row, questionIndex);
     if (!questionText) return null;
+    rowNumbers.push(index + 1);
     return {
       question: questionText,
       expected_answer: valueAt(row, expectedAnswerIndex) || null,
       expected_keywords: splitList(valueAt(row, expectedKeywordsIndex)),
       selected_document_ids: splitList(valueAt(row, selectedDocumentsIndex)),
       category: valueAt(row, categoryIndex) || null,
-      priority: valueAt(row, priorityIndex) || null
+      priority: valueAt(row, priorityIndex) || null,
+      ...scenarioFields(headers, row, index + 1, format)
     };
   }).filter((item): item is CsvValidationQuestion => item !== null);
+  checkScenarios(questions, format, rowNumbers);
   const invalidIds = questions.flatMap((question) => question.selected_document_ids ?? []).filter((id) => !scopeIds.includes(id));
   if (invalidIds.length) throw new Error(format("projectChatCsvInvalidScope", { ids: [...new Set(invalidIds)].join(", ") }));
   if (!questions.length) throw new UiValidationError("projectChatCsvNoQuestions");

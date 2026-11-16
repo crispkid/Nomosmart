@@ -73,8 +73,8 @@ export const visibleTextAllowlist = Object.freeze({
     "knowledge-source",
     "policies/2026",
     "policy.pdf",
-    "question, expected_answer, expected_keywords, selected_document_ids, category, priority",
-    "question、expected_answer、expected_keywords、selected_document_ids、category、priority",
+    "question, expected_answer, expected_keywords, selected_document_ids, category, priority, conversation_key, turn",
+    "question、expected_answer、expected_keywords、selected_document_ids、category、priority、conversation_key、turn",
     "{\"Accept\":\"application/json\"}"
   ])
 });

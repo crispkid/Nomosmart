@@ -15,6 +15,9 @@ from app.db.models import AIModel, ChatRecord, Project, ValidationRun, Validatio
 from app.domain.ai_provider import evaluate_rag_answer, generate_rag_answer
 from app.domain.chat_citations import citation_persistence_payload, validate_citation_markers
 from app.domain.chat_conversations import require_conversation_identity
+from app.domain.conversation_history import ConversationContext, bound_history, chat_test_turns, rewrite_question
+from app.domain.validation_scenarios import execution_order
+from app.core.config import get_settings
 from app.domain.model_usage import record_model_usage, QUERY_USAGE_STOP_CODES
 from app.domain.project_retrieval import _resolve_document_staging_scope, _resolve_retrieval_scope, _search_document_staging_chunks, _search_published_chunks
 from app.domain.system_prompts import (
@@ -74,14 +77,14 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
             run.status = "failed"
         session.commit()
         raise
-    pending_items = list(
+    # CHG-436 MTVAL436-003: a scenario runs in turn order where its first CSV row appears.
+    pending_items = execution_order(
         session.scalars(
             select(ValidationRunItem)
             .where(ValidationRunItem.run_id == run.id, ValidationRunItem.is_current.is_(True), ValidationRunItem.status == "pending")
             .order_by(ValidationRunItem.input_ordinal, ValidationRunItem.id)
-            .limit(max_items or run.total_count or 1000)
         )
-    )
+    )[: max_items or run.total_count or 1000]
     now = datetime.now(UTC)
     run.status = "running"
     run.started_at = run.started_at or now
@@ -96,7 +99,15 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
             break
         if run.status == "cancelled":
             break
-        _execute_item(session, run, project, item)
+        previous = _previous_turn(session, item)
+        if item.turn_index is not None and item.turn_index > 1 and (previous is None or previous.chat_record_id is None or previous.status in {"error", "blocked", "cancelled"}):
+            # MTVAL436-004: without the earlier answer this turn cannot be asked; no model call, no score.
+            item.status = "blocked"
+            item.error_code = "previous_turn_failed"
+            item.error_message = "The previous turn of this scenario has no answer"
+            session.commit()
+            continue
+        _execute_item(session, run, project, item, previous=previous)
         if item.error_code in QUERY_USAGE_STOP_CODES:
             break
     session.refresh(run)
@@ -108,7 +119,15 @@ def execute_validation_run(session: Session, run_id: UUID, *, max_items: int | N
     return run
 
 
-def _execute_item(session: Session, run: ValidationRun, project: Project, item: ValidationRunItem) -> None:
+def _previous_turn(session: Session, item: ValidationRunItem) -> ValidationRunItem | None:
+    if item.conversation_key is None or not item.turn_index or item.turn_index <= 1:
+        return None
+    return session.scalar(select(ValidationRunItem).where(
+        ValidationRunItem.run_id == item.run_id, ValidationRunItem.is_current.is_(True),
+        ValidationRunItem.conversation_key == item.conversation_key, ValidationRunItem.turn_index == item.turn_index - 1))
+
+
+def _execute_item(session: Session, run: ValidationRun, project: Project, item: ValidationRunItem, *, previous: ValidationRunItem | None = None) -> None:
     item.status = "running"
     item.error_message = None
     item.error_code = None
@@ -123,22 +142,36 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             (run.execution_manifest or {})["retrieval_top_k"]
         )
         selected_ids = _uuid_set(item.selected_document_ids) or _uuid_set(run.selected_document_ids)
-        conversation_id = uuid4()
         chat_scope_mode = "document_staging" if run.run_scope == "document_staging" else "published"
-        require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
-            user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids, unused_only=True)
+        previous_record = session.get(ChatRecord, previous.chat_record_id) if previous is not None and previous.chat_record_id else None
+        if previous_record is not None:
+            # MTVAL436-003: later turns continue the scenario conversation from the earlier answer.
+            conversation_id = previous_record.conversation_id
+            require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
+                user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids)
+        else:
+            conversation_id = uuid4()
+            require_conversation_identity(session, project_id=project.id, conversation_id=conversation_id,
+                user_id=run.created_by, scope_mode=chat_scope_mode, requested_ids=selected_ids, unused_only=True)
+        turn = ConversationContext(previous_id=previous_record.id if previous_record else None, search_question=item.question)
+        if previous_record is not None:
+            settings = get_settings()
+            earlier = chat_test_turns(session, settings, previous_record.id, user_id=run.created_by, project_id=project.id, conversation_id=conversation_id)
+            turn.history, turn.truncated = bound_history(earlier, settings, None)
+            rewrite_question(session, settings, turn, item.question, _manifest_model(session, run, "chat_model_id", "Chat"),
+                             source_channel="validation", project_id=project.id, actor_user_id=run.created_by)
         if run.run_scope == "document_staging":
             requested_ids = _resolve_document_staging_scope(session, project.id, list(selected_ids))
-            citations = _search_document_staging_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            citations = _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "document_staging"
         else:
             _manifests, _manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, list(selected_ids))
-            citations = _search_published_chunks(session, project.id, requested_ids, item.question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            citations = _search_published_chunks(session, project.id, requested_ids, turn.search_question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "published"
         chat_model = _manifest_model(session, run, "chat_model_id", "Chat") if citations else None
         chat_prompt = _manifest_prompt(run, "chat_prompt") if chat_model is not None else None
         provider_started = perf_counter()
-        provider_result = generate_rag_answer(question=item.question, citations=citations, model=chat_model, system_prompt=chat_prompt)
+        provider_result = generate_rag_answer(question=item.question, citations=citations, model=chat_model, system_prompt=chat_prompt, history=turn.history)
         validate_citation_markers(provider_result.answer, len(citations))
         session.refresh(run)
         if run.status == "cancelled":
@@ -154,7 +187,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             document_version_id=next(iter(requested_ids)) if len(requested_ids) == 1 else None,
             scope_mode=chat_scope_mode,
             conversation_id=conversation_id,
-            conversation_title=f"Validation: {item.question[:80]}",
+            conversation_title=f"Validation: {item.conversation_key}" if item.conversation_key else f"Validation: {item.question[:80]}",
             selected_document_version_ids=[str(value) for value in sorted(requested_ids, key=str)],
             question=item.question,
             answer=provider_result.answer,
@@ -173,6 +206,12 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             asked_at=asked_at,
             answered_at=answered_at,
             created_at=asked_at,
+            previous_response_id=turn.previous_id,
+            conversation_mode="multi" if item.conversation_key else "single",
+            history_turns=turn.turns_used,
+            history_truncated=turn.truncated,
+            rewritten_query=turn.rewritten_query,
+            rewrite_status=turn.rewrite_status,
         )
         session.add(record)
         session.flush([record])
@@ -196,7 +235,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         item.answer = provider_result.answer
         item.reference_docs = [citation_persistence_payload(citation) for citation in citations]
         item.chat_record_id = record.id
-        score, reason, prompt_source, prompt_version_id, prompt_hash, prompt_layers = _score_answer(session, run, item, citations, provider_result.answer)
+        score, reason, prompt_source, prompt_version_id, prompt_hash, prompt_layers = _score_answer(session, run, item, citations, provider_result.answer, history=turn.history)
         item.score = score
         item.evaluation_reason = reason
         item.status = _validation_status(score=score, reason=reason)
@@ -257,7 +296,7 @@ def _record_validation_usage(
     )
 
 
-def _score_answer(session: Session, run: ValidationRun, item: ValidationRunItem, citations: list[ProjectChatCitation], answer: str | None) -> tuple[float | None, str, str | None, UUID | None, str | None, list[dict] | None]:
+def _score_answer(session: Session, run: ValidationRun, item: ValidationRunItem, citations: list[ProjectChatCitation], answer: str | None, *, history: list[tuple[str, str]] | None = None) -> tuple[float | None, str, str | None, UUID | None, str | None, list[dict] | None]:
     judge_model = _manifest_model(
         session,
         run,
@@ -270,7 +309,7 @@ def _score_answer(session: Session, run: ValidationRun, item: ValidationRunItem,
     started = perf_counter()
     try:
         judge_prompt = _manifest_prompt(run, "judge_prompt")
-        judged = evaluate_rag_answer(question=item.question, answer=answer, expected_answer=item.expected_answer, expected_keywords=item.expected_keywords, citations=citations, model=judge_model, system_prompt=judge_prompt)
+        judged = evaluate_rag_answer(question=item.question, answer=answer, expected_answer=item.expected_answer, expected_keywords=item.expected_keywords, citations=citations, model=judge_model, system_prompt=judge_prompt, history=history)
         _record_validation_usage(
             session,
             run,
@@ -476,6 +515,8 @@ def _validate_input_item(item: ValidationRunItem) -> None:
         "category": item.category,
         "priority": item.priority,
     }
+    if item.conversation_key is not None:
+        input_payload.update(conversation_key=item.conversation_key, turn=item.turn_index)
     if _canonical_hash(input_payload) != item.input_content_hash:
         raise AppError(
             "validation_input_integrity_failed",
@@ -487,7 +528,7 @@ def _validate_input_item(item: ValidationRunItem) -> None:
 def _refresh_run_counts(session: Session, run: ValidationRun) -> None:
     items = list(session.scalars(select(ValidationRunItem).where(ValidationRunItem.run_id == run.id, ValidationRunItem.is_current.is_(True))))
     completed = sum(1 for item in items if item.status in {"passed", "needs_review", "completed", "skipped"})
-    failed = sum(1 for item in items if item.status in {"failed", "error"})
+    failed = sum(1 for item in items if item.status in {"failed", "error", "blocked"})
     run.completed_count = completed
     run.failed_count = failed
     if failed and completed:
