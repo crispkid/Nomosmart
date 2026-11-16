@@ -99,9 +99,9 @@ def _select_chat_model(session: Session, project: Project) -> AIModel:
     return model
 
 
-def _generate_citation_bound_answer(session: Session, question: str, citations: list[ProjectChatCitation], model: AIModel | None):
+def _generate_citation_bound_answer(session: Session, question: str, citations: list[ProjectChatCitation], model: AIModel | None, history: list[tuple[str, str]] | None = None):
     system_prompt = resolve_system_prompt(session, model=model, model_type="Chat") if model is not None else None
-    return generate_rag_answer(question=question, citations=citations, model=model, system_prompt=system_prompt)
+    return generate_rag_answer(question=question, citations=citations, model=model, system_prompt=system_prompt, history=history)
 
 
 def _search_document_staging_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:

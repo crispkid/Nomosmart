@@ -44,6 +44,7 @@ export const visibleTextAllowlist = Object.freeze({
     "public_api",
     "public_api_chat",
     "query_embedding",
+    "query_rewrite",
     "system_management",
     "validation",
     "validation_answer",

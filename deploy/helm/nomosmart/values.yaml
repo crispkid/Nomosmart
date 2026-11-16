@@ -218,6 +218,9 @@ backend:
     HTTP_SOURCE_ALLOWED_HOSTS: ""
     HTTP_SOURCE_ALLOWED_CIDRS: ""
     VALIDATION_MAX_ATTEMPTS: "3"
+    # Multi-turn Q&A: earlier turns and characters sent with a follow-up (CHG-435).
+    CHAT_HISTORY_MAX_TURNS: "5"
+    CHAT_HISTORY_MAX_CHARACTERS: "12000"
     REPORT_EXPORT_BATCH_SIZE: "500"
     REPORT_EXPORT_TIMEOUT_SECONDS: "300"
     NOMOSMART_MODEL_USAGE_WRITE_TIMEOUT_SECONDS: "10"
@@ -247,9 +250,9 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # NomoSmart 0.2.5 target from deploy/migrations/release-contract.json.
-  requiredVersion: "061"
-  requiredChecksum: "1514288448"
+  # Migration target from deploy/migrations/release-contract.json (062 since CHG-435).
+  requiredVersion: "062"
+  requiredChecksum: "-1938258038"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

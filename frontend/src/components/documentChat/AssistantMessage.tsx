@@ -3,6 +3,7 @@
 import { type FormEvent, useMemo, useState } from "react";
 import { Bot, CheckCircle2, Wrench, X } from "lucide-react";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
+import { ChatTurnContextNote } from "@/components/ChatTurnContextNote";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
 import { FeedbackField } from "@/components/FeedbackMessage";
 import { Modal } from "@/components/Modal";
@@ -48,6 +49,7 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
             noCitationsLabel={t("documentChatNoBackendCitation")}
           />
         )}
+        {!entry.loading && !entry.error ? <ChatTurnContextNote context={entry.context} /> : null}
         <div className="answer-judgment" aria-label={t("documentChatAnswerJudgmentAria")}>
           <button className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId || !canEvaluate} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><CheckCircle2 size={16} /> {t("answerCorrect")}</button>
           <button className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId || !canEvaluate} onClick={openRevisionModal} type="button"><Wrench size={16} /> {t("answerNeedsRevision")}</button>

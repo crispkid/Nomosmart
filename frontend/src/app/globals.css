@@ -4450,6 +4450,41 @@ small {
   text-decoration: line-through;
 }
 
+/* CHG-435: conversation mode picker and the context a multi-turn answer used. */
+.chat-mode-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px 0;
+  font-size: 13px;
+}
+.chat-mode-picker .chat-mode-label { color: var(--text-secondary); font-weight: 700; }
+.chat-mode-picker button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-height: 32px;
+  padding: 4px 10px;
+  border: 1px solid var(--cool-gray);
+  border-radius: 6px;
+  background: var(--cloud-white);
+  color: var(--ink);
+  font-size: 13px;
+}
+.chat-mode-picker button.selected { border-color: var(--deep-green); color: var(--deep-green); font-weight: 700; }
+.chat-mode-picker button:disabled { cursor: not-allowed; opacity: 0.7; }
+.chat-mode-picker small { flex-basis: 100%; color: var(--text-secondary); }
+.chat-turn-context {
+  margin: 6px 0 0;
+  padding: 0;
+  list-style: none;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 /* CHG-434: answer text shown while the Open Responses stream is still arriving. */
 .chat-streaming-answer {
   margin: 0;

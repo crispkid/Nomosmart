@@ -172,7 +172,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 | 入口 | 用途 |
 | --- | --- |
 | `/api/v1` | Backend 內部 API；工作階段與後端權限檢查 |
-| `/api/public/v1` | 整合 API；相容 Open Responses 的 `POST /responses`（一般或 `stream: true`）與回饋；獨立 API Key 與專案 scope |
+| `/api/public/v1` | 整合 API；相容 Open Responses 的 `POST /responses`（一般或 `stream: true`，以 `previous_response_id` 支援多輪）與回饋；獨立 API Key 與專案 scope |
 | `/openapi.json`、`/docs` | Backend OpenAPI／Swagger |
 | `/api-docs` | 產品內 API 說明 |
 | `/api/v1/health`、`/api/v1/ready` | 程序健康與依賴／初始化就緒狀態 |

@@ -58,6 +58,7 @@ from app.domain.project_retrieval import (
 )
 from app.domain.chat_citations import citation_persistence_payload, compact_citation_view, hydrate_citation_groups, validate_citation_markers
 from app.domain.model_usage import record_model_usage
+from app.domain.conversation_history import chat_test_context
 from app.domain.chunk_artifacts import chunk_artifact_state
 from app.domain.system_prompts import resolve_system_prompt
 from app.security.context import IdentityContext, get_identity_context
@@ -287,18 +288,20 @@ def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, cont
         _manifests, manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, payload.document_version_ids)
     _ensure_conversation_can_continue(session, project.id, conversation_id, requested_ids, context.user_id, payload.scope_mode)
     started = perf_counter()
+    # CHG-435 MTURN435-001..009: mode rule, earlier turns and the (rewritten) search question.
+    conversation_mode, turn = chat_test_context(session, get_settings(), project, payload, user_id=context.user_id, conversation_id=conversation_id)
     asked_at = datetime.now(UTC)
     citations = (
-        _search_document_staging_chunks(session, project.id, requested_ids, payload.question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
         if payload.scope_mode == "document_staging"
-        else _search_published_chunks(session, project.id, requested_ids, payload.question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
     )
     status = "answered" if citations else "no_answer"
     chat_model = _select_chat_model(session, project) if citations else None
     provider_started = perf_counter()
     provider_result = None
     try:
-        provider_result = _generate_citation_bound_answer(session, payload.question, citations, chat_model)
+        provider_result = _generate_citation_bound_answer(session, payload.question, citations, chat_model, turn.history)
         validate_citation_markers(provider_result.answer, len(citations))
     except AppError as exc:
         if chat_model is not None:
@@ -347,6 +350,12 @@ def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, cont
         asked_at=asked_at,
         answered_at=answered_at,
         created_at=asked_at,
+        previous_response_id=turn.previous_id,
+        conversation_mode=conversation_mode,
+        history_turns=turn.turns_used,
+        history_truncated=turn.truncated,
+        rewritten_query=turn.rewritten_query,
+        rewrite_status=turn.rewrite_status,
     )
     session.add(record)
     session.flush([record])
@@ -368,7 +377,7 @@ def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, cont
     session.commit()
     session.refresh(record)
     compact = compact_citation_view(answer, citations)
-    return ProjectChatQueryResponse(chat_record_id=record.id, conversation_id=conversation_id, conversation_title=title, answer=compact.answer or "", citations=compact.citations, manifest_version_ids=sorted(manifest_ids, key=str), selected_version_ids=sorted(requested_ids, key=str), status=status, retrieval_strategy="hybrid", prompt_version=prompt_version, system_prompt_source=provider_result.system_prompt_source, system_prompt_version_id=provider_result.system_prompt_version_id, system_prompt_content_hash=provider_result.system_prompt_content_hash, system_prompt_layers=provider_result.system_prompt_layers, llm_model_id=chat_model.id if chat_model else None, token_usage=token_usage, latency_ms=latency_ms)
+    return ProjectChatQueryResponse(chat_record_id=record.id, conversation_id=conversation_id, conversation_title=title, answer=compact.answer or "", citations=compact.citations, manifest_version_ids=sorted(manifest_ids, key=str), selected_version_ids=sorted(requested_ids, key=str), status=status, retrieval_strategy="hybrid", prompt_version=prompt_version, system_prompt_source=provider_result.system_prompt_source, system_prompt_version_id=provider_result.system_prompt_version_id, system_prompt_content_hash=provider_result.system_prompt_content_hash, system_prompt_layers=provider_result.system_prompt_layers, llm_model_id=chat_model.id if chat_model else None, token_usage=token_usage, latency_ms=latency_ms, previous_response_id=turn.previous_id, conversation_mode=conversation_mode, context=turn.extension())
 
 
 @router.get("/projects/{project_id}/chat/conversations", response_model=ProjectChatConversationPage)
@@ -1518,6 +1527,8 @@ def _conversation_summaries(session: Session, project_id: UUID, records: list[Ch
                 can_export=is_mine,
                 read_only_reason=("not_conversation_creator" if not is_mine else
                                   "retrieval_scope_unavailable" if not selected_ids or not set(selected_ids).issubset(continuable_ids) else None),
+                conversation_mode=ordered[0].conversation_mode or "single",
+                latest_record_id=latest.id,
                 records=[_chat_record_response(row, citations=hydrated_by_record_id.get(row.id)) for row in ordered] if include_records else [],
             )
         )
@@ -1608,6 +1619,11 @@ def _chat_record_response(record: ChatRecord, *, citations: list | None = None) 
         latency_ms=record.latency_ms,
         asked_at=record.asked_at,
         answered_at=record.answered_at,
+        previous_response_id=record.previous_response_id,
+        history_turns=record.history_turns or 0,
+        history_truncated=bool(record.history_truncated),
+        rewritten_query=record.rewritten_query,
+        rewrite_status=record.rewrite_status or "not_needed",
     )
 
 

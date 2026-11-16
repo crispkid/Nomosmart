@@ -22,6 +22,9 @@ import { useReadResource } from "@/lib/useReadResource";
 import { useI18n } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
+import { ChatModePicker } from "@/components/ChatModePicker";
+import { recordTurnContext } from "@/components/ChatTurnContextNote";
+import type { ConversationMode } from "@/lib/api";
 import { type Judgment, type AnswerEvaluation, type Translate, type ConversationEntry, validationEntries, parseCsv, downloadTextFile, retrievalErrorMessage } from "@/components/documentChat/documentChatModel";
 import { AssistantMessage } from "@/components/documentChat/AssistantMessage";
 
@@ -38,6 +41,7 @@ export default function ChatTestPage() {
   const [question, setQuestion] = useState("");
   const [conversationEntries, setConversationEntries] = useState<ConversationEntry[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [draftMode, setDraftMode] = useState<ConversationMode>("single");
   const [histories, setHistories] = useState<ProjectChatConversationResponse[]>([]);
   const [historyCursor, setHistoryCursor] = useState<string | null>(null);
   const [historyBusy, setHistoryBusy] = useState(false);
@@ -74,7 +78,7 @@ export default function ChatTestPage() {
     setConversationEntries((item?.records ?? []).map((record) => ({ id: record.id, recordId: record.id,
       question: record.question, answer: record.answer ?? undefined, askedAt: record.asked_at,
       answeredAt: record.answered_at, citations: record.citations,
-      status: record.answer ? "answered" : "no_answer" })));
+      status: record.answer ? "answered" : "no_answer", context: recordTurnContext(record) })));
     setEvaluations(Object.fromEntries((item?.records ?? []).filter((record) => record.evaluation !== "not_evaluated")
       .map((record) => [record.id, { judgment: record.evaluation === "correct" ? "correct" : "needs_revision", suggestion: record.revision_suggestion ?? "" }])));
     setQuestion("");
@@ -201,12 +205,15 @@ export default function ChatTestPage() {
     const scope = scopeEpoch.current.capture();
     const selection = selectionEpoch.current.capture();
     const conversationId = activeConversationId ?? crypto.randomUUID();
+    // CHG-435: the mode is fixed by the first question; multi-turn continues from the latest saved answer.
+    const conversationMode: ConversationMode = activeHistory?.conversation_mode ?? draftMode;
+    const previousRecordId = conversationMode === "multi" ? ([...conversationEntries].reverse().find((entry) => entry.recordId && !entry.error)?.recordId ?? activeHistory?.latest_record_id ?? undefined) : undefined;
     const localId = `pending-${Date.now()}`;
     const askedAt = new Date().toISOString();
     setConversationEntries((entries) => [...entries, { id: localId, question: trimmedQuestion, askedAt, citations: [], loading: true }]);
     setQuestion("");
     try {
-      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: conversationId, conversation_title: detail?.document.title ?? trimmedQuestion }, (partial) => {
+      const result = await queryProjectChat(apiFetch, params.id, { question: trimmedQuestion, document_version_ids: [versionId], scope_mode: "document_staging", conversation_id: conversationId, conversation_title: detail?.document.title ?? trimmedQuestion, conversation_mode: conversationMode, previous_record_id: previousRecordId }, (partial) => {
         if (!scopeEpoch.current.isCurrent(scope) || !selectionEpoch.current.isCurrent(selection)) return;
         setConversationEntries((entries) => entries.map((entry) => entry.id === localId ? { ...entry, answer: partial } : entry));
       });
@@ -221,7 +228,8 @@ export default function ChatTestPage() {
         answeredAt: new Date().toISOString(),
         citations: result.citations,
         loading: false,
-        status: result.status
+        status: result.status,
+        context: result.context
       } : entry));
       }
       const saved = await getProjectChatConversation(apiFetch, params.id, result.conversation_id ?? conversationId, { scope_mode: "document_staging", document_version_id: versionId });
@@ -423,6 +431,7 @@ export default function ChatTestPage() {
             ))}
           </div>
 
+          <ChatModePicker locked={Boolean(activeConversationId && (conversationEntries.length || activeHistory))} mode={activeHistory?.conversation_mode ?? draftMode} onChange={setDraftMode} />
           <form aria-busy={queryBusy} className="chat-composer" onSubmit={submitQuestion}>
             <label htmlFor="chat-question">{t("askQuestion")}</label>
             <div><textarea disabled={!canContinue || queryBusy} id="chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitQuestionOnEnter} placeholder={t("chatPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!question.trim() || !canContinue || queryBusy} type="submit"><Send size={17} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>

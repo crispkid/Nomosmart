@@ -1171,6 +1171,13 @@ class ChatRecord(UUIDPrimaryKeyMixin, Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    # CHG-435 MTURN435-010 (V062): multi-turn context.
+    previous_response_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("chat_records.id", ondelete="SET NULL"))
+    conversation_mode: Mapped[str] = mapped_column(String(16), nullable=False, default="single", server_default="single")
+    history_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    history_truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    rewritten_query: Mapped[str | None] = mapped_column(Text)
+    rewrite_status: Mapped[str] = mapped_column(String(16), nullable=False, default="not_needed", server_default="not_needed")
 
 
 class PublicApiRequestLog(UUIDPrimaryKeyMixin, Base):
@@ -1224,6 +1231,12 @@ class PublicApiRequestLog(UUIDPrimaryKeyMixin, Base):
     redacted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     metadata_: Mapped[dict] = mapped_column("metadata", JSONB, nullable=False, default=dict)
+    # CHG-435 MTURN435-010 (V062): multi-turn context; the rewritten question is encrypted like the question.
+    previous_response_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("public_api_request_logs.id", ondelete="SET NULL"))
+    history_turns: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    history_truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    rewritten_query_encrypted: Mapped[str | None] = mapped_column(Text)
+    rewrite_status: Mapped[str] = mapped_column(String(16), nullable=False, default="not_needed", server_default="not_needed")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 
 

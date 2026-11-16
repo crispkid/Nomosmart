@@ -10,7 +10,7 @@ import type {
 } from "./reviewTypes";
 import type {
   NotificationCountResponse, NotificationResponse, ProjectChatConversationDeleteResponse,
-  ProjectChatConversationPage, ProjectChatConversationResponse, ProjectChatQueryResponse,
+  ChatTurnContext, ConversationMode, ProjectChatConversationPage, ProjectChatConversationResponse, ProjectChatQueryResponse,
   ProjectChatRecordResponse, ProjectGraphResponse, ProjectServingStatusResponse, ReportFilterOptionsResponse,
   ReportSummaryResponse, ValidationRunResponse
 } from "./servingTypes";
@@ -86,13 +86,15 @@ export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: str
 export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
   return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`, { signal });
 }
-type ChatQueryPayload = { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null };
+type ChatQueryPayload = { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null; conversation_mode?: ConversationMode; previous_record_id?: string | null };
 type OpenResponsesCitation = ProjectChatQueryResponse["citations"][number];
 type OpenResponsesResource = {
   id: string;
   output?: { content?: { text?: string; annotations?: { "nomosmart:citation"?: OpenResponsesCitation }[] }[] }[];
   "nomosmart:answer_status"?: "answered" | "no_answer";
-  "nomosmart:conversation"?: { id?: string; title?: string };
+  "nomosmart:conversation"?: { id?: string; title?: string; mode?: ConversationMode };
+  "nomosmart:context"?: ChatTurnContext;
+  previous_response_id?: string | null;
   "nomosmart:manifest_version_ids"?: string[];
   "nomosmart:selected_document_version_ids"?: string[];
   "nomosmart:llm_model_id"?: string | null;
@@ -108,9 +110,11 @@ export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, pa
   const conversation: Record<string, string> = {};
   if (payload.conversation_id) conversation.id = payload.conversation_id;
   if (payload.conversation_title) conversation.title = payload.conversation_title;
+  if (payload.conversation_mode) conversation.mode = payload.conversation_mode;
   const body: Record<string, unknown> = { model: `nomosmart:project/${projectId}`, input: payload.question, stream: true, "nomosmart:scope": scope };
   if (payload.top_k) body["nomosmart:top_k"] = payload.top_k;
   if (Object.keys(conversation).length) body["nomosmart:conversation"] = conversation;
+  if (payload.previous_record_id) body.previous_response_id = `resp_${payload.previous_record_id}`;
   let response: Response;
   try { response = await apiFetch(`${apiBaseUrl()}/responses`, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", accept: "text/event-stream" }, body: JSON.stringify(body) }); }
   catch (error) {
@@ -190,6 +194,9 @@ function chatQueryResult(resource: OpenResponsesResource): ProjectChatQueryRespo
     prompt_version: resource["nomosmart:prompt_version"] ?? null,
     system_prompt_source: prompt?.source ?? null,
     system_prompt_version_id: prompt?.version_id ?? null,
+    previous_response_id: resource.previous_response_id?.replace(/^resp_/, "") ?? null,
+    conversation_mode: resource["nomosmart:conversation"]?.mode,
+    context: resource["nomosmart:context"],
   };
 }
 export async function listProjectChatConversationPage(apiFetch: ApiFetch, projectId: string, options?: { scope_mode?: "published" | "document_staging"; document_version_id?: string; cursor?: string; signal?: AbortSignal }) {
