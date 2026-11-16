@@ -12,6 +12,8 @@ import { useParams } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { createProjectChatValidationRun, deleteProjectChatConversation, downloadProjectChatConversationCsv, getProjectChatConversation, getProjectChatValidationRun, getProjectServingStatus, listProjectChatConversationPage, listProjectDocuments, queryProjectChat, retryFailedProjectChatValidationItems, updateProjectChatFeedback, type ProjectServingStatusResponse, type ValidationRunResponse } from "@/lib/api";
 import { ChatRequestEpoch, chatConversationAccess, chatScopeRevoked } from "@/lib/chatConversationAccess";
+import { ChatModePicker } from "@/components/ChatModePicker";
+import type { ConversationMode } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { useReadResource } from "@/lib/useReadResource";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
@@ -37,6 +39,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [conversations, setConversations] = useState<ProjectConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
+  const [draftMode, setDraftMode] = useState<ConversationMode>("single");
   const [historyStatus, setHistoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const [historyError, setHistoryError] = useState("");
   const [historyCursor, setHistoryCursor] = useState<string | null>(null);
@@ -304,7 +307,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
       return;
     }
     const now = Date.now();
-    const conversation: ProjectConversation = { id: newConversationId(), scopeIds: [...selectedIds], entries: [], judgments: {}, createdAt: now, updatedAt: now };
+    const conversation: ProjectConversation = { id: newConversationId(), scopeIds: [...selectedIds], entries: [], judgments: {}, createdAt: now, updatedAt: now, mode: draftMode };
     setConversations((current) => [conversation, ...current]);
     activateConversation(conversation);
   }
@@ -369,13 +372,16 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     const localConversationId = activeConversation?.id ?? newConversationId();
     const localScopeIds = [...scopeIds];
     const localEntries = [...entries];
+    // CHG-435: a multi-turn conversation continues from its latest saved answer.
+    const localMode: ConversationMode = activeConversation?.mode ?? draftMode;
+    const previousRecordId = localMode === "multi" ? ([...localEntries].reverse().find((entry) => entry.recordId && !entry.error)?.recordId ?? activeConversation?.history?.latest_record_id ?? undefined) : undefined;
     const pendingEntry: Entry = { id: now, question: text, loading: false };
     const liveEligible = Boolean(params?.id) && allScopeIdsEligible && (allScopeIdsFormal || allSelected);
     setConversations((current) => {
       if (current.some((conversation) => conversation.id === localConversationId)) {
         return current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: [...conversation.entries, { ...pendingEntry, loading: liveEligible }], updatedAt: now } : conversation);
       }
-      return [{ id: localConversationId, scopeIds: localScopeIds, entries: [{ ...pendingEntry, loading: liveEligible }], judgments: {}, createdAt: now, updatedAt: now }, ...current];
+      return [{ id: localConversationId, scopeIds: localScopeIds, entries: [{ ...pendingEntry, loading: liveEligible }], judgments: {}, createdAt: now, updatedAt: now, mode: localMode }, ...current];
     });
     setActiveConversationId(localConversationId);
     setQuestion("");
@@ -388,12 +394,12 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
       return;
     }
     try {
-      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text }, (partial) => {
+      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text, conversation_mode: localMode, previous_record_id: previousRecordId }, (partial) => {
         if (!scopeEpoch.current.isCurrent(scope)) return;
         setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, answer: partial } : entry) } : conversation));
       });
       if (!scopeEpoch.current.isCurrent(scope)) return;
-      setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, id: result.conversation_id || conversation.id, persisted: Boolean(result.conversation_id) || conversation.persisted, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, recordId: result.chat_record_id ?? undefined, answer: result.answer, citations: result.citations, status: result.status, retrievalStrategy: result.retrieval_strategy, loading: false } : entry), updatedAt: Date.now() } : conversation));
+      setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, id: result.conversation_id || conversation.id, persisted: Boolean(result.conversation_id) || conversation.persisted, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, recordId: result.chat_record_id ?? undefined, answer: result.answer, citations: result.citations, status: result.status, retrievalStrategy: result.retrieval_strategy, context: result.context, loading: false } : entry), updatedAt: Date.now() } : conversation));
       setHistoryStatus("ready");
       setHistoryError("");
       if (result.conversation_id) {
@@ -484,7 +490,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
           if (current.some((conversation) => conversation.id === localConversationId)) {
             return current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: [...conversation.entries, ...validationEntries], updatedAt: started } : conversation);
           }
-          return [{ id: localConversationId, scopeIds: localScopeIds, entries: validationEntries, judgments: {}, createdAt: started, updatedAt: started, validationRunId: run.id }, ...current];
+          return [{ id: localConversationId, scopeIds: localScopeIds, entries: validationEntries, judgments: {}, createdAt: started, updatedAt: started, validationRunId: run.id, mode: "single" }, ...current];
         });
         if (selectionEpoch.current.isCurrent(selection)) setActiveConversationId(localConversationId);
         setHistoryStatus("ready");
@@ -584,6 +590,10 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
           {!entries.length ? <div className="chat-empty-state"><Bot size={24} /><strong>{t("projectChatEmptyTitle")}</strong><span>{t("projectChatEmptyHelp")}</span></div> : null}
           {entries.map((entry) => <ProjectChatEntryPair access={access} authorName={authorName} entry={entry} judgments={judgments} key={entry.id} persistFeedback={persistFeedback} setRevisionEntryId={setRevisionEntryId} setRevisionText={setRevisionText} />)}
         </div>
+        <ChatModePicker locked={Boolean(activeConversation && (activeConversation.entries.length || activeConversation.persisted))} mode={activeConversation?.mode ?? draftMode} onChange={(mode) => {
+          setDraftMode(mode);
+          if (activeConversation && !activeConversation.entries.length && !activeConversation.persisted) setConversations((current) => current.map((conversation) => conversation.id === activeConversation.id ? { ...conversation, mode } : conversation));
+        }} />
         <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea disabled={!canContinue || queryBusy} id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!canContinue || !question.trim() || !scopeIds.length || scopeDirty || queryBusy} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <FeedbackMessage tone="warning">{t("projectChatScopeChangedWarning")}</FeedbackMessage> : null}</form>
       </div>
     </section>

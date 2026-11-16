@@ -29,6 +29,7 @@ from app.db.session import get_db, get_session_factory
 from app.domain.ai_provider import stream_rag_answer
 from app.domain.chat_citations import CitationStreamCompactor, citation_persistence_payload, compact_citation_view, validate_citation_markers
 from app.domain.chat_conversations import require_conversation_identity
+from app.domain.conversation_history import ConversationContext, chat_test_context, chat_test_mode
 from app.domain.model_usage import record_model_usage
 from app.domain.project_access import get_scoped_project
 from app.domain.project_retrieval import (
@@ -76,6 +77,9 @@ def _chat_payload(parsed: CreateRequest) -> ProjectChatQueryPayload:
         top_k=parsed.top_k,
         conversation_id=parsed.conversation_id,
         conversation_title=parsed.conversation_title,
+        previous_id=parsed.previous_id,
+        conversation_mode=parsed.conversation_mode,
+        truncation=parsed.truncation,
     )
 
 
@@ -100,14 +104,16 @@ def _resource_from_result(request: Request, parsed: CreateRequest, result, creat
             system_prompt_content_hash=result.system_prompt_content_hash,
             llm_model_id=result.llm_model_id,
             latency_ms=result.latency_ms,
-            extra=_internal_extra(result.conversation_id, result.conversation_title, result.manifest_version_ids, result.prompt_version),
+            extra=_internal_extra(result.conversation_id, result.conversation_title, result.manifest_version_ids, result.prompt_version,
+                                  result.conversation_mode, result.context),
         ),
     )
 
 
-def _internal_extra(conversation_id: UUID, title: str, manifest_ids, prompt_version: str | None) -> dict:
+def _internal_extra(conversation_id: UUID, title: str, manifest_ids, prompt_version: str | None, mode: str, turn_context: dict) -> dict:
     return {
-        "nomosmart:conversation": {"id": str(conversation_id), "title": title},
+        "nomosmart:conversation": {"id": str(conversation_id), "title": title, "mode": mode},
+        "nomosmart:context": turn_context,
         "nomosmart:manifest_version_ids": [str(item) for item in sorted(manifest_ids, key=str)],
         "nomosmart:retrieval_strategy": "hybrid",
         "nomosmart:prompt_version": prompt_version,
@@ -133,15 +139,16 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
     _ensure_conversation_can_continue(session, project.id, conversation_id, requested_ids, context.user_id, payload.scope_mode)
     started = perf_counter()
     asked_at = datetime.now(UTC)
+    conversation_mode, turn = chat_test_context(session, settings, project, payload, user_id=context.user_id, conversation_id=conversation_id)
     citations = (
-        _search_document_staging_chunks(session, project.id, requested_ids, payload.question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
         if payload.scope_mode == "document_staging"
-        else _search_published_chunks(session, project.id, requested_ids, payload.question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
     )
     answer_status = "answered" if citations else "no_answer"
     chat_model = _select_chat_model(session, project) if citations else None
     system_prompt = resolve_system_prompt(session, model=chat_model, model_type="Chat") if chat_model is not None else None
-    provider_stream = stream_rag_answer(question=payload.question, citations=citations, model=chat_model, settings=settings, system_prompt=system_prompt)
+    provider_stream = stream_rag_answer(question=payload.question, citations=citations, model=chat_model, settings=settings, system_prompt=system_prompt, history=turn.history)
     title = payload.conversation_title or _conversation_title(payload.question)
     record_id = uuid4()
     project_id = project.id
@@ -160,7 +167,7 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
             system_prompt_content_hash=provider_stream.system_prompt_content_hash,
             llm_model_id=chat_model_id,
             latency_ms=latency_ms,
-            extra=_internal_extra(conversation_id, title, manifest_ids, provider_stream.prompt_version),
+            extra=_internal_extra(conversation_id, title, manifest_ids, provider_stream.prompt_version, conversation_mode, turn.extension()),
         )
 
     async def events():
@@ -200,6 +207,7 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
                 title=title, requested_ids=requested_ids, citations=citations, answer=raw_answer, chat_model_id=chat_model_id,
                 provider_stream=provider_stream, token_usage=token_usage, latency_ms=latency_ms, asked_at=asked_at,
                 provider_latency_ms=max(0, int((perf_counter() - provider_started) * 1000)),
+                conversation_mode=conversation_mode, turn=turn,
             )
             resource = build_response(
                 response_uuid=record_id,
@@ -243,6 +251,8 @@ def _persist_chat_record(
     latency_ms: int,
     asked_at: datetime,
     provider_latency_ms: int,
+    conversation_mode: str,
+    turn: ConversationContext,
 ) -> None:
     """Write the chat record after the stream, re-checking the conversation under its lock."""
 
@@ -250,6 +260,8 @@ def _persist_chat_record(
         require_conversation_identity(session, project_id=project_id, conversation_id=conversation_id,
             user_id=user_id, scope_mode=payload.scope_mode, requested_ids=requested_ids)
         _ensure_conversation_can_continue(session, project_id, conversation_id, requested_ids, user_id, payload.scope_mode)
+        # The conversation may have moved on while this answer streamed; re-apply the mode rule under the lock.
+        chat_test_mode(session, conversation_id, payload.conversation_mode, payload.previous_id)
         answered_at = datetime.now(UTC)
         record = ChatRecord(
             id=record_id,
@@ -276,6 +288,12 @@ def _persist_chat_record(
             asked_at=asked_at,
             answered_at=answered_at,
             created_at=asked_at,
+            previous_response_id=turn.previous_id,
+            conversation_mode=conversation_mode,
+            history_turns=turn.turns_used,
+            history_truncated=turn.truncated,
+            rewritten_query=turn.rewritten_query,
+            rewrite_status=turn.rewrite_status,
         )
         session.add(record)
         session.flush([record])

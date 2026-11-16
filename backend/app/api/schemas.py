@@ -1180,6 +1180,10 @@ class ProjectChatQueryPayload(BaseModel):
     top_k: int = Field(default=5, ge=1, le=20)
     conversation_id: UUID | None = None
     conversation_title: str | None = Field(default=None, max_length=500)
+    # CHG-435 MTURN435-001/009: multi-turn continuation (internal Open Responses entry only).
+    previous_id: UUID | None = None
+    conversation_mode: Literal["single", "multi"] | None = None
+    truncation: Literal["auto", "disabled"] | None = None
 
 
 class ProjectChatCitation(BaseModel):
@@ -1218,6 +1222,9 @@ class ProjectChatQueryResponse(BaseModel):
     llm_model_id: UUID | None = None
     token_usage: dict[str, Any] | None = None
     latency_ms: int | None = None
+    previous_response_id: UUID | None = None
+    conversation_mode: Literal["single", "multi"] = "single"
+    context: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProjectChatRecordResponse(BaseModel):
@@ -1241,6 +1248,12 @@ class ProjectChatRecordResponse(BaseModel):
     latency_ms: int | None = None
     asked_at: datetime
     answered_at: datetime | None = None
+    # CHG-435 MTURN435-011: multi-turn context of this answer.
+    previous_response_id: UUID | None = None
+    history_turns: int = 0
+    history_truncated: bool = False
+    rewritten_query: str | None = None
+    rewrite_status: Literal["not_needed", "rewritten", "failed"] = "not_needed"
 
 
 class ProjectChatConversationResponse(BaseModel):
@@ -1258,6 +1271,8 @@ class ProjectChatConversationResponse(BaseModel):
     can_evaluate: bool = False
     can_export: bool = False
     read_only_reason: str | None = None
+    conversation_mode: Literal["single", "multi"] = "single"
+    latest_record_id: UUID | None = None
     records: list[ProjectChatRecordResponse] = Field(default_factory=list)
 
 

@@ -67,13 +67,14 @@ def generate_rag_answer(
     model: AIModel | None,
     settings: Settings | None = None,
     system_prompt: SystemPromptResolution | None = None,
+    history: list[tuple[str, str]] | None = None,
 ) -> AIProviderResult:
     resolved_prompt = system_prompt or backend_default_prompt("Chat")
     if not citations:
         return _provider_result(answer="無法確認，找不到足夠依據。", token_usage=None, system_prompt=resolved_prompt)
     if model is None:
         raise AppError("model_configuration_required", "An active Chat Model is required to generate an answer", status_code=409)
-    prompt = _build_citation_bound_prompt(question, citations, resolved_prompt.content)
+    prompt = _build_citation_bound_prompt(question, citations, resolved_prompt.content, history)
     payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Chat Model provider is not supported for RAG generation")
     return _provider_result(answer=answer_of(payload), token_usage=usage, system_prompt=resolved_prompt)
 
@@ -85,6 +86,7 @@ def stream_rag_answer(
     model: AIModel | None,
     settings: Settings | None = None,
     system_prompt: SystemPromptResolution | None = None,
+    history: list[tuple[str, str]] | None = None,
 ) -> AIProviderStream:
     resolved_prompt = system_prompt or backend_default_prompt("Chat")
     if not citations:
@@ -95,7 +97,7 @@ def stream_rag_answer(
     else:
         if model is None:
             raise AppError("model_configuration_required", "An active Chat Model is required to generate an answer", status_code=409)
-        messages = _build_citation_bound_prompt(question, citations, resolved_prompt.content)
+        messages = _build_citation_bound_prompt(question, citations, resolved_prompt.content, history)
         chunks = _stream_provider(model, messages, settings or get_settings())
     return AIProviderStream(
         chunks=chunks,
@@ -115,7 +117,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
         body: dict[str, Any] = {
             "model": _model_name(model),
             "instructions": messages[0]["content"],
-            "input": messages[1]["content"],
+            "input": _openai_responses_input(messages),
             "max_output_tokens": _openai_max_output_tokens(config, settings),
             "stream": True,
         }
@@ -155,7 +157,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
             headers["x-goog-api-key"] = api_key
         body = {
             "systemInstruction": {"parts": [{"text": messages[0]["content"]}]},
-            "contents": [{"role": "user", "parts": [{"text": messages[1]["content"]}]}],
+            "contents": _gemini_contents(messages),
             "generationConfig": {"temperature": _float(config.get("temperature"), default=0.1), "maxOutputTokens": _int(config.get("max_tokens"), default=1024)},
         }
         url = f"{base_url}/models/{urllib.parse.quote(_model_name(model), safe='')}:streamGenerateContent?alt=sse"
@@ -168,7 +170,7 @@ async def _stream_provider(model: AIModel, messages: list[dict[str, str]], setti
         body = {
             "model": _model_name(model),
             "system": messages[0]["content"],
-            "messages": [{"role": "user", "content": messages[1]["content"]}],
+            "messages": _conversation_messages(messages),
             "temperature": _float(config.get("temperature"), default=0.1),
             "max_tokens": _int(config.get("max_tokens"), default=1024),
             "stream": True,
@@ -313,6 +315,29 @@ def _invoke_chat_provider(model: AIModel, prompt: list[dict[str, str]], settings
     raise AppError("model_provider_unsupported", unsupported, status_code=422, details={"provider": model.provider})
 
 
+QUERY_REWRITE_PROMPT_VERSION = "query-rewrite-v1"
+QUERY_REWRITE_SYSTEM_PROMPT = (
+    "You rewrite the user's latest follow-up question into one standalone search question for a "
+    "document search engine. Use the earlier conversation only to resolve references such as "
+    "pronouns, omitted subjects or 'what about'. Keep the language of the latest question. Do not "
+    "answer it, add facts, or explain. Reply with the rewritten question only."
+)
+
+
+def rewrite_follow_up_question(model: AIModel, history: list[tuple[str, str]], question: str, settings: Settings | None = None) -> tuple[str, dict[str, Any] | None]:
+    """CHG-435 MTURN435-005 / D435-02: standalone search question from a follow-up (fixed prompt)."""
+    earlier = "\n\n".join(f"User: {asked}\nAssistant: {answered}" for asked, answered in history)
+    prompt = [
+        {"role": "system", "content": QUERY_REWRITE_SYSTEM_PROMPT},
+        {"role": "user", "content": f"Earlier conversation:\n{earlier}\n\nLatest question:\n{question.strip()}"},
+    ]
+    payload, answer_of, usage = _invoke_chat_provider(model, prompt, settings or get_settings(), unsupported="Chat Model provider is not supported for question rewriting")
+    rewritten = " ".join(str(answer_of(payload) or "").split())
+    if not rewritten:
+        raise AppError("query_rewrite_empty", "The Chat Model returned an empty rewritten question", status_code=502)
+    return rewritten[:4000], usage
+
+
 PROBE_PROMPT = [
     {"role": "system", "content": "This is a NomoSmart connection test. Reply with the single word OK."},
     {"role": "user", "content": "OK"},
@@ -383,7 +408,7 @@ def _parse_tag_result(content: str, *, allow_empty: bool = False) -> list[str]:
     return tags
 
 
-def _build_citation_bound_prompt(question: str, citations: list[ProjectChatCitation], system: str) -> list[dict[str, str]]:
+def _build_citation_bound_prompt(question: str, citations: list[ProjectChatCitation], system: str, history: list[tuple[str, str]] | None = None) -> list[dict[str, str]]:
     sources = []
     for index, citation in enumerate(citations, start=1):
         context = (citation.generation_text or citation.excerpt or "").strip()
@@ -396,7 +421,10 @@ def _build_citation_bound_prompt(question: str, citations: list[ProjectChatCitat
     if not sources:
         raise AppError("retrieval_excerpt_required", "Retrieved citations do not contain answerable excerpts", status_code=409)
     user = "Question:\n" + question.strip() + "\n\nPublished sources:\n" + "\n\n".join(sources)
-    return [{"role": "system", "content": system}, {"role": "user", "content": user}]
+    earlier: list[dict[str, str]] = []
+    for previous_question, previous_answer in history or []:
+        earlier += [{"role": "user", "content": previous_question}, {"role": "assistant", "content": previous_answer}]
+    return [{"role": "system", "content": system}, *earlier, {"role": "user", "content": user}]
 
 
 def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: str | None, expected_keywords: list | None, citations: list[ProjectChatCitation], system_prompt: str) -> list[dict[str, str]]:
@@ -411,6 +439,20 @@ def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: s
         "Evaluate whether the answer is grounded in citations and satisfies the expectation."
     )
     return [{"role": "system", "content": system_prompt}, {"role": "user", "content": user}]
+
+
+# CHG-435 MTURN435-006: messages are [system, (user, assistant)*, user]. A single-turn
+# request (system + one user message) is sent exactly as before CHG-435.
+def _conversation_messages(messages: list[dict[str, str]]) -> list[dict[str, str]]:
+    return [{"role": message["role"], "content": message["content"]} for message in messages[1:]]
+
+
+def _openai_responses_input(messages: list[dict[str, str]]) -> str | list[dict[str, str]]:
+    return messages[1]["content"] if len(messages) == 2 else _conversation_messages(messages)
+
+
+def _gemini_contents(messages: list[dict[str, str]]) -> list[dict[str, Any]]:
+    return [{"role": "model" if message["role"] == "assistant" else "user", "parts": [{"text": message["content"]}]} for message in messages[1:]]
 
 
 def _invoke_openai_compatible(model: AIModel, messages: list[dict[str, str]], settings: Settings) -> dict[str, Any]:
@@ -439,7 +481,7 @@ def _invoke_openai_responses(model: AIModel, messages: list[dict[str, str]], set
     body: dict[str, Any] = {
         "model": _model_name(model),
         "instructions": messages[0]["content"],
-        "input": messages[1]["content"],
+        "input": _openai_responses_input(messages),
         "max_output_tokens": _openai_max_output_tokens(config, settings),
     }
     temperature = config.get("temperature")
@@ -485,7 +527,7 @@ def _invoke_gemini(model: AIModel, messages: list[dict[str, str]], settings: Set
     headers = {"x-goog-api-key": api_key} if api_key else {}
     body = {
         "systemInstruction": {"parts": [{"text": messages[0]["content"]}]},
-        "contents": [{"role": "user", "parts": [{"text": messages[1]["content"]}]}],
+        "contents": _gemini_contents(messages),
         "generationConfig": {"temperature": _float(config.get("temperature"), default=0.1), "maxOutputTokens": _int(config.get("max_tokens"), default=1024)},
     }
     return _post_json(url, body, headers=headers, timeout_seconds=_timeout(config), verify_tls=_verify_tls(config))
@@ -499,7 +541,7 @@ def _invoke_claude(model: AIModel, messages: list[dict[str, str]], settings: Set
     body = {
         "model": _model_name(model),
         "system": messages[0]["content"],
-        "messages": [{"role": "user", "content": messages[1]["content"]}],
+        "messages": _conversation_messages(messages),
         "temperature": _float(config.get("temperature"), default=0.1),
         "max_tokens": _int(config.get("max_tokens"), default=1024),
     }

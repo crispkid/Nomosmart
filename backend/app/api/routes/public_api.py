@@ -42,6 +42,7 @@ from app.domain.ai_provider import stream_rag_answer
 from app.domain.chat_citations import CitationStreamCompactor, citation_persistence_payload, compact_citation_view, validate_citation_markers
 from app.domain.integration_api_keys import api_key_hash
 from app.domain.model_usage import record_model_usage
+from app.domain.conversation_history import ConversationContext, bound_history, public_turns, rewrite_question
 from app.domain.responses_service import (
     CreateRequest,
     ResponseEventStream,
@@ -145,9 +146,10 @@ def create_public_response(
 
     project_id = parsed.project_id
     try:
-        prepared = _prepare_public_chat(session, request, client, project_id, payload, response_mode="sse")
+        prepared = _prepare_public_chat(session, request, client, project_id, payload, response_mode="sse", parsed=parsed)
+        turn: ConversationContext = request.state.public_turn
         system_prompt = resolve_system_prompt(session, model=prepared[4], model_type="Chat") if prepared[4] is not None else None
-        provider_stream = stream_rag_answer(question=payload.question, citations=prepared[3], model=prepared[4], settings=settings, system_prompt=system_prompt)
+        provider_stream = stream_rag_answer(question=payload.question, citations=prepared[3], model=prepared[4], settings=settings, system_prompt=system_prompt, history=turn.history)
         log = _create_public_log(
             session,
             request,
@@ -161,6 +163,7 @@ def create_public_response(
             selected_version_ids=prepared[2],
             citations=prepared[3],
             chat_model=prepared[4],
+            turn=turn,
         )
         log.prompt_version = provider_stream.prompt_version
         log.system_prompt_source = provider_stream.system_prompt_source
@@ -192,7 +195,7 @@ def create_public_response(
             system_prompt_content_hash=provider_stream.system_prompt_content_hash,
             llm_model_id=prepared[4].id if prepared[4] else None,
             latency_ms=token_latency,
-            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs]},
+            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs], "nomosmart:context": turn.extension()},
         )
 
     async def events():
@@ -330,11 +333,12 @@ def _run_public_chat(
     operation: IdempotencyKey,
 ) -> dict:
     project_id = parsed.project_id
-    manifests, _manifest_ids, selected_version_ids, citations, chat_model = _prepare_public_chat(session, request, client, project_id, payload, response_mode="json")
+    manifests, _manifest_ids, selected_version_ids, citations, chat_model = _prepare_public_chat(session, request, client, project_id, payload, response_mode="json", parsed=parsed)
+    turn: ConversationContext = request.state.public_turn
     started = perf_counter()
     provider_result = None
     try:
-        provider_result = _generate_citation_bound_answer(session, payload.question, citations, chat_model)
+        provider_result = _generate_citation_bound_answer(session, payload.question, citations, chat_model, turn.history)
         validate_citation_markers(provider_result.answer, len(citations))
     except AppError as exc:
         if chat_model is not None:
@@ -368,6 +372,7 @@ def _run_public_chat(
         selected_version_ids=selected_version_ids,
         citations=citations,
         chat_model=chat_model,
+        turn=turn,
     )
     settings = request.app.state.settings
     log.answer_encrypted = encrypt_payload(settings, log.id, "answer", provider_result.answer)
@@ -416,7 +421,7 @@ def _run_public_chat(
             system_prompt_content_hash=provider_result.system_prompt_content_hash,
             llm_model_id=chat_model.id if chat_model else None,
             latency_ms=latency_ms,
-            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs]},
+            extra={"nomosmart:selected_document_ids": [str(item) for item in selected_docs], "nomosmart:context": turn.extension()},
         ),
     )
     resource = json.loads(json.dumps(resource, default=str))
@@ -455,7 +460,8 @@ async def _replay_events(resource: dict):
         yield event
 
 
-def _prepare_public_chat(session: Session, request: Request, client: IntegrationClient, project_id: UUID, payload: PublicApiChatPayload, *, response_mode: str):
+def _prepare_public_chat(session: Session, request: Request, client: IntegrationClient, project_id: UUID, payload: PublicApiChatPayload, *, response_mode: str,
+                         parsed: CreateRequest | None = None):
     settings = request.app.state.settings
     limit = int((client.rate_limit_config or {}).get("requests_per_minute") or 60)
     enforce_rate_limit(settings, dimension=f"client:{client.id}", limit=limit)
@@ -465,10 +471,42 @@ def _prepare_public_chat(session: Session, request: Request, client: Integration
     if project is None or project.status != "active":
         raise AppError("project_not_found", "Project was not found", status_code=404)
     selected_document_ids = payload.scope.document_ids if payload.scope else None
+    # MTURN435-003: who may continue is decided before scope readiness, so an unusable id is always 404.
+    turn, turns = _public_history(session, request, client, project, payload, parsed)
     manifests, manifest_ids, selected_version_ids = _resolve_public_scope(session, project.id, selected_document_ids)
-    citations = _search_published_chunks(session, project.id, selected_version_ids, payload.question, payload.top_k, source_channel="public_api")
+    _public_rewrite(session, request, client, project, payload, parsed, turn, turns)
+    citations = _search_published_chunks(session, project.id, selected_version_ids, turn.search_question, payload.top_k, source_channel="public_api")
     chat_model = _select_chat_model(session, project) if citations else None
+    request.state.public_turn = turn
     return manifests, manifest_ids, selected_version_ids, citations, chat_model
+
+
+def _public_history(session: Session, request: Request, client: IntegrationClient, project: Project, payload: PublicApiChatPayload,
+                    parsed: CreateRequest | None) -> tuple[ConversationContext, list[tuple[str, str]]]:
+    """CHG-435 MTURN435-002/003: earlier turns from this API key, employee and project only."""
+    settings = request.app.state.settings
+    previous_id = parsed.previous_id if parsed else None
+    turn = ConversationContext(previous_id=previous_id, search_question=payload.question)
+    if previous_id is None:
+        return turn, []
+    turns = public_turns(session, settings, previous_id, client_id=client.id,
+                         identity_hash=end_user_identity_hash(settings, payload.end_user.employee_id), project_id=project.id)
+    return turn, turns
+
+
+def _public_rewrite(session: Session, request: Request, client: IntegrationClient, project: Project, payload: PublicApiChatPayload,
+                    parsed: CreateRequest | None, turn: ConversationContext, turns: list[tuple[str, str]]) -> None:
+    """MTURN435-004/005: bound the history, then rewrite the follow-up before retrieval."""
+    if not turns:
+        return
+    settings = request.app.state.settings
+    turn.history, turn.truncated = bound_history(turns, settings, parsed.truncation if parsed else None)
+    try:
+        model = _select_chat_model(session, project)
+    except AppError:
+        model = None
+    rewrite_question(session, settings, turn, payload.question, model, source_channel="public_api", project_id=project.id,
+                     integration_client_id=client.id, correlation_id=getattr(request.state, "request_id", None))
 
 
 def _create_public_log(
@@ -485,6 +523,7 @@ def _create_public_log(
     selected_version_ids: set[UUID],
     citations: list[ProjectChatCitation],
     chat_model,
+    turn: ConversationContext | None = None,
 ) -> PublicApiRequestLog:
     settings = request.app.state.settings
     now = datetime.now(UTC)
@@ -523,6 +562,12 @@ def _create_public_log(
         metadata_={"encrypted_content": True},
         created_at=now,
     )
+    if turn is not None:
+        log.previous_response_id = turn.previous_id
+        log.history_turns = turn.turns_used
+        log.history_truncated = turn.truncated
+        log.rewrite_status = turn.rewrite_status
+        log.rewritten_query_encrypted = encrypt_payload(settings, response_id, "rewritten-query", turn.rewritten_query) if turn.rewritten_query else None
     session.add(log)
     session.flush()
     return log

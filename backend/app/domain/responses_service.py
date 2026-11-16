@@ -7,7 +7,7 @@ same retrieval/model/System Prompt path (`project_retrieval`), and return the sa
 caller may send, and the record table differ (Peter 2026-11-16, D434-01).
 
 Specification: Open Responses 2026-04-24 (https://www.openresponses.org/specification).
-Single-turn only; `previous_response_id` is opened by CHG-435.
+CHG-435 adds multi-turn context through `previous_response_id` (MTURN435-001..009).
 """
 from __future__ import annotations
 
@@ -73,6 +73,10 @@ class CreateRequest:
     document_version_ids: list[UUID] | None = None
     conversation_id: UUID | None = None
     conversation_title: str | None = None
+    conversation_mode: Literal["single", "multi"] | None = None
+    previous_response_id: str | None = None
+    previous_id: UUID | None = None
+    truncation: str | None = None
 
 
 def invalid(code: str, message: str, param: str | None = None, *, status_code: int = 400) -> AppError:
@@ -94,8 +98,14 @@ def parse_create_request(body: Any, *, channel: Channel) -> CreateRequest:
             raise invalid("unsupported_parameter", f"Parameter '{name}' is decided by the project configuration", name)
     if body.get("instructions") is not None:
         raise invalid("instructions_not_supported", "Callers cannot set or override the System Prompt", "instructions")
-    if body.get("previous_response_id") is not None:
-        raise invalid("multi_turn_not_available", "Multi-turn conversations are not available yet", "previous_response_id")
+    previous_response_id = body.get("previous_response_id")
+    previous_id = None
+    if previous_response_id is not None:
+        # CHG-435 MTURN435-003: an unknown or malformed id is reported like any id the caller cannot use.
+        previous_id = parse_response_id(previous_response_id) if isinstance(previous_response_id, str) else None
+        if previous_id is None:
+            raise AppError("previous_response_not_found", "The previous response was not found", status_code=404,
+                           details={"param": "previous_response_id"})
     store = body.get("store")
     if store is not None and store is not True:
         raise invalid("store_false_not_supported", "Every answer is stored as an audit record; store must be true or omitted", "store")
@@ -108,7 +118,8 @@ def parse_create_request(body: Any, *, channel: Channel) -> CreateRequest:
     question = _parse_input(body.get("input"))
     metadata = _parse_metadata(body.get("metadata"))
     top_k = _parse_top_k(body.get("nomosmart:top_k"))
-    request = dict(channel=channel, model=model, project_id=project_id, question=question, stream=bool(stream), top_k=top_k, metadata=metadata)
+    request = dict(channel=channel, model=model, project_id=project_id, question=question, stream=bool(stream), top_k=top_k, metadata=metadata,
+                   previous_response_id=previous_response_id if previous_id else None, previous_id=previous_id, truncation=body.get("truncation"))
     scope = body.get("nomosmart:scope")
     if scope is not None and not isinstance(scope, dict):
         raise invalid("invalid_type", "nomosmart:scope must be an object", "nomosmart:scope")
@@ -136,8 +147,11 @@ def parse_create_request(body: Any, *, channel: Channel) -> CreateRequest:
     if mode not in {"published", "document_staging"}:
         raise invalid("invalid_scope_mode", "Scope mode must be published or document_staging", "nomosmart:scope.mode")
     conversation = body.get("nomosmart:conversation") or {}
-    if not isinstance(conversation, dict) or set(conversation) - {"id", "title"}:
-        raise invalid("unsupported_parameter", "nomosmart:conversation accepts only id and title", "nomosmart:conversation")
+    if not isinstance(conversation, dict) or set(conversation) - {"id", "title", "mode"}:
+        raise invalid("unsupported_parameter", "nomosmart:conversation accepts only id, title and mode", "nomosmart:conversation")
+    conversation_mode = conversation.get("mode")
+    if conversation_mode is not None and conversation_mode not in {"single", "multi"}:
+        raise invalid("invalid_conversation_mode", "Conversation mode must be single or multi", "nomosmart:conversation.mode")
     conversation_id = _uuid_or_error(conversation["id"], "nomosmart:conversation.id") if conversation.get("id") is not None else None
     title = conversation.get("title")
     if title is not None and (not isinstance(title, str) or len(title) > 500):
@@ -148,6 +162,7 @@ def parse_create_request(body: Any, *, channel: Channel) -> CreateRequest:
         document_version_ids=_uuid_list(scope.get("document_version_ids"), "nomosmart:scope.document_version_ids"),
         conversation_id=conversation_id,
         conversation_title=title,
+        conversation_mode=conversation_mode,
     )
 
 
@@ -239,13 +254,13 @@ def build_response(
         "status": status,
         "incomplete_details": {"reason": "interrupted"} if status == "incomplete" else None,
         "model": request.model,
-        "previous_response_id": None,
+        "previous_response_id": request.previous_response_id,
         "instructions": None,
         "output": output,
         "error": {"code": error.code, "message": error.message} if error else None,
         "tools": [],
         "tool_choice": "auto",
-        "truncation": "disabled",
+        "truncation": request.truncation or "auto",
         "parallel_tool_calls": False,
         "text": {"format": {"type": "text"}},
         "top_p": None,

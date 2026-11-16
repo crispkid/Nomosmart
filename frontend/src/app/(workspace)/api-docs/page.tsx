@@ -9,6 +9,7 @@ import {
   FileJson,
   KeyRound,
   MessageSquareText,
+  MessagesSquare,
   Radio,
   Route,
   ShieldCheck,
@@ -104,6 +105,30 @@ data: {"type":"response.output_text.annotation.added","annotation":{"type":"url_
 
 event: response.completed
 data: {"type":"response.completed","response":{"id":"resp_<response_id>",...}}`;
+
+const multiTurnExample = `POST /api/public/v1/responses
+Authorization: Bearer <api_key>
+Content-Type: application/json
+
+{
+  "model": "nomosmart:project/<project_id>",
+  "input": "What about managers?",
+  "previous_response_id": "resp_<previous_response_id>",
+  "truncation": "auto",
+  "nomosmart:end_user": { "employee_id": "E12345" }
+}
+
+{
+  "id": "resp_<response_id>",
+  "previous_response_id": "resp_<previous_response_id>",
+  "nomosmart:context": {
+    "turns_used": 1,
+    "truncated": false,
+    "rewritten_query": "How early must managers request leave?",
+    "rewrite_status": "rewritten"
+  },
+  ...
+}`;
 
 const sdkExample = `from openai import OpenAI
 
@@ -211,6 +236,17 @@ X-NomoSmart-API-Key: <api_key>`
     endpoint: "/api/public/v1/responses",
     bullets: ["apiDocsSseParity", "apiDocsSseEvents", "apiDocsSseTerminal"],
     code: sseExample
+  },
+  {
+    id: "multiturn",
+    icon: MessagesSquare,
+    label: "apiDocsNavMultiTurn",
+    title: "apiDocsMultiTurnTitle",
+    description: "apiDocsMultiTurnDescription",
+    method: "POST",
+    endpoint: "/api/public/v1/responses",
+    bullets: ["apiDocsMultiTurnPrevious", "apiDocsMultiTurnIdentity", "apiDocsMultiTurnLimits", "apiDocsMultiTurnContext"],
+    code: multiTurnExample
   },
   {
     id: "sdk",

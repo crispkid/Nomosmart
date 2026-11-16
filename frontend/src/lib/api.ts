@@ -28,7 +28,7 @@ export type {
   ReferenceSourceProjectResponse, DocumentReferenceImportResponse
 } from "./apiClient/reviewTypes";
 export type {
-  ProjectGraphResponse, ProjectServingStatusResponse, ProjectChatQueryResponse, ProjectChatCitation,
+  ProjectGraphResponse, ProjectServingStatusResponse, ProjectChatQueryResponse, ProjectChatCitation, ChatTurnContext, ConversationMode,
   ProjectChatRecordResponse, ProjectChatConversationResponse, ProjectChatConversationPage,
   ProjectChatConversationDeleteResponse, ValidationRunResponse, ReportSummaryResponse, ReportFilterOptionsResponse, NotificationResponse, NotificationCountResponse,
   SystemParametersPayload, SystemParameterApiValues, SystemParameterSectionResponse,

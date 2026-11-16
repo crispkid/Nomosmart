@@ -59,6 +59,28 @@ def record_query_embedding_usage(
     return _commit_usage_event(expected, session_factory=session_factory, conflict_code="query_usage_identity_conflict")
 
 
+def record_query_rewrite_usage(
+    *, model: AIModel, source_channel: str, status: str, token_usage: dict[str, Any] | None = None,
+    latency_ms: int | None = None, error_code: str | None = None, project_id: UUID | None = None,
+    actor_user_id: UUID | None = None, integration_client_id: UUID | None = None, correlation_id: str | None = None,
+    session_factory: sessionmaker[Session] | None = None,
+) -> AIModelUsageEvent:
+    """CHG-435 MTURN435-005: commit one follow-up rewrite attempt independently of the answer.
+
+    The rewrite is a paid call made before retrieval; a later retrieval or answer failure
+    must not roll its ledger row back (USAGE-001).
+    """
+    if model.model_type != "Chat" or status not in {"success", "failed"}:
+        raise AppError("query_rewrite_usage_identity_conflict", "Query rewrite usage context is invalid", status_code=409)
+    expected = _build_model_usage_event(
+        model=model, event_id=uuid4(), usage_purpose="query_rewrite", source_channel=source_channel, status=status,
+        token_usage=token_usage, latency_ms=latency_ms, error_code=error_code, project_id=project_id,
+        actor_user_id=actor_user_id, integration_client_id=integration_client_id, correlation_id=correlation_id,
+        metadata={"model_config_version": model.config_version, "prompt_version": "query-rewrite-v1"},
+    )
+    return _commit_usage_event(expected, session_factory=session_factory, conflict_code="query_rewrite_usage_identity_conflict")
+
+
 def record_reconciliation_embedding_usage(
     *, model: AIModel, event_id: UUID, project_id: UUID, document_id: UUID,
     document_version_id: UUID, status: str, chunk_count: int,

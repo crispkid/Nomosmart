@@ -149,6 +149,9 @@ The external contract is the Open Responses compatible `POST /api/public/v1/resp
 (JSON, or SSE with `stream: true`) and `POST /api/public/v1/responses/{response_id}/feedback`.
 The previous `/projects/{project_id}/chat`, `/chat/stream` and `/chat/responses/{id}/feedback`
 routes were removed in 0.3.0 (CHG-434); the edge path prefix below is unchanged.
+Multi-turn questions (CHG-435) send `previous_response_id`; `CHAT_HISTORY_MAX_TURNS`
+(default 5) and `CHAT_HISTORY_MAX_CHARACTERS` (default 12000) bound the earlier turns sent
+to the model. Migration `V062` only adds columns and is required (contract 062).
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP

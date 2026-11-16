@@ -172,7 +172,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 | Endpoint | Purpose |
 | --- | --- |
 | `/api/v1` | Internal Backend API; server sessions and Backend permission checks |
-| `/api/public/v1` | Integration API; Open Responses compatible `POST /responses` (JSON or `stream: true`) and feedback; independent API keys and project scope |
+| `/api/public/v1` | Integration API; Open Responses compatible `POST /responses` (JSON or `stream: true`, multi-turn with `previous_response_id`) and feedback; independent API keys and project scope |
 | `/openapi.json`, `/docs` | Backend OpenAPI/Swagger |
 | `/api-docs` | In-product API guide |
 | `/api/v1/health`, `/api/v1/ready` | Process health and dependency/bootstrap readiness |

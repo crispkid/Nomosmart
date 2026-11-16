@@ -1,6 +1,6 @@
 // Document chat test model: types and pure helpers (split from the chat-test page, OPT424-038).
 import { UiValidationError } from "@/lib/transportError";
-import { type ValidationRunResponse, type ProjectChatCitation } from "@/lib/api";
+import { type ChatTurnContext, type ValidationRunResponse, type ProjectChatCitation } from "@/lib/api";
 import { type TranslationKey } from "@/lib/i18nClient";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 
@@ -20,6 +20,7 @@ export type ConversationEntry = {
   loading?: boolean;
   error?: string;
   status?: "answered" | "no_answer";
+  context?: ChatTurnContext;
 };
 
 export function validationEntries(run: ValidationRunResponse, t: Translate, format: Format): ConversationEntry[] {

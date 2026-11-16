@@ -63,7 +63,13 @@ export type ProjectChatQueryResponse = {
   llm_model_id?: string | null;
   token_usage?: Record<string, unknown> | null;
   latency_ms?: number | null;
+  /** CHG-435: multi-turn continuation and the context sent with this answer. */
+  previous_response_id?: string | null;
+  conversation_mode?: ConversationMode;
+  context?: ChatTurnContext;
 };
+export type ConversationMode = "single" | "multi";
+export type ChatTurnContext = { turns_used: number; truncated: boolean; rewritten_query: string | null; rewrite_status: "not_needed" | "rewritten" | "failed" };
 export type ProjectChatCitation = ProjectChatQueryResponse["citations"][number];
 export type ProjectChatRecordResponse = {
   id: string;
@@ -86,6 +92,11 @@ export type ProjectChatRecordResponse = {
   latency_ms: number | null;
   asked_at: string;
   answered_at: string | null;
+  previous_response_id?: string | null;
+  history_turns?: number;
+  history_truncated?: boolean;
+  rewritten_query?: string | null;
+  rewrite_status?: ChatTurnContext["rewrite_status"];
 };
 export type ProjectChatConversationResponse = {
   id: string;
@@ -102,6 +113,8 @@ export type ProjectChatConversationResponse = {
   can_evaluate?: boolean;
   can_export?: boolean;
   read_only_reason?: string | null;
+  conversation_mode?: ConversationMode;
+  latest_record_id?: string | null;
   records: ProjectChatRecordResponse[];
 };
 export type ProjectChatConversationPage = {

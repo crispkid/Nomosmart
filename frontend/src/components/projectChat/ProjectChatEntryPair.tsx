@@ -2,6 +2,7 @@
 
 import { Bot, CheckCircle2, UserRound, Wrench } from "lucide-react";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
+import { ChatTurnContextNote } from "@/components/ChatTurnContextNote";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
 import { FeedbackField } from "@/components/FeedbackMessage";
 import { chatConversationAccess } from "@/lib/chatConversationAccess";
@@ -38,6 +39,7 @@ export function ProjectChatEntryPair({ access, authorName, entry, judgments, per
               noCitationsLabel={entry.status === "no_answer" ? t("projectChatNoVerifiableCitation") : t("projectChatNoBackendCitation")}
             />
           )}
+          {!entry.loading && !entry.error ? <ChatTurnContextNote context={entry.context} /> : null}
           <div className="answer-judgment">
             <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "correct" ? "selected correct" : ""} onClick={() => void persistFeedback(entry, "correct")} type="button"><CheckCircle2 size={15} /> {t("answerCorrect")}</button>
             <button disabled={!entry.recordId || !access.canEvaluate} className={judgments[entry.id] === "revision" ? "selected needs-revision" : ""} onClick={() => { if (!access.canEvaluate) return; setRevisionEntryId(entry.id); setRevisionText(""); }} type="button"><Wrench size={15} /> {t("answerNeedsRevision")}</button>

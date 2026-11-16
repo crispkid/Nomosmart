@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.2.5",
-  "required_version": "061",
+  "required_version": "062",
   "targets": {
     "SQL": {
-      "file": "V061__openai_responses_only.sql",
-      "checksum": 1514288448,
-      "sha256": "cbcf83571c52cd952c2681086196b629ddc438a90d5535632cb8e43fd0531cb6"
+      "file": "V062__multi_turn_conversation_context.sql",
+      "checksum": -1938258038,
+      "sha256": "43c02a7edde8cea403510d04220fb97432ad495f5ac1ec371fde3b96a1cba799"
     }
   }
 }

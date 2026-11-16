@@ -1,11 +1,12 @@
 // Project chat test model: types and pure helpers (split from ProjectChatTest, OPT424-038).
 import { UiValidationError } from "@/lib/transportError";
-import { type ProjectChatCitation, type ProjectChatConversationResponse } from "@/lib/api";
+import { type ChatTurnContext, type ConversationMode, type ProjectChatCitation, type ProjectChatConversationResponse } from "@/lib/api";
+import { recordTurnContext } from "@/components/ChatTurnContextNote";
 import { type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 
 export type ChatDocument = { id: string; documentId: string; title: string; version: string; source: string; chunks: number; documentStatus: string; versionStatus: string };
-export type Entry = { id: number; recordId?: string; validationItemId?: string; question: string; answer?: string; citations?: ProjectChatCitation[]; loading?: boolean; error?: string; status?: "answered" | "no_answer"; retrievalStrategy?: string };
+export type Entry = { id: number; recordId?: string; validationItemId?: string; question: string; answer?: string; citations?: ProjectChatCitation[]; loading?: boolean; error?: string; status?: "answered" | "no_answer"; retrievalStrategy?: string; context?: ChatTurnContext };
 export type Judgment = "correct" | "revision";
 export type CsvValidationQuestion = {
   question: string;
@@ -25,6 +26,8 @@ export type ProjectConversation = {
   persisted?: boolean;
   history?: ProjectChatConversationResponse;
   validationRunId?: string;
+  /** CHG-435: chosen when the conversation starts; fixed after the first question. */
+  mode: ConversationMode;
 };
 
 type Translate = (key: TranslationKey) => string;
@@ -110,7 +113,8 @@ export function conversationFromHistory(item: ProjectChatConversationResponse): 
     question: record.question,
     answer: record.answer ?? undefined,
     citations: record.citations,
-    status: record.answer ? "answered" as const : "no_answer" as const
+    status: record.answer ? "answered" as const : "no_answer" as const,
+    context: recordTurnContext(record)
   }));
   const judgmentEntries = item.records.flatMap((record, index): [number, Judgment][] => {
     if (record.evaluation === "needs_revision") return [[index, "revision"]];
@@ -127,6 +131,7 @@ export function conversationFromHistory(item: ProjectChatConversationResponse): 
     updatedAt,
     persisted: true,
     history: item,
+    mode: item.conversation_mode ?? "single",
   };
 }
 

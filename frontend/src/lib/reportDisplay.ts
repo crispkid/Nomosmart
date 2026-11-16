@@ -22,6 +22,7 @@ const labelGroups = {
   usage_purpose: {
     chat_test: "reportPurposeChatTest",
     public_api_chat: "reportPurposePublicApiChat",
+    query_rewrite: "reportPurposeQueryRewrite",
     validation_answer: "reportPurposeValidationAnswer",
     validation_judge: "reportPurposeValidationJudge",
     document_auto_tag: "reportPurposeDocumentAutoTag",
