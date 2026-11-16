@@ -18,7 +18,7 @@ Full notes and upgrade guides: [GitHub Release v0.2.5](https://github.com/crispk
 
 ## Features
 
-- Import PDF, UTF-8 TXT and Markdown files, plus FTP/FTPS/SFTP, S3 and HTTP API sources.
+- Import PDF, UTF-8 TXT and Markdown files, plus S3 and HTTP API sources (FTP, FTPS and SFTP sources were removed after 0.2.5).
 - Send original PDFs directly to a configured LLM for Markdown output; read TXT/Markdown directly.
 - Create knowledge chunks, tags and embeddings while preserving original documents, versions and citations.
 - Submit, reject and publish content under project permissions, retaining completed work and review history.

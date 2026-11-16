@@ -97,10 +97,8 @@ function sourceRelationshipLabel(metadata: Record<string, unknown>, labels: Proj
   ].filter(Boolean).join(" ").toLowerCase();
   if (raw.includes("reference") || raw.includes("referenced") || raw.includes("project_reference")) return labels.referenceProject;
   if (raw.includes("http") || raw.includes("api")) return labels.httpApi;
-  if (raw.includes("sftp")) return labels.sftp;
-  if (raw.includes("ftps")) return labels.ftps;
-  if (raw.includes("ftp")) return labels.ftp;
-  if (raw.includes("ssh")) return labels.ssh;
+  // CHG-433 removed FTP/FTPS/SFTP; historical documents from those sources show a generic label.
+  if (raw.includes("ftp") || raw.includes("ssh")) return labels.dataService;
   if (raw.includes("s3") || raw.includes("rustfs")) return labels.s3;
   return labels.upload;
 }
@@ -127,15 +125,12 @@ type ProjectGraphLabels = {
   chunkGroupLabel: (start: number, end: number, count: number) => string;
   chunks: string;
   contains: string;
+  dataService: string;
   document: string;
-  ftp: string;
-  ftps: string;
   httpApi: string;
   project: string;
   referenceProject: string;
   s3: string;
-  sftp: string;
-  ssh: string;
   tagCount: string;
   tagGroupDetail: string;
   tagGroupLabel: (count: number) => string;
@@ -409,15 +404,12 @@ export function ProjectGraphPreview() {
     chunkGroupLabel: (start, end, count) => format("graphChunkGroupLabel", { count, end, start }),
     chunks: t("graphLegendChunk"),
     contains: t("graphRelationChunked"),
+    dataService: t("dataService"),
     document: t("graphLegendDocument"),
-    ftp: t("graphRelationSourceFtp"),
-    ftps: t("graphRelationSourceFtps"),
     httpApi: t("graphRelationSourceHttpApi"),
     project: t("graphLegendProject"),
     referenceProject: t("graphRelationSourceReferenceProject"),
     s3: t("graphRelationSourceS3"),
-    sftp: t("graphRelationSourceSftp"),
-    ssh: t("graphRelationSourceSsh"),
     tagCount: t("graphExplorerTagCount"),
     tagGroupDetail: t("graphTagGroupDetail"),
     tagGroupLabel: (count) => format("graphTagGroupLabel", { count }),

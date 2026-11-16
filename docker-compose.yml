@@ -7,11 +7,9 @@ x-nomosmart-env-file: &nomosmart_env_file
 x-backend-volumes: &backend_volumes
   - ${AUTH_CA_DIRECTORY:-./deploy/docker/auth-ca}:/etc/nomosmart/auth-ca:ro
   - ${AUTH_BOOTSTRAP_CONFIG_FILE:-./deploy/docker/auth-bootstrap.example.json}:/etc/nomosmart/auth-bootstrap.json:ro
-  - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
   - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
   - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
   - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
-  - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
   - ${RUSTFS_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/rustfs-ca.crt}:/etc/nomosmart/tls/rustfs-ca.crt:ro
   - ${OPENSEARCH_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/opensearch-ca.crt}:/etc/nomosmart/tls/opensearch-ca.crt:ro
 
@@ -179,8 +177,6 @@ x-backend-environment: &backend_environment
   NOMOSMART_EMBEDDING_CAPABILITIES_FILE: /etc/nomosmart/embedding-capabilities.json
   HTTP_SOURCE_ALLOWED_HOSTS: ${HTTP_SOURCE_ALLOWED_HOSTS:-}
   HTTP_SOURCE_ALLOWED_CIDRS: ${HTTP_SOURCE_ALLOWED_CIDRS:-}
-  SFTP_KNOWN_HOSTS_PATH: /etc/nomosmart/ssh_known_hosts
-  FTPS_CA_CERT_PATH: ${FTPS_CA_CERT_PATH:-}
   PUBLIC_API_RATE_LIMIT_WINDOW_SECONDS: ${PUBLIC_API_RATE_LIMIT_WINDOW_SECONDS:-60}
   PUBLIC_API_INVALID_AUTH_REQUESTS_PER_MINUTE: ${PUBLIC_API_INVALID_AUTH_REQUESTS_PER_MINUTE:-20}
   PUBLIC_API_IDEMPOTENCY_TTL_HOURS: ${PUBLIC_API_IDEMPOTENCY_TTL_HOURS:-24}
@@ -288,10 +284,8 @@ services:
       - ${AUTH_CA_DIRECTORY:-./deploy/docker/auth-ca}:/etc/nomosmart/auth-ca:ro
       - ${AUTH_BOOTSTRAP_CONFIG_FILE:-./deploy/docker/auth-bootstrap.example.json}:/etc/nomosmart/auth-bootstrap.json:ro
       - ${EMBEDDING_CAPABILITIES_FILE:-./deploy/docker/embedding-capabilities.example.json}:/etc/nomosmart/embedding-capabilities.json:ro
-      - ${FTPS_CA_DIRECTORY:-./deploy/docker/ftps-ca}:/etc/nomosmart/ftps-ca:ro
       - ./deploy/docker/secret-env-entrypoint.sh:/opt/nomosmart/secret-env-entrypoint.sh:ro
       - ./deploy/docker/compose-secret-entrypoint.sh:/opt/nomosmart/compose-secret-entrypoint.sh:ro
-      - ${SFTP_KNOWN_HOSTS_FILE:-./deploy/docker/ssh_known_hosts.example}:/etc/nomosmart/ssh_known_hosts:ro
       - ${RUSTFS_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/rustfs-ca.crt}:/etc/nomosmart/tls/rustfs-ca.crt:ro
       - ${OPENSEARCH_TLS_CA_FILE:-./deploy/docker/generated/current/tls/active/opensearch-ca.crt}:/etc/nomosmart/tls/opensearch-ca.crt:ro
       - upload_scratch:/var/lib/nomosmart-upload

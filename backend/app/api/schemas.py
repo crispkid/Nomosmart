@@ -412,7 +412,7 @@ class DataSourceConnectionOptions(BaseModel):
 
 
 class DataSourceConnectionPayload(BaseModel):
-    service_type: Literal["FTP", "FTPS", "SFTP", "S3", "HTTP_API"]
+    service_type: Literal["S3", "HTTP_API"]
     name: str = Field(min_length=1, max_length=255)
     host: str = Field(default="", max_length=500)
     port: int = Field(ge=1, le=65535)
@@ -427,7 +427,6 @@ class DataSourceConnectionPayload(BaseModel):
     cron_expression: str | None = Field(default=None, max_length=255)
     timezone: str = Field(default="Asia/Taipei", min_length=1, max_length=100)
     verify_tls: bool = True
-    verify_host_key: bool = True
     url: str | None = Field(default=None, max_length=2000)
     headers: dict[str, str] = Field(default_factory=dict)
     auth_mode: Literal["none", "bearer", "api_key_header"] = "none"
