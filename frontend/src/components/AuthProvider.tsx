@@ -11,7 +11,7 @@ import { clearGraphLayoutSession } from "@/lib/graphLayoutCache";
 import { createOperationGuardRegistry, type OperationGuardRegistry } from "@/lib/operationGuard";
 import { ApplicationAccessDenied } from "./ApplicationAccessDenied";
 import { AuthConnectionRecovery } from "./AuthConnectionRecovery";
-import { apiJson, can, canAnyView, discardSessionDraft, getCurrentUser, restoreSessionDraft, type CurrentUser, type PermissionAction } from "@/lib/api";
+import { apiJson, can, canAnyView, discardSessionDraft, restoreSessionDraft, type CurrentUser, type PermissionAction } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { apiBaseUrl, safeReturnPath } from "@/lib/oidc";
 import { captureSessionDraft, randomDraftNonce } from "@/lib/sessionDrafts";

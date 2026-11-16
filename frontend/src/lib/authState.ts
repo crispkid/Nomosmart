@@ -12,7 +12,7 @@ export const AUTH_COOKIES = {
   loginChecked: "nomosmart_login_checked"
 } as const;
 
-export type AuthFlow = "silent" | "interactive" | "session_expired";
+type AuthFlow = "silent" | "interactive" | "session_expired";
 export type LoginNotice = "session_expired" | "logged_out" | "logout_incomplete" | "login_cancelled" | "account_unavailable" | "auth_service_unavailable" | "oidc_error";
 export type LoginRecoveryMode = "anonymous" | LoginNotice;
 
@@ -20,8 +20,7 @@ const loginNotices = new Set<LoginNotice>(["session_expired", "logged_out", "log
 const recoveryModes = new Set<LoginRecoveryMode>(["anonymous", ...loginNotices]);
 
 export const AUTH_FLOW_COOKIE_PREFIX = "nomosmart_oidc_v2_";
-export const AUTH_FLOW_TTL_SECONDS = 300;
-export const AUTH_FLOW_LIMIT = 4;
+const AUTH_FLOW_TTL_SECONDS = 300;
 const maxFlowCookieBytes = 1536;
 const maxReturnBytes = 512;
 const statePattern = /^[A-Za-z0-9_-]{43}$/;
@@ -32,7 +31,7 @@ type AuthCookieStore = {
   get: (name: string) => { value: string } | undefined;
   getAll: () => { name: string; value: string }[];
 };
-export type AuthorizationPacket = {
+type AuthorizationPacket = {
   version: 2;
   state: string;
   verifier: string;
@@ -42,22 +41,16 @@ export type AuthorizationPacket = {
   createdAt: number;
   expiresAt: number;
 };
-export type OwnedAuthorizationState = { name: string; packet: AuthorizationPacket };
+type OwnedAuthorizationState = { name: string; packet: AuthorizationPacket };
 
-export function boundedReturnPath(value: string | null | undefined): string {
+function boundedReturnPath(value: string | null | undefined): string {
   const path = safeReturnPath(value);
   return Buffer.byteLength(path, "utf8") <= maxReturnBytes ? path : "/";
 }
 
-export async function authorizationFlowId(state: string): Promise<string> {
+async function authorizationFlowId(state: string): Promise<string> {
   const hash = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(state));
   return Buffer.from(hash).toString("hex");
-}
-
-export function encodeAuthorizationPacket(packet: AuthorizationPacket): string {
-  const encoded = Buffer.from(JSON.stringify(packet), "utf8").toString("base64url");
-  if (Buffer.byteLength(encoded) > maxFlowCookieBytes) throw new Error("oidc_packet_too_large");
-  return encoded;
 }
 
 function parseAuthorizationPacket(value: string, now: number): AuthorizationPacket | null {
@@ -99,21 +92,11 @@ export async function readAuthorizationState(store: AuthCookieStore, state: unkn
   return owner?.packet.state === state ? owner : null;
 }
 
-export async function inspectAuthorizationStates(store: AuthCookieStore): Promise<{ active: OwnedAuthorizationState[]; obsoleteNames: string[] }> {
-  const now = Date.now();
-  const candidates = store.getAll().filter(({ name }) => name.startsWith(AUTH_FLOW_COOKIE_PREFIX) && parseAuthFlowId(name.slice(AUTH_FLOW_COOKIE_PREFIX.length)));
-  const owners = await Promise.all(candidates.map(({ name }) => readAuthorizationOwner(store, name.slice(AUTH_FLOW_COOKIE_PREFIX.length), now)));
-  return {
-    active: owners.filter((owner): owner is OwnedAuthorizationState => owner !== null),
-    obsoleteNames: candidates.filter((_, index) => !owners[index]).map(({ name }) => name),
-  };
-}
-
-export function expireAuthCookie(response: NextResponse, name: string) {
+function expireAuthCookie(response: NextResponse, name: string) {
   response.cookies.set(name, "", { ...authCookieOptions(0), expires: new Date(0) });
 }
 
-export function clearLegacyAuthorizationState(response: NextResponse) {
+function clearLegacyAuthorizationState(response: NextResponse) {
   for (const name of [AUTH_COOKIES.pkce, AUTH_COOKIES.state, AUTH_COOKIES.nonce, AUTH_COOKIES.flow]) expireAuthCookie(response, name);
 }
 
@@ -128,7 +111,7 @@ export function clearAuthorizationSnapshot(response: NextResponse, store: AuthCo
   }
 }
 
-export function parseAuthFlow(value: string | null | undefined): AuthFlow | null {
+function parseAuthFlow(value: string | null | undefined): AuthFlow | null {
   return value === "silent" || value === "interactive" || value === "session_expired" ? value : null;
 }
 
@@ -144,11 +127,11 @@ export function authCookieOptions(maxAge = 300) {
   return { httpOnly: true, sameSite: "lax" as const, secure: process.env.NODE_ENV === "production", path: "/", maxAge };
 }
 
-export function clearAuthorizationState(response: NextResponse, owner: OwnedAuthorizationState | null) {
+function clearAuthorizationState(response: NextResponse, owner: OwnedAuthorizationState | null) {
   if (owner) expireAuthCookie(response, owner.name);
 }
 
-export function canonicalLoginUrl(): URL {
+function canonicalLoginUrl(): URL {
   const url = new URL(oidcConfig().logoutUrl);
   url.pathname = "/login";
   url.search = "";

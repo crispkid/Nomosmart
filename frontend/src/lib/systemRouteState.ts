@@ -11,7 +11,7 @@ export const systemTabIds = [
 ] as const;
 
 export type SystemTabId = (typeof systemTabIds)[number];
-export type IdentityReauthResult = "pending" | "success" | "cancelled" | "error";
+type IdentityReauthResult = "pending" | "success" | "cancelled" | "error";
 
 const systemTabIdSet = new Set<string>(systemTabIds);
 const identityReauthResultSet = new Set<string>(["pending", "success", "cancelled", "error"]);
@@ -34,18 +34,6 @@ export function parseIdentityReauthResult(
     : null;
 }
 
-export function systemRouteUrl(
-  currentUrl: string,
-  tab: SystemTabId,
-  reauth: IdentityReauthResult | null | undefined = undefined
-): string {
-  const url = new URL(currentUrl, "http://nomosmart.local");
-  url.searchParams.set("tab", tab);
-  if (reauth === null) url.searchParams.delete("reauth");
-  if (reauth !== undefined && reauth !== null) url.searchParams.set("reauth", reauth);
-  return `${url.pathname}${url.search}${url.hash}`;
-}
-
 // CHG-389: one workspace, section navigation and scroll targets (never a second tab row).
 export const settingsSections = [
   { id: "people", labelKey: "settingsPeople", panels: ["users", "roles", "permissions"] },
@@ -56,7 +44,7 @@ export const settingsSections = [
   { id: "general", labelKey: "settingsGeneral", panels: ["time", "drafts"] },
   { id: "status", labelKey: "settingsStatus", panels: ["runtime", "dependencies", "providers", "errors"] }
 ] as const;
-export type SettingsSection = (typeof settingsSections)[number]["id"];
+type SettingsSection = (typeof settingsSections)[number]["id"];
 export type SettingsPosition = { section: SettingsSection; panel: string };
 export const legacySettingsPositions: Record<SystemTabId, SettingsPosition> = {
   users: { section: "people", panel: "users" }, roles: { section: "people", panel: "roles" },

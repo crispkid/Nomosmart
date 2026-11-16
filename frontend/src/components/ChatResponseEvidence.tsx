@@ -12,7 +12,7 @@ import type { ProjectChatCitation } from "@/lib/api";
 
 type SelectedCitation = { citation: ProjectChatCitation; ordinal: number };
 
-export function chatCitationTitle(
+function chatCitationTitle(
   citation: ProjectChatCitation,
   chunkLabel: (number: number) => string,
   unavailableLabel: string,

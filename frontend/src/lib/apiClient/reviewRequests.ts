@@ -39,10 +39,6 @@ export function listApprovalHistoryPage(apiFetch: ApiFetch, cursor?: string | nu
 export function listRejectedApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalTaskResponse>(apiFetch, "/approvals/history", cursor, "rejected", filters, signal); }
 export function listMyApprovalSubmissionsPage(apiFetch: ApiFetch, cursor?: string | null, filters: ApprovalListFilters = {}, signal?: AbortSignal) { return approvalPage<ApprovalRequestResponse>(apiFetch, "/approvals/my-submissions", cursor, undefined, filters, signal); }
 export async function listPendingApprovals(apiFetch: ApiFetch) { return (await listPendingApprovalsPage(apiFetch)).items; }
-export async function listApprovalHistory(apiFetch: ApiFetch) { return (await listApprovalHistoryPage(apiFetch)).items; }
-export async function listRejectedApprovals(apiFetch: ApiFetch) { return (await listRejectedApprovalsPage(apiFetch)).items; }
-export async function listMyApprovalSubmissions(apiFetch: ApiFetch) { return (await listMyApprovalSubmissionsPage(apiFetch)).items; }
-export async function listPendingPublishApprovals(apiFetch: ApiFetch) { return apiJson<ApprovalPendingPublishResponse[]>(apiFetch, "/approvals/pending-publish"); }
 export function listPendingPublishApprovalsPage(apiFetch: ApiFetch, cursor?: string | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ limit: "20" });
   if (cursor) params.set("cursor", cursor);
@@ -133,8 +129,8 @@ export async function getProjectChatValidationRun(apiFetch: ApiFetch, projectId:
 export async function retryFailedProjectChatValidationItems(apiFetch: ApiFetch, projectId: string, runId: string) {
   return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs/${runId}/retry-failed`, { method: "POST" });
 }
-export type ModelUsageReportFilters = { modelType?: string; usagePurpose?: string; sourceChannel?: string; usageStatus?: string };
-export type ReportQueryParams = { topic: string; dateFrom?: string; dateTo?: string; scope?: string; projectId?: string | null; page?: number; pageSize?: number } & ModelUsageReportFilters;
+type ModelUsageReportFilters = { modelType?: string; usagePurpose?: string; sourceChannel?: string; usageStatus?: string };
+type ReportQueryParams = { topic: string; dateFrom?: string; dateTo?: string; scope?: string; projectId?: string | null; page?: number; pageSize?: number } & ModelUsageReportFilters;
 export async function getReportFilterOptions(apiFetch: ApiFetch, scope = "owner_projects", signal?: AbortSignal) {
   return apiJson<ReportFilterOptionsResponse>(apiFetch, `/reports/filter-options?scope=${encodeURIComponent(scope)}`, { signal });
 }
@@ -165,7 +161,7 @@ function reportQuery(params: ReportQueryParams & { locale?: string }) {
   if (params.usageStatus) query.set("usage_status", params.usageStatus);
   return query.toString();
 }
-export type NotificationPage = { items: NotificationResponse[]; has_more: boolean; next_cursor: string | null };
+type NotificationPage = { items: NotificationResponse[]; has_more: boolean; next_cursor: string | null };
 export async function listNotificationPage(apiFetch: ApiFetch, filters: { resolved?: boolean; cursor?: string } = {}) {
   const query = new URLSearchParams();
   if (filters.resolved !== undefined) query.set("resolved", String(filters.resolved));

@@ -7,7 +7,7 @@ import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operation
 export type Judgment = "correct" | "needs_revision";
 export type AnswerEvaluation = { judgment: Judgment; suggestion: string };
 export type Translate = (key: TranslationKey) => string;
-export type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
+type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 export type ConversationEntry = {
   id: string;
   recordId?: string;

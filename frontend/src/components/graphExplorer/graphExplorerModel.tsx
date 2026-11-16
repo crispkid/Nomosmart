@@ -7,11 +7,11 @@ import { GRAPH_HEIGHT, GRAPH_WIDTH, graphNodeDimensions } from "@/lib/graphLayou
 import { BarChart3, FileText, FolderKanban, ImageIcon, Network, Scissors, Table2, Tag } from "lucide-react";
 import { type TranslationKey } from "@/lib/i18nClient";
 
-export type GraphExplorerNodeKind = "project" | "document" | "chunk" | "tag" | "group";
-export type GraphExplorerContentType = "text" | "image" | "table" | "chart";
-export type GraphExplorerSemanticLayer = 1 | 2 | 3 | 4;
+type GraphExplorerNodeKind = "project" | "document" | "chunk" | "tag" | "group";
+type GraphExplorerContentType = "text" | "image" | "table" | "chart";
+type GraphExplorerSemanticLayer = 1 | 2 | 3 | 4;
 
-export type GraphExplorerMeta = {
+type GraphExplorerMeta = {
   label: string;
   value: string;
 };
@@ -55,7 +55,7 @@ export const MIN_ZOOM = MIN_GRAPH_ZOOM;
 export const MAX_ZOOM = MAX_GRAPH_ZOOM;
 
 
-export type GraphZoomBand = "structure" | "chunk" | "tag" | "inspection";
+type GraphZoomBand = "structure" | "chunk" | "tag" | "inspection";
 export type VisibleGraphExplorerNode = GraphExplorerNode & { isHint?: boolean };
 export type GraphPanExtent = { minX: number; maxX: number; minY: number; maxY: number; nodeWidth: number; nodeHeight: number };
 
@@ -109,7 +109,7 @@ export function nodeVisibilityAtZoom(node: GraphExplorerNode, zoom: number, sele
 
 export const nodeDimensions = graphNodeDimensions;
 
-export function edgeEndpoint(from: GraphExplorerNode, to: GraphExplorerNode, paddingOverride?: number) {
+function edgeEndpoint(from: GraphExplorerNode, to: GraphExplorerNode, paddingOverride?: number) {
   const { w, h, type } = nodeDimensions(from);
   const dx = to.x - from.x;
   const dy = to.y - from.y;

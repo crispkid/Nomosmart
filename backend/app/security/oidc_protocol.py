@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 import hmac
 import json
 import secrets
-from urllib.parse import urlencode, urlsplit
+from urllib.parse import urlsplit
 from uuid import UUID, uuid4
 
 from authlib.integrations.httpx_client import OAuth2Client
@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import AuthenticationIdentity, AuthLoginFlow, IdentitySetting, User
 from app.security.auth_configuration import configuration, read_secret, seal, unseal
-from app.security.auth_network import PinnedAuthTransport, tls_context, validate_endpoint
+from app.security.auth_network import PinnedAuthTransport, validate_endpoint
 from app.security.session_auth import FLOW_COOKIE, digest
 
 

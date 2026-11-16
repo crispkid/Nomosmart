@@ -111,7 +111,7 @@ export type DocumentSummary = {
   capabilities: ProjectCapabilities;
 };
 
-export type DocumentServiceSourceSummary = {
+type DocumentServiceSourceSummary = {
   data_source_id: string;
   service_type: string;
   location: string;
@@ -120,7 +120,7 @@ export type DocumentServiceSourceSummary = {
   timezone: string | null;
 };
 
-export type DocumentReferenceSourceSummary = {
+type DocumentReferenceSourceSummary = {
   reference_id: string | null;
   source_project_id: string;
   source_document_id: string;
@@ -194,7 +194,7 @@ export type DataSourceConnectionTestResponse = {
   tested_at: string | null;
 };
 
-export type DataSourceResponse = {
+type DataSourceResponse = {
   id: string;
   project_id: string;
   service_type: string;

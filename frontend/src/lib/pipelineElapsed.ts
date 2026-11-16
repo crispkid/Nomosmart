@@ -1,12 +1,12 @@
 /** Display only: never writes timestamps, advances progress or polls a service. */
-export type PipelineTimes = { startedAt?: string | null; completedAt?: string | null };
+type PipelineTimes = { startedAt?: string | null; completedAt?: string | null };
 export type ElapsedPipeline = PipelineTimes & {
   id?: string | null;
   status: string;
   observationInterrupted?: boolean;
   execution?: { phase: string } | null;
 };
-export type ElapsedState = { kind: "unknown" } | { kind: "running" | "completed"; seconds: number };
+type ElapsedState = { kind: "unknown" } | { kind: "running" | "completed"; seconds: number };
 
 /** Preserve explicit null; undefined means an older response omitted the field. */
 export function pipelineTimeFields(source?: { started_at?: string | null; completed_at?: string | null }): PipelineTimes {

@@ -15,9 +15,9 @@ import type { ImportPageDeps } from "./pageDeps";
 
 type ProjectPermissionStateDeps = Pick<ImportPageDeps, "apiFetch" | "canManageProjectPermissions" | "params" | "t">;
 /** Page dependencies shared with the project permission actions. */
-export type ProjectPermissionDeps = Pick<ImportPageDeps, "apiFetch" | "canManageProjectPermissions" | "currentUser" | "params" | "project" | "setProject" | "setProjectAccess">;
+type ProjectPermissionDeps = Pick<ImportPageDeps, "apiFetch" | "canManageProjectPermissions" | "currentUser" | "params" | "project" | "setProject" | "setProjectAccess">;
 
-export type ProjectPermissionState = ReturnType<typeof useProjectPermissionState>;
+type ProjectPermissionState = ReturnType<typeof useProjectPermissionState>;
 
 /** Project member permission state (split from the project import page, OPT424-038). */
 export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
@@ -163,7 +163,7 @@ export function createProjectPermissionActions(state: ProjectPermissionState, de
   return { loadProjectPermissions, openPermissionModal, saveProjectMemberRole, stagePermissionCandidate, commitPendingPermissionCandidates, removeProjectPermissionMember };
 }
 
-export type ProjectPermissionActions = ReturnType<typeof createProjectPermissionActions>;
+type ProjectPermissionActions = ReturnType<typeof createProjectPermissionActions>;
 
 /** Project member permission view: JSX moved verbatim from the project import page (OPT424-038). */
 export function createProjectPermissionView(state: ProjectPermissionState, actions: ProjectPermissionActions, deps: Pick<ImportPageDeps, "canManageProjectPermissions" | "currentUser" | "format" | "locale" | "project" | "t">) {

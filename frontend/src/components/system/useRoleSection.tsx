@@ -19,7 +19,7 @@ import type { WorkspaceViewDeps } from "./viewDeps";
 import type { QuickMutationTarget } from "./useModelSection";
 
 /** Workspace dependencies shared with the role section. */
-export type RoleDeps = {
+type RoleDeps = {
   apiFetch: ApiFetch;
   t: (key: TranslationKey) => string;
   format: (key: TranslationKey, params: Record<string, string | number>) => string;
@@ -83,7 +83,7 @@ export function useRoleState() {
 
 /** Role, membership, mapping and permission management actions, created each render once workspace dependencies exist. */
 export function createRoleActions(state: RoleState, deps: RoleDeps) {
-  const { selectedRole, setSelectedRole, permissions, setPermissions, permissionSaved, setPermissionSaved, liveRoles, setLiveRoles, liveGroupMappings, setLiveGroupMappings, externalGroups, setExternalGroups, roleTableIds, setRoleTableIds, roleTotal, setRoleTotal, roleOverallTotal, setRoleOverallTotal, rolePage, setRolePage, rolePageSize, setRolePageSize, memberOffset, setMemberOffset, memberTotal, setMemberTotal, memberCandidateIds, setMemberCandidateIds, roleUsersReadback, setRoleUsersReadback, roleUsers, setRoleUsers, roleUserDraftIds, setRoleUserDraftIds, roleUserSearch, setRoleUserSearch, rolesView, setRolesView, roleQuery, setRoleQuery, roleStatusFilter, setRoleStatusFilter, roleActionId, setRoleActionId, roleDeleteConfirmation, setRoleDeleteConfirmation, mappingGroupDraft, setMappingGroupDraft, roleMenuTriggerRef } = state;
+  const { selectedRole, permissions, setPermissions, setPermissionSaved, liveRoles, setLiveRoles, setLiveGroupMappings, externalGroups, setMemberOffset, setMemberCandidateIds, setRoleUsersReadback, roleUsers, setRoleUsers, roleUserDraftIds, setRoleUserDraftIds, setRoleUserSearch, roleActionId, setRoleActionId, roleDeleteConfirmation, setRoleDeleteConfirmation, mappingGroupDraft, setMappingGroupDraft, roleMenuTriggerRef } = state;
 
   function cacheRoles(rows: RoleResponse[]) {
     const { roleNames } = deps;

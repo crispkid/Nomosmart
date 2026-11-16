@@ -33,7 +33,7 @@ function breakGlassNormalStateText(status: BreakGlassStatusResponse | null, t: (
 }
 
 /** Workspace dependencies shared with the identity section. */
-export type IdentityDeps = {
+type IdentityDeps = {
   apiFetch: ApiFetch;
   t: (key: TranslationKey) => string;
   errorMessage: (error: ApiError | Error | null) => string;
@@ -48,7 +48,7 @@ function identitySyncErrorKey(errorCode: string | null): TranslationKey {
   return "identitySyncFailed";
 }
 
-export type IdentityState = ReturnType<typeof useIdentityState>;
+type IdentityState = ReturnType<typeof useIdentityState>;
 
 /** Directory sync and emergency access state (split from SystemManagementWorkspace, OPT424-038). */
 export function useIdentityState() {
@@ -62,7 +62,7 @@ export function useIdentityState() {
 
 /** Directory sync and emergency access actions, created each render once workspace dependencies exist. */
 export function createIdentityActions(state: IdentityState, deps: IdentityDeps) {
-  const { identityDirty, setIdentityDirty, syncRuns, setSyncRuns, identitySyncing, setIdentitySyncing, breakGlassStatus, setBreakGlassStatus, identityMessage, setIdentityMessage } = state;
+  const { syncRuns, setSyncRuns, identitySyncing, setIdentitySyncing, setIdentityMessage } = state;
   const { sectionReady, t } = deps;
 
   const localizedBreakGlassStatus = (status?: BreakGlassStatusResponse["status"]) => {
@@ -118,7 +118,7 @@ export function createIdentityActions(state: IdentityState, deps: IdentityDeps) 
   return { localizedBreakGlassStatus, refreshIdentityData, runIdentitySync };
 }
 
-export type IdentityActions = ReturnType<typeof createIdentityActions>;
+type IdentityActions = ReturnType<typeof createIdentityActions>;
 
 /** Identity view: JSX moved verbatim from SystemManagementWorkspace (OPT424-038). */
 export function createIdentityView(state: IdentityState, actions: IdentityActions, deps: Pick<WorkspaceViewDeps, "canEditSystemManagement" | "format" | "locale" | "renderSectionReadNotice" | "systemReadScope" | "t">) {

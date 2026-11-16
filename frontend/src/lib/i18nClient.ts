@@ -11,7 +11,7 @@ export const LocaleSnapshotContext = createContext<Locale>("zh");
 const localeListeners = new Set<() => void>();
 let activeLocale: Locale | null = null;
 
-export function localeFromDocument(): Locale {
+function localeFromDocument(): Locale {
   if (typeof document === "undefined") return "zh";
   return document.documentElement.lang.toLowerCase().startsWith("en") ? "en" : "zh";
 }
@@ -29,7 +29,7 @@ function emitLocaleChange() {
   for (const listener of localeListeners) listener();
 }
 
-export function getCurrentLocale() {
+function getCurrentLocale() {
   return activeLocale ?? localeFromDocument();
 }
 

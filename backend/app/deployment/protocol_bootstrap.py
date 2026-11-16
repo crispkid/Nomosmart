@@ -14,7 +14,7 @@ from sqlalchemy import select, update
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import AuthConnectionSecret, AuthEmergencyAccess, AuthLoginFlow, AuthSession, ExternalGroup, ExternalGroupRoleMapping, IdentitySetting, IdentitySyncRun, IdentityUnlockGrant, Role, RoleUser, SystemParameter, User
+from app.db.models import AuthConnectionSecret, AuthEmergencyAccess, AuthLoginFlow, AuthSession, ExternalGroup, ExternalGroupRoleMapping, IdentitySetting, IdentitySyncRun, IdentityUnlockGrant, Role, RoleUser, User
 from app.db.session import get_session_factory
 from app.integrations.ldap_directory import LdapDirectory
 from app.security.auth_configuration import ProtocolConfiguration, configuration, current_setting, read_secret, seal, stage_configuration, store_secret, unseal

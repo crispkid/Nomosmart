@@ -4,7 +4,7 @@ import { MutationOutcomeUnknown, TransportError } from "@/lib/transportError";
 import { feedbackFailureReporter } from "@/lib/feedback";
 
 export type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";
-export type PermissionGrant = {
+type PermissionGrant = {
   module_name: string;
   function_name: string;
   can_view: boolean;

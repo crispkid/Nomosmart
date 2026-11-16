@@ -22,7 +22,7 @@ import { confirmedPipelinePercent, confirmedUploadResults, UploadAttemptGuard, u
 import type { CreatedKnowledgeDocument } from "./knowledgeSource/knowledgeSourceTypes";
 
 export { DEFAULT_MAX_UPLOAD_BYTES } from "@/lib/knowledgeImport";
-export type { SourceState, PipelineStatus, ServiceSource, ReferenceSource, CreatedKnowledgeDocument } from "./knowledgeSource/knowledgeSourceTypes";
+export type { SourceState, ServiceSource, CreatedKnowledgeDocument } from "./knowledgeSource/knowledgeSourceTypes";
 export { DataServiceModal, type DataServicePayload } from "./knowledgeSource/DataServiceModal";
 
 type UploadResult = { name: string; ok: boolean; reason: string };
@@ -45,7 +45,7 @@ const CANONICAL_UPLOAD_PIPELINE_STEPS = [
   "prepare_submission"
 ] as const;
 
-export function validateUploadFile(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): UploadResult {
+function validateUploadFile(file: File, maxBytes = DEFAULT_MAX_UPLOAD_BYTES): UploadResult {
   return validateFileDescriptor(file, maxBytes);
 }
 

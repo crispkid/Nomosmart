@@ -60,7 +60,7 @@ export function pairedEmbeddingModelIds(model: ModelRow | undefined) {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string" && item.trim().length > 0) : [];
 }
 
-export const secretConfigKeys = new Set(["api_key", "apikey", "secret", "password", "credential", "authorization", "access_token", "refresh_token", "bearer_token", "auth_token"]);
+const secretConfigKeys = new Set(["api_key", "apikey", "secret", "password", "credential", "authorization", "access_token", "refresh_token", "bearer_token", "auth_token"]);
 
 export function containsSecretConfigKey(value: unknown): boolean {
   if (Array.isArray(value)) return value.some((item) => containsSecretConfigKey(item));

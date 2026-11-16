@@ -8,7 +8,7 @@ export type ChunkMarkdownSource = {
   markdown_content?: string | null;
 };
 
-export type SelectedChunkMarkdownSource = {
+type SelectedChunkMarkdownSource = {
   kind: "display_markdown" | "markdown_content" | "content";
   source: string;
 };

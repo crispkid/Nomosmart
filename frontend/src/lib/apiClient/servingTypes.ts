@@ -160,8 +160,8 @@ export type ValidationRunResponse = {
   }[];
 };
 
-export type ReportMetricCard = { key: string; label: string; value: number; unit: string | null };
-export type ReportProjectRankingItem = { project_id: string; project_name: string; chat_count: number; validation_run_count: number; citation_count: number };
+type ReportMetricCard = { key: string; label: string; value: number; unit: string | null };
+type ReportProjectRankingItem = { project_id: string; project_name: string; chat_count: number; validation_run_count: number; citation_count: number };
 export type ReportSummaryResponse = {
   topic: string;
   date_from: string | null;
@@ -225,14 +225,6 @@ export type SystemParametersPayload = {
 
 export type SystemParameterApiValues = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes" | "ocr_request_max_output_tokens" | "ocr_document_max_tokens">;
 export type SystemParameterSectionResponse = { section: "general" | "documents"; revision: string; changed: boolean; values: Partial<SystemParameterApiValues>; defaults: Partial<SystemParameterApiValues>; parameter_metadata: SystemParametersPayload["parameter_metadata"] };
-
-export type SystemParametersUpdatePayload = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes"> & {
-  ocr_page_max_output_tokens?: number;
-  ocr_request_max_output_tokens?: number;
-  ocr_document_max_tokens?: number;
-  expected_ocr_token_settings_hash?: string;
-  expected_section_revisions: Record<"general" | "documents", string>;
-};
 
 export type UploadConfigResponse = {
   max_upload_size_mb: number;

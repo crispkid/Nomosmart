@@ -1,6 +1,6 @@
-export type ApprovalDecision = "approve" | "reject";
+type ApprovalDecision = "approve" | "reject";
 
-export type ApprovalConversation = {
+type ApprovalConversation = {
   id: string;
   title: string;
   turns: Array<{

@@ -1,7 +1,7 @@
 /** Dates always follow the application locale, never the browser default (OPT424-034). */
-export type AppLocale = "en" | "zh";
+type AppLocale = "en" | "zh";
 
-export function localeTag(locale: AppLocale): string {
+function localeTag(locale: AppLocale): string {
   return locale === "en" ? "en-US" : "zh-TW";
 }
 

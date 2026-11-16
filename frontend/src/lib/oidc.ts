@@ -1,5 +1,4 @@
-export type OidcConfig = { issuer: string; internalIssuer: string; clientId: string; audience: string; callbackUrl: string; logoutUrl: string };
-export type OidcTokens = { accessToken: string; refreshToken: string; idToken?: string; expiresAt: number };
+type OidcConfig = { issuer: string; internalIssuer: string; clientId: string; audience: string; callbackUrl: string; logoutUrl: string };
 
 function authRuntimeConfig() {
   if (typeof window !== "undefined" && window.__NOMOSMART_RUNTIME_CONFIG__) {
@@ -43,27 +42,4 @@ export function safeReturnPath(value: string | null | undefined): string {
   } catch {
     return "/";
   }
-}
-
-export function base64Url(bytes: Uint8Array): string {
-  let binary = "";
-  bytes.forEach((byte) => { binary += String.fromCharCode(byte); });
-  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
-}
-
-export function randomUrlToken(size = 32): string { return base64Url(crypto.getRandomValues(new Uint8Array(size))); }
-export async function pkceChallenge(verifier: string): Promise<string> { return base64Url(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(verifier)))); }
-
-export function authorizationUrl(config: OidcConfig, input: { state: string; nonce: string; challenge: string; prompt?: string; locale?: "zh" | "en" }): string {
-  const url = new URL(`${config.issuer}/protocol/openid-connect/auth`);
-  for (const [key, value] of Object.entries({ client_id: config.clientId, redirect_uri: config.callbackUrl, response_type: "code", scope: "openid profile email", state: input.state, nonce: input.nonce, code_challenge: input.challenge, code_challenge_method: "S256" })) url.searchParams.set(key, value);
-  if (input.prompt) url.searchParams.set("prompt", input.prompt);
-  if (input.locale === "zh" || input.locale === "en") url.searchParams.set("ui_locales", input.locale === "en" ? "en" : "zh-TW");
-  return url.toString();
-}
-
-export function decodeJwtPayload(token: string): Record<string, unknown> {
-  const part = token.split(".")[1];
-  if (!part) throw new Error("invalid_id_token");
-  return JSON.parse(atob(part.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(part.length / 4) * 4, "="))) as Record<string, unknown>;
 }

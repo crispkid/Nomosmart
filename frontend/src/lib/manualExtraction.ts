@@ -11,7 +11,7 @@ function filePipeline(document: Document): boolean {
 }
 
 /** Only extraction terminals, never review/publication, may observe cleanup. */
-export function hasExtractionTerminal(document: Document): boolean {
+function hasExtractionTerminal(document: Document): boolean {
   return filePipeline(document) && ["submission_ready", "failed"].includes(document.versionStatus)
     && document.pipeline.status === document.versionStatus;
 }

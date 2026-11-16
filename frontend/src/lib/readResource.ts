@@ -5,9 +5,9 @@
  * invalidating aborts the older one, whose result never commits; optional polling schedules the
  * next read after each current read and never overlaps a read.
  */
-export type ReadOutcome<T> = { data: T } | { error: unknown };
+type ReadOutcome<T> = { data: T } | { error: unknown };
 
-export type ReadResourceControllerOptions<T> = {
+type ReadResourceControllerOptions<T> = {
   onStart?: () => void;
   onData?: (data: T) => void;
   onError?: (error: unknown) => void;

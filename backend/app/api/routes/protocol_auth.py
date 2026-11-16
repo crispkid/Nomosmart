@@ -1,21 +1,20 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 import re
 import secrets
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerificationError, InvalidHashError
 from fastapi import APIRouter, Depends, Request, Response
-from fastapi.responses import JSONResponse, RedirectResponse
+from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 from sqlalchemy import case, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
-from app.db.models import AuthAttemptWindow, AuthEmergencyAccess, AuthSession, ExternalGroup, ExternalGroupUser, IdentitySetting, User
+from app.db.models import AuthAttemptWindow, AuthEmergencyAccess, AuthSession, User
 from app.db.session import get_db
 from app.integrations.ldap_directory import LdapDirectory
 from app.security.auth_configuration import configuration, current_setting, read_secret

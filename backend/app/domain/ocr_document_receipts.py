@@ -21,11 +21,6 @@ def digest(value: object) -> str:
     return sha256(json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode()).hexdigest()
 
 
-def receipt_for_step(session: Session, step_id: UUID):
-    return session.scalar(select(OCRDocumentReceipt).where(OCRDocumentReceipt.original_step_id == step_id)
-                          .order_by(OCRDocumentReceipt.created_at.desc()).limit(1))
-
-
 def require_no_unknown_call(session: Session, version_id: UUID) -> None:
     if session.scalar(select(OCRDocumentReceipt.id).where(OCRDocumentReceipt.original_document_version_id == version_id,
             OCRDocumentReceipt.status.in_(ACTIVE_STATES)).limit(1)) is not None:

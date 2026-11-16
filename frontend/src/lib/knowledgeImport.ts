@@ -6,8 +6,8 @@ export const UPLOAD_REASON_TOO_LARGE = "超過 100 MB 上限";
 export const UPLOAD_REASON_EMPTY = "檔案內容為空";
 export const UPLOAD_REASON_READY = "可上傳";
 
-export type FileDescriptor = { name: string; size: number };
-export type FileValidationResult = { name: string; ok: boolean; reason: string };
+type FileDescriptor = { name: string; size: number };
+type FileValidationResult = { name: string; ok: boolean; reason: string };
 
 export function formatFileSize(bytes: number) {
   if (bytes < 1024) return `${bytes} B`;

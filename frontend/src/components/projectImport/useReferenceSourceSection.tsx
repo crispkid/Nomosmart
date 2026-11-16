@@ -11,11 +11,11 @@ import type { ImportPageDeps } from "./pageDeps";
 
 type DocumentList = ReturnType<typeof useDocumentList>;
 /** Page dependencies shared with the cross-project reference actions. */
-export type ReferenceSourceDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "setCreatedImports"> & {
+type ReferenceSourceDeps = Pick<ImportPageDeps, "apiFetch" | "format" | "params" | "t"> & Pick<DocumentList, "setCreatedImports"> & {
   projectReady: boolean;
 };
 
-export type ReferenceSourceState = ReturnType<typeof useReferenceSourceState>;
+type ReferenceSourceState = ReturnType<typeof useReferenceSourceState>;
 
 /** Cross-project reference source state (split from the project import page, OPT424-038). */
 export function useReferenceSourceState() {
@@ -70,7 +70,7 @@ export function createReferenceSourceActions(state: ReferenceSourceState, deps: 
   return { loadReferenceSources, createLiveReferences };
 }
 
-export type ReferenceSourceActions = ReturnType<typeof createReferenceSourceActions>;
+type ReferenceSourceActions = ReturnType<typeof createReferenceSourceActions>;
 
 /** Cross-project reference dialog: JSX moved verbatim from the project import page (OPT424-038). */
 export function createReferenceSourceView(state: ReferenceSourceState, actions: ReferenceSourceActions) {

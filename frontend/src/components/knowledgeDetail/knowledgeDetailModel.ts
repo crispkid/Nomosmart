@@ -44,7 +44,7 @@ export type ManualTextSelection = {
   left: number;
 };
 
-export function sourceAnchor(chunk: ApprovalChunkEvidence) {
+function sourceAnchor(chunk: ApprovalChunkEvidence) {
   const resolved = resolvedSourceMappings(chunk.source_mapping)[0];
   if (resolved) return resolved.sourceAnchor;
   const firstMapping = chunk.source_mapping[0] as Record<string, unknown> | undefined;
@@ -52,19 +52,19 @@ export function sourceAnchor(chunk: ApprovalChunkEvidence) {
   return typeof mappedAnchor === "string" && mappedAnchor ? mappedAnchor : `chunk-${chunk.chunk_index}`;
 }
 
-export function sourceLabel(chunk: ApprovalChunkEvidence, _t: Translate, format: Format) {
+function sourceLabel(chunk: ApprovalChunkEvidence, _t: Translate, format: Format) {
   const firstMapping = chunk.source_mapping[0] as Record<string, unknown> | undefined;
   const page = firstMapping?.page ?? firstMapping?.page_number;
   if (typeof page === "number" || typeof page === "string") return format("knowledgeDetailOriginalPage", { page });
   return format("knowledgeDetailChunkLabel", { number: chunk.chunk_index });
 }
 
-export function chunkType(contentType: string): KnowledgeChunk["type"] {
+function chunkType(contentType: string): KnowledgeChunk["type"] {
   if (contentType === "image" || contentType === "table" || contentType === "chart") return contentType;
   return "text";
 }
 
-export function displayChunkTitle(title: string | null | undefined, chunkIndex: number, format: Format) {
+function displayChunkTitle(title: string | null | undefined, chunkIndex: number, format: Format) {
   const fallback = format("knowledgeDetailChunkTitle", { number: chunkIndex });
   const candidate = title?.trim() || fallback;
   return candidate.replace(new RegExp(`\\s+#${chunkIndex}\\s*$`), "").trim() || fallback;

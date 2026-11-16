@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from hashlib import sha256
 
 from ldap_filter import Filter, ParseError
 
@@ -37,5 +36,3 @@ def validate_directory_filter(value: str) -> str:
     return normalized
 
 
-def directory_filter_hash(value: str) -> str:
-    return sha256(value.encode("utf-8")).hexdigest()

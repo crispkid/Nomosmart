@@ -5,23 +5,18 @@ from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Request
-from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import SessionDraftCreatePayload, SessionDraftCreateResponse, SessionDraftRestorePayload, SessionDraftRestoreResponse
 from app.core.encryption import EnvelopeCipher
 from app.core.errors import AppError
-from app.db.models import SessionExpiredFormDraft, SystemParameter
+from app.db.models import SessionExpiredFormDraft
 from app.db.session import get_db
 from app.domain.system_parameter_store import read_values
 from app.security.context import IdentityContext, get_identity_context
 
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-
-
-
-
 
 
 @router.post("/session-drafts", response_model=SessionDraftCreateResponse)
@@ -89,8 +84,6 @@ def discard_session_draft(
     draft.discarded_at = datetime.now(UTC)
     session.commit()
     return {"status": "discarded"}
-
-
 
 
 SENSITIVE_DRAFT_KEY_PARTS = ("password", "otp", "token", "secret", "credential", "api_key", "apikey", "authorization", "bearer", "pkce", "private_key", "refresh")

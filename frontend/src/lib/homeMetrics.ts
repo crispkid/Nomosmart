@@ -14,7 +14,7 @@ export function countProjectsUpdatedToday(projects: ProjectResponse[], reference
   return projects.filter((project) => project.status === "active" && isSameLocalCalendarDay(project.last_activity_at, reference)).length;
 }
 
-export type HomeProjectMetrics = { recent: ProjectResponse[]; activeTotal: number; updatedToday: number };
+type HomeProjectMetrics = { recent: ProjectResponse[]; activeTotal: number; updatedToday: number };
 
 /**
  * Home KPIs without loading every project (OPT424-035): the active total comes from the list's

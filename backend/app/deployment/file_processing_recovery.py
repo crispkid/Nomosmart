@@ -20,14 +20,11 @@ from sqlalchemy import inspect, select, text
 
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import (AuditLog, Document, DocumentVersion, FileProcessingExecution as Execution,
-                           FileProcessingTask as Task, FileProcessingPolicy, FileProcessingPolicyRevision,
-                           PipelineRun, Project)
+from app.db.models import AuditLog, Document, DocumentVersion, FileProcessingExecution as Execution, FileProcessingTask as Task, FileProcessingPolicy, PipelineRun, Project
 from app.db.session import get_session_factory
 from app.domain.document_execution import _pool, release_operator_failed_parser
 from app.domain.file_processing_dispatch import _retry_count, _valid_epilogue_time, finalize_task
-from app.domain.file_processing_settings import (PolicySnapshot, _parameter_rows, _row_values, _validated,
-                                                  authorize_maintenance, load_policy, policy_error, validated_policy)
+from app.domain.file_processing_settings import authorize_maintenance, load_policy, policy_error, validated_policy
 from app.security.maintenance_auth import maintenance_principal, validate_maintenance_input
 from app.services.audit import add_audit
 

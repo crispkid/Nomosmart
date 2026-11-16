@@ -8,7 +8,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Tags, Trash2, X } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Tags, Trash2 } from "lucide-react";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { useAuth } from "@/components/AuthProvider";

@@ -3,10 +3,10 @@ import type { GraphExplorerEdge, GraphExplorerNode } from "@/components/GraphExp
 export const GRAPH_LAYOUT_VERSION = "force-400-v1";
 export const GRAPH_WIDTH = 1080;
 export const GRAPH_HEIGHT = 640;
-export type GraphPosition = { x: number; y: number };
+type GraphPosition = { x: number; y: number };
 export type GraphPositions = Record<string, GraphPosition>;
 export type LayoutNode = Pick<GraphExplorerNode, "id" | "kind" | "x" | "y" | "semanticLayer"> & { width: number; height: number };
-export type LayoutEdge = Pick<GraphExplorerEdge, "id" | "source" | "target">;
+type LayoutEdge = Pick<GraphExplorerEdge, "id" | "source" | "target">;
 export type LayoutSnapshot = { version: string; nodes: LayoutNode[]; edges: LayoutEdge[] };
 export type LayoutRequest = { id: number; snapshot: LayoutSnapshot };
 export type LayoutReply = { id: number; positions: GraphPositions } | { id: number; error: "graph_layout_failed" };

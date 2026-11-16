@@ -20,12 +20,12 @@ export type SourceSelectionGroup = {
   sourceMappings: ResolvedSourceMapping[];
 };
 
-export type MarkdownSelectionRange = {
+type MarkdownSelectionRange = {
   start: number;
   end: number;
 };
 
-export type MarkdownSourceSegment = {
+type MarkdownSourceSegment = {
   id: string;
   text: string;
   start: number;

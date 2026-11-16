@@ -8,7 +8,7 @@ import type {
 } from "./identityTypes";
 import type {
   AIModelPayload, AIModelUpdatePayload, BreakGlassStatusResponse, SystemParameterApiValues,
-  SystemParameterSectionResponse, SystemParametersPayload, SystemParametersUpdatePayload, SystemPromptPayload,
+  SystemParameterSectionResponse, SystemParametersPayload, SystemPromptPayload,
   SystemPromptVersionPayload, UploadConfigResponse
 } from "./servingTypes";
 
@@ -22,7 +22,7 @@ async function arrayPage<T>(apiFetch: ApiFetch, path: string, signal?: AbortSign
   if (!Array.isArray(items) || header === null || !/^\d+$/.test(header) || !Number.isSafeInteger(total)) throw new Error("pagination_metadata_invalid");
   return { items, total };
 }
-export async function collectOffsetPages<T extends { id: string }>(read: (offset: number) => Promise<CountedPage<T>>): Promise<T[]> {
+async function collectOffsetPages<T extends { id: string }>(read: (offset: number) => Promise<CountedPage<T>>): Promise<T[]> {
   const rows = new Map<string, T>();
   let offset = 0;
   for (;;) {
@@ -52,7 +52,6 @@ export async function listUsersPage(apiFetch: ApiFetch, options: SystemListOptio
 export async function listRolesPage(apiFetch: ApiFetch, options: SystemListOptions = {}): Promise<CountedPage<RoleResponse>> { return arrayPage(apiFetch, `/roles?${systemListQuery(options)}`, options.signal); }
 export async function getUser(apiFetch: ApiFetch, id: string) { return apiJson<UserSummary>(apiFetch, `/users/${id}`); }
 export async function getRole(apiFetch: ApiFetch, id: string) { return apiJson<RoleResponse>(apiFetch, `/roles/${id}`); }
-export async function listUsers(apiFetch: ApiFetch, scope: "system" | "project_members" = "system") { return collectOffsetPages(offset => listUsersPage(apiFetch, { scope, offset, limit: 200 })); }
 export async function updateUser(apiFetch: ApiFetch, userId: string, payload: { manager_delegate_user_id?: string | null; manager_delegate_start_at?: string | null; manager_delegate_end_at?: string | null; knowledge_owner?: boolean | null; system_notes?: string | null }) { return apiJson<UserSummary>(apiFetch, `/users/${userId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function updateUserStatus(apiFetch: ApiFetch, userId: string, isActive: boolean) { return apiJson<UserSummary>(apiFetch, `/users/${userId}/status`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ is_active: isActive }) }); }
 export async function listRoles(apiFetch: ApiFetch) { return collectOffsetPages(offset => listRolesPage(apiFetch, { offset, limit: 200 })); }
@@ -115,7 +114,6 @@ export async function getSystemParameters(apiFetch: ApiFetch, signal?: AbortSign
   return value;
 }
 export async function getUploadConfig(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<UploadConfigResponse>(apiFetch, "/system/upload-config", { signal }); }
-export async function updateSystemParameters(apiFetch: ApiFetch, payload: SystemParametersUpdatePayload) { return apiJson<SystemParametersPayload>(apiFetch, "/system/parameters", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getSystemStatus(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<OperationsStatusResponse>(apiFetch, "/system/status", { signal }); }
 
 
