@@ -12,10 +12,12 @@ CHG-435 adds multi-turn context through `previous_response_id` (MTURN435-001..00
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass, field
 from datetime import datetime
+from time import perf_counter
 from typing import Any, Literal
 from uuid import UUID
 
@@ -26,6 +28,9 @@ from app.core.errors import AppError
 from app.domain.model_usage import normalize_usage
 
 Channel = Literal["public", "internal"]
+StreamResult = Literal["completed", "failed", "cancelled"]
+
+stream_logger = logging.getLogger("nomosmart.responses")
 
 PROJECT_MODEL_PREFIX = "nomosmart:project/"
 RESPONSE_ID_PREFIX = "resp_"
@@ -322,6 +327,26 @@ def error_payload(exc: AppError, request_id: str | None) -> dict[str, Any]:
         "error": {"type": error_type(exc.status_code), "code": exc.code, "message": exc.message, "param": param},
         "nomosmart:request_id": request_id,
     }
+
+
+def log_stream_finished(request: Any, *, project_id: UUID | None, result: StreamResult, started: float, error_code: str | None = None) -> None:
+    """CHG-440 PUBIDEM440-006: one safe log line when a response stream ends.
+
+    The HTTP status of a stream is already 200 when the request log is written, so the real outcome
+    is recorded here. Only identifiers, the outcome and the error code are logged, never content.
+    """
+    stream_logger.log(
+        logging.INFO if result == "completed" else logging.WARNING,
+        "response_stream_finished",
+        extra={
+            "request_id": getattr(request.state, "request_id", None),
+            "path": request.url.path,
+            "project_id": str(project_id) if project_id else None,
+            "result": result,
+            "error_code": error_code,
+            "latency_ms": round((perf_counter() - started) * 1000, 2),
+        },
+    )
 
 
 def is_open_responses_path(path: str) -> bool:

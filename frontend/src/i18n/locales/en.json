@@ -1531,7 +1531,7 @@
   "apiDocsAuthBearer": "Use Authorization: Bearer <api_key> (recommended). If you cannot set the Authorization header, use X-NomoSmart-API-Key instead.",
   "apiDocsAuthHeader": "Each request targets exactly one project, and the API key must be authorized for that project.",
   "apiDocsAuthLifecycle": "A key that is not yet valid, inactive, expired or revoked returns 401. More than 20 requests per minute (default) with the same invalid key from one source return 429 instead.",
-  "apiDocsIdempotency": "Idempotency-Key is optional (8-255 visible ASCII characters). With a key, its result (success or failure) is kept for 24 hours and resending the same payload returns that same result; see Errors for how to retry.",
+  "apiDocsIdempotency": "Idempotency-Key is optional (8-255 visible ASCII characters). With a key, a processed result is kept for 24 hours and resending the same payload returns that same result; a request that fails before the model is called is not kept, so you can retry it with the same key. See Errors for how to retry.",
   "apiDocsJsonTitle": "Open Responses knowledge Q&A",
   "apiDocsJsonDescription": "Returns an Open Responses response object: the answer is the output_text in output, citations are url_citation annotations, plus usage and nomosmart: audit fields.",
   "apiDocsJsonProjectScope": "Set model to nomosmart:project/<project_id>. Each request targets one project and by default queries all its published serving content.",
@@ -1552,7 +1552,7 @@
   "apiDocsError401": "401 authentication_error: the API key is missing (api_key_required), invalid, inactive, revoked, not yet valid or expired.",
   "apiDocsError403": "403 permission_error: the key is not authorized for this project (integration_project_scope_denied), or a requested document is outside the queryable scope (retrieval_scope_denied).",
   "apiDocsError409": "409 conflict: the project has no serving published version (active_manifest_required), no chat model is configured (model_configuration_required), the same Idempotency-Key was sent with a different payload (idempotency_key_conflict), is still processing (idempotency_key_in_progress) or timed out (idempotency_key_expired), or the stream was interrupted (public_stream_cancelled).",
-  "apiDocsError429": "429 too_many_requests: the requests-per-minute limit was exceeded (public_api_rate_limited).",
+  "apiDocsError429": "429 too_many_requests: the requests-per-minute limit was exceeded (public_api_rate_limited). This error is not kept for the Idempotency-Key; retry later with the same key.",
   "apiDocsSafetyTitle": "Security and usage boundary",
   "apiDocsSafetyDescription": "The external integration API is a read-only knowledge Q&A interface and does not expand UI management permissions.",
   "apiDocsSafetyPublishedOnly": "Only published serving content is queried; inactive, draft, processing, or staging content is excluded.",
@@ -2475,12 +2475,12 @@
   "apiDocsLimitsTopK": "nomosmart:top_k: number of cited passages, 1-20, default 5.",
   "apiDocsLimitsMetadata": "metadata: up to 16 text pairs, key up to 64 and value up to 512 characters; returned unchanged.",
   "apiDocsLimitsEndUser": "nomosmart:end_user: employee_id is required, up to 100 characters; employee_name and department are optional, up to 255 characters each.",
-  "apiDocsLimitsIdempotency": "Idempotency-Key: 8-255 visible ASCII characters; results are kept for 24 hours (deployment setting). Regular and streaming requests are tracked separately.",
+  "apiDocsLimitsIdempotency": "Idempotency-Key: 8-255 visible ASCII characters; processed results are kept for 24 hours (deployment setting), and requests that fail before the model is called are not kept. Regular and streaming requests are tracked separately.",
   "apiDocsLimitsRate": "The requests-per-minute limit is set when the key is issued; the default is 60. It applies to the key overall and separately to each key and project pair.",
   "apiDocsLimitsHistory": "Multi-turn history: the latest 5 turns and 12000 characters (deployment setting).",
   "apiDocsError404": "404 not_found: an authorized project was deactivated or deleted (project_not_found), previous_response_id cannot be continued (previous_response_not_found), or feedback has no matching answer (public_response_not_found).",
   "apiDocsError422": "422 invalid_request: the Idempotency-Key format is invalid (idempotency_key_required).",
   "apiDocsError502": "502 model_error: the model service failed or returned an invalid response; retry later with a new Idempotency-Key.",
-  "apiDocsError503": "503 service_unavailable: the service is temporarily unavailable (for example the rate limiter cannot be reached); retry later.",
-  "apiDocsErrorRetry": "Retrying: if you received no response at all (for example a timeout), resend with the same Idempotency-Key to get the original result or 409 in progress. After an error response (429, 502, 503, an interrupted stream and so on), wait and retry with a new key, because the same key replays the same error. Fix the request or setup before retrying 400, 401, 403 and 404."
+  "apiDocsError503": "503 service_unavailable: the service is temporarily unavailable. When the rate limiter cannot be reached (public_api_rate_limit_unavailable), retry with the same key; when the model service cannot be reached (model_provider_unavailable), use a new key.",
+  "apiDocsErrorRetry": "Retrying: if you received no response at all (for example a timeout), resend with the same Idempotency-Key to get the original result or 409 in progress. Errors raised before the model is called (429, 503 rate limiter, 403, 404, 409 no published version or no chat model, 400 history too long) are not kept; fix the cause and retry with the same key. Failures after the model was called (502, 503 model connection, interrupted stream) are kept and replayed; retry those with a new key. Fix the request or setup before retrying other 400 and 401 errors."
 }

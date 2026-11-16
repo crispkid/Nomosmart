@@ -37,8 +37,11 @@ class RequestIdMiddleware(BaseHTTPMiddleware):
             return unhandled_error_response(request)
         latency_ms = round((time.perf_counter() - started) * 1000, 2)
         response.headers["X-Request-Id"] = request_id
-        logger.info(
-            "request_completed",
-            extra={"request_id": request_id, "method": request.method, "path": request.url.path, "status_code": response.status_code, "latency_ms": latency_ms, "result": "success" if response.status_code < 400 else "error"},
-        )
+        extra = {"request_id": request_id, "method": request.method, "path": request.url.path, "status_code": response.status_code, "latency_ms": latency_ms, "result": "success" if response.status_code < 400 else "error"}
+        # CHG-440 PUBIDEM440-005/007: error code and Idempotency-Key outcome set by handlers and routes.
+        for key in ("error_code", "idempotency"):
+            value = getattr(request.state, key, None)
+            if value is not None and (key != "error_code" or response.status_code >= 400):
+                extra[key] = value
+        logger.info("request_completed", extra=extra)
         return response

@@ -26,6 +26,7 @@ SAFE_EXTRA_KEYS = (
     "worker_id",
     "worker_task",
     "readiness_checks",
+    "idempotency",
 )
 
 

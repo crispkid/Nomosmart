@@ -47,13 +47,14 @@ from app.domain.responses_service import (
     CreateRequest,
     ResponseEventStream,
     answer_extensions,
+    log_stream_finished,
     build_response,
     citation_annotations,
     format_response_id,
     parse_create_request,
     parse_response_id,
 )
-from app.domain.public_api_controls import IdempotencyReplay, begin_idempotent_operation, complete_idempotent_operation, encrypt_payload, end_user_identity_hash, enforce_rate_limit, fail_idempotent_operation, keyed_fingerprint
+from app.domain.public_api_controls import IdempotencyReplay, begin_idempotent_operation, complete_idempotent_operation, encrypt_payload, end_user_identity_hash, enforce_rate_limit, fail_idempotent_operation, keyed_fingerprint, release_idempotent_operation
 from app.domain.system_prompts import resolve_system_prompt
 
 
@@ -125,23 +126,22 @@ def create_public_response(
         raw_key=_idempotency_key_or_single_use(idempotency_key),
         request_payload=body,
     )
+    _set_idempotency_state(request, idempotency_key, replayed=replay is not None)
     if replay is not None:
         if replay.status_code >= 400:
             _raise_replay_error(replay)
         resource = dict(replay.body)
         if not parsed.stream:
             return JSONResponse(resource)
-        return _event_stream_response(_replay_events(resource))
+        return _event_stream_response(_replay_events(request, resource, parsed.project_id))
     session.commit()
+    request.state.public_model_called = False
     if not parsed.stream:
         try:
             return JSONResponse(_run_public_chat(session, request, client, parsed, payload, operation))
         except AppError as exc:
+            _settle_failed_operation(session, request, idempotency_key, operation.id, exc)
             _record_public_error(session, request, client, parsed.project_id, payload, exc, response_mode="json")
-            operation = session.get(IdempotencyKey, operation.id)
-            if operation is not None:
-                fail_idempotent_operation(operation, exc)
-                session.commit()
             raise
 
     project_id = parsed.project_id
@@ -172,9 +172,7 @@ def create_public_response(
         log.system_prompt_layers = provider_stream.system_prompt_layers
         session.commit()
     except AppError as exc:
-        operation = session.get(IdempotencyKey, operation.id)
-        if operation is not None:
-            fail_idempotent_operation(operation, exc)
+        _settle_failed_operation(session, request, idempotency_key, operation.id, exc)
         _record_public_error(session, request, client, project_id, payload, exc, response_mode="sse")
         session.commit()
         raise
@@ -210,6 +208,7 @@ def create_public_response(
             async for chunk in provider_stream.chunks:
                 if await request.is_disconnected():
                     await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "cancelled", started)
+                    log_stream_finished(request, project_id=project_id, result="cancelled", error_code="public_stream_cancelled", started=started)
                     return
                 if chunk.text:
                     answer_parts.append(chunk.text)
@@ -248,11 +247,14 @@ def create_public_response(
             await _persist_stream_success(log.id, operation.id, client.id, settings, resource, answer_status=answer_status, token_usage=token_usage, latency_ms=latency_ms, raw_answer=raw_answer)
             for event in events_out.finish(resource):
                 yield event
+            log_stream_finished(request, project_id=project_id, result="completed", started=started)
         except asyncio.CancelledError:
             await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "cancelled", started)
+            log_stream_finished(request, project_id=project_id, result="cancelled", error_code="public_stream_cancelled", started=started)
             raise
         except AppError as exc:
             await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "failed", started, exc)
+            log_stream_finished(request, project_id=project_id, result="failed", error_code=exc.code, started=started)
             failed = build_response(response_uuid=log.id, request=parsed, created_at=created_at, completed_at=datetime.now(UTC), status="failed", answer=None, annotations=None, token_usage=token_usage, extensions=extensions(None), error=exc)
             for event in events_out.fail(failed, exc, request_id):
                 yield event
@@ -280,6 +282,7 @@ def create_public_feedback(
         raw_key=_idempotency_key_or_single_use(idempotency_key),
         request_payload=payload.model_dump(mode="json"),
     )
+    _set_idempotency_state(request, idempotency_key, replayed=replay is not None)
     if replay is not None:
         if replay.status_code >= 400:
             _raise_replay_error(replay)
@@ -337,6 +340,8 @@ def _run_public_chat(
     turn: ConversationContext = request.state.public_turn
     started = perf_counter()
     provider_result = None
+    if citations:
+        request.state.public_model_called = True  # PUBIDEM440-001: answer generation calls the model
     try:
         provider_result = _generate_citation_bound_answer(session, payload.question, citations, chat_model, turn.history)
         validate_citation_markers(provider_result.answer, len(citations))
@@ -442,12 +447,35 @@ def _idempotency_key_or_single_use(raw_key: str | None) -> str:
     return f"single-use-{uuid4()}"
 
 
+def _set_idempotency_state(request: Request, raw_key: str | None, *, replayed: bool) -> None:
+    """PUBIDEM440-007: how this request used the Idempotency-Key, for the request log."""
+    caller_key = raw_key is not None and bool(raw_key.strip())
+    request.state.idempotency = "replayed" if replayed else ("new" if caller_key else "none")
+
+
+def _settle_failed_operation(session: Session, request: Request, raw_key: str | None, operation_id: UUID, exc: AppError) -> None:
+    """PUBIDEM440-001/002: keep a failure for replay only once the model was called; otherwise release the key.
+
+    Committed by the caller together with the failure request log (PUBIDEM440-003).
+    """
+    operation = session.get(IdempotencyKey, operation_id)
+    if operation is None:
+        return
+    if getattr(request.state, "public_model_called", False):
+        fail_idempotent_operation(operation, exc)
+        return
+    release_idempotent_operation(session, operation)
+    if raw_key is not None and raw_key.strip():
+        request.state.idempotency = "released"
+
+
 def _event_stream_response(events) -> StreamingResponse:
     return StreamingResponse(events, media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 
-async def _replay_events(resource: dict):
+async def _replay_events(request: Request, resource: dict, project_id: UUID):
     """A replayed idempotent stream re-emits the stored final response as standard events."""
+    started = perf_counter()
     response_uuid = parse_response_id(str(resource.get("id", ""))) or uuid4()
     events_out = ResponseEventStream(response_uuid)
     started = {**resource, "status": "in_progress", "output": [], "usage": None, "completed_at": None}
@@ -458,6 +486,7 @@ async def _replay_events(resource: dict):
         yield events_out.delta(text)
     for event in events_out.finish(resource):
         yield event
+    log_stream_finished(request, project_id=project_id, result="completed", started=started)
 
 
 def _prepare_public_chat(session: Session, request: Request, client: IntegrationClient, project_id: UUID, payload: PublicApiChatPayload, *, response_mode: str,
@@ -505,6 +534,8 @@ def _public_rewrite(session: Session, request: Request, client: IntegrationClien
         model = _select_chat_model(session, project)
     except AppError:
         model = None
+    if turn.history and model is not None:
+        request.state.public_model_called = True  # PUBIDEM440-001: the follow-up rewrite calls the model
     rewrite_question(session, settings, turn, payload.question, model, source_channel="public_api", project_id=project.id,
                      integration_client_id=client.id, correlation_id=getattr(request.state, "request_id", None))
 
