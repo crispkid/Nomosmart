@@ -45,6 +45,7 @@ from app.domain.responses_service import (
     answer_extensions,
     build_response,
     citation_annotations,
+    log_stream_finished,
     parse_create_request,
 )
 from app.domain.system_prompts import resolve_system_prompt
@@ -183,6 +184,7 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
             async for chunk in provider_stream.chunks:
                 if await request.is_disconnected():
                     _record_stream_usage(chat_model_id, project_id, user_id, payload, requested_ids, token_usage, provider_started, "partial" if answer_parts else "cancelled", "chat_test_stream_cancelled")
+                    log_stream_finished(request, project_id=project_id, result="cancelled", error_code="chat_test_stream_cancelled", started=started)
                     return
                 if chunk.text:
                     answer_parts.append(chunk.text)
@@ -222,11 +224,14 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
             )
             for event in events_out.finish(resource):
                 yield event
+            log_stream_finished(request, project_id=project_id, result="completed", started=started)
         except asyncio.CancelledError:
             _record_stream_usage(chat_model_id, project_id, user_id, payload, requested_ids, token_usage, provider_started, "partial" if answer_parts else "cancelled", "chat_test_stream_cancelled")
+            log_stream_finished(request, project_id=project_id, result="cancelled", error_code="chat_test_stream_cancelled", started=started)
             raise
         except AppError as exc:
             _record_stream_usage(chat_model_id, project_id, user_id, payload, requested_ids, token_usage, provider_started, "failed", exc.code)
+            log_stream_finished(request, project_id=project_id, result="failed", error_code=exc.code, started=started)
             failed = build_response(response_uuid=record_id, request=parsed, created_at=asked_at, completed_at=datetime.now(UTC), status="failed", answer=None, annotations=None, token_usage=token_usage, extensions=extensions(None), error=exc)
             for event in events_out.fail(failed, exc, request_id):
                 yield event

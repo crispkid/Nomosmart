@@ -39,8 +39,14 @@ def unhandled_error_response(request: Request) -> JSONResponse:
     return JSONResponse(status_code=500, content=payload.model_dump(), headers={"X-Request-Id": request_id})
 
 
+def _remember_error_code(request: Request, code: str) -> None:
+    """CHG-440 PUBIDEM440-005: the request log reports which error a failed request returned."""
+    request.state.error_code = code
+
+
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
+    _remember_error_code(request, exc.code)
     if _open_responses_request(request):
         from app.domain.responses_service import error_payload
 
@@ -57,6 +63,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
+    _remember_error_code(request, "invalid_request_body" if _open_responses_request(request) else "validation_error")
     if _open_responses_request(request):
         # CHG-434 D434-02: Open Responses reports malformed requests as 400 invalid_request.
         from app.domain.responses_service import error_payload
@@ -72,6 +79,7 @@ async def validation_error_handler(request: Request, exc: RequestValidationError
 async def http_error_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     request_id = getattr(request.state, "request_id", "unknown")
     code = "not_found" if exc.status_code == 404 else "http_error"
+    _remember_error_code(request, code)
     payload = ErrorBody(code=code, message="Resource was not found" if exc.status_code == 404 else "Request failed", request_id=request_id)
     return JSONResponse(status_code=exc.status_code, content=payload.model_dump())
 

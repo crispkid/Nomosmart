@@ -116,6 +116,15 @@ def fail_idempotent_operation(record: IdempotencyKey, error: AppError) -> None:
     record.completed_at = datetime.now(UTC)
 
 
+def release_idempotent_operation(session: Session, record: IdempotencyKey) -> None:
+    """CHG-440 PUBIDEM440-001/003: forget a key whose request failed before any model call.
+
+    Only the technical lease row is removed (as with lease expiry); request logs, failure counts
+    and usage records stay. A retry with the same key and payload is then processed anew.
+    """
+    session.delete(record)
+
+
 def enforce_rate_limit(settings: Settings, *, dimension: str, limit: int) -> None:
     key = f"nomosmart:public-api:rate:{keyed_fingerprint(settings, 'rate', dimension)}"
     try:

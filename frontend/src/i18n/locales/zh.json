@@ -1531,7 +1531,7 @@
   "apiDocsAuthBearer": "建議使用 Authorization: Bearer <api_key>；無法設定 Authorization header 時，可改用 X-NomoSmart-API-Key。",
   "apiDocsAuthHeader": "每次請求都需要指定單一專案，API Key 必須被授權可查詢該專案。",
   "apiDocsAuthLifecycle": "API Key 未生效、停用、到期或撤銷時回 401。同一個錯誤 Key 從同一來源每分鐘超過 20 次（預設）會改回 429。",
-  "apiDocsIdempotency": "Idempotency-Key 為選填（8 至 255 個可見 ASCII 字元）。帶入時，同一個 key 的結果（成功或失敗）保存 24 小時，重送相同內容會拿到同一份結果；詳細重試方式見「錯誤處理」。",
+  "apiDocsIdempotency": "Idempotency-Key 為選填（8 至 255 個可見 ASCII 字元）。帶入時，已處理的結果保存 24 小時，重送相同內容會拿到同一份結果；在呼叫模型之前就失敗的請求不會保存，可用同一個 key 重試。詳細重試方式見「錯誤處理」。",
   "apiDocsJsonTitle": "Open Responses 知識問答",
   "apiDocsJsonDescription": "依 Open Responses 規格同步回傳 response 物件：答案在 output 的 output_text，引用以 url_citation 標註，另含 usage 與 nomosmart: 開頭的稽核欄位。",
   "apiDocsJsonProjectScope": "以 model 指定專案，格式為 nomosmart:project/<project_id>；每次只能一個專案，預設查詢該專案所有已發布且可服務內容。",
@@ -1552,7 +1552,7 @@
   "apiDocsError401": "401 authentication_error：API Key 缺漏（api_key_required）、無效、停用、撤銷、未生效或到期。",
   "apiDocsError403": "403 permission_error：API Key 未被授權查詢此專案（integration_project_scope_denied），或指定的文件不在可查詢範圍（retrieval_scope_denied）。",
   "apiDocsError409": "409 conflict：專案沒有可服務的已發布版本（active_manifest_required）、專案未設定對話模型（model_configuration_required）、同一個 Idempotency-Key 搭配不同內容（idempotency_key_conflict）、同一個 key 仍在處理中（idempotency_key_in_progress）或已逾時（idempotency_key_expired）、串流被中斷（public_stream_cancelled）。",
-  "apiDocsError429": "429 too_many_requests：超過每分鐘請求上限（public_api_rate_limited）。",
+  "apiDocsError429": "429 too_many_requests：超過每分鐘請求上限（public_api_rate_limited）。這個錯誤不會被 Idempotency-Key 保存，稍後可用同一個 key 重試。",
   "apiDocsSafetyTitle": "安全與使用邊界",
   "apiDocsSafetyDescription": "外部整合 API 是唯讀的知識問答介面，不會擴大使用者在 NomoSmart 介面的管理權限。",
   "apiDocsSafetyPublishedOnly": "只查詢已發布且可服務的內容；停用、草稿、處理中或 staging 內容會被排除。",
@@ -2475,12 +2475,12 @@
   "apiDocsLimitsTopK": "nomosmart:top_k：引用段落數，1 至 20，預設 5。",
   "apiDocsLimitsMetadata": "metadata：最多 16 組文字，key 最多 64 字元、value 最多 512 字元，會原樣回傳。",
   "apiDocsLimitsEndUser": "nomosmart:end_user：employee_id 必填、最多 100 字元；employee_name 與 department 選填，各最多 255 字元。",
-  "apiDocsLimitsIdempotency": "Idempotency-Key：8 至 255 個可見 ASCII 字元；結果保存 24 小時（依部署設定）。一般與串流請求分開計算。",
+  "apiDocsLimitsIdempotency": "Idempotency-Key：8 至 255 個可見 ASCII 字元；已處理的結果保存 24 小時（依部署設定），呼叫模型前就失敗的請求不保存。一般與串流請求分開計算。",
   "apiDocsLimitsRate": "每分鐘請求上限依申請時設定，未設定時為 60 次；每個 Key 總量與每個「Key＋專案」各自計算。",
   "apiDocsLimitsHistory": "多輪對話前文：最近 5 輪、12000 字元（依部署設定）。",
   "apiDocsError404": "404 not_found：已授權的專案已停用或刪除（project_not_found）、previous_response_id 不能接續（previous_response_not_found）、回饋找不到對應回答（public_response_not_found）。",
   "apiDocsError422": "422 invalid_request：Idempotency-Key 格式不符（idempotency_key_required）。",
   "apiDocsError502": "502 model_error：模型服務回應錯誤或格式不符，可稍後換新的 Idempotency-Key 重試。",
-  "apiDocsError503": "503 service_unavailable：服務暫時無法使用（例如限流服務無法連線），可稍後重試。",
-  "apiDocsErrorRetry": "重試原則：完全沒收到回應（例如逾時）時，用同一個 Idempotency-Key 重送，會拿到原本的結果或 409 處理中；已收到錯誤（429、502、503、串流中斷等）後要重試，請等待後換新的 key，因為同一個 key 會重播同一個錯誤。400、401、403、404 需先修正請求或設定。"
+  "apiDocsError503": "503 service_unavailable：服務暫時無法使用。限流服務無法連線（public_api_rate_limit_unavailable）時可用同一個 key 重試；模型服務連線失敗（model_provider_unavailable）時請換新的 key。",
+  "apiDocsErrorRetry": "重試原則：完全沒收到回應（例如逾時）時，用同一個 Idempotency-Key 重送，會拿到原本的結果或 409 處理中。在呼叫模型之前就失敗的錯誤（429、503 限流服務、403、404、409 沒有已發布版本或未設定模型、400 前文太長）不會保存，排除原因後可用同一個 key 重試。已呼叫模型後的失敗（502、503 模型連線、串流中斷）會保存並重播，要重試請換新的 key。其他 400、401 需先修正請求或設定。"
 }
