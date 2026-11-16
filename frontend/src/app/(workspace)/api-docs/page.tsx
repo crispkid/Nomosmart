@@ -7,12 +7,14 @@ import {
   CheckCircle2,
   ClipboardList,
   FileJson,
+  Gauge,
   KeyRound,
   MessageSquareText,
   MessagesSquare,
   Radio,
   Route,
   ShieldCheck,
+  Terminal,
   ThumbsUp,
   type LucideIcon
 } from "lucide-react";
@@ -33,6 +35,24 @@ type DocSection = {
   code?: string;
   variant?: "bullet" | "checklist" | "ordered";
 };
+
+const quickstartExample = `curl -sS https://<nomosmart_host>/api/public/v1/responses \\
+  -H "Authorization: Bearer <api_key>" \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "model": "nomosmart:project/<project_id>",
+    "input": "What is the annual leave policy?",
+    "nomosmart:end_user": { "employee_id": "E12345" }
+  }'
+
+# Response (fields trimmed)
+{
+  "id": "resp_<response_id>",
+  "status": "completed",
+  "output": [{ "type": "message", "content": [{ "type": "output_text", "text": "... [1]", "annotations": [...] }] }],
+  "nomosmart:answer_status": "answered",
+  "nomosmart:request_id": "<request_id>"
+}`;
 
 const jsonQuestionExample = `POST /api/public/v1/responses
 Authorization: Bearer <api_key>
@@ -56,8 +76,10 @@ Content-Type: application/json
 const jsonAnswerExample = `{
   "id": "resp_<response_id>",
   "object": "response",
+  "created_at": 1763300000,
   "status": "completed",
   "model": "nomosmart:project/<project_id>",
+  "previous_response_id": null,
   "output": [{
     "type": "message",
     "role": "assistant",
@@ -81,9 +103,12 @@ const jsonAnswerExample = `{
       }]
     }]
   }],
-  "usage": { "input_tokens": 120, "output_tokens": 48, "total_tokens": 168 },
+  "usage": { "input_tokens": 120, "output_tokens": 48, "total_tokens": 168, ... },
   "nomosmart:answer_status": "answered",
-  "nomosmart:request_id": "<request_id>"
+  "nomosmart:request_id": "<request_id>",
+  "nomosmart:selected_document_ids": ["<document_id>"],
+  "nomosmart:context": { "turns_used": 0, "truncated": false, "rewritten_query": null, "rewrite_status": "not_needed" },
+  ...
 }`;
 
 const sseExample = `POST /api/public/v1/responses
@@ -95,16 +120,43 @@ Accept: text/event-stream
   "nomosmart:end_user": { "employee_id": "E12345" } }
 
 event: response.created
-data: {"type":"response.created","sequence_number":1,"response":{...}}
+data: {"type":"response.created","sequence_number":1,"response":{"id":"resp_<response_id>","status":"in_progress",...}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":2,"response":{...}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":3,"output_index":0,"item":{...}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":4,"item_id":"msg_<id>","part":{...}}
 
 event: response.output_text.delta
-data: {"type":"response.output_text.delta","sequence_number":5,"delta":"..."}
+data: {"type":"response.output_text.delta","sequence_number":5,"item_id":"msg_<id>","delta":"..."}
+
+(more response.output_text.delta events)
 
 event: response.output_text.annotation.added
-data: {"type":"response.output_text.annotation.added","annotation":{"type":"url_citation",...}}
+data: {"type":"response.output_text.annotation.added","sequence_number":9,"annotation_index":0,"annotation":{"type":"url_citation",...}}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":10,"text":"... [1]",...}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":11,...}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":12,...}
 
 event: response.completed
-data: {"type":"response.completed","response":{"id":"resp_<response_id>",...}}`;
+data: {"type":"response.completed","sequence_number":13,"response":{"id":"resp_<response_id>","status":"completed",...}}
+
+# On failure, instead of the remaining events:
+event: error
+data: {"type":"error","sequence_number":7,"error":{"type":"model_error","code":"...","message":"...","param":null},"nomosmart:request_id":"<request_id>"}
+
+event: response.failed
+data: {"type":"response.failed","sequence_number":8,"response":{"status":"failed",...}}`;
 
 const multiTurnExample = `POST /api/public/v1/responses
 Authorization: Bearer <api_key>
@@ -151,6 +203,15 @@ Content-Type: application/json
   "end_user": {
     "employee_id": "E12345"
   }
+}
+
+# Response
+{
+  "feedback_event_id": "<feedback_event_id>",
+  "response_id": "resp_<response_id>",
+  "latest_feedback": "good",
+  "comment": "Optional integration note",
+  "created_at": "2026-11-16T08:00:00Z"
 }`;
 
 const errorExample = `{
@@ -216,6 +277,18 @@ const sections: DocSection[] = [
 X-NomoSmart-API-Key: <api_key>`
   },
   {
+    id: "quickstart",
+    icon: Terminal,
+    label: "apiDocsNavQuickstart",
+    title: "apiDocsQuickstartTitle",
+    description: "apiDocsQuickstartDescription",
+    method: "POST",
+    endpoint: "/api/public/v1/responses",
+    bullets: ["apiDocsQuickstartStepKey", "apiDocsQuickstartStepRun", "apiDocsQuickstartStepRead"],
+    code: quickstartExample,
+    variant: "ordered"
+  },
+  {
     id: "json",
     icon: FileJson,
     label: "apiDocsNavJson",
@@ -223,7 +296,7 @@ X-NomoSmart-API-Key: <api_key>`
     description: "apiDocsJsonDescription",
     method: "POST",
     endpoint: "/api/public/v1/responses",
-    bullets: ["apiDocsJsonProjectScope", "apiDocsJsonEndUser", "apiDocsJsonDocumentScope"],
+    bullets: ["apiDocsJsonProjectScope", "apiDocsJsonEndUser", "apiDocsJsonDocumentScope", "apiDocsJsonNoAnswer"],
     code: `${jsonQuestionExample}\n\n${jsonAnswerExample}`
   },
   {
@@ -234,7 +307,7 @@ X-NomoSmart-API-Key: <api_key>`
     description: "apiDocsSseDescription",
     method: "POST",
     endpoint: "/api/public/v1/responses",
-    bullets: ["apiDocsSseParity", "apiDocsSseEvents", "apiDocsSseTerminal"],
+    bullets: ["apiDocsSseParity", "apiDocsSseEvents", "apiDocsSseUnknown", "apiDocsSseTerminal", "apiDocsSseInterrupt"],
     code: sseExample
   },
   {
@@ -264,9 +337,25 @@ X-NomoSmart-API-Key: <api_key>`
     title: "apiDocsFeedbackTitle",
     description: "apiDocsFeedbackDescription",
     method: "POST",
-    endpoint: "/api/public/v1/responses/<response_id>/feedback",
-    bullets: ["apiDocsFeedbackAppendOnly", "apiDocsFeedbackLatest", "apiDocsFeedbackIdentity"],
+    endpoint: "/api/public/v1/responses/resp_<response_id>/feedback",
+    bullets: ["apiDocsFeedbackValues", "apiDocsFeedbackIdentity", "apiDocsFeedbackAppendOnly", "apiDocsFeedbackLatest"],
     code: feedbackExample
+  },
+  {
+    id: "limits",
+    icon: Gauge,
+    label: "apiDocsNavLimits",
+    title: "apiDocsLimitsTitle",
+    description: "apiDocsLimitsDescription",
+    bullets: [
+      "apiDocsLimitsInput",
+      "apiDocsLimitsTopK",
+      "apiDocsLimitsMetadata",
+      "apiDocsLimitsEndUser",
+      "apiDocsLimitsIdempotency",
+      "apiDocsLimitsRate",
+      "apiDocsLimitsHistory"
+    ]
   },
   {
     id: "errors",
@@ -274,7 +363,18 @@ X-NomoSmart-API-Key: <api_key>`
     label: "apiDocsNavErrors",
     title: "apiDocsErrorsTitle",
     description: "apiDocsErrorsDescription",
-    bullets: ["apiDocsError400", "apiDocsError401", "apiDocsError403", "apiDocsError409", "apiDocsError429"],
+    bullets: [
+      "apiDocsError400",
+      "apiDocsError401",
+      "apiDocsError403",
+      "apiDocsError404",
+      "apiDocsError409",
+      "apiDocsError422",
+      "apiDocsError429",
+      "apiDocsError502",
+      "apiDocsError503",
+      "apiDocsErrorRetry"
+    ],
     code: errorExample
   },
   {
