@@ -15,6 +15,8 @@ type UploadReceipt = {
   documentId?: string | null;
   versionId?: string | null;
   errorCode?: string | null;
+  /** Already localized reason, e.g. a duplicate name naming the other project and owners (CHG-442). */
+  errorMessage?: string | null;
 };
 export type UploadBatchResult<T> = { documents: T[]; receipts: UploadReceipt[] };
 type UploadFileResult = { name: string; ok: boolean; reason: string };
@@ -33,7 +35,7 @@ export function confirmedUploadResults(validation: UploadFileResult[], receipts:
     if (!item.ok) return item;
     const submittedIndex = index++;
     const receipt = receipts.find((entry) => entry.index === submittedIndex)!;
-    return receipt.status === "success" ? item : { ...item, ok: false, reason: "server:" + (receipt.errorCode || "document_upload_failed") };
+    return receipt.status === "success" ? item : { ...item, ok: false, reason: receipt.errorMessage || "server:" + (receipt.errorCode || "document_upload_failed") };
   });
 }
 

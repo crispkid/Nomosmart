@@ -6,6 +6,7 @@ import hashlib
 import json
 import re
 from datetime import UTC, datetime
+from pathlib import PurePath
 from time import perf_counter
 from urllib.parse import quote
 from uuid import UUID, uuid4
@@ -16,10 +17,12 @@ from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from app.domain.chunk_references import resolve_pending_references
+from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
@@ -66,7 +69,7 @@ def get_content_editor(project_id: UUID, document_id: UUID, version_id: UUID, re
     chunk_id: UUID | None = None, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)):
     project, document, version = scoped_content(session,project_id,document_id,version_id,context)
     result = editor_source(session,project,document,version,context,request.app.state.settings,chunk_id)
-    result["original_file"] = _original_file_metadata(project.id,document.id,version).model_dump(mode="json")
+    result["original_file"] = _original_file_metadata(project.id,document.id,version,document.title).model_dump(mode="json")
     return JSONResponse(result,headers={"Cache-Control":"private, no-store"})
 
 
@@ -251,6 +254,7 @@ def _process_upload_item(
                 requested_ocr_model_id=requested_ocr_id,
                 force_ocr=force_ocr,
                 start_extraction=start_extraction,
+                visible_project_ids=set(visible_project_ids),
             )
             item_session.flush()
             result = DocumentUploadResult(
@@ -282,6 +286,7 @@ def _process_upload_item(
             status="failed",
             error_code=exc.code if compensation_complete else "upload_compensation_failed",
             message=exc.message if compensation_complete else "Upload failed and object-store cleanup requires operator reconciliation",
+            error_details=exc.details if compensation_complete and exc.code == "document_title_duplicate" else None,
         )
     except Exception:
         compensation_complete = storage.compensate()
@@ -856,6 +861,9 @@ def update_document_lifecycle(
         document.status = "deleted"
         document.is_deleted = True
     else:
+        if document.is_deleted:
+            # REN442-004 G5-A: a deleted document's name may have been reused meanwhile.
+            ensure_title_available(session, document.title, visible_project_ids=set(context.visible_project_ids), exclude_document_id=document.id, source_type=document.source_type)
         document.status = payload.status
         document.is_deleted = False
     document.lock_version += 1
@@ -866,6 +874,41 @@ def update_document_lifecycle(
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
     pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
     return _project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids)))
+
+
+@router.patch("/{document_id}/title", response_model=DocumentSummary)
+def rename_document(
+    project_id: UUID,
+    document_id: UUID,
+    payload: DocumentRenamePayload,
+    request: Request,
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> DocumentSummary:
+    """CHG-442 REN442-001/003/004: rename a document; content, versions and review state are unchanged."""
+    project = _get_scoped_project(session, project_id, context)
+    visible = set(context.visible_project_ids)
+    require_project_role(session, project.id, context.user_id, visible, PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to rename a document")
+    document = session.scalar(select(Document).where(Document.id == document_id).with_for_update())
+    if document is None or document.project_id != project.id or document.is_deleted:
+        raise AppError("document_not_found", "Document was not found", status_code=404)
+    if document.source_type == "project_reference":
+        # A linked reference shows its source document's name (REN442-004 G2-A).
+        raise AppError("document_rename_reference", "Referenced documents keep the source document name", status_code=409)
+    if document.lock_version != payload.lock_version:
+        raise AppError("stale_document", "Document was changed by another request", status_code=409)
+    title = validate_title(payload.title)
+    old_title = document.title
+    if title != old_title:
+        document.title_key = ensure_title_available(session, title, visible_project_ids=visible, exclude_document_id=document.id, source_type=document.source_type)
+        document.title = title
+        document.lock_version += 1
+        resolved = resolve_pending_references(session, project.id)
+        add_audit(session, actor_user_id=context.user_id, action="document.rename", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"old_title": old_title, "new_title": title, "references_resolved": resolved})
+        session.commit()
+    version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
+    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
+    return _project_document(session, document, version, pipeline, visible_project_ids=visible, capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=visible))
 
 
 @router.get("/{document_id}/versions/{version_id}/pipelines/{pipeline_id}", response_model=PipelineRunDetail)
@@ -1401,7 +1444,7 @@ def stream_original_file(
     return _object_response(
         body=remote.body,
         content_type=version.mime_type or remote.content_type or _mime_type(version.canonical_extension),
-        filename=version.original_file_name or f"{document.title}{version.canonical_extension or ''}",
+        filename=_download_filename(document, version),
         disposition="inline",
     )
 
@@ -1420,9 +1463,9 @@ def stream_file_preview(
     extension = (version.canonical_extension or "").lower()
     remote = _stored_version_object(request, version)
     if extension == ".pdf":
-        return _object_response(body=remote.body, content_type="application/pdf", filename=version.original_file_name or f"{document.title}.pdf", disposition="inline")
+        return _object_response(body=remote.body, content_type="application/pdf", filename=_download_filename(document, version), disposition="inline")
     if extension in {".txt", ".md", ".markdown", ".csv", ".json"}:
-        return _object_response(body=remote.body, content_type="text/plain; charset=utf-8", filename=version.original_file_name or f"{document.title}{extension}", disposition="inline")
+        return _object_response(body=remote.body, content_type="text/plain; charset=utf-8", filename=_download_filename(document, version), disposition="inline")
     raise AppError("preview_unsupported", "Preview is not supported for this file type", status_code=415)
 
 
@@ -1435,7 +1478,7 @@ def _source_text(version: DocumentVersion, chunks: list[ApprovalChunkEvidence]) 
     return joined or None
 
 
-def _original_file_metadata(project_id: UUID, document_id: UUID, version: DocumentVersion) -> OriginalFileViewerMetadata:
+def _original_file_metadata(project_id: UUID, document_id: UUID, version: DocumentVersion, document_title: str) -> OriginalFileViewerMetadata:
     extension = (version.canonical_extension or "").lower()
     base = f"/projects/{project_id}/documents/{document_id}/versions/{version.id}"
     original_url = f"{base}/original-file" if version.storage_bucket and version.storage_key else None
@@ -1467,6 +1510,7 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
 
     return OriginalFileViewerMetadata(
         original_file_name=version.original_file_name,
+        download_file_name=f"{document_title}{extension or PurePath(version.original_file_name or '').suffix.lower()}",
         extension=extension or None,
         mime_type=version.mime_type or _mime_type(extension),
         file_size=version.file_size,
@@ -1510,8 +1554,14 @@ def _stored_version_object(request: Request, version: DocumentVersion):
     return storage.get_object(bucket=version.storage_bucket, key=version.storage_key, max_bytes=request.app.state.settings.max_upload_size_mb * 1024 * 1024)
 
 
+def _download_filename(document: Document, version: DocumentVersion) -> str:
+    """REN442-002: current document name plus the version's original extension; never the S3 hash name."""
+    extension = version.canonical_extension or PurePath(version.original_file_name or "").suffix.lower()
+    return f"{document.title}{extension}"
+
+
 def _object_response(*, body: bytes, content_type: str, filename: str, disposition: str) -> StreamingResponse:
-    safe_filename = filename.replace("\r", "").replace("\n", "")
+    safe_filename = filename.replace("\r", "").replace("\n", "").replace("/", "_").replace("\\", "_")
     encoded = quote(safe_filename)
     return StreamingResponse(
         iter([body]),
@@ -1599,7 +1649,7 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
         document=_project_document(session, document, version, pipeline, expose_storage=False, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))),
         version=_version_summary(version, expose_storage=False),
         pipeline=pipeline_detail,
-        original_file=_original_file_metadata(project.id, document.id, version),
+        original_file=_original_file_metadata(project.id, document.id, version, document.title),
         document_layout=_document_layout(version, markdown_artifact.text),
         source_text=source_text,
         markdown_text=markdown_artifact.text,

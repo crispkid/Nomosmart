@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.api.routes.documents import _project_document
+from app.domain.document_names import ensure_title_available
 from app.domain.project_access import get_scoped_project as _get_scoped_project
 from app.api.schemas import DataSourceConnectionOptions, DataSourceConnectionPayload, DataSourceConnectionTestPayload, DataSourceConnectionTestResponse, DataSourceCreateResponse, DataSourceResponse, DataSyncRunResponse
 from app.core.encryption import EnvelopeCipher
@@ -180,11 +181,14 @@ def create_data_source(
         created_at=now,
         updated_at=now,
     )
+    service_title = _title_from_filename(payload.file_name)
+    service_title_key = ensure_title_available(session, service_title, visible_project_ids=set(context.visible_project_ids))
     document = Document(
         id=document_id,
         project_id=project.id,
         document_code=allocate_document_code(session, project.id),
-        title=_title_from_filename(payload.file_name),
+        title=service_title,
+        title_key=service_title_key,
         source_type=f"{payload.service_type.lower()}_service",
         status="inactive",
         is_deleted=False,

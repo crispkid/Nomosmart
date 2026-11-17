@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 from datetime import datetime
+from pathlib import PurePath
 from typing import Any, Literal
 from uuid import UUID
 
@@ -559,7 +560,7 @@ def get_approval_task(approval_task_id: UUID, context: IdentityContext = Depends
         evidence_generated_at=manifest_row.generated_at if manifest_row is not None else None,
         evidence_verifiable=manifest_row is not None,
         evidence_manifest=manifest,
-        original_file=_original_file_metadata(document.project_id, document.id, version),
+        original_file=_original_file_metadata(document.project_id, document.id, version, document.title),
         document_layout=_document_layout(version, markdown_artifact.text),
         source_text=_source_text(version, chunks),
         markdown_text=markdown_artifact.text,
@@ -1160,7 +1161,7 @@ def _source_text(version: DocumentVersion, chunks: list[ApprovalChunkEvidence]) 
     return None
 
 
-def _original_file_metadata(project_id: UUID, document_id: UUID, version: DocumentVersion) -> OriginalFileViewerMetadata:
+def _original_file_metadata(project_id: UUID, document_id: UUID, version: DocumentVersion, document_title: str) -> OriginalFileViewerMetadata:
     extension = (version.canonical_extension or "").lower()
     base = f"/projects/{project_id}/documents/{document_id}/versions/{version.id}"
     original_url = f"{base}/original-file" if version.storage_bucket and version.storage_key else None
@@ -1185,6 +1186,7 @@ def _original_file_metadata(project_id: UUID, document_id: UUID, version: Docume
 
     return OriginalFileViewerMetadata(
         original_file_name=version.original_file_name,
+        download_file_name=f"{document_title}{extension or PurePath(version.original_file_name or '').suffix.lower()}",
         extension=extension or None,
         mime_type=version.mime_type,
         file_size=version.file_size,

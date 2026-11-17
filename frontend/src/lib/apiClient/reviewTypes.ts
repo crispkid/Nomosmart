@@ -294,6 +294,8 @@ type DocumentLayoutListItem = {
 
 export type OriginalFileViewerMetadata = {
   original_file_name: string | null;
+  /** CHG-442 REN442-002: save downloads under this name (current document name plus original extension). */
+  download_file_name?: string | null;
   extension: string | null;
   mime_type: string | null;
   file_size: number | null;
@@ -389,5 +391,6 @@ export type DocumentReferenceImportResponse = {
     reference: DocumentReferenceResponse | null;
     error_code: string | null;
     message: string | null;
+    error_details?: Record<string, unknown> | null;
   }>;
 };

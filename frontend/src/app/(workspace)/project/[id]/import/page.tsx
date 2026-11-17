@@ -1,5 +1,7 @@
 "use client";
 
+import { duplicateTitleDetails, duplicateTitleMessage } from "@/lib/documentNames";
+import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
 import { DropdownSelect } from "@/components/DropdownSelect";
 import { resourcePageTitle } from "@/lib/browserTitle";
 import { UiValidationError } from "@/lib/transportError";
@@ -27,7 +29,7 @@ import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { extractionRunKey, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
-import { applyPipelineDetail, type Translate, isReviewLockedVersionStatus, mapPipelineStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState } from "@/components/projectImport/importDocumentModel";
+import { applyPipelineDetail, type Translate, isReviewLockedVersionStatus, mapPipelineStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState, type DocumentItem } from "@/components/projectImport/importDocumentModel";
 import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelineCard";
 import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
@@ -69,6 +71,7 @@ function ProjectImportPage() {
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [project, setProject] = useState<ProjectResponse | null>(null);
+  const [renameTarget, setRenameTarget] = useState<DocumentItem | null>(null);
   const [titleRead, setTitleRead] = useState<{ fetch: typeof apiFetch; route: string } | null>(null);
   const [projectAccessState, setProjectAccess] = useState<"loading" | "granted" | "denied" | "error">("loading");
   const { allDocuments, setLiveDocuments, setCreatedImports,
@@ -355,7 +358,8 @@ function ProjectImportPage() {
     try {
     const upload = await uploadProjectDocuments(apiFetch, params.id, files, { ocrModelId: options.ocrModelId, startExtraction: options.startExtraction });
     if (!active()) return { documents: [], receipts: [] };
-    const receipts = upload.results.map((result) => ({ index: result.index, status: result.status, documentId: result.document?.id, versionId: result.document?.latest_version?.id, errorCode: result.error_code }));
+    const duplicateMessageOrNull = (details: unknown) => { const parsed = duplicateTitleDetails(details); return parsed ? duplicateTitleMessage(parsed, t, format) : null; };
+    const receipts = upload.results.map((result) => ({ index: result.index, status: result.status, documentId: result.document?.id, versionId: result.document?.latest_version?.id, errorCode: result.error_code, errorMessage: result.error_code === "document_title_duplicate" ? duplicateMessageOrNull(result.error_details) : null }));
     confirmedUploadResults(files.map((file) => ({ name: file.name, ok: true, reason: "" })), receipts);
     const results = upload.results.filter((result): result is DocumentUploadResult & { document: DocumentSummary } => result.status === "success" && result.document !== null);
     const summaries = results.map((result) => liveDocumentFromSummary(result.document, t));
@@ -541,6 +545,7 @@ function ProjectImportPage() {
               retryLivePipelineStep={retryLivePipelineStep}
               requestStatusChange={requestStatusChange}
               setVersionDocumentId={setVersionDocumentId}
+              onRequestRename={setRenameTarget}
             />
           ))}
         </div>
@@ -561,6 +566,13 @@ function ProjectImportPage() {
       {renderProjectVersionModals()}
 
       {renderStatusChangeModal()}
+      {renameTarget && renameTarget.lockVersion !== undefined ? (
+        <DocumentRenameDialog apiFetch={apiFetch} documentId={renameTarget.id} extension={renameTarget.fileExtension ?? ""} lockVersion={renameTarget.lockVersion} onClose={() => setRenameTarget(null)} onRenamed={(summary) => {
+          setLiveDocuments((current) => current.map((item) => item.id === summary.id ? liveDocumentFromSummary(summary, t) : item));
+          setCreatedImports((current) => current.map((item) => item.id === summary.id ? liveDocumentFromSummary(summary, t) : item));
+          setRenameTarget(null);
+        }} projectId={params.id} title={renameTarget.title} />
+      ) : null}
     </AppShell>
   );
 }

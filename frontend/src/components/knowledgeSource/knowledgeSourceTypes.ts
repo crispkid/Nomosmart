@@ -51,6 +51,8 @@ export type CreatedKnowledgeDocument = {
   lockVersion?: number;
   dataSourceId?: string;
   title: string;
+  /** CHG-442 REN442-001: original extension, shown fixed beside an edited name. */
+  fileExtension?: string;
   version: string;
   owner: string;
   documentStatus: string;

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, FilePlus2, FolderSync, Layers3, ListRestart, Loader2, RotateCcw, ShieldCheck } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Clock3, FilePlus2, FolderSync, Layers3, ListRestart, Loader2, Pencil, RotateCcw, ShieldCheck } from "lucide-react";
 import { StatusBadge } from "@/components/AppShell";
 import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
 import { DocumentChunkCount } from "@/components/DocumentChunkCount";
@@ -40,11 +40,12 @@ type DocumentPipelineCardProps = Pick<ImportPageDeps, "format" | "locale" | "t">
   retryLivePipelineStep: (document: CreatedKnowledgeDocument, stepName?: string | null) => Promise<void>;
   requestStatusChange: (document: DocumentItem, requestedStatus: string, currentStatus: string) => Promise<void>;
   setVersionDocumentId: (documentId: string | null) => void;
+  onRequestRename: (document: DocumentItem) => void;
 };
 
 /** One document card in the project import document list: JSX moved verbatim from the page (OPT424-038). */
 export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
-  const { document, t, format, locale, localize, projectId, projectAccess, canStartExtraction, canEditLifecycle, terminalCounts, elapsedNow, elapsedEnabled, committedStatuses, statusSubmitting, manualStartPending, manualStartNotices, pipelineDetailLoading, pipelineRetryNotices, startManualExtraction, retryLivePipelineStep, requestStatusChange, setVersionDocumentId } = props;
+  const { document, t, format, locale, localize, projectId, projectAccess, canStartExtraction, canEditLifecycle, terminalCounts, elapsedNow, elapsedEnabled, committedStatuses, statusSubmitting, manualStartPending, manualStartNotices, pipelineDetailLoading, pipelineRetryNotices, startManualExtraction, retryLivePipelineStep, requestStatusChange, setVersionDocumentId, onRequestRename } = props;
     const sourceState = getSourceState(document);
     const pipeline = document.pipeline;
     const displayedVersion = sourceState === "syncing" && document.versions.length === 0 ? t("projectImportVersionPending") : normalizeVersion(document.version);
@@ -73,7 +74,12 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
         <div className="row-title">
           <FilePlus2 size={18} />
           <div>
-            <strong>{document.title}</strong>
+            <span className="document-title-edit">
+              <strong>{document.title}</strong>
+              {document.isLive && canEditLifecycle && !referenceSource && document.documentStatus !== "deleted" && document.lockVersion !== undefined ? (
+                <button aria-label={format("documentRenameButtonLabel", { title: document.title })} className="icon-button" onClick={() => onRequestRename(document)} title={t("documentRenameTitle")} type="button"><Pencil size={14} /></button>
+              ) : null}
+            </span>
             <small>{displayedVersion} · {document.sourceType} · {t("projectImportOwner")} {document.owner} · {t("projectImportUpdated")} {document.updatedAt}</small>
             <span className="document-version-roles">
               {activeVersion ? <em className="version-role-active"><CheckCircle2 size={12} /> {t("statusActive")}：{activeVersion}</em> : null}

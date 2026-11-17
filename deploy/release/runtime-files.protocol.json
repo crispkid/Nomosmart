@@ -91,6 +91,7 @@
     "deploy/helm/nomosmart/files/sql/V061__openai_responses_only.sql",
     "deploy/helm/nomosmart/files/sql/V062__multi_turn_conversation_context.sql",
     "deploy/helm/nomosmart/files/sql/V063__validation_multi_turn_scenarios.sql",
+    "deploy/helm/nomosmart/files/sql/V064__four_stage_extraction_references.sql",
     "deploy/helm/nomosmart/templates/_auth-keyring.tpl",
     "deploy/helm/nomosmart/templates/_bootstrap-init.tpl",
     "deploy/helm/nomosmart/templates/_helpers.tpl",
@@ -261,6 +262,7 @@
     "sql/migrations/V060__backfill_document_version_creators.sql",
     "sql/migrations/V061__openai_responses_only.sql",
     "sql/migrations/V062__multi_turn_conversation_context.sql",
-    "sql/migrations/V063__validation_multi_turn_scenarios.sql"
+    "sql/migrations/V063__validation_multi_turn_scenarios.sql",
+    "sql/migrations/V064__four_stage_extraction_references.sql"
   ]
 }

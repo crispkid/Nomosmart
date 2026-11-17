@@ -12439,3 +12439,30 @@ small {
 .settings-main form + .identity-settings-section { margin-top: 24px; }
 .settings-main .identity-settings-section > .system-table-wrap { margin-top: 12px; }
 
+
+/* CHG-442 REN442-001: document name editing (name field with fixed extension). */
+.document-rename-field {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.document-rename-field input {
+  flex: 1;
+  min-width: 0;
+}
+
+.field-stack .document-rename-extension {
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 400;
+  white-space: nowrap;
+}
+
+.document-title-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}

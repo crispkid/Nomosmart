@@ -7,6 +7,7 @@ from uuid import UUID, uuid4
 from fastapi import APIRouter, Depends, Request
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
+from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
 from app.api.routes.documents import _pipeline_summary, _project_document
@@ -150,6 +151,8 @@ def import_project_document_references(
                 actor_user_id=context.user_id,
                 old_version_confirmed=item.old_version_confirmed,
                 settings=request.app.state.settings,
+                title=item.title,
+                visible_project_ids=set(context.visible_project_ids),
             )
             add_audit(session, actor_user_id=context.user_id, action=f"document_reference.import.{payload.mode}", resource_type="document", resource_id=target_document.id, result="success", request_id=request.state.request_id, summary={"source_document_id": str(source_document.id), "source_version_id": str(source_version.id), "target_version_id": str(target_version.id), "reference_id": str(reference.id) if reference else None})
             session.commit()
@@ -162,7 +165,7 @@ def import_project_document_references(
             )
         except AppError as exc:
             session.rollback()
-            results.append(DocumentReferenceImportResult(status="failed", error_code=exc.code, message=exc.message))
+            results.append(DocumentReferenceImportResult(status="failed", error_code=exc.code, message=exc.message, error_details=exc.details if exc.code == "document_title_duplicate" else None))
     return DocumentReferenceImportResponse(results=results)
 
 
@@ -329,16 +332,22 @@ def _create_reference_document(
     actor_user_id: UUID,
     old_version_confirmed: bool,
     settings,
+    title: str | None = None,
+    visible_project_ids: set[UUID] | None = None,
 ) -> tuple[Document, DocumentVersion, PipelineRun | None, DocumentReference | None]:
     if mode == "reference" and _duplicate_reference(session, target_project.id, source_project.id, source_document.id) is not None:
         raise AppError("document_reference_duplicate", "Document reference already exists in target project", status_code=409)
+    source_type = "project_reference" if mode == "reference" else "project_copy"
+    target_title = source_document.title if mode == "reference" or not title else validate_title(title)
+    target_title_key = ensure_title_available(session, target_title, visible_project_ids=visible_project_ids, source_type=source_type)
     now = datetime.now(UTC)
     target_document = Document(
         id=uuid4(),
         project_id=target_project.id,
         document_code=_next_document_code(session, target_project.id),
-        title=source_document.title,
-        source_type="project_reference" if mode == "reference" else "project_copy",
+        title=target_title,
+        title_key=target_title_key,
+        source_type=source_type,
         status="inactive",
         is_deleted=False,
         created_by=actor_user_id,
