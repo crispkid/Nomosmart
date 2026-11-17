@@ -8,7 +8,9 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Tags, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Pencil, Tags, Trash2 } from "lucide-react";
+import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
+import { fileExtension } from "@/lib/documentNames";
 import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { useAuth } from "@/components/AuthProvider";
@@ -44,6 +46,7 @@ export default function KnowledgePage() {
   const { locale, format } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   const [liveDetail, setLiveDetail] = useState<KnowledgeDetailResponse | null>(null);
+  const [renameOpen, setRenameOpen] = useState(false);
   const [loadError, setLoadError] = useState(false);
   const [loadedRoute, setLoadedRoute] = useState<string | null>(null);
   const userId = currentUser?.user_id ?? "";
@@ -350,6 +353,7 @@ export default function KnowledgePage() {
     <AppShell title={t("knowledgeDetailTitle")} browserTitle={resourcePageTitle(t("knowledgeDetailTitle"), !loadError && !loading ? liveDetail?.document.title : null, !loadError && !loading ? liveDetail?.version.version_label : null)}>
       <div className="project-context">
         <Link className="text-link" href={`/project/${params.id}/import`}><ArrowLeft size={16} /> {t("knowledgeDetailBackToDocuments")}</Link>
+        {liveDetail ? <span className="document-title-edit"><strong>{liveDetail.document.title}</strong>{liveDetail.document.capabilities?.can_manage_lifecycle && liveDetail.document.source_type !== "project_reference" ? <button aria-label={format("documentRenameButtonLabel", { title: liveDetail.document.title })} className="icon-button" onClick={() => setRenameOpen(true)} title={t("documentRenameTitle")} type="button"><Pencil size={14} /></button> : null}</span> : null}
         <span>{t("knowledgeDetailDocumentVersion")} {liveDetail?.version.version_label ?? "-"}</span>
         <span>{liveDetail?.pipeline?.status ?? t("knowledgeDetailNoPipeline")}</span>
         <StatusBadge status={liveDetail?.version.status ?? "loading"} />
@@ -552,6 +556,10 @@ export default function KnowledgePage() {
       </div>}
 
       {deleteTarget ? <ChunkDeleteDialog busy={deleteBusy} chunk={deleteTarget} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmChunkDeletion()} /> : null}
+      {renameOpen && liveDetail ? <DocumentRenameDialog apiFetch={apiFetch} documentId={liveDetail.document.id} extension={liveDetail.version.canonical_extension ?? fileExtension(liveDetail.version.original_file_name)} lockVersion={liveDetail.document.lock_version} onClose={() => setRenameOpen(false)} onRenamed={(summary) => {
+        setLiveDetail((current) => current ? { ...current, document: { ...current.document, title: summary.title, lock_version: summary.lock_version }, original_file: current.original_file ? { ...current.original_file, download_file_name: `${summary.title}${current.version.canonical_extension ?? fileExtension(current.version.original_file_name)}` } : current.original_file } : current);
+        setRenameOpen(false);
+      }} projectId={params.id} title={liveDetail.document.title} /> : null}
       {graphOpen ? <DocumentGraphDialog detail={liveDetail ?? null} onClose={() => setGraphOpen(false)} projectId={params.id} /> : null}
         </>
       )}

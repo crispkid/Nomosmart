@@ -52,7 +52,7 @@ export {
   listApprovalFilterOptions, listPendingApprovalsPage, listApprovalHistoryPage, listRejectedApprovalsPage,
   listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask,
   approveApprovalTask, rejectApprovalTask, publishDocumentVersion, switchActiveDocumentVersion,
-  getDocumentLifecycleImpact, updateDocumentLifecycle, listProjectReferenceSources,
+  getDocumentLifecycleImpact, updateDocumentLifecycle, renameDocument, listProjectReferenceSources,
   importProjectDocumentReferences, updateDocumentReferenceVersion, getProjectGraph, getProjectGraphNeighbors,
   getDocumentVersionGraph, getProjectServingStatus, queryProjectChat, listProjectChatConversationPage,
   getProjectChatConversation, downloadProjectChatConversationCsv, deleteProjectChatConversation,

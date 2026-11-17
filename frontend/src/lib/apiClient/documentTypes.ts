@@ -143,6 +143,7 @@ export type DocumentUploadResult = {
   started_extraction: boolean;
   error_code: string | null;
   message: string | null;
+  error_details?: Record<string, unknown> | null;
 };
 
 export type DocumentUploadResponse = {

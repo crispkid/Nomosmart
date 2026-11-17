@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.errors import AppError
 from app.db.models import AIModel, Document, DocumentContentState, DocumentVersion, OutboxEvent, PipelineRun, Project
+from app.domain.document_names import MAX_DOCUMENT_TITLE_LENGTH, ensure_title_available
 from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize_pipeline_steps
 from app.domain.document_codes import allocate_document_code
 from app.domain.uploads import build_storage_identity, build_storage_key, sanitize_original_filename, validate_source_extension, require_extractable_source
@@ -19,7 +20,6 @@ from app.domain.upload_content import UploadContent, as_content
 from app.domain.system_parameter_store import intake_settings
 
 
-MAX_TITLE_LENGTH = 500
 @dataclass(frozen=True)
 class UploadedFilePayload:
     filename: str
@@ -172,10 +172,13 @@ def create_uploaded_document(
     requested_ocr_model_id: UUID | None,
     force_ocr: bool,
     start_extraction: bool,
+    visible_project_ids: set[UUID] | None = None,
 ) -> tuple[Document, DocumentVersion, PipelineRun | None]:
     if not getattr(settings, "_intake_snapshot", False):
         settings = intake_settings(session, settings)
     original_name, _ = validate_file_payload(file, settings)
+    title = _title_from_filename(original_name)
+    key = ensure_title_available(session, title, visible_project_ids=visible_project_ids)
     identity = build_storage_identity(file.content, original_name)
     force_ocr = identity.canonical_extension == ".pdf"
     source_text = source_text_snapshot(file, identity.canonical_extension)
@@ -188,7 +191,8 @@ def create_uploaded_document(
         id=document_id,
         project_id=project.id,
         document_code=_next_document_code(session, project.id),
-        title=_title_from_filename(original_name),
+        title=title,
+        title_key=key,
         source_type="file_upload",
         status="inactive",
         is_deleted=False,
@@ -539,7 +543,7 @@ def _next_document_code(session: Session, project_id: UUID) -> str:
 
 def _title_from_filename(filename: str) -> str:
     title = re.sub(r"\.[^.]+$", "", filename).strip() or filename
-    return title[:MAX_TITLE_LENGTH]
+    return title[:MAX_DOCUMENT_TITLE_LENGTH].strip() or title[:MAX_DOCUMENT_TITLE_LENGTH]
 
 
 @dataclass(frozen=True)

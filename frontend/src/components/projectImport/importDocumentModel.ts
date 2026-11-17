@@ -1,5 +1,6 @@
 // Project import page document model: pure mapping, labels and status helpers
 // (split from the project import page, OPT424-038).
+import { fileExtension } from "@/lib/documentNames";
 import { ocrFailureKey } from "@/lib/ocrPresentation";
 import { type CreatedKnowledgeDocument, type SourceState } from "@/components/KnowledgeSourceModals";
 import { pipelineTimeFields } from "@/lib/pipelineElapsed";
@@ -273,6 +274,7 @@ export function liveDocumentFromSummary(document: DocumentSummary, t: Translate,
     isLive: true,
     lockVersion: document.lock_version,
     title: document.title,
+    fileExtension: version?.canonical_extension ?? fileExtension(version?.original_file_name),
     version: version?.version_label ?? "v1.0",
     owner: document.created_by_name || t("documentMetadataUnknown"),
     documentStatus: document.status,

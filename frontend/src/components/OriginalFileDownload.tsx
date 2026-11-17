@@ -28,7 +28,7 @@ export function OriginalFileDownload({ metadata, compact = false, onFailureChang
       if (request.signal.aborted) return;
       const url = URL.createObjectURL(blob), anchor = document.createElement("a");
       anchor.href = url;
-      anchor.download = metadata?.original_file_name ?? "document";
+      anchor.download = metadata?.download_file_name ?? metadata?.original_file_name ?? "document";
       anchor.click();
       setTimeout(() => URL.revokeObjectURL(url), 0);
     } catch {

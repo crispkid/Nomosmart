@@ -153,7 +153,7 @@ Multi-turn questions (CHG-435) send `previous_response_id`; `CHAT_HISTORY_MAX_TU
 (default 5) and `CHAT_HISTORY_MAX_CHARACTERS` (default 12000) bound the earlier turns sent
 to the model. Migration `V062` only adds columns. CSV validation (CHG-436) can group rows into
 multi-turn scenarios with `conversation_key` and `turn`; `VALIDATION_SCENARIO_MAX_TURNS`
-(default 20) caps a scenario, and `V063` only adds columns (contract 063).
+(default 20) caps a scenario, and `V063` only adds columns (contract 063). `V064` (CHG-442) adds station and chunk reference tables and a unique normalized document name; it supports fresh deployments only and fails if live documents share a name (contract 064).
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP

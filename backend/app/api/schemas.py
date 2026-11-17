@@ -373,6 +373,7 @@ class DocumentUploadResult(BaseModel):
     started_extraction: bool = False
     error_code: str | None = None
     message: str | None = None
+    error_details: dict[str, Any] | None = None
 
 
 class DocumentUploadResponse(BaseModel):
@@ -548,6 +549,12 @@ class LifecycleUpdatePayload(BaseModel):
     reason: str | None = Field(default=None, max_length=1000)
 
 
+class DocumentRenamePayload(BaseModel):
+    """CHG-442 REN442-001: edit the document-level name (extension stays fixed)."""
+    lock_version: int = Field(ge=1)
+    title: str = Field(min_length=1, max_length=400)
+
+
 class LifecycleImpactResponse(BaseModel):
     document_id: UUID
     requested_status: str
@@ -595,6 +602,8 @@ class DocumentReferenceImportItemPayload(BaseModel):
     source_document_id: UUID
     source_version_id: UUID
     old_version_confirmed: bool = False
+    # CHG-442 REN442-004 (G2-A): a copy is an independent document and needs its own site-wide unique name.
+    title: str | None = Field(default=None, max_length=200)
 
 
 class DocumentReferenceImportPayload(BaseModel):
@@ -608,6 +617,7 @@ class DocumentReferenceImportResult(BaseModel):
     reference: DocumentReferenceResponse | None = None
     error_code: str | None = None
     message: str | None = None
+    error_details: dict[str, Any] | None = None
 
 
 class DocumentReferenceImportResponse(BaseModel):
@@ -1016,6 +1026,8 @@ class SubmissionEvidenceResponse(BaseModel):
 
 class OriginalFileViewerMetadata(BaseModel):
     original_file_name: str | None = None
+    # CHG-442 REN442-002: current document name plus original extension; use this to save the file.
+    download_file_name: str | None = None
     extension: str | None = None
     mime_type: str | None = None
     file_size: int | None = None

@@ -244,7 +244,7 @@ export function DocumentContentEditorModal({ projectId, documentId, versionId, c
           {source?.original_file?.download_url ? <button type="button" className="action-button secondary" onClick={() => {
             getKnowledgeArtifactBlob(apiFetch, source.original_file!.download_url!).then(blob => {
               const url = URL.createObjectURL(blob), anchor = document.createElement("a"); anchor.href = url;
-              anchor.download = source.original_file?.original_file_name || source.document_title; anchor.click(); URL.revokeObjectURL(url);
+              anchor.download = source.original_file?.download_file_name || source.original_file?.original_file_name || source.document_title; anchor.click(); URL.revokeObjectURL(url);
             }).catch(() => setError(t("knowledgeDetailDownloadFailed")));
           }}><Download size={16} />{t("knowledgeDetailDownloadOriginal")}</button> : null}
         </aside> : null}

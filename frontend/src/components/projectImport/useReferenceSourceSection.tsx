@@ -1,5 +1,6 @@
 "use client";
 
+import { duplicateTitleDetails, duplicateTitleMessage } from "@/lib/documentNames";
 import { useState } from "react";
 import { ProjectReferenceModal } from "@/components/ProjectReferenceModal";
 import type { useDocumentList } from "@/lib/useDocumentList";
@@ -45,7 +46,7 @@ export function createReferenceSourceActions(state: ReferenceSourceState, deps: 
     }
   }
 
-  async function createLiveReferences(mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) {
+  async function createLiveReferences(mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean; title?: string | null }>) {
     if (!projectReady) throw new UiValidationError("projectImportUploadNotAllowed");
     const response = await importProjectDocumentReferences(apiFetch, params.id, { mode, items });
     const created = await Promise.all(response.results.filter((result) => result.status === "created" && result.document).map(async (result) => {
@@ -63,7 +64,11 @@ export function createReferenceSourceActions(state: ReferenceSourceState, deps: 
     if (created.length) setCreatedImports((current) => [...created, ...current]);
     return {
       createdCount: created.length,
-      errors: response.results.filter((result) => result.status === "failed").map((result) => operationalCodeMessage(result.error_code, t, format, "referenceCreateFailed"))
+      errors: response.results.filter((result) => result.status === "failed").map((result) => {
+        const duplicate = result.error_code === "document_title_duplicate" ? duplicateTitleDetails(result.error_details) : null;
+        return duplicate ? `${duplicateTitleMessage(duplicate, t, format)} ${t("referenceCopyRenameHint")}` : operationalCodeMessage(result.error_code, t, format, "referenceCreateFailed");
+      }),
+      failedIndexes: response.results.map((result, index) => result.status === "failed" ? index : -1).filter((index) => index >= 0)
     };
   }
 

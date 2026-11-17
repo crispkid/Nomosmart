@@ -12,9 +12,12 @@ type Selection = {
   project: ReferenceSourceProjectResponse;
   document: ReferenceSourceDocumentResponse;
   version: ReferenceSourceVersionResponse;
+  /** CHG-442 REN442-004 (G2-A): a copy needs its own site-wide unique name. */
+  title?: string;
 };
 
-type ImportResult = { createdCount: number; errors: string[] };
+/** `failedIndexes` follow the submitted item order; created items leave the selection. */
+type ImportResult = { createdCount: number; errors: string[]; failedIndexes: number[] };
 
 function selectionKey(projectId: string, documentId: string) {
   return `${projectId}:${documentId}`;
@@ -33,7 +36,7 @@ export function ProjectReferenceModal({
   error: string;
   onClose: () => void;
   onRefresh: () => void;
-  onCreate: (mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean }>) => Promise<ImportResult>;
+  onCreate: (mode: "reference" | "copy", items: Array<{ source_document_id: string; source_version_id: string; old_version_confirmed?: boolean; title?: string | null }>) => Promise<ImportResult>;
 }) {
   const { t, format, localize } = useI18n();
   const [mode, setMode] = useState<"reference" | "copy">("reference");
@@ -82,12 +85,14 @@ export function ProjectReferenceModal({
       const result = await onCreate(mode, items.map((item) => ({
         source_document_id: item.document.id,
         source_version_id: item.version.id,
-        old_version_confirmed: item.version.status !== "active" ? oldRiskOpen : false
+        old_version_confirmed: item.version.status !== "active" ? oldRiskOpen : false,
+        title: mode === "copy" && item.title?.trim() ? item.title.trim() : null
       })));
       setResultCount(result.createdCount);
       setSubmitErrors(result.errors);
       if (!result.errors.length && mode === "reference") onClose();
-      if (!result.errors.length) setSelections({});
+      const failed = new Set(result.failedIndexes);
+      setSelections(Object.fromEntries(items.filter((_, index) => failed.has(index)).map((item) => [selectionKey(item.project.id, item.document.id), item])));
     } catch (caught) {
       setSubmitErrors([operationalErrorMessage(caught, t, format, "referenceCreateFailed")]);
     } finally {
@@ -155,6 +160,7 @@ export function ProjectReferenceModal({
               {selectedItems.length ? selectedItems.map((item) => (
                 <article key={selectionKey(item.project.id, item.document.id)}>
                   <span><strong>{item.document.title}</strong><small>{item.project.name} · {item.version.version_label}</small></span>
+                  {mode === "copy" ? <label className="field-stack reference-copy-title"><span>{t("referenceCopyTitleLabel")}</span><input maxLength={200} onChange={(event) => { const title = event.target.value; setSelections((current) => { const key = selectionKey(item.project.id, item.document.id); return current[key] ? { ...current, [key]: { ...current[key], title } } : current; }); }} placeholder={item.document.title} value={item.title ?? ""} /></label> : null}
                   <button aria-label={format("referenceRemoveDocument", { title: item.document.title })} onClick={() => setSelections((current) => { const next = { ...current }; delete next[selectionKey(item.project.id, item.document.id)]; return next; })} type="button"><Trash2 size={14} /></button>
                   {item.version.status !== "active" ? <em><AlertTriangle size={12} /> {t("referenceOldVersion")}</em> : null}
                 </article>
