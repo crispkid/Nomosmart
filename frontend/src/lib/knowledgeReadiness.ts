@@ -14,7 +14,7 @@ const knowledgeDetailReadyStates = new Set([
 ]);
 const automaticExtractionSteps = [
   "upload_received", "parse_document", "ocr_extract", "generate_markdown", "split_paragraphs",
-  "chunk_knowledge", "auto_tag", "build_embeddings", "build_staging_index", "build_graph_preview",
+  "chunk_knowledge", "auto_tag", "extract_references", "build_embeddings", "build_staging_index", "build_graph_preview",
   "prepare_submission",
 ];
 const governanceWaitingVersions: Record<string, string> = {

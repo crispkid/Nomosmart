@@ -11,6 +11,7 @@ const PIPELINE_STEP_LABELS: Record<string, TranslationKey> = {
   chunk_knowledge: "knowledgeDetailStepChunkKnowledge",
   generate_markdown: "knowledgeDetailStepGenerateMarkdown",
   auto_tag: "knowledgeDetailStepAutoTag",
+  extract_references: "knowledgeDetailStepExtractReferences",
   embedding: "knowledgeDetailStepBuildEmbeddings",
   build_embeddings: "knowledgeDetailStepBuildEmbeddings",
   staging_index: "knowledgeDetailStepBuildStagingIndex",

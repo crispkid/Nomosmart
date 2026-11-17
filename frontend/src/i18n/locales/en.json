@@ -2503,5 +2503,6 @@
   "documentRenameButtonLabel": "Edit the name of \"{title}\"",
   "referenceCopyTitleLabel": "Name of the copy",
   "referenceCopyRenameHint": "Enter a new name for this copy on the right and try again.",
-  "documentRenameReference": "Referenced documents keep the source document's name and can't be renamed."
+  "documentRenameReference": "Referenced documents keep the source document's name and can't be renamed.",
+  "knowledgeDetailStepExtractReferences": "Find document references"
 }

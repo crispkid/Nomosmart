@@ -2503,5 +2503,6 @@
   "documentRenameButtonLabel": "編輯「{title}」的名稱",
   "referenceCopyTitleLabel": "複製後的名稱",
   "referenceCopyRenameHint": "請在右側為這份複製輸入新名稱後再試一次。",
-  "documentRenameReference": "引用的文件沿用來源文件名稱，無法改名。"
+  "documentRenameReference": "引用的文件沿用來源文件名稱，無法改名。",
+  "knowledgeDetailStepExtractReferences": "萃取文件引用"
 }

@@ -17,7 +17,7 @@ from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
-from app.domain.chunk_references import resolve_pending_references
+from app.domain.chunk_references import extract_version_references, reference_summary, resolve_pending_references
 from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
@@ -815,6 +815,7 @@ def get_document_version_submission_evidence(
         graph=summary["graph"],
         chat_records=chat_records,
         validation_runs=validation_runs,
+        reference_summary=reference_summary(session, version.id),
     )
 
 
@@ -904,6 +905,10 @@ def rename_document(
         document.title = title
         document.lock_version += 1
         resolved = resolve_pending_references(session, project.id)
+        if resolved:
+            # REN442-003: references that now resolve also update the formal graph (REF442-005).
+            from app.domain.graph_references import sync_reference_edges
+            sync_reference_edges(session, request.app.state.settings, project.id)
         add_audit(session, actor_user_id=context.user_id, action="document.rename", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"old_title": old_title, "new_title": title, "references_resolved": resolved})
         session.commit()
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
@@ -1137,6 +1142,7 @@ def create_manual_chunk(
         session.add(item)
     session.flush()
     _reindex_active_chunks(session, project.id, document.id, version.id)
+    extract_version_references(session, version, actor_user_id=context.user_id)  # REF442-001: new chunks only
     version.lock_version += 1
     reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk.manual_create", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"document_id": str(document.id), "manual_chunk_id": str(manual_chunk.id), "replaced_chunk_ids": overlap_ids, "start_offset": manual_start, "end_offset": manual_end, "content_length": len(content), "reconciliation_id": str(reconciliation.id)})
@@ -1259,6 +1265,7 @@ def edit_chunk(
                 created_at=tag.created_at,
             )
         )
+    extract_version_references(session, version, actor_user_id=context.user_id)  # REF442-001: new chunks only
     version.lock_version += 1
     reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
     add_audit(

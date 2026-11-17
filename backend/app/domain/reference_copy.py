@@ -223,12 +223,16 @@ def complete_copied_steps(session: Session, *, source: DocumentVersion, target: 
             "document_structure": strategy.get("document_structure", {})},
         "chunk_knowledge": {"chunk_count": len(chunks), "chunk_ids": [str(chunk.id) for chunk in chunks]},
         "auto_tag": {"reused_source_tags": True, "source": "copied"},
+        "extract_references": {"source": "copied"},
     }
     names = AUTO_EXTRACTION_STEPS[:AUTO_EXTRACTION_STEPS.index("build_embeddings")]
     steps = list(session.scalars(select(PipelineRunStep).where(PipelineRunStep.run_id == pipeline.id,
         PipelineRunStep.step_name.in_(names))))
     if len(steps) != len(names) or target.markdown_artifact_uri != markdown_artifact_ref(target.id):
         _invalid()
+    from app.domain.chunk_references import extract_version_references
+    # REF442-001: references are resolved against the target project, never copied across projects.
+    payloads["extract_references"] = {**payloads["extract_references"], **extract_version_references(session, target)}
     for step in steps:
         payload = {**payloads[step.step_name], "adapter_source": "canonical-project-copy",
             "copied_from_version_id": str(source.id), "target_version_id": str(target.id)}

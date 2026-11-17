@@ -618,6 +618,7 @@ def _prepare_chunks(session, settings, project, document, version, job):
 
 
 def _tag_chunks(session,settings,project,version,job,token):
+    from app.domain.chunk_references import carry_chunk_references
     from app.domain.extraction_pipeline import (_resolve_chat_tag_model,_generate_pipeline_tags,_tag_metadata,_result_tags,_attach_chunk_tag)
     from app.domain.system_prompts import resolve_system_prompt
     if not job.pending_markdown.strip() or not _pending_chunks(session,job):
@@ -667,6 +668,7 @@ def _tag_chunks(session,settings,project,version,job,token):
                 _attach_chunk_tag(session,project.id,chunk.id,value,source="llm",actor_user_id=job.actor_user_id,metadata=metadata)
         chunk.chunk_strategy = {**(chunk.chunk_strategy or {}),"tag_receipt":{"model_id":str(model.id),
             "config_version":model.config_version,"prompt_sha256":prompt.content_hash,"input_sha256":input_sha}}
+        carry_chunk_references(session,version,chunk,original)  # CHG-442 REF442-001: rule-only, no provider call
         _checkpoint(session,job,provider_inflight=None,tagged_chunks=done+[str(chunk.id)])
     _checkpoint(session,job,tagging_done=True,llm_model_id=str(model.id))
 
