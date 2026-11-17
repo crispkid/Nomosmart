@@ -302,9 +302,14 @@ class LiveNeo4jGraphSyncAdapter:
         self.settings = settings
 
     def sync_active_version(self, *, session: Session, project_id: UUID, document: Document, version: DocumentVersion, chunks: list[Chunk]) -> GraphSyncResult:
+        from app.domain.chunk_references import resolve_pending_references
         from app.domain.graph_reconciliation import synchronize_graph
+        from app.domain.graph_references import sync_reference_edges
         result = synchronize_graph(session, self.settings, project_id, document.id, version.id)
-        return GraphSyncResult(len(result.graph["nodes"]), len(result.graph["edges"]))
+        # CHG-442 REF442-005: a newly published document may resolve others' references; edges follow PostgreSQL.
+        resolve_pending_references(session, project_id)
+        reference_edges = sync_reference_edges(session, self.settings, project_id)
+        return GraphSyncResult(len(result.graph["nodes"]), len(result.graph["edges"]) + reference_edges)
 
     def delete_version(self, *, version_id: UUID) -> None:
         driver = self._driver()

@@ -39,7 +39,7 @@ export function versionPipelineState(status?: string) {
 export type ExtractionOutcome = "complete" | "failed" | "running" | "waiting" | "unknown";
 
 const automaticSteps = new Set(["upload_received", "parse_document", "ocr_extract", "generate_markdown",
-  "split_paragraphs", "chunk_knowledge", "auto_tag", "build_embeddings", "build_staging_index",
+  "split_paragraphs", "chunk_knowledge", "auto_tag", "extract_references", "build_embeddings", "build_staging_index",
   "build_graph_preview", "prepare_submission"]);
 const afterExtraction = new Set(["submission_ready", "pending_manager_review", "pending_owner_review",
   "approved", "publish_ready", "publishing", "production_indexing", "graph_syncing", "active",

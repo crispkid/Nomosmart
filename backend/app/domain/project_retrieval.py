@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import json
 import re
+from collections import Counter
 import urllib.request
 
 from app.api.schemas import ProjectChatCitation
 from app.core.config import get_settings
 from app.core.errors import AppError
-from app.db.models import AIModel, ActiveVersionManifest, Chunk, Document, DocumentVersion, EmbeddingProfile, Project
+from app.db.models import AIModel, ActiveVersionManifest, Chunk, ChunkReference, Document, DocumentVersion, EmbeddingProfile, Project
 from app.domain.ai_provider import generate_rag_answer
 from app.domain.chat_citations import chunk_display_markdown
 from app.domain.chat_retrieval import fuse_ranked_hits, is_markdown_heading_only, is_structural_only
@@ -24,7 +25,7 @@ from app.domain.review_publish import published_index_name
 from app.domain.staging_retention import require_unexpired
 from app.domain.system_prompts import resolve_system_prompt
 from base64 import b64encode
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 from uuid import UUID
 
@@ -149,13 +150,21 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
             raise AppError("embedding_profile_required", "Embedding Profile is required before hybrid retrieval", status_code=409)
         profile_versions.setdefault(version.embedding_profile_id, []).append(version)
     citations: list[ProjectChatCitation] = []
+    query_targets: dict[UUID, tuple[str, list[float], int]] = {}
+    full = False
     for profile_id, scoped_versions in profile_versions.items():
+        if full:
+            break
         profile = session.get(EmbeddingProfile, profile_id)
         if profile is None:
             raise AppError("embedding_profile_required", "Embedding Profile is required before hybrid retrieval", status_code=409)
         index_scopes = _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, scope)
         _model, query_vector = embed_query(session, profile=profile, question=question, settings=settings, project_id=project_id, actor_user_id=actor_user_id, source_channel=source_channel)
         for index_name, scoped_version_ids in index_scopes:
+            for scoped_id in scoped_version_ids:
+                query_targets[scoped_id] = (index_name, query_vector, profile.mapping_version)
+            if full:
+                continue
             hits = _opensearch_hybrid_search(
                 index_name,
                 project_id,
@@ -176,28 +185,75 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
                 limit=remaining,
             )
             for hit, chunk in selected_hits:
-                citations.append(
-                    ProjectChatCitation(
-                        document_id=chunk.document_id,
-                        document_version_id=chunk.document_version_id,
-                        chunk_id=chunk.id,
-                        chunk_index=chunk.chunk_index,
-                        title=chunk.title,
-                        score=hit.get("_score"),
-                        excerpt=_safe_excerpt(chunk.content),
-                        content_type=chunk.content_type,
-                        heading_path=list(chunk.heading_path or []),
-                        page=chunk.page_start or _first_source_page(chunk.source_mapping),
-                        source_mapping=chunk.source_mapping,
-                        index_name=index_name,
-                        display_markdown=chunk_display_markdown(chunk),
-                        generation_text=chunk.content,
-                        raw_markdown=chunk.markdown_content if (chunk.chunk_strategy or {}).get("source") == "structure_aware" else None,
-                    )
-                )
+                citations.append(_hybrid_citation(chunk, hit, index_name))
                 if len(citations) >= top_k:
-                    return citations
+                    full = True
+                    break
+    if scope == "published":
+        citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
+                                                  chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings))
     return citations
+
+
+def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference: bool = False) -> ProjectChatCitation:
+    return ProjectChatCitation(
+        document_id=chunk.document_id,
+        document_version_id=chunk.document_version_id,
+        chunk_id=chunk.id,
+        chunk_index=chunk.chunk_index,
+        title=chunk.title,
+        score=hit.get("_score"),
+        excerpt=_safe_excerpt(chunk.content),
+        content_type=chunk.content_type,
+        heading_path=list(chunk.heading_path or []),
+        page=chunk.page_start or _first_source_page(chunk.source_mapping),
+        source_mapping=chunk.source_mapping,
+        index_name=index_name,
+        display_markdown=chunk_display_markdown(chunk),
+        generation_text=chunk.content,
+        raw_markdown=chunk.markdown_content if (chunk.chunk_strategy or {}).get("source") == "structure_aware" else None,
+        via_reference=via_reference,
+    )
+
+
+def _expand_along_references(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
+                             question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
+                             chunks_by_position: dict, settings) -> list[ProjectChatCitation]:
+    """CHG-442 REF442-006: one best chunk from each document linked to a retrieved one by a resolved reference.
+
+    Depth 1, both directions, only documents already inside this authorized published scope, ordered by
+    the number of references, at most `reference_expansion_max_chunks` extra chunks.
+    """
+    limit = settings.reference_expansion_max_chunks
+    if not settings.reference_expansion_enabled or limit <= 0 or not citations:
+        return []
+    version_by_document = {version.document_id: version for version in versions}
+    found = {citation.document_id for citation in citations}
+    linked: Counter[UUID] = Counter()
+    for source, target in session.execute(
+            select(ChunkReference.document_id, ChunkReference.target_document_id)
+            .join(Chunk, Chunk.id == ChunkReference.chunk_id)
+            .where(ChunkReference.project_id == project_id, ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+                   Chunk.status == "active", ChunkReference.document_version_id.in_([version.id for version in versions]),
+                   or_(ChunkReference.document_id.in_(found), ChunkReference.target_document_id.in_(found)))):
+        other = target if source in found else source
+        if other in version_by_document and other not in found:
+            linked[other] += 1
+    added: list[ProjectChatCitation] = []
+    for document_id, _count in sorted(linked.items(), key=lambda item: (-item[1], str(item[0]))):
+        if len(added) >= limit:
+            break
+        version = version_by_document[document_id]
+        target = query_targets.get(version.id)
+        if target is None:
+            continue  # profile not embedded for this query; never embed again just to expand
+        index_name, query_vector, mapping_version = target
+        hits = _opensearch_hybrid_search(index_name, project_id, question, query_vector, [str(version.id)], 3,
+                                         scope="published", mapping_version=mapping_version)
+        for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                project_id=project_id, scoped_version_ids={version.id}, limit=1):
+            added.append(_hybrid_citation(chunk, hit, index_name, via_reference=True))
+    return added
 
 
 def _ensure_document_staging_indices(session: Session, project_id: UUID, versions: list[DocumentVersion], chunks_by_id: dict[UUID, Chunk], settings) -> None:

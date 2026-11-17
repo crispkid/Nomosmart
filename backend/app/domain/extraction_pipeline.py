@@ -60,6 +60,7 @@ AUTO_EXTRACTION_STEPS = (
     "split_paragraphs",
     "chunk_knowledge",
     "auto_tag",
+    "extract_references",
     "build_embeddings",
     "build_staging_index",
     "build_graph_preview",
@@ -73,6 +74,7 @@ STEP_WEIGHTS = {
     "chunk_knowledge": 14,
     "generate_markdown": 10,
     "auto_tag": 8,
+    "extract_references": 2,
     "build_embeddings": 12,
     "build_staging_index": 10,
     "build_graph_preview": 5,
@@ -532,6 +534,11 @@ def _execute_auto_extraction(
     adapter = staging_adapter or LiveOpenSearchStagingIndexAdapter(settings)
     ocr = ocr_adapter or _default_ocr_adapter(session, version, settings=settings, project=project, pipeline=pipeline, execution_claim=execution_claim)
     steps = _steps_for_run(session, pipeline.id)
+    for missing in (name for name in AUTO_EXTRACTION_STEPS if name not in steps):
+        # CHG-442: runs created before a step existed get it on their next execution.
+        steps[missing] = PipelineRunStep(run_id=pipeline.id, step_name=missing, status="pending", progress_percent=0,
+                                         progress_message=_step_message(missing, "", False))
+        session.add(steps[missing])
     if start_step is not None:
         _reset_from_step(session, version.id, steps, start_step)
     artifacts: dict[str, PipelineArtifact] = {
@@ -831,6 +838,9 @@ def _execute_step(
         markdown = str((artifacts.get("generate_markdown") or _artifact(version, "generate_markdown", {"markdown": ""})).payload.get("markdown") or "")
         result = _apply_llm_tags(session=session, settings=settings, project=project, version=version, pipeline=pipeline, chunks=chunks, document_text=markdown)
         return _artifact(version, step_name, result)
+    if step_name == "extract_references":
+        from app.domain.chunk_references import extract_version_references
+        return _artifact(version, step_name, {**extract_version_references(session, version), "adapter_source": "rule-reference-extractor"})
     if step_name == "build_embeddings":
         chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id, Chunk.status == "active").order_by(Chunk.chunk_index)))
         result = _build_live_embeddings(session, project, version, chunks)

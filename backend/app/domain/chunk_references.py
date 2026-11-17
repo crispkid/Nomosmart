@@ -81,29 +81,54 @@ def resolve_key(index: dict[str, list[UUID]], key: str, source_document_id: UUID
     return next(iter(partial)) if len(partial) == 1 else None
 
 
+def _add_rule_references(session, version: DocumentVersion, chunk: Chunk, index: dict[str, list[UUID]],
+                         actor_user_id: UUID | None, now: datetime) -> tuple[int, int]:
+    added = resolved = 0
+    for item in find_references(chunk.content):
+        target = resolve_key(index, item.key, version.document_id)
+        session.add(ChunkReference(
+            id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
+            chunk_id=chunk.id, raw_text=item.raw_text, start_offset=item.start, end_offset=item.end,
+            normalized_name=item.key, status="resolved" if target else "unresolved", target_document_id=target,
+            source="rule", is_deleted=False, created_by=actor_user_id, updated_by=actor_user_id, lock_version=1,
+            created_at=now, updated_at=now))
+        added += 1
+        resolved += target is not None
+    return added, resolved
+
+
 def extract_version_references(session, version: DocumentVersion, *, actor_user_id: UUID | None = None) -> dict[str, int]:
-    """Station 3 step: add rule references for active chunks that have none yet (kept rows, manual or
-    soft-deleted, are left untouched so human corrections survive re-runs, STAGE442-009)."""
+    """Extraction step: add rule references for active chunks that have none yet. Existing rows (manual
+    or removed ones included) are left untouched so human corrections survive re-runs."""
     chunks = session.scalars(select(Chunk).where(Chunk.document_version_id == version.id, Chunk.status == "active")).all()
     handled = set(session.scalars(select(ChunkReference.chunk_id).where(ChunkReference.document_version_id == version.id)).all())
     index = project_name_index(session, version.project_id)
     now = datetime.now(UTC)
     added = resolved = 0
     for chunk in chunks:
-        if chunk.id in handled:
-            continue
-        for item in find_references(chunk.content):
-            target = resolve_key(index, item.key, version.document_id)
-            session.add(ChunkReference(
-                id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
-                chunk_id=chunk.id, raw_text=item.raw_text, start_offset=item.start, end_offset=item.end,
-                normalized_name=item.key, status="resolved" if target else "unresolved", target_document_id=target,
-                source="rule", is_deleted=False, created_by=actor_user_id, updated_by=actor_user_id, lock_version=1,
-                created_at=now, updated_at=now))
-            added += 1
-            resolved += target is not None
+        if chunk.id not in handled:
+            counts = _add_rule_references(session, version, chunk, index, actor_user_id, now)
+            added, resolved = added + counts[0], resolved + counts[1]
     session.flush()
     return {"chunks": len(chunks), "added": added, "resolved": resolved}
+
+
+def carry_chunk_references(session, version: DocumentVersion, chunk: Chunk, original: Chunk | None) -> None:
+    """Content update: a chunk whose text is unchanged keeps its references, manual and removed ones
+    included; a changed chunk is read again by the rules."""
+    if session.scalar(select(ChunkReference.id).where(ChunkReference.chunk_id == chunk.id).limit(1)) is not None:
+        return
+    now = datetime.now(UTC)
+    if original is not None and original.content == chunk.content:
+        for row in session.scalars(select(ChunkReference).where(ChunkReference.chunk_id == original.id)).all():
+            session.add(ChunkReference(
+                id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
+                chunk_id=chunk.id, raw_text=row.raw_text, start_offset=row.start_offset, end_offset=row.end_offset,
+                normalized_name=row.normalized_name, status=row.status, target_document_id=row.target_document_id,
+                source=row.source, is_deleted=row.is_deleted, created_by=row.created_by, updated_by=row.updated_by,
+                lock_version=1, created_at=row.created_at, updated_at=now))
+        return
+    _add_rule_references(session, version, chunk, project_name_index(session, version.project_id), None, now)
 
 
 def resolve_pending_references(session, project_id: UUID) -> int:
@@ -125,3 +150,32 @@ def resolve_pending_references(session, project_id: UUID) -> int:
             count += 1
     session.flush()
     return count
+
+
+def version_reference_rows(session, version_id: UUID, *, include_removed: bool = False) -> list[tuple[ChunkReference, int, str | None]]:
+    """References on active chunks, ordered by chunk and position, with the target document's name."""
+    query = (select(ChunkReference, Chunk.chunk_index, Document.title)
+             .join(Chunk, Chunk.id == ChunkReference.chunk_id)
+             .outerjoin(Document, Document.id == ChunkReference.target_document_id)
+             .where(ChunkReference.document_version_id == version_id, Chunk.status == "active"))
+    if not include_removed:
+        query = query.where(ChunkReference.is_deleted.is_(False))
+    return list(session.execute(query.order_by(Chunk.chunk_index, ChunkReference.start_offset, ChunkReference.created_at)).all())
+
+
+def reference_summary(session, version_id: UUID) -> dict[str, int]:
+    counts = {"total": 0, "resolved": 0, "unresolved": 0, "external": 0}
+    for row, _index, _title in version_reference_rows(session, version_id):
+        counts["total"] += 1
+        counts[row.status] += 1
+    return counts
+
+
+def require_target_document(session, project_id: UUID, source_document_id: UUID, target_id: UUID) -> Document:
+    from app.core.errors import AppError
+    target = session.get(Document, target_id)
+    if target is None or target.project_id != project_id or target.is_deleted:
+        raise AppError("chunk_reference_target_not_found", "Referenced document was not found in this project", status_code=404)
+    if target.id == source_document_id:
+        raise AppError("chunk_reference_self", "A document cannot reference itself", status_code=422)
+    return target

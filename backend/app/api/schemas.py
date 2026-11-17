@@ -1022,6 +1022,8 @@ class SubmissionEvidenceResponse(BaseModel):
     graph: dict[str, Any] = Field(default_factory=dict)
     chat_records: list[ApprovalChatEvidence] = Field(default_factory=list)
     validation_runs: list[dict[str, Any]] = Field(default_factory=list)
+    # CHG-442 REF442-004: unresolved references never block submission; reviewers see the counts.
+    reference_summary: dict[str, int] = Field(default_factory=dict)
 
 
 class OriginalFileViewerMetadata(BaseModel):
@@ -1214,6 +1216,8 @@ class ProjectChatCitation(BaseModel):
     display_markdown: str | None = None
     generation_text: str | None = Field(default=None, exclude=True)
     raw_markdown: str | None = Field(default=None, exclude=True)
+    # CHG-442 REF442-006/007: added because a retrieved document references it (or is referenced by it).
+    via_reference: bool = False
 
 
 class ProjectChatQueryResponse(BaseModel):
@@ -1929,3 +1933,47 @@ class BreakGlassStatusResponse(BaseModel):
     alerting_evidence: str
     lifecycle_control: str
     checked_at: datetime
+
+
+class ChunkReferenceItem(BaseModel):
+    """CHG-442 REF442-001..003: one textual reference from a chunk to another document."""
+    id: UUID
+    chunk_id: UUID
+    chunk_index: int | None = None
+    raw_text: str
+    start_offset: int | None = None
+    end_offset: int | None = None
+    normalized_name: str
+    status: Literal["resolved", "unresolved", "external"]
+    target_document_id: UUID | None = None
+    target_title: str | None = None
+    source: Literal["rule", "manual"]
+    is_deleted: bool = False
+    lock_version: int
+
+
+class ChunkReferenceSummary(BaseModel):
+    total: int = 0
+    resolved: int = 0
+    unresolved: int = 0
+    external: int = 0
+
+
+class ChunkReferenceListResponse(BaseModel):
+    document_version_id: UUID
+    editable: bool
+    items: list[ChunkReferenceItem]
+    summary: ChunkReferenceSummary
+
+
+class ChunkReferenceCreatePayload(BaseModel):
+    chunk_id: UUID
+    raw_text: str = Field(min_length=1, max_length=500)
+    target_document_id: UUID | None = None
+    external: bool = False
+
+
+class ChunkReferenceUpdatePayload(BaseModel):
+    lock_version: int = Field(ge=1)
+    action: Literal["assign", "external", "unresolve"]
+    target_document_id: UUID | None = None
