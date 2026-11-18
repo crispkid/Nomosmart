@@ -105,6 +105,12 @@ function publishStageCurrentStep(status: CreatedKnowledgeDocument["pipeline"]["s
   return labels[status];
 }
 
+const STATION_LAST_STEPS: Record<string, number> = { generate_markdown: 1, chunk_knowledge: 2, extract_references: 3 };
+/** CHG-442: a paused run's current step is the last step of the station waiting for confirmation. */
+function stationOfStep(step: string | null | undefined) {
+  return step ? STATION_LAST_STEPS[step] ?? null : null;
+}
+
 function publishStageWaitingRole(status: CreatedKnowledgeDocument["pipeline"]["status"], t: Translate) {
   if (status === "pending_manager_review") return t("projectImportWaitingManager");
   if (status === "pending_owner_review") return t("projectImportWaitingOwner");
@@ -294,7 +300,7 @@ export function liveDocumentFromSummary(document: DocumentSummary, t: Translate,
     impactedProjects: [],
     versions: versionRows.map((item) => ({ id: item.id, label: item.version_label, status: item.status, createdAt: item.created_at.slice(0, 16).replace("T", " "), author: item.created_by_name || t("documentMetadataUnknown"), lockVersion: item.lock_version })),
     pipeline: pipeline || detail
-      ? { id: pipelineId, ...pipelineTimeFields(detail ?? pipeline ?? undefined), execution: detail?.execution ?? pipeline?.execution, status: pipelineStatus, progress: pipelineStatus === "published_active" ? 100 : pipelineProgress, currentStep: pipelineCurrentStep ? pipelineStepLabel(pipelineCurrentStep, t) : publishStageCurrentStep(pipelineStatus, t), waitingRole: publishStageWaitingRole(pipelineStatus, t), elapsed: "", eta: pipelineEtaForStatus(pipelineStatus, t), error: pipelineError, steps: pipelineSteps(detail, t) }
+      ? { id: pipelineId, ...pipelineTimeFields(detail ?? pipeline ?? undefined), execution: detail?.execution ?? pipeline?.execution, status: pipelineStatus, progress: pipelineStatus === "published_active" ? 100 : pipelineProgress, currentStep: pipelineCurrentStep ? pipelineStepLabel(pipelineCurrentStep, t) : publishStageCurrentStep(pipelineStatus, t), waitingRole: publishStageWaitingRole(pipelineStatus, t), waitingStation: version?.status === "awaiting_confirmation" ? stationOfStep(detail?.current_step_name ?? pipeline?.current_step_name) : null, elapsed: "", eta: pipelineEtaForStatus(pipelineStatus, t), error: pipelineError, steps: pipelineSteps(detail, t) }
       : { status: "running", progress: 0, currentStep: t("projectImportWaitingManualExtraction"), waitingRole: "", elapsed: "", eta: "", error: "" }
   };
 }

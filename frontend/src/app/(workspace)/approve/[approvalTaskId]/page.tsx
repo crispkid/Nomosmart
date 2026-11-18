@@ -161,6 +161,7 @@ export default function ApprovalDetailPage() {
 
   const evidenceManifest = liveDetail?.evidence_manifest as {
     graph?: { node_count?: number; edge_count?: number; chunk_count?: number; status?: string };
+    extraction_summary?: { reference_count?: number; unresolved_reference_count?: number; overlap_group_count?: number };
     chunks?: Array<{ id: string; tags?: Array<{ tag_id: string; name: string; source?: string }> }>;
     models?: Record<string, { name?: string; type?: string; provider?: string }>;
     validation?: { runs?: Array<{ id: string; status: string; total: number; completed: number; failed: number }> };
@@ -399,6 +400,7 @@ export default function ApprovalDetailPage() {
               <span><Table2 size={16} /><strong>{contentCounts.table}</strong><small>{t("submitReviewTable")}</small></span>
               <span><BarChart3 size={16} /><strong>{contentCounts.chart}</strong><small>{t("chunkChart")}</small></span>
             </div>
+            {evidenceManifest?.extraction_summary ? <dl className="submission-model-list station-summary-list"><div><dt>{t("evidenceReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.reference_count ?? 0}</dd></div><div><dt>{t("evidenceUnresolvedReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.unresolved_reference_count ?? 0}</dd></div><div><dt>{t("evidenceOverlapGroupCount")}</dt><dd>{evidenceManifest.extraction_summary.overlap_group_count ?? 0}</dd></div></dl> : null}
             <dl className="submission-model-list"><div><dt>LLM</dt><dd>{manifestModels.find((model) => model.type === "Chat")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>Embedding</dt><dd>{manifestModels.find((model) => model.type === "Embedding")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>{t("approvalAverageConfidence")}</dt><dd>{averageConfidence}%</dd></div></dl>
           </section>
 

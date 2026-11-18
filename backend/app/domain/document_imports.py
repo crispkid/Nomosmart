@@ -281,7 +281,7 @@ def create_updated_file_version(
         select(DocumentVersion.id)
         .where(
             DocumentVersion.document_id == document.id,
-            DocumentVersion.status.in_(("quarantine", "queued", "processing", "submission_ready", "pending_manager_review", "pending_owner_review", "approved")),
+            DocumentVersion.status.in_(("quarantine", "queued", "processing", "awaiting_confirmation", "submission_ready", "pending_manager_review", "pending_owner_review", "approved")),
         )
         .limit(1)
     )
@@ -431,7 +431,7 @@ def create_reextraction_revision(
         select(DocumentVersion.id)
         .where(
             DocumentVersion.document_id == document.id,
-            DocumentVersion.status.in_(("quarantine", "queued", "processing", "pending_manager_review", "pending_owner_review")),
+            DocumentVersion.status.in_(("quarantine", "queued", "processing", "awaiting_confirmation", "pending_manager_review", "pending_owner_review")),
         )
         .limit(1)
     )

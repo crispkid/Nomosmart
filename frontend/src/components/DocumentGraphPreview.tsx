@@ -10,6 +10,8 @@ type DocumentGraphPreviewProps = {
   documentTags?: DocumentGraphTag[];
   documentTitle?: string;
   graphChunks?: DocumentGraphChunk[];
+  /** CHG-442 REF442-007: resolved references from a chunk to another document. */
+  referenceLinks?: Array<{ chunkId: string; targetId: string; title: string }>;
   version?: string;
 };
 
@@ -58,6 +60,7 @@ export function DocumentGraphPreview({ layoutScope, layoutBinding,
   documentTags = [],
   documentTitle,
   graphChunks = [],
+  referenceLinks = [],
   version = "v1.0"
 }: DocumentGraphPreviewProps = {}) {
   const { format, t } = useI18n();
@@ -184,6 +187,19 @@ export function DocumentGraphPreview({ layoutScope, layoutBinding,
       const source = chunkNodeId(chunkId);
       edges.push({ id: `${source}-${id}`, label: t("graphRelationTaggedAs"), relation: "tagged_as", source, target: id });
     });
+  });
+
+  const referencedNodes = new Map<string, string>();
+  referenceLinks.forEach((link) => {
+    const source = nodes.find((node) => node.id === chunkNodeId(link.chunkId));
+    if (!source) return;
+    const id = `referenced-document-${link.targetId}`;
+    if (!referencedNodes.has(id)) {
+      const point = boundedPoint({ x: source.x + (source.x - DOCUMENT_CENTER.x) * 0.35, y: source.y + (source.y - DOCUMENT_CENTER.y) * 0.35 });
+      nodes.push({ id, kind: "document", meta: [], semanticLayer: 2, subtitle: t("graphRelationReferences"), technicalId: link.targetId, title: link.title, x: point.x, y: point.y });
+      referencedNodes.set(id, link.title);
+    }
+    edges.push({ id: `${source.id}-${id}`, label: t("graphRelationReferences"), relation: "references", source: source.id, target: id });
   });
 
   return (

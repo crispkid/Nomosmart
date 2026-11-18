@@ -7,7 +7,7 @@ import { FeedbackMessage, FeedbackField } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Pencil, Tags, Trash2 } from "lucide-react";
 import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
 import { fileExtension } from "@/lib/documentNames";
@@ -23,7 +23,7 @@ import { sourceTargetForMappings } from "@/lib/sourceRangeGeometry";
 import { KnowledgeReadinessNotice } from "@/components/KnowledgeReadinessNotice";
 import { fileProcessingPollDelay, isPollingAuthorizationFailure } from "@/lib/fileProcessingPolling";
 import { KnowledgeDetailReads, KnowledgeReadinessBudget, acceptsKnowledgeRead, completionGateBlocksKnowledgeDetail, knowledgeReadinessKey, needsKnowledgeReadinessCheck } from "@/lib/knowledgeReadiness";
-import { deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
+import { confirmStation, createStationRevision, deleteKnowledgeChunk, getDocumentVersionSubmissionEvidence, getKnowledgeDetail, reopenStation, retryPipelineStep, type KnowledgeDetailResponse } from "@/lib/api";
 import { t as translate } from "@/lib/i18n";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
 import { useI18n } from "@/lib/i18nClient";
@@ -39,6 +39,7 @@ import { useManualChunkSection } from "@/components/knowledgeDetail/useManualChu
 import { ChunkListPager, useChunkPage } from "@/components/knowledgeDetail/ChunkListPager";
 import { ChunkDeleteDialog, DocumentGraphDialog } from "@/components/knowledgeDetail/KnowledgeDetailDialogs";
 import { ChunkPreview, TagResultStrip, KnowledgeDetailCompletionGate, TagEditor } from "@/components/knowledgeDetail/KnowledgeDetailParts";
+import { ChunkReferencePanel, ContentChecklist, OverlapBanner, StationActions, StationReopenDialog, StationRevisionBanner, StationStepper, activeStation, locateText, stationName, usesStations, type StationNumber } from "@/components/knowledgeDetail/ExtractionStations";
 
 export default function KnowledgePage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
@@ -74,6 +75,16 @@ export default function KnowledgePage() {
   const [sourceLocationError, setSourceLocationError] = useState(false);
   const [retryingStep, setRetryingStep] = useState<string | null>(null);
   const [retryError, setRetryError] = useState(false);
+  // CHG-442 four stations: the viewed station follows the active one unless the person picks a reached station.
+  const searchParams = useSearchParams();
+  const requestedStation = Number(searchParams.get("station"));
+  const [pickedStation, setPickedStation] = useState<StationNumber | null>(requestedStation >= 1 && requestedStation <= 4 ? requestedStation as StationNumber : null);
+  const [stationBusy, setStationBusy] = useState(false);
+  const [stationError, setStationError] = useState<string | null>(null);
+  const [reopenTarget, setReopenTarget] = useState<StationNumber | null>(null);
+  const [onlyOverlap, setOnlyOverlap] = useState(false);
+  const [onlyUnresolved, setOnlyUnresolved] = useState(false);
+  const [chunkMenu, setChunkMenu] = useState<{ left: number; top: number } | null>(null);
   const tagState = useKnowledgeTagState();
   const { documentTagDraft, setDocumentTagDraft, chunkTagDrafts, setChunkTagDrafts, tagBusyKey, tagError } = tagState;
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeChunk | null>(null);
@@ -83,16 +94,33 @@ export default function KnowledgePage() {
   const chunkListRef = useRef<HTMLDivElement>(null);
   const skipNextSourceScrollRef = useRef(false);
   const displayChunks = useMemo(() => liveDetail?.chunks.map((chunk) => liveChunk(chunk, t, format)) ?? [], [format, liveDetail?.chunks, t]);
+  const stationMode = usesStations(liveDetail);
+  const currentActiveStation = activeStation(liveDetail);
+  const viewStation: StationNumber = !stationMode ? 4 : pickedStation && pickedStation <= (currentActiveStation ?? 4) ? pickedStation : currentActiveStation ?? 4;
+  useEffect(() => {
+    if (!chunkMenu) return;
+    const close = (event: MouseEvent) => { if (!(event.target instanceof Element && event.target.closest(".manual-chunk-menu"))) setChunkMenu(null); };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [chunkMenu]);
+  const lastActiveStation = useRef(currentActiveStation);
+  useEffect(() => {
+    if (lastActiveStation.current !== null && lastActiveStation.current !== currentActiveStation) setPickedStation(null);
+    lastActiveStation.current = currentActiveStation;
+  }, [currentActiveStation]);
+  const chunkNumber = useMemo(() => new Map(displayChunks.map(chunk => [chunk.id, chunk.index])), [displayChunks]);
+  const overlapLabel = useCallback((chunkId: string) => (liveDetail?.overlapping_chunks?.[chunkId] ?? []).map(id => `#${chunkNumber.get(id) ?? "?"}`).join("、"), [chunkNumber, liveDetail?.overlapping_chunks]);
   const documentTags = visibleTagDetails(liveDetail?.document_tags ?? []);
   const markdownSourceText = liveDetail?.markdown_text ?? null;
   const physicalPagesUnknown = liveDetail?.pipeline?.steps.some(step => step.input_mode === "native_pdf" && step.page_map_status === "unknown") ?? false;
   const selectedChunkIdSet = useMemo(() => new Set(selectedChunkIds), [selectedChunkIds]);
   const selectedChunks = useMemo(() => displayChunks.filter((chunk) => selectedChunkIdSet.has(chunk.id)), [displayChunks, selectedChunkIdSet]);
-  const chunkPage = useChunkPage(displayChunks, selectedChunkIds); // D424-16: render 50 chunks per page
+  const listedChunks = useMemo(() => stationMode && viewStation === 2 && onlyOverlap ? displayChunks.filter(chunk => liveDetail?.overlapping_chunks?.[chunk.id]?.length) : displayChunks, [displayChunks, liveDetail?.overlapping_chunks, onlyOverlap, stationMode, viewStation]);
+  const chunkPage = useChunkPage(listedChunks, selectedChunkIds); // D424-16: render 50 chunks per page
   const selectedChunk = selectedChunks[0];
   const selectedSourceGroups = useMemo(() => sourceSelectionGroupsForChunks(displayChunks, selectedChunkIds), [displayChunks, selectedChunkIds]);
   const rememberSourcePosition = useSourceViewPosition(articleViewerRef, documentView, markdownSourceText, selectedChunkIds.length);
-  const { manualSelection, setManualSelection, manualChunkBusy, manualChunkError, captureManualSelection, submitManualChunk } = useManualChunkSection({ apiFetch, params, liveDetail, setLiveDetail, articleViewerRef, markdownSourceText, setSelectedChunkIds, setSourceLocationError });
+  const { manualSelection, setManualSelection, manualChunkBusy, manualChunkError, manualOverlapIds, captureManualSelection, submitManualChunk } = useManualChunkSection({ apiFetch, params, liveDetail, setLiveDetail, articleViewerRef, markdownSourceText, setSelectedChunkIds, setSourceLocationError });
   function changeDocumentView(view: DocumentView) {
     if (view === documentView) return;
     if (view !== "tags" && documentView !== "tags") rememberSourcePosition();
@@ -343,6 +371,168 @@ export default function KnowledgePage() {
     }
   }
 
+
+  // CHUNK442-001: right-click on the highlighted selection (or Shift+F10 / the menu key, or a long press) opens the
+  // chunk menu; outside the selection the browser's own menu stays.
+  function selectionContains(x: number, y: number) {
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return false;
+    return Array.from(selection.getRangeAt(0).getClientRects()).some(rect => x >= rect.left - 2 && x <= rect.right + 2 && y >= rect.top - 2 && y <= rect.bottom + 2);
+  }
+  function openChunkMenu(event: React.MouseEvent<HTMLDivElement>) {
+    if (!liveDetail?.manual_edit_enabled || documentView === "tags") return;
+    if (!selectionContains(event.clientX, event.clientY)) { setChunkMenu(null); return; }
+    captureManualSelection(documentView);
+    event.preventDefault();
+    setChunkMenu({ left: Math.min(window.innerWidth - 180, event.clientX), top: Math.max(72, event.clientY) });
+  }
+  function openChunkMenuFromKeyboard(event: React.KeyboardEvent<HTMLDivElement>) {
+    if (!(event.key === "ContextMenu" || (event.shiftKey && event.key === "F10")) || !liveDetail?.manual_edit_enabled || documentView === "tags") return;
+    const selection = window.getSelection();
+    if (!selection || selection.isCollapsed || !selection.rangeCount) return;
+    captureManualSelection(documentView);
+    event.preventDefault();
+    const rect = selection.getRangeAt(0).getBoundingClientRect();
+    setChunkMenu({ left: Math.min(window.innerWidth - 180, Math.max(16, rect.left)), top: Math.max(72, rect.bottom + 4) });
+  }
+
+  // OPT424-033: the card holds edit, delete and tag controls, so it is a plain container; selection has its own
+  // toggle button. Clicking the card body still selects for pointer users. CHG-442: station 2 shows no tags and
+  // marks overlaps; station 3 lists chunks for selection only.
+  function chunkCard(chunk: KnowledgeChunk, mode: "full" | "chunks" | "select" = "full") {
+    return (
+              <article
+                className={selectedChunkIdSet.has(chunk.id) ? "chunk-card selected" : "chunk-card"}
+                data-chunk-id={chunk.id}
+                key={chunk.id}
+                onClick={() => selectChunk(chunk.id)}
+              >
+                <div className="chunk-head">
+                  <span className="chunk-title-row">
+                    <span className="chunk-title-meta">
+                      <button
+                        aria-label={format("knowledgeDetailSelectChunkAria", { id: chunk.id, number: chunk.index })}
+                        aria-pressed={selectedChunkIdSet.has(chunk.id)}
+                        className="chunk-index-badge chunk-select-toggle"
+                        onClick={(event) => { event.stopPropagation(); selectChunk(chunk.id); }}
+                        type="button"
+                      >#{chunk.index}</button>
+                      <small className="chunk-inline-meta">
+                        <span>{chunk.sourceLabel}</span>
+                        <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })}</span>
+                        <span>{format("knowledgeDetailConfidence", { value: Math.round(chunk.confidence * 100) })}</span>
+                      </small>
+                    </span>
+                    {mode === "select" ? null : <span className="chunk-card-actions">
+                      <small className="chunk-technical-id">{chunk.id}</small>
+                      {liveDetail?.document.capabilities?.can_edit_chunks ? <button type="button" className="chunk-delete-button" aria-label={t("contentEditChunkAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} onClick={event => { event.stopPropagation(); setContentEditor({ chunkId: chunk.id, versionId: liveDetail!.version.id }); }} onKeyDown={event => event.stopPropagation()}><Edit3 size={17} /></button> : null}
+                      <button
+                        aria-label={format("knowledgeDetailDeleteChunkAria", { number: chunk.index })}
+                        className="chunk-delete-button"
+                        disabled={!liveDetail?.manual_edit_enabled || deleteBusy}
+                        onClick={(event) => { event.stopPropagation(); setDeleteError(null); setDeleteTarget(chunk); }}
+                        onKeyDown={(event) => event.stopPropagation()}
+                        title={t("knowledgeDetailDeleteChunk")}
+                        type="button"
+                      ><Trash2 size={17} /></button>
+                    </span>}
+                  </span>
+                </div>
+                <div className="chunk-content-shell">
+                  <ChunkPreview chunk={chunk} />
+                </div>
+                {liveDetail?.overlapping_chunks?.[chunk.id]?.length ? <small className="chunk-overlap-label"><AlertTriangle size={13} /> {format("overlapCardLabel", { list: overlapLabel(chunk.id) })}</small> : null}
+                {mode === "full" && tagMutationLocked && !mutationLocked ? <small className="field-note">{t("knowledgeDetailPublishedTagsReadonly")}</small> : null}
+                {mode === "full" ? <TagEditor
+                  busy={tagBusyKey?.startsWith(`chunk:${chunk.id}:`) ?? false}
+                  disabled={!liveDetail || tagMutationLocked}
+                  draft={chunkTagDrafts[chunk.id] ?? ""}
+                  label={t("knowledgeDetailChunkTagResults")}
+                  onAdd={() => addChunkTagFromDraft(chunk.id)}
+                  onAuto={() => autoTagOneChunk(chunk.id)}
+                  onDelete={(tagId) => deleteOneChunkTag(chunk.id, tagId)}
+                  onDraft={(value) => setChunkTagDrafts((current) => ({ ...current, [chunk.id]: value }))}
+                  tags={chunk.tagDetails}
+                  t={t}
+                /> : null}
+              </article>
+    );
+  }
+
+  async function runStationAction(action: () => Promise<KnowledgeDetailResponse>) {
+    setStationBusy(true);
+    setStationError(null);
+    try {
+      const refreshed = await action();
+      setLiveDetail(refreshed);
+      setPickedStation(null);
+      setSelectedChunkIds(refreshed.chunks[0]?.id ? [refreshed.chunks[0].id] : []);
+      return true;
+    } catch (error) {
+      setStationError(operationalErrorMessage(error, t, format, "stationActionFailed"));
+      return false;
+    } finally {
+      setStationBusy(false);
+    }
+  }
+
+  function chunkListPanel(mode: "full" | "chunks" | "select", title: string) {
+    return (
+      <Panel title={title} action={mode === "full" ? (
+        <div className="panel-action-group">
+          <button className="action-button secondary" onClick={() => setGraphOpen(true)} type="button">
+            <Network size={16} /> {t("knowledgeGraphPreview")}
+          </button>
+        </div>) : undefined}>
+        {mode === "chunks" ? <OverlapBanner count={liveDetail?.overlap_group_count ?? 0} format={format} onlyOverlap={onlyOverlap} onToggle={setOnlyOverlap} t={t} /> : null}
+        <div className="chunk-list extraction-chunks" ref={chunkListRef}>
+          {chunkPage.items.map((chunk) => chunkCard(chunk, mode))}
+          <ChunkListPager chunkPage={chunkPage} />
+          {!loading && !loadError && displayChunks.length === 0 ? <div className="chunk-empty-state"><AlertTriangle size={20} /><strong>{t("knowledgeDetailNoChunksTitle")}</strong><p>{t("knowledgeDetailNoChunksHelp")}</p></div> : null}
+        </div>
+      </Panel>
+    );
+  }
+
+  function rightPanel() {
+    if (stationMode && viewStation === 1 && liveDetail) {
+      return <Panel title={t("stationChecklistTitle")}><ContentChecklist detail={liveDetail} format={format} onLocate={(excerpt) => { if (!locateText(articleViewerRef.current, excerpt)) setSourceLocationError(true); }} t={t} /></Panel>;
+    }
+    if (stationMode && viewStation === 2) return chunkListPanel("chunks", t("knowledgeDetailChunkResults"));
+    if (stationMode && viewStation === 3 && liveDetail) {
+      return (
+        <Panel title={t("stationName3")}>
+          <div className="station-tag-reference">
+            {selectedChunk ? <>
+              <small className="field-note">{format("knowledgeDetailSelectChunkAria", { id: selectedChunk.id, number: selectedChunk.index })}</small>
+              <TagEditor
+                busy={tagBusyKey?.startsWith(`chunk:${selectedChunk.id}:`) ?? false}
+                disabled={tagMutationLocked}
+                draft={chunkTagDrafts[selectedChunk.id] ?? ""}
+                label={t("knowledgeDetailChunkTagResults")}
+                onAdd={() => addChunkTagFromDraft(selectedChunk.id)}
+                onAuto={() => autoTagOneChunk(selectedChunk.id)}
+                onDelete={(tagId) => deleteOneChunkTag(selectedChunk.id, tagId)}
+                onDraft={(value) => setChunkTagDrafts((current) => ({ ...current, [selectedChunk.id]: value }))}
+                tags={selectedChunk.tagDetails}
+                t={t}
+              />
+            </> : null}
+            <ChunkReferencePanel apiFetch={apiFetch} chunkId={selectedChunk?.id ?? null} detail={liveDetail} editable={!tagMutationLocked && Boolean(liveDetail.document.capabilities?.can_edit_chunks)} format={format}
+              onOnlyUnresolved={setOnlyUnresolved} onSelectChunk={(chunkId) => { setOnlyUnresolved(false); selectMarkdownChunks([chunkId]); }} onlyUnresolved={onlyUnresolved} projectId={params.id} t={t} />
+            <div className="document-tag-strip">
+              <div><strong>{t("knowledgeDetailDocumentTags")}</strong><small>{t("knowledgeDetailDocumentTagsHelp")}</small></div>
+              <TagEditor busy={tagBusyKey?.startsWith("document:") ?? false} disabled={tagMutationLocked} draft={documentTagDraft} onAdd={addDocumentTagFromDraft}
+                onAuto={autoTagWholeDocument} onDelete={deleteWholeDocumentTag} onDraft={setDocumentTagDraft} tags={documentTags} t={t} />
+            </div>
+            {tagError ? <FeedbackField>{t("knowledgeDetailTagOperationFailed")}</FeedbackField> : null}
+          </div>
+        </Panel>
+      );
+    }
+    return chunkListPanel("full", t("knowledgeDetailChunkResults"));
+  }
+
   if (!canObserve || deniedReadRoute === routeKey || loadedRoute !== routeKey) return <AppShell title={t("knowledgeDetailTitle")}>
     <div className="review-banner" role="status">{loadError ? <AlertTriangle size={20} /> : <Loader2 className="spin" size={20} />}
       <span>{t(loadError ? "apiGenericError" : "loadingData")}</span>
@@ -367,6 +557,14 @@ export default function KnowledgePage() {
         </div>
       </div>
 
+      {stationMode && liveDetail ? <div className="station-header">
+        <StationStepper detail={liveDetail} onView={(station) => { setPickedStation(station); setStationError(null); if (station < 3 && documentView === "tags") setDocumentView("original"); }} t={t} viewStation={viewStation} />
+        {liveDetail.content_edit_reason === "content_edit_station_revision_required" && liveDetail.document.capabilities?.can_edit_chunks
+          ? <StationRevisionBanner busy={stationBusy} error={stationError} onCreate={() => void runStationAction(() => createStationRevision(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, liveDetail.version.lock_version))} t={t} />
+          : <StationActions busy={stationBusy} canEdit={Boolean(liveDetail.document.capabilities?.can_edit_chunks)} detail={liveDetail} error={stationError} format={format}
+              onConfirm={(station) => void runStationAction(() => confirmStation(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, station, liveDetail.version.lock_version))}
+              onReopen={(station) => { setStationError(null); setReopenTarget(station); }} t={t} viewStation={viewStation} />}
+      </div> : null}
       {(liveDetail?.chunk_artifact_error_code === "embedding_build_provider_result_unknown" || liveDetail?.chunk_artifact_error_code === "model_usage_persistence_unconfirmed") && contentFeedback?.reasonCode !== liveDetail?.chunk_artifact_error_code ? <FeedbackMessage tone="warning">{t(liveDetail.chunk_artifact_error_code === "model_usage_persistence_unconfirmed" ? "modelUsagePersistenceUnconfirmed" : "embeddingBuildResultUnknown")}</FeedbackMessage> : null}
       {!knowledgeGateBlocked && contentFeedback ? <FeedbackMessage tone={contentFeedback.tone}>{t(contentFeedback.message)}</FeedbackMessage> : null}
       {liveDetail && knowledgeGateBlocked ? (
@@ -374,7 +572,7 @@ export default function KnowledgePage() {
       ) : (
         <>
       <div className="content-grid split extraction-workspace">
-        <Panel
+        {stationMode && viewStation === 3 ? chunkListPanel("select", t("knowledgeDetailChunkResults")) : <Panel
           title={t("contentEditDocumentPanelTitle")}
           action={
             <div className="content-edit-panel-actions">
@@ -398,7 +596,7 @@ export default function KnowledgePage() {
               >
                 <Code2 size={15} /> {t("markdownView")}
               </button>
-              <button
+              {stationMode && viewStation < 3 ? null : <button
                 aria-pressed={documentView === "tags"}
                 className={documentView === "tags" ? "active" : ""}
                 onClick={() => {
@@ -409,11 +607,11 @@ export default function KnowledgePage() {
                 type="button"
               >
                 <Tags size={15} /> {t("knowledgeDetailTagTab")}
-              </button>
+              </button>}
             </div>
               </div></div>
               {originalDownloadFailed ? <FeedbackField>{t("knowledgeDetailDownloadFailed")}</FeedbackField> : null}
-              {liveDetail?.document.capabilities?.can_edit_chunks && (!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly") ? <small className="content-edit-disabled-reason" id="content-edit-disabled-reason" role="status">{t(liveDetail.content_edit_reason === "project_editor_required" ? "apiForbidden" : liveDetail.content_edit_reason === "content_edit_review_locked" ? "knowledgeDetailReviewLockedReason" : "contentEditUnavailable")}</small> : null}
+              {liveDetail?.document.capabilities?.can_edit_chunks && (!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly") ? <small className="content-edit-disabled-reason" id="content-edit-disabled-reason" role="status">{t(liveDetail.content_edit_reason === "project_editor_required" ? "apiForbidden" : liveDetail.content_edit_reason === "content_edit_review_locked" ? "knowledgeDetailReviewLockedReason" : liveDetail.content_edit_reason === "content_edit_station_reopen_required" ? "contentEditStationReopenRequired" : liveDetail.content_edit_reason === "content_edit_station_revision_required" ? "contentEditStationRevisionRequired" : "contentEditUnavailable")}</small> : null}
             </div>
           }
         >
@@ -441,7 +639,7 @@ export default function KnowledgePage() {
           ) : (
           <>
           {!loading && !loadError && markdownSourceText && physicalPagesUnknown ? <small className="field-note" role="status">{t("ocrNativeDocumentPrecision")}</small> : null}
-          <div className={`article-viewer article-viewer-${documentView}`} onKeyUp={() => captureManualSelection(documentView)} onMouseUp={() => captureManualSelection(documentView)} ref={articleViewerRef}>
+          <div className={`article-viewer article-viewer-${documentView}`} onContextMenu={openChunkMenu} onKeyDown={openChunkMenuFromKeyboard} onKeyUp={() => captureManualSelection(documentView)} onMouseUp={(event) => { if (event.button === 0) { setChunkMenu(null); captureManualSelection(documentView); } }} ref={articleViewerRef}>
             {loading ? <div className="empty-state compact">{t("notificationLoading")}</div> : loadError ? <div className="empty-state compact">{t("notificationError")}</div> : markdownSourceText ? (
               documentView === "original" ? <ContinuousDocumentViewer source={markdownSourceText} selectionGroups={selectedSourceGroups} sourceActionLabel={t("documentReadingSourceAction")} onSelectRange={selectSourceRange} /> :
               <div className="article-markdown"><CanonicalMarkdownSource chunks={displayChunks} onSelectChunkIds={selectMarkdownChunks} selectedChunkIds={selectedChunkIds} source={markdownSourceText} /></div>
@@ -450,102 +648,26 @@ export default function KnowledgePage() {
           <TagResultStrip className="document-tag-result-strip" label={t("knowledgeDetailDocumentTags")} tags={documentTags} t={t} />
           </>
           )}
-          {manualSelection ? (
-            <div className="manual-chunk-popover" style={{ left: manualSelection.left, top: manualSelection.top }}>
+          {manualSelection && chunkMenu ? (
+            <div aria-label={t("manualChunkMenuLabel")} className="manual-chunk-popover manual-chunk-menu" onKeyDown={(event) => { if (event.key === "Escape") { event.stopPropagation(); setChunkMenu(null); } }} role="menu" style={{ left: chunkMenu.left, top: chunkMenu.top }}>
               <button
+                autoFocus
                 disabled={manualChunkBusy}
-                onMouseDown={(event) => {
-                  event.preventDefault();
-                  event.stopPropagation();
-                }}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  submitManualChunk();
-                }}
+                onMouseDown={(event) => { event.preventDefault(); event.stopPropagation(); }}
+                onClick={(event) => { event.stopPropagation(); setChunkMenu(null); void submitManualChunk(); }}
+                role="menuitem"
                 type="button"
               >
-                {manualChunkBusy ? <Loader2 className="spin" size={15} /> : <Edit3 size={15} />} {t("knowledgeDetailManualChunking")}
+                {manualChunkBusy ? <Loader2 className="spin" size={15} /> : <Edit3 size={15} />} {t("manualChunkMenuAction")}
               </button>
-              {manualChunkError ? <FeedbackField>{t("knowledgeDetailManualChunkFailed")}</FeedbackField> : null}
             </div>
           ) : null}
+          {manualChunkError ? <FeedbackField>{t("knowledgeDetailManualChunkFailed")}</FeedbackField> : null}
+          {manualOverlapIds.length ? <FeedbackMessage tone="warning">{format("manualChunkOverlapNotice", { list: manualOverlapIds.map(id => `#${chunkNumber.get(id) ?? "?"}`).join("、") })}</FeedbackMessage> : null}
+          {liveDetail?.manual_edit_enabled && documentView !== "tags" ? <small className="field-note">{t("manualChunkMenuHint")}</small> : null}
           {sourceLocationError ? <FeedbackMessage tone="error">{t("sourceLocationError")}</FeedbackMessage> : null}
-        </Panel>
-
-        <Panel
-          title={t("knowledgeDetailChunkResults")}
-          action={
-            <div className="panel-action-group">
-              <button className="action-button secondary" onClick={() => setGraphOpen(true)} type="button">
-                <Network size={16} /> {t("knowledgeGraphPreview")}
-              </button>
-            </div>
-          }
-        >
-          <div className="chunk-list extraction-chunks" ref={chunkListRef}>
-            {chunkPage.items.map((chunk) => (
-              // OPT424-033: the card holds edit, delete and tag controls, so it is a
-              // plain container; selection has its own toggle button. Clicking the
-              // card body still selects for pointer users.
-              <article
-                className={selectedChunkIdSet.has(chunk.id) ? "chunk-card selected" : "chunk-card"}
-                data-chunk-id={chunk.id}
-                key={chunk.id}
-                onClick={() => selectChunk(chunk.id)}
-              >
-                <div className="chunk-head">
-                  <span className="chunk-title-row">
-                    <span className="chunk-title-meta">
-                      <button
-                        aria-label={format("knowledgeDetailSelectChunkAria", { id: chunk.id, number: chunk.index })}
-                        aria-pressed={selectedChunkIdSet.has(chunk.id)}
-                        className="chunk-index-badge chunk-select-toggle"
-                        onClick={(event) => { event.stopPropagation(); selectChunk(chunk.id); }}
-                        type="button"
-                      >#{chunk.index}</button>
-                      <small className="chunk-inline-meta">
-                        <span>{chunk.sourceLabel}</span>
-                        <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })}</span>
-                        <span>{format("knowledgeDetailConfidence", { value: Math.round(chunk.confidence * 100) })}</span>
-                      </small>
-                    </span>
-                    <span className="chunk-card-actions">
-                      <small className="chunk-technical-id">{chunk.id}</small>
-                      {liveDetail?.document.capabilities?.can_edit_chunks ? <button type="button" className="chunk-delete-button" aria-label={t("contentEditChunkAction")} disabled={!liveDetail.content_edit_mode || liveDetail.content_edit_mode === "readonly"} onClick={event => { event.stopPropagation(); setContentEditor({ chunkId: chunk.id, versionId: liveDetail!.version.id }); }} onKeyDown={event => event.stopPropagation()}><Edit3 size={17} /></button> : null}
-                      <button
-                        aria-label={format("knowledgeDetailDeleteChunkAria", { number: chunk.index })}
-                        className="chunk-delete-button"
-                        disabled={!liveDetail?.manual_edit_enabled || deleteBusy}
-                        onClick={(event) => { event.stopPropagation(); setDeleteError(null); setDeleteTarget(chunk); }}
-                        onKeyDown={(event) => event.stopPropagation()}
-                        title={t("knowledgeDetailDeleteChunk")}
-                        type="button"
-                      ><Trash2 size={17} /></button>
-                    </span>
-                  </span>
-                </div>
-                <div className="chunk-content-shell">
-                  <ChunkPreview chunk={chunk} />
-                </div>
-                {tagMutationLocked && !mutationLocked ? <small className="field-note">{t("knowledgeDetailPublishedTagsReadonly")}</small> : null}
-                <TagEditor
-                  busy={tagBusyKey?.startsWith(`chunk:${chunk.id}:`) ?? false}
-                  disabled={!liveDetail || tagMutationLocked}
-                  draft={chunkTagDrafts[chunk.id] ?? ""}
-                  label={t("knowledgeDetailChunkTagResults")}
-                  onAdd={() => addChunkTagFromDraft(chunk.id)}
-                  onAuto={() => autoTagOneChunk(chunk.id)}
-                  onDelete={(tagId) => deleteOneChunkTag(chunk.id, tagId)}
-                  onDraft={(value) => setChunkTagDrafts((current) => ({ ...current, [chunk.id]: value }))}
-                  tags={chunk.tagDetails}
-                  t={t}
-                />
-              </article>
-            ))}
-            <ChunkListPager chunkPage={chunkPage} />
-            {!loading && !loadError && displayChunks.length === 0 ? <div className="chunk-empty-state"><AlertTriangle size={20} /><strong>{t("knowledgeDetailNoChunksTitle")}</strong><p>{t("knowledgeDetailNoChunksHelp")}</p></div> : null}
-          </div>
-        </Panel>
+        </Panel>}
+        {rightPanel()}
       </div>
 
       {readinessPending ? <KnowledgeReadinessNotice stopped={readinessStopped || deniedReadRoute === routeKey}
@@ -555,6 +677,8 @@ export default function KnowledgePage() {
         <span>{liveDetail?.chat_access?.mode === "published" ? t("knowledgePublishedChat") : liveDetail?.next_stage_allowed ? t("knowledgeDetailReviewReady") : t(liveDetail?.next_stage_block_reason === "chunks_required" ? "knowledgeDetailChunksRequired" : "knowledgeDetailArtifactsNotReady")}</span>
       </div>}
 
+      {reopenTarget && liveDetail ? <StationReopenDialog busy={stationBusy} chunkCount={liveDetail.active_chunk_count} error={stationError} format={format} onCancel={() => setReopenTarget(null)}
+        onConfirm={() => void runStationAction(() => reopenStation(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, reopenTarget, liveDetail.version.lock_version)).then(done => { if (done) setReopenTarget(null); })} station={reopenTarget} t={t} /> : null}
       {deleteTarget ? <ChunkDeleteDialog busy={deleteBusy} chunk={deleteTarget} error={deleteError} onCancel={() => setDeleteTarget(null)} onConfirm={() => void confirmChunkDeletion()} /> : null}
       {renameOpen && liveDetail ? <DocumentRenameDialog apiFetch={apiFetch} documentId={liveDetail.document.id} extension={liveDetail.version.canonical_extension ?? fileExtension(liveDetail.version.original_file_name)} lockVersion={liveDetail.document.lock_version} onClose={() => setRenameOpen(false)} onRenamed={(summary) => {
         setLiveDetail((current) => current ? { ...current, document: { ...current.document, title: summary.title, lock_version: summary.lock_version }, original_file: current.original_file ? { ...current.original_file, download_file_name: `${summary.title}${current.version.canonical_extension ?? fileExtension(current.version.original_file_name)}` } : current.original_file } : current);

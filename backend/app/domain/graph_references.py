@@ -64,3 +64,17 @@ def sync_reference_edges(session, settings: Settings, project_id: UUID) -> int:
     if any(row not in expected for row in written) or len(written) > len(expected):
         raise AppError("graph_reference_mismatch", "Reference edges did not match after synchronization", status_code=503)
     return len(written)
+
+
+def preview_reference_lines(session, version_ids: list[UUID]) -> list[tuple[str, str, str]]:
+    """REF442-007: (chunk id, target document id, target title) of resolved references on active chunks, for
+    graph previews of versions that are not published yet."""
+    if not version_ids:
+        return []
+    rows = session.execute(
+        select(ChunkReference.chunk_id, ChunkReference.target_document_id, Document.title)
+        .join(Chunk, Chunk.id == ChunkReference.chunk_id)
+        .join(Document, Document.id == ChunkReference.target_document_id)
+        .where(ChunkReference.document_version_id.in_(version_ids), ChunkReference.status == "resolved",
+               ChunkReference.is_deleted.is_(False), Chunk.status == "active", Document.is_deleted.is_(False))).all()
+    return [(str(chunk_id), str(target_id), title) for chunk_id, target_id, title in rows]

@@ -196,6 +196,7 @@ export function StatusBadge({ status }: { status: string }) {
     running: t("statusRunning"),
     processing: t("statusProcessing"),
     submission_ready: t("statusSubmissionReady"),
+    awaiting_confirmation: t("statusAwaitingConfirmation"),
     pending_manager_review: t("statusPendingManagerReview"),
     pending_owner_review: t("statusPendingOwnerReview"),
     approved: t("statusApproved"),

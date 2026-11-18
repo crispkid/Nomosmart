@@ -256,6 +256,8 @@ def build_submission_evidence(
             }
             for chunk in chunks
         ],
+        # CHG-442 STAGE442-008: reference and overlap counts reviewers see in the extraction summary.
+        "extraction_summary": _extraction_summary(session, version, chunks),
         "graph": {
             "status": graph_preview.get("status"),
             "source": graph_preview.get("source"),
@@ -401,3 +403,11 @@ def _actor(user: User | None) -> dict[str, Any] | None:
         "department": user.department,
         "title": user.title,
     }
+
+
+def _extraction_summary(session, version, chunks) -> dict[str, int]:
+    from app.domain.chunk_overlaps import chunk_overlaps
+    from app.domain.chunk_references import reference_summary
+    refs = reference_summary(session, version.id)
+    return {"reference_count": int(refs.get("total", 0)), "unresolved_reference_count": int(refs.get("unresolved", 0)),
+            "overlap_group_count": chunk_overlaps(list(chunks))[1]}

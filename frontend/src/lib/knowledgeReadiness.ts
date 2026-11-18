@@ -37,6 +37,8 @@ function hasCompletedGovernanceWait(detail: KnowledgeDetailResponse): boolean {
 }
 
 export function completionGateBlocksKnowledgeDetail(detail: KnowledgeDetailResponse | null): boolean {
+  // CHG-442 STAGE442-003: a station waiting for confirmation opens its screen.
+  if (detail?.current_station) return false;
   return Boolean(detail?.pipeline && !knowledgeDetailReadyStates.has(detail.pipeline.status)
     && !hasCompletedGovernanceWait(detail));
 }

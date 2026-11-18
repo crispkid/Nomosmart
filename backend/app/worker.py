@@ -19,6 +19,7 @@ from app.db.session import get_session_factory
 from app.domain.data_sync import execute_data_source_sync, queue_due_scheduled_data_syncs
 from app.domain.chunk_artifacts import RECONCILIATION_TOPIC, execute_chunk_artifact_reconciliation
 from app.domain.document_content_updates import CONTENT_UPDATE_TOPIC, execute_content_update
+from app.domain.stations import station_paused
 from app.domain.extraction_pipeline import execute_auto_extraction
 from app.domain.file_processing_dispatch import (TOPIC as DOCUMENT_TOPIC, claim_task, configured_capabilities,
     finalizable_task_ids, finalize_task, mark_stale_tasks, prepare_dispatch, quiesce_task, require_claim)
@@ -520,7 +521,7 @@ def run_document_extraction(self, pipeline_run_id: str, task_id: str | None = No
             session.commit()
             execute_auto_extraction(session=session, settings=settings, project=project, document=document,
                 version=version, pipeline=pipeline, durable=True, execution_claim=claim)
-            disposition = "completed" if pipeline.status == "submission_ready" else "failed" if pipeline.status == "failed" else "yield"
+            disposition = "completed" if pipeline.status == "submission_ready" or station_paused(pipeline) else "failed" if pipeline.status == "failed" else "yield"
         except Exception as exc:
             session.rollback()
             if isinstance(exc, AppError) and exc.code == "file_processing_scope_stale":

@@ -208,7 +208,8 @@ def release_execution(session: Session, *, execution_id: UUID, generation: UUID,
         raise policy_error("file_processing_child_still_occupied")
     if row.kind == "document" and terminal == "completed":
         pipeline = session.get(PipelineRun, row.run_id, populate_existing=True)
-        if pipeline.status != "submission_ready":
+        from app.domain.stations import paused_or_resumed
+        if pipeline.status != "submission_ready" and not paused_or_resumed(session, pipeline):
             raise policy_error("file_processing_document_not_complete")
     # Store a bounded allowlist, not arbitrary supplied logs/content.
     row.stop_evidence = {key: stop_evidence[key] for key in ("generation", "source", "stopped", "cleanup_confirmed")}

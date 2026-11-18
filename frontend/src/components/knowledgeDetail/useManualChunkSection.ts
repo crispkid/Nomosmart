@@ -26,6 +26,8 @@ export function useManualChunkSection(deps: ManualChunkDeps) {
   const [manualSelection, setManualSelection] = useState<ManualTextSelection | null>(null);
   const [manualChunkBusy, setManualChunkBusy] = useState(false);
   const [manualChunkError, setManualChunkError] = useState(false);
+  /** CHUNK442-003: chunks the new manual chunk overlaps, shown right after it is created. */
+  const [manualOverlapIds, setManualOverlapIds] = useState<string[]>([]);
 
   function captureManualSelection(viewMode: ArticleView) {
     if (!liveDetail?.manual_edit_enabled) return;
@@ -90,6 +92,7 @@ export function useManualChunkSection(deps: ManualChunkDeps) {
     if (!manualSelection || !liveDetail?.manual_edit_enabled) return;
     setManualChunkBusy(true);
     setManualChunkError(false);
+    setManualOverlapIds([]);
     try {
       const refreshed = await createManualChunk(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, {
         content: manualSelection.content,
@@ -102,7 +105,10 @@ export function useManualChunkSection(deps: ManualChunkDeps) {
         lock_version: liveDetail.version.lock_version
       });
       setLiveDetail(refreshed);
-      const selectedId = refreshed.chunks.find((chunk) => chunk.content === manualSelection.content)?.id ?? refreshed.chunks[0]?.id;
+      const before = new Set(liveDetail.chunks.map((chunk) => chunk.id));
+      const created = refreshed.chunks.find((chunk) => !before.has(chunk.id));
+      const selectedId = created?.id ?? refreshed.chunks.find((chunk) => chunk.content === manualSelection.content)?.id ?? refreshed.chunks[0]?.id;
+      setManualOverlapIds(created ? refreshed.overlapping_chunks?.[created.id] ?? [] : []);
       setSelectedChunkIds(selectedId ? [selectedId] : []);
       setManualSelection(null);
       window.getSelection()?.removeAllRanges();
@@ -113,5 +119,5 @@ export function useManualChunkSection(deps: ManualChunkDeps) {
     }
   }
 
-  return { manualSelection, setManualSelection, manualChunkBusy, manualChunkError, captureManualSelection, submitManualChunk };
+  return { manualSelection, setManualSelection, manualChunkBusy, manualChunkError, manualOverlapIds, captureManualSelection, submitManualChunk };
 }

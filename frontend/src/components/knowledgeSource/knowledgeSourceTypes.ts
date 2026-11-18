@@ -77,6 +77,8 @@ export type CreatedKnowledgeDocument = {
     progress: number;
     currentStep: string;
     waitingRole: string;
+    /** CHG-442 STAGE442-012: the station waiting for a person's confirmation. */
+    waitingStation?: number | null;
     elapsed: string;
     startedAt?: string | null;
     completedAt?: string | null;

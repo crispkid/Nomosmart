@@ -100,6 +100,14 @@ def content_edit_mode(session, project, version, can_edit):
         return "readonly", "project_editor_required"
     if version.status in {"pending_manager_review", "pending_owner_review", "approved", "publishing", "production_indexing", "graph_syncing"}:
         return "readonly", "content_edit_review_locked"
+    from app.domain.stations import REVISION_SOURCE_STATUSES, paused_station, uses_stations
+    if uses_stations(session, version.id):
+        # CHG-442 STAGE442-005/009/010: full-text editing happens only at station 1.
+        if paused_station(session, version.id) == 1:
+            return "overwrite_candidate", None
+        if version.status in REVISION_SOURCE_STATUSES:
+            return "readonly", "content_edit_station_revision_required"
+        return "readonly", "content_edit_station_reopen_required"
     failed = recoverable_failed_update(session, project, version)
     if failed:
         return "overwrite_candidate", None
@@ -219,7 +227,7 @@ def cancel_failed_update(session, project, document, version, job, payload, acto
 
 def _new_revision(session, project, document, source, actor):
     working = session.scalar(select(DocumentVersion.id).where(DocumentVersion.document_id == document.id,
-        DocumentVersion.id != source.id, DocumentVersion.status.in_(("ready_for_extraction","quarantine","queued","processing",
+        DocumentVersion.id != source.id, DocumentVersion.status.in_(("ready_for_extraction","quarantine","queued","processing","awaiting_confirmation",
             "submission_ready","pending_manager_review","pending_owner_review","approved"))).limit(1))
     if working:
         raise AppError("content_edit_in_progress", "A working version already exists", status_code=409,
@@ -294,6 +302,16 @@ def queue_content_update(session, project, document, source, payload, actor, set
         raise AppError("content_edit_invalid", "Content contains invalid Unicode", status_code=422) from exc
     if size > settings.content_edit_max_utf8_bytes:
         raise AppError("content_edit_too_large", "Full content exceeds the configured limit", status_code=413)
+    from app.domain.stations import apply_station_content_edit, paused_station
+    if paused_station(session, source.id) == 1:
+        if not payload.markdown.strip():
+            raise AppError("content_edit_invalid", "Content cannot be blank", status_code=422)
+        result = apply_station_content_edit(session, project=project, document=document, version=source, markdown=payload.markdown, actor_user_id=actor)
+        if result["changed"]:
+            add_audit(session, actor_user_id=actor, action="document.content_update.station_saved", resource_type="document_version",
+                      resource_id=source.id, result="success", request_id=request_id,
+                      summary={"base_sha256": digest, "target_sha256": result["canonical_sha256"], "revision": result["content_revision"]})
+        return result
     failed = recoverable_failed_update(session, project, source)
     recovery_id = getattr(payload, "recover_update_id", None)
     if failed:

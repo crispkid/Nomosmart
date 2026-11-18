@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session
 
+from app.domain.stations import station_paused, station_resume_authorized
 from app.db.models import Document, DocumentVersion, FileProcessingExecution as Execution, FileProcessingTask as Task, OutboxEvent, PipelineRun, PipelineRunStep, Project
 from app.domain.document_execution import _locked, begin_execution, claim_execution, release_execution, transition_execution
 from app.domain.file_processing_settings import PlatformCapabilities, load_policy, policy_error, snapshot_setting
@@ -78,6 +79,8 @@ def prepare_dispatch(session: Session, *, run_id: UUID, capabilities: PlatformCa
         old_count = (last.completion_receipt or {}).get("step_retry_count") if last else None
         retry_authorized = bool(previous.state == "failed" and run and run.status == "queued"
             and type(old_count) is int and _retry_count(session, run_id) > old_count)
+        # CHG-442 STAGE442-002: a confirmed station resumes a run whose previous execution paused (completed).
+        retry_authorized = retry_authorized or station_resume_authorized(session, run, previous)
     admission = claim_execution(session, run_id=run_id, kind="document", capabilities=capabilities,
                                 retry_authorized=retry_authorized)
     if admission is None:
@@ -143,7 +146,7 @@ def quiesce_task(session: Session, claim: Claim, *, disposition: str) -> None:
     if disposition not in {"completed", "failed", "cancelled", "yield"}:
         raise policy_error("file_processing_disposition_invalid")
     run = session.get(PipelineRun, execution.run_id, populate_existing=True)
-    if disposition == "completed" and run.status != "submission_ready":
+    if disposition == "completed" and run.status != "submission_ready" and not station_paused(run):
         raise policy_error("file_processing_document_not_complete")
     if disposition == "failed" and run.status != "failed":
         raise policy_error("file_processing_document_not_failed")
