@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.errors import AppError
+from app.domain.queued_extraction import hidden_cancelled_run
 from app.db.models import AIModel, Document, DocumentContentState, DocumentVersion, OutboxEvent, PipelineRun, Project
 from app.domain.document_names import MAX_DOCUMENT_TITLE_LENGTH, ensure_title_available
 from app.domain.extraction_pipeline import ensure_no_active_pipeline, initialize_pipeline_steps
@@ -586,7 +587,7 @@ def latest_versions(
         .order_by(DocumentVersion.document_id, desc(DocumentVersion.version_major), desc(DocumentVersion.extraction_revision)))}
     pipelines = {pipeline.document_version_id: pipeline for pipeline in session.scalars(
         select(PipelineRun).where(PipelineRun.document_version_id.in_([version.id for version in versions.values()]),
-            ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled")))
+            ~hidden_cancelled_run())
         .distinct(PipelineRun.document_version_id)
         .order_by(PipelineRun.document_version_id, desc(PipelineRun.created_at)))} if versions else {}
     rows: list[tuple[Document, DocumentVersion | None, PipelineRun | None]] = []
