@@ -27,6 +27,7 @@ from app.domain.project_access import get_scoped_project as _get_scoped_project,
 from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
+from app.domain.queued_extraction import cancel_queued_extractions, hidden_cancelled_run
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
 from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
@@ -861,9 +862,12 @@ def update_document_lifecycle(
     manifest = session.scalar(select(ActiveVersionManifest).where(ActiveVersionManifest.document_id == document.id, ActiveVersionManifest.index_ready.is_(True)))
     if payload.status == "active" and manifest is None:
         raise AppError("active_manifest_required", "Document requires a ready active manifest before activation", status_code=409)
+    cancelled_runs = 0
     if payload.status == "deleted":
         document.status = "deleted"
         document.is_deleted = True
+        # CHG-444 QUEUE444-001/002: a not-started extraction leaves the dispatch queue with the document.
+        cancelled_runs = cancel_queued_extractions(session, document)
     else:
         if document.is_deleted:
             # REN442-004 G5-A: a deleted document's name may have been reused meanwhile.
@@ -873,10 +877,10 @@ def update_document_lifecycle(
     document.lock_version += 1
     event_type = {"active": "source_activated", "inactive": "source_deactivated", "deleted": "source_deleted"}[payload.status]
     create_source_reference_events(session, source_document=document, event_type=event_type)
-    add_audit(session, actor_user_id=context.user_id, action="document.lifecycle.update", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"status": payload.status, "reason": payload.reason, "impact": impact.model_dump(mode="json")})
+    add_audit(session, actor_user_id=context.user_id, action="document.lifecycle.update", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"status": payload.status, "reason": payload.reason, "impact": impact.model_dump(mode="json"), "cancelled_extraction_runs": cancelled_runs})
     session.commit()
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
-    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
+    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~hidden_cancelled_run()).order_by(PipelineRun.created_at.desc()).limit(1))
     return _project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids)))
 
 
@@ -988,7 +992,7 @@ def rename_document(
         add_audit(session, actor_user_id=context.user_id, action="document.rename", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"old_title": old_title, "new_title": title, "references_resolved": resolved})
         session.commit()
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
-    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
+    pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~hidden_cancelled_run()).order_by(PipelineRun.created_at.desc()).limit(1))
     return _project_document(session, document, version, pipeline, visible_project_ids=visible, capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=visible))
 
 

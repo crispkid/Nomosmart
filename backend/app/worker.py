@@ -309,47 +309,52 @@ def dispatch_document_outbox(factory) -> None:
         return
     capabilities = configured_capabilities(settings)
     for event_id in candidates:
-        with factory.begin() as session:
-            candidate = session.get(OutboxEvent, event_id)
-            if candidate is None:
-                continue
-            run = session.get(PipelineRun, candidate.aggregate_id)
-            if not _outbox_generation_current(session, candidate) or run is None or run.status not in {"queued", "running"}:
-                # Remove stale metadata from the dispatch queue, not application
-                # content or occupancy. No policy/task lock is acquired here.
-                event = session.get(OutboxEvent, event_id, with_for_update=True, populate_existing=True)
-                # A user may have authorized a retry between the initial read
-                # and this lock. Re-read scope/status before cancelling metadata.
-                run_status = session.scalar(select(PipelineRun.status).where(PipelineRun.id == event.aggregate_id))
-                if event.project_id:
-                    session.get(Project, event.project_id, populate_existing=True)
-                if (event.status in {"pending", "dispatching"}
-                        and (not _outbox_generation_current(session, event)
-                             or run_status not in {"queued", "running"})):
-                    event.status, event.processed_at = "cancelled", datetime.now(UTC)
-                    event.last_error = "file_processing_run_not_dispatchable"
-                    event.claim_token = event.claimed_at = event.lease_expires_at = None
-                continue
-            now = datetime.now(UTC)
-            if candidate.status not in {"pending", "dispatching"} or candidate.available_at > now:
-                continue
-            if candidate.status == "dispatching" and candidate.lease_expires_at and candidate.lease_expires_at > now:
-                continue
-            dispatch = prepare_dispatch(session, run_id=candidate.aggregate_id, capabilities=capabilities)
-            if dispatch is None:
-                continue
-            event = session.scalar(select(OutboxEvent).where(OutboxEvent.id == event_id)
-                .with_for_update().execution_options(populate_existing=True))
-            now = datetime.now(UTC)
-            if event.status not in {"pending", "dispatching"} or event.available_at > now:
-                session.rollback()  # Do not commit an intent for an ineligible event.
-                continue
-            if event.status == "dispatching" and event.lease_expires_at and event.lease_expires_at > now:
-                session.rollback()
-                continue
-            event.status, event.task_id = "dispatching", str(dispatch.broker_task_id)
-            event.lease_expires_at = now + timedelta(seconds=settings.ingestion_worker_lease_seconds)
-            event.attempts += 1
+        # CHG-444 QUEUE444-004/005: a pre-dispatch error belongs to this one event; it never stops the others.
+        try:
+            with factory.begin() as session:
+                candidate = session.get(OutboxEvent, event_id)
+                if candidate is None:
+                    continue
+                run = session.get(PipelineRun, candidate.aggregate_id)
+                if not _outbox_generation_current(session, candidate) or run is None or run.status not in {"queued", "running"}:
+                    # Remove stale metadata from the dispatch queue, not application
+                    # content or occupancy. No policy/task lock is acquired here.
+                    event = session.get(OutboxEvent, event_id, with_for_update=True, populate_existing=True)
+                    # A user may have authorized a retry between the initial read
+                    # and this lock. Re-read scope/status before cancelling metadata.
+                    run_status = session.scalar(select(PipelineRun.status).where(PipelineRun.id == event.aggregate_id))
+                    if event.project_id:
+                        session.get(Project, event.project_id, populate_existing=True)
+                    if (event.status in {"pending", "dispatching"}
+                            and (not _outbox_generation_current(session, event)
+                                 or run_status not in {"queued", "running"})):
+                        event.status, event.processed_at = "cancelled", datetime.now(UTC)
+                        event.last_error = "file_processing_run_not_dispatchable"
+                        event.claim_token = event.claimed_at = event.lease_expires_at = None
+                    continue
+                now = datetime.now(UTC)
+                if candidate.status not in {"pending", "dispatching"} or candidate.available_at > now:
+                    continue
+                if candidate.status == "dispatching" and candidate.lease_expires_at and candidate.lease_expires_at > now:
+                    continue
+                dispatch = prepare_dispatch(session, run_id=candidate.aggregate_id, capabilities=capabilities)
+                if dispatch is None:
+                    continue
+                event = session.scalar(select(OutboxEvent).where(OutboxEvent.id == event_id)
+                    .with_for_update().execution_options(populate_existing=True))
+                now = datetime.now(UTC)
+                if event.status not in {"pending", "dispatching"} or event.available_at > now:
+                    session.rollback()  # Do not commit an intent for an ineligible event.
+                    continue
+                if event.status == "dispatching" and event.lease_expires_at and event.lease_expires_at > now:
+                    session.rollback()
+                    continue
+                event.status, event.task_id = "dispatching", str(dispatch.broker_task_id)
+                event.lease_expires_at = now + timedelta(seconds=settings.ingestion_worker_lease_seconds)
+                event.attempts += 1
+        except AppError as exc:
+            _handle_dispatch_error(factory, event_id, exc)
+            continue
         try:
             run_document_extraction.apply_async(args=[str(dispatch.run_id), str(dispatch.task_id),
                 str(dispatch.generation)], task_id=str(dispatch.broker_task_id))
@@ -365,6 +370,36 @@ def dispatch_document_outbox(factory) -> None:
             if event and event.status == "dispatching" and event.task_id == str(dispatch.broker_task_id):
                 event.status, event.processed_at, event.last_error = "dispatched", datetime.now(UTC), None
                 event.lease_expires_at = None
+
+
+PERMANENT_DISPATCH_CODES = frozenset({"file_processing_scope_stale", "file_processing_run_not_admissible",
+                                      "file_processing_input_identity_missing"})
+
+
+def _handle_dispatch_error(factory, event_id, exc: AppError) -> None:
+    """QUEUE444-004: a run that can never be dispatched leaves the queue; QUEUE444-005: any other error defers only
+    this event (attempts + 1, backoff up to 15 minutes). Logs ids and codes only."""
+    from app.domain.queued_extraction import CANCEL_REASON, take_run_out_of_queue
+    with factory.begin() as session:
+        event = session.get(OutboxEvent, event_id, with_for_update=True, populate_existing=True)
+        if event is None or event.status not in {"pending", "dispatching"}:
+            return
+        now = datetime.now(UTC)
+        extra = {"event_id": str(event.id), "pipeline_run_id": str(event.aggregate_id), "error_code": exc.code}
+        if exc.code in PERMANENT_DISPATCH_CODES:
+            run = session.get(PipelineRun, event.aggregate_id, with_for_update=True, populate_existing=True)
+            document = session.get(Document, run.document_id) if run is not None and run.document_id else None
+            reason = CANCEL_REASON if document is None or document.is_deleted else "file_processing_scope_unavailable"
+            outcome = take_run_out_of_queue(session, run, event_error=exc.code, reason=reason) if run is not None else None
+            if event.status in {"pending", "dispatching"}:
+                event.status, event.processed_at, event.last_error = "cancelled", now, exc.code
+                event.claim_token = event.claimed_at = event.lease_expires_at = None
+            logger.warning("file_processing_dispatch_cancelled", extra={**extra, "outcome": outcome or "event_only"})
+            return
+        event.status, event.attempts, event.last_error = "pending", event.attempts + 1, exc.code
+        event.available_at = now + timedelta(seconds=min(60 * event.attempts, 900))
+        event.claim_token = event.claimed_at = event.lease_expires_at = None
+        logger.warning("file_processing_dispatch_deferred", extra={**extra, "attempts": event.attempts})
 
 
 def _outbox_task(topic: str):
