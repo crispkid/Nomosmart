@@ -99,6 +99,7 @@ export function ChatResponseEvidence({
             canonicalLabel,
             citation.page ? format("projectChatPageLabel", { page: citation.page }) : null,
             citation.content_type || null,
+            citation.via_reference ? t("chatCitationViaReference") : null,
             citation.score !== null && citation.score !== undefined
               ? format("chatCitationScore", { score: citation.score.toFixed(4) })
               : null,

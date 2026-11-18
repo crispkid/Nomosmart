@@ -17,12 +17,14 @@ from starlette.concurrency import run_in_threadpool
 from sqlalchemy import delete, desc, exists, func, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
+from app.domain.chunk_overlaps import chunk_overlaps
+from app.domain.stations import confirm_station, create_station_revision, paused_station, reopen_station, reuse_summary, station_rows, uses_stations
 from app.domain.chunk_references import extract_version_references, reference_summary, resolve_pending_references
 from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
@@ -816,6 +818,7 @@ def get_document_version_submission_evidence(
         chat_records=chat_records,
         validation_runs=validation_runs,
         reference_summary=reference_summary(session, version.id),
+        overlap_group_count=detail.overlap_group_count,
     )
 
 
@@ -875,6 +878,79 @@ def update_document_lifecycle(
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
     pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~((PipelineRun.run_type == "document_content_update") & (PipelineRun.status == "cancelled"))).order_by(PipelineRun.created_at.desc()).limit(1))
     return _project_document(session, document, version, pipeline, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids)))
+
+
+@router.post("/{document_id}/versions/{version_id}/stations/{station}/confirm", response_model=KnowledgeDetailResponse)
+def confirm_extraction_station(
+    project_id: UUID,
+    document_id: UUID,
+    version_id: UUID,
+    station: int,
+    payload: StationConfirmPayload,
+    request: Request,
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> KnowledgeDetailResponse:
+    """CHG-442 STAGE442-002: confirm stations 1-3; the next station's steps start only after this."""
+    project = _get_scoped_project(session, project_id, context)
+    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to confirm an extraction station")
+    document, version = _scoped_document_version(session, project.id, document_id, version_id)
+    session.refresh(version, with_for_update=True)
+    already = {row.station: row.status for row in station_rows(session, version.id).values()}.get(station) == "confirmed"
+    run = confirm_station(session, project=project, document=document, version=version, station=station,
+                          actor_user_id=context.user_id, lock_version=payload.lock_version if not already else version.lock_version)
+    if not already:
+        add_audit(session, actor_user_id=context.user_id, action="knowledge.station.confirm", resource_type="document_version", resource_id=version.id,
+                  result="success", request_id=request.state.request_id, summary={"station": station, "pipeline_id": str(run.id) if run else None})
+    session.commit()
+    return _knowledge_detail_response(session, project, document, version, context)
+
+
+@router.post("/{document_id}/versions/{version_id}/stations/{station}/reopen", response_model=KnowledgeDetailResponse)
+def reopen_extraction_station(
+    project_id: UUID,
+    document_id: UUID,
+    version_id: UUID,
+    station: int,
+    payload: StationConfirmPayload,
+    request: Request,
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> KnowledgeDetailResponse:
+    """CHG-442 STAGE442-009: return to a finished station; later stations wait to be done and confirmed again."""
+    project = _get_scoped_project(session, project_id, context)
+    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to reopen an extraction station")
+    document, version = _scoped_document_version(session, project.id, document_id, version_id)
+    session.refresh(version, with_for_update=True)
+    summary = reopen_station(session, project=project, document=document, version=version, station=station, lock_version=payload.lock_version)
+    add_audit(session, actor_user_id=context.user_id, action="knowledge.station.reopen", resource_type="document_version", resource_id=version.id,
+              result="success", request_id=request.state.request_id, summary=summary)
+    session.commit()
+    return _knowledge_detail_response(session, project, document, version, context)
+
+
+@router.post("/{document_id}/versions/{version_id}/station-revision", response_model=KnowledgeDetailResponse, status_code=201)
+def create_extraction_station_revision(
+    project_id: UUID,
+    document_id: UUID,
+    version_id: UUID,
+    payload: StationConfirmPayload,
+    request: Request,
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> KnowledgeDetailResponse:
+    """CHG-442 STAGE442-010: a rejected (or published) version gets a new revision that starts at station 1."""
+    project = _get_scoped_project(session, project_id, context)
+    require_project_role(session, project.id, context.user_id, set(context.visible_project_ids), PROJECT_EDITOR_ROLES, code="project_editor_required", message="Owner or Editor role is required to start a revision")
+    document, version = _scoped_document_version(session, project.id, document_id, version_id)
+    session.refresh(document, with_for_update=True)
+    session.refresh(version, with_for_update=True)
+    revision = create_station_revision(session, project=project, document=document, source=version, actor_user_id=context.user_id, lock_version=payload.lock_version)
+    document.lock_version += 1
+    add_audit(session, actor_user_id=context.user_id, action="knowledge.station.revision", resource_type="document_version", resource_id=revision.id,
+              result="success", request_id=request.state.request_id, summary={"source_version_id": str(version.id), "version_label": revision.version_label})
+    session.commit()
+    return _knowledge_detail_response(session, project, document, revision, context)
 
 
 @router.patch("/{document_id}/title", response_model=DocumentSummary)
@@ -1081,14 +1157,11 @@ def create_manual_chunk(
         overlaps.append((chunk, mapping, start, end))
 
     overlap_ids = [str(chunk.id) for chunk, _mapping, _start, _end in overlaps]
+    if any(start == manual_start and end == manual_end for _chunk, _mapping, start, end in overlaps):
+        raise AppError("manual_chunk_duplicate_range", "A chunk with exactly this range already exists", status_code=409)
     inherited = overlaps[0][0] if overlaps else None
     config_snapshot = _manual_chunk_config_snapshot(version)
-    new_segments: list[Chunk] = []
-    for chunk, mapping, start, end in overlaps:
-        if start < manual_start:
-            new_segments.append(_split_chunk(chunk, start, manual_start, "before", context.user_id, mapping, document_title=document.title, canonical_markdown=markdown_artifact.text, config_snapshot=config_snapshot))
-        if end > manual_end:
-            new_segments.append(_split_chunk(chunk, manual_end, end, "after", context.user_id, mapping, document_title=document.title, canonical_markdown=markdown_artifact.text, config_snapshot=config_snapshot))
+    # CHG-442 CHUNK442-002: existing chunks stay unchanged; overlaps are allowed and reported (CHUNK442-003).
 
     manual_raw_markdown = markdown_artifact.text[manual_start:manual_end]
     manual_representation = build_manual_chunk_representation(
@@ -1099,10 +1172,6 @@ def create_manual_chunk(
         content_type=inherited.content_type if inherited else None,
         config_snapshot=config_snapshot,
     )
-    now = datetime.now(UTC)
-    for chunk, _mapping, _start, _end in overlaps:
-        chunk.status = "superseded"
-        chunk.chunk_strategy = {**(chunk.chunk_strategy or {}), "superseded_by": "manual_chunk", "superseded_at": now.isoformat()}
     manual_chunk = Chunk(
         id=uuid4(),
         project_id=project.id,
@@ -1126,7 +1195,7 @@ def create_manual_chunk(
         start_offset=manual_start,
         end_offset=manual_end,
         source_mapping=[resolved_manual_mapping],
-        chunk_strategy={**manual_representation.processing_metadata, "source": "manual", "replaced_chunk_ids": overlap_ids},
+        chunk_strategy={**manual_representation.processing_metadata, "source": "manual", "overlapping_chunk_ids": overlap_ids},
         embedding_model_id=version.embedding_model_id,
         token_count=manual_representation.token_count,
         confidence_score=1,
@@ -1137,15 +1206,15 @@ def create_manual_chunk(
         revision=0,
         change_type="manual_create",
     )
-    for index, item in enumerate([*new_segments, manual_chunk], start=_next_chunk_index(session, version.id)):
-        item.chunk_index = index
-        session.add(item)
+    manual_chunk.chunk_index = _next_chunk_index(session, version.id)
+    session.add(manual_chunk)
     session.flush()
     _reindex_active_chunks(session, project.id, document.id, version.id)
     extract_version_references(session, version, actor_user_id=context.user_id)  # REF442-001: new chunks only
     version.lock_version += 1
-    reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
-    add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk.manual_create", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"document_id": str(document.id), "manual_chunk_id": str(manual_chunk.id), "replaced_chunk_ids": overlap_ids, "start_offset": manual_start, "end_offset": manual_end, "content_length": len(content), "reconciliation_id": str(reconciliation.id)})
+    # At station 2 nothing downstream exists yet; station 4 builds vectors and indexes once (STAGE442-006).
+    reconciliation = None if paused_station(session, version.id) == 2 else queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
+    add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk.manual_create", resource_type="document_version", resource_id=version.id, result="success", request_id=request.state.request_id, summary={"document_id": str(document.id), "manual_chunk_id": str(manual_chunk.id), "overlapping_chunk_ids": overlap_ids, "start_offset": manual_start, "end_offset": manual_end, "content_length": len(content), "reconciliation_id": str(reconciliation.id) if reconciliation else None})
     session.commit()
     return _knowledge_detail_response(session, project, document, version, context)
 
@@ -1267,7 +1336,7 @@ def edit_chunk(
         )
     extract_version_references(session, version, actor_user_id=context.user_id)  # REF442-001: new chunks only
     version.lock_version += 1
-    reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
+    reconciliation = None if paused_station(session, version.id) == 2 else queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
     add_audit(
         session,
         actor_user_id=context.user_id,
@@ -1333,7 +1402,7 @@ def _delete_chunk_transaction(project_id: UUID, document_id: UUID, version_id: U
     orphan_ids = _delete_orphan_tags(session, list(deleted.tag_ids))
     _reindex_active_chunks(session, project.id, document.id, version.id)
     version.lock_version += 1
-    reconciliation = queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
+    reconciliation = None if paused_station(session, version.id) == 2 else queue_chunk_artifact_reconciliation(session, version, actor_user_id=context.user_id)
     add_audit(
         session,
         actor_user_id=context.user_id,
@@ -1651,7 +1720,14 @@ def _knowledge_detail_response(session: Session, project: Project, document: Doc
         for step in pipeline_detail.steps:
             if step.chunking_issue:
                 step.chunking_issue.can_edit_content = edit_mode != "readonly"
+    overlaps, overlap_groups = chunk_overlaps(chunks)
     return KnowledgeDetailResponse(
+        stations=[ExtractionStationState(station=row.station, status=row.status, confirmed_at=row.confirmed_at, confirmed_by=row.confirmed_by)
+                  for row in sorted(station_rows(session, version.id).values(), key=lambda row: row.station)],
+        current_station=paused_station(session, version.id),
+        station_reuse=reuse_summary(session, version.id),
+        overlapping_chunks=overlaps,
+        overlap_group_count=overlap_groups,
         staging_retention=retention,
         document=_project_document(session, document, version, pipeline, expose_storage=False, visible_project_ids=set(context.visible_project_ids), capabilities=project_capabilities(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids))),
         version=_version_summary(version, expose_storage=False),
@@ -1692,7 +1768,10 @@ def _manual_edit_state(session: Session, version: DocumentVersion, pipeline: Pip
         return False, "review_locked"
     if not has_project_role(session, version.project_id, context.user_id, PROJECT_EDITOR_ROLES):
         return False, "permission_denied"
-    if version.status != "submission_ready":
+    at_station_two = paused_station(session, version.id) == 2
+    if not at_station_two and uses_stations(session, version.id):
+        return False, "station_reopen_required"
+    if version.status != "submission_ready" and not at_station_two:
         return False, "version_not_editable"
     if pipeline is not None and pipeline.status in {"queued", "running", "processing"}:
         return False, "pipeline_running"
@@ -1712,8 +1791,12 @@ def _ensure_manual_edit_allowed(session: Session, version: DocumentVersion, lock
     if version.lock_version != lock_version:
         raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
     _ensure_not_review_locked(version, "knowledge.chunk.manual_create")
-    if version.status != "submission_ready":
-        raise AppError("document_version_not_editable", "Only a submission-ready candidate version can be edited", status_code=409)
+    at_station_two = paused_station(session, version.id) == 2
+    if not at_station_two and uses_stations(session, version.id):
+        # CHG-442 STAGE442-006/009: chunks change only at station 2; go back to it first.
+        raise AppError("station_reopen_required", "Return to station 2 to change chunks", status_code=409, details={"station": 2})
+    if version.status != "submission_ready" and not at_station_two:
+        raise AppError("document_version_not_editable", "Only a submission-ready candidate version or station 2 can be edited", status_code=409)
     pipeline = effective_pipeline(session, version.id)
     if pipeline is not None and pipeline.status in {"queued", "running", "processing"}:
         raise AppError("manual_edit_pipeline_running", "Manual chunk editing is unavailable while the pipeline is running", status_code=409)
@@ -1775,102 +1858,6 @@ def _manual_split_text(chunk: Chunk) -> str:
     return chunk.markdown_content or chunk.content
 
 
-def _split_chunk(
-    chunk: Chunk,
-    start: int,
-    end: int,
-    segment: str,
-    actor_user_id: UUID,
-    resolved_mapping: dict[str, object] | None = None,
-    *,
-    document_title: str | None = None,
-    canonical_markdown: str | None = None,
-    config_snapshot: dict[str, object] | None = None,
-) -> Chunk:
-    resolved_mapping = resolved_mapping or next((item for item in (chunk.source_mapping or []) if isinstance(item, dict)), {})
-    text = canonical_markdown if canonical_markdown is not None else _manual_split_text(chunk)
-    source_start = resolved_mapping.get("markdown_start_offset")
-    source_end = resolved_mapping.get("markdown_end_offset")
-    if canonical_markdown is not None:
-        raw_markdown = canonical_markdown[max(0, start):max(0, end)]
-    elif isinstance(source_start, int) and not isinstance(source_start, bool) and isinstance(source_end, int) and not isinstance(source_end, bool) and source_end > source_start:
-        rel_start = max(0, min(len(text), start - source_start))
-        rel_end = max(rel_start, min(len(text), end - source_start))
-        raw_markdown = text[rel_start:rel_end]
-    else:
-        chunk_start = chunk.start_offset if isinstance(chunk.start_offset, int) else start
-        rel_start = max(0, min(len(text), start - chunk_start))
-        rel_end = max(rel_start, min(len(text), end - chunk_start))
-        raw_markdown = text[rel_start:rel_end]
-    representation = build_manual_chunk_representation(
-        raw_markdown=raw_markdown,
-        document_title=document_title,
-        inherited_heading_path=chunk.heading_path,
-        inherited_heading_level=chunk.heading_level,
-        content_type=chunk.content_type,
-        config_snapshot=config_snapshot,
-    )
-    anchor = resolved_mapping.get("source_anchor")
-    anchor_source_start = source_start if isinstance(source_start, int) and not isinstance(source_start, bool) else 0
-    anchor_start = int(resolved_mapping.get("anchor_start_offset") or 0) + max(0, start - anchor_source_start)
-    anchor_end = anchor_start + max(0, end - start)
-    mapping = {
-        **resolved_mapping,
-        "source_anchor": anchor or "original-document",
-        "start_offset": start,
-        "end_offset": end,
-        "offset_scope": "canonical_markdown",
-        "offset_unit": "unicode_code_point",
-        "markdown_start_offset": start,
-        "markdown_end_offset": end,
-        "anchor_start_offset": anchor_start,
-        "anchor_end_offset": anchor_end,
-        "mapping_status": "resolved",
-    }
-    mapping.pop("mapping_reason_code", None)
-    if canonical_markdown is not None:
-        mapping = resolve_manual_source_mapping(
-            content=raw_markdown, markdown=canonical_markdown, source_anchor="markdown-document",
-            start_offset=start, end_offset=end, offset_scope="canonical_markdown", offset_unit="unicode_code_point",
-        )
-        if mapping is None:
-            raise AppError("chunk_source_mapping_invalid", "Split chunk source mapping is invalid", status_code=422)
-    return Chunk(
-        project_id=chunk.project_id,
-        document_id=chunk.document_id,
-        document_version_id=chunk.document_version_id,
-        chunk_index=0,
-        title=f"{chunk.title or 'Chunk'} ({segment})",
-        content=representation.display_text,
-        markdown_content=representation.raw_markdown,
-        display_markdown=representation.display_markdown,
-        retrieval_text=representation.retrieval_text,
-        embedding_content_hash=representation.embedding_content_hash,
-        content_type=representation.content_type,
-        content_hash=representation.content_hash,
-        section_path=" > ".join(representation.heading_path) or None,
-        heading_path=list(representation.heading_path) or None,
-        heading_level=representation.heading_level,
-        page_start=chunk.page_start,
-        page_end=chunk.page_end,
-        start_offset=start,
-        end_offset=end,
-        source_mapping=[mapping],
-        stable_chunk_key=representation.stable_chunk_key,
-        chunk_strategy={**representation.processing_metadata, "source": "manual_split", "parent_chunk_id": str(chunk.id), "segment": segment},
-        embedding_model_id=chunk.embedding_model_id,
-        token_count=representation.token_count,
-        confidence_score=chunk.confidence_score,
-        status="active",
-        is_manual_edited=True,
-        edited_by=actor_user_id,
-        lineage_id=chunk.lineage_id or chunk.id,
-        parent_chunk_id=chunk.id,
-        revision=(chunk.revision or 0) + 1,
-        change_type="manual_split",
-    )
-
-
 def _manual_chunk_config_snapshot(version: DocumentVersion) -> dict[str, object] | None:
     strategy = version.chunk_strategy if isinstance(version.chunk_strategy, dict) else {}
     snapshot = strategy.get("effective_chunk_config")
@@ -1899,7 +1886,8 @@ def _chunk_source_sort_key(chunk: Chunk) -> tuple[int, int, int, datetime]:
     page = mapping.get("page") if isinstance(mapping.get("page"), int) else None
     source_rank = anchor_rank or paragraph or ((page or 0) * 10_000) or chunk.chunk_index
     start, _ = _chunk_offsets(chunk)
-    return source_rank, start if start is not None else 0, chunk.chunk_index, chunk.created_at
+    # CHG-442 CHUNK442-002: order by position in the canonical document; chunks without offsets keep their source rank.
+    return (start if start is not None else 10**12 + source_rank), source_rank, chunk.chunk_index, chunk.created_at
 
 
 def _next_chunk_index(session: Session, version_id: UUID) -> int:

@@ -962,8 +962,26 @@ class DocumentChatAccess(BaseModel):
     reason_code: str | None = None
 
 
+class ExtractionStationState(BaseModel):
+    """CHG-442 STAGE442-002: pending -> ready (steps done, waiting for a person) -> confirmed."""
+    station: int
+    status: Literal["pending", "ready", "confirmed"]
+    confirmed_at: datetime | None = None
+    confirmed_by: UUID | None = None
+
+
+class StationConfirmPayload(BaseModel):
+    lock_version: int = Field(ge=1)
+
+
 class KnowledgeDetailResponse(BaseModel):
     staging_retention: dict[str, Any] | None = None
+    # CHG-442: station state, the station a person is working on now, and chunk overlaps (CHUNK442-003).
+    stations: list[ExtractionStationState] = Field(default_factory=list)
+    current_station: int | None = None
+    station_reuse: dict[str, int] | None = None
+    overlapping_chunks: dict[str, list[str]] = Field(default_factory=dict)
+    overlap_group_count: int = 0
     document: DocumentSummary
     version: DocumentVersionSummary
     pipeline: PipelineRunDetail | None = None
@@ -1024,6 +1042,7 @@ class SubmissionEvidenceResponse(BaseModel):
     validation_runs: list[dict[str, Any]] = Field(default_factory=list)
     # CHG-442 REF442-004: unresolved references never block submission; reviewers see the counts.
     reference_summary: dict[str, int] = Field(default_factory=dict)
+    overlap_group_count: int = 0
 
 
 class OriginalFileViewerMetadata(BaseModel):

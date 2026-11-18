@@ -157,7 +157,23 @@ export type ApprovalTaskDetail = {
   chat_records: ApprovalChatEvidence[];
 };
 
+export type ExtractionStationState = { station: 1 | 2 | 3 | 4; status: "pending" | "ready" | "confirmed"; confirmed_at: string | null; confirmed_by: string | null };
+export type StationReuseSummary = { reused_chunks?: number; new_chunks?: number; manual_kept?: number; manual_dropped?: number; reused_tag_chunks?: number; tagged_chunks?: number; reused_vectors?: number; new_vectors?: number };
+export type ChunkReferenceItem = {
+  id: string; chunk_id: string; chunk_index: number | null; raw_text: string; start_offset: number | null; end_offset: number | null;
+  normalized_name: string; status: "resolved" | "unresolved" | "external"; target_document_id: string | null; target_title: string | null;
+  source: "rule" | "manual"; is_deleted: boolean; lock_version: number;
+};
+export type ChunkReferenceSummary = { total: number; resolved: number; unresolved: number; external: number };
+export type ChunkReferenceListResponse = { document_version_id: string; editable: boolean; items: ChunkReferenceItem[]; summary: ChunkReferenceSummary };
+
 export type KnowledgeDetailResponse = {
+  /** CHG-442 four-station extraction; empty for versions processed before stations existed. */
+  stations?: ExtractionStationState[];
+  current_station?: number | null;
+  station_reuse?: StationReuseSummary | null;
+  overlapping_chunks?: Record<string, string[]>;
+  overlap_group_count?: number;
   staging_retention?: { expires_at: string; ttl_days: number; cleanup_status: string; expired: boolean } | null;
   chat_access?: { mode: "staging" | "published" | "history_only" | "unavailable"; document_version_id: string; query_enabled: boolean; reason_code: string | null } | null;
   document: DocumentSummary;
@@ -217,6 +233,8 @@ export type SubmissionEvidenceResponse = {
   graph: { status?: string; source?: string; node_count?: number; edge_count?: number; chunk_count?: number };
   chat_records: ApprovalChatEvidence[];
   validation_runs: Array<Record<string, unknown>>;
+  reference_summary?: Partial<ChunkReferenceSummary>;
+  overlap_group_count?: number;
 };
 
 type DocumentLayoutArtifact = {

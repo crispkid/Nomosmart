@@ -555,6 +555,15 @@ def _execute_auto_extraction(
         step = steps[step_name]
         if step.status == "completed":
             continue
+        from app.domain.stations import STEP_STATION, pause_at_station, station_confirmed
+        station = STEP_STATION[step_name]
+        if station > 1 and not station_confirmed(session, version.id, station - 1):
+            # CHG-442 STAGE442-002: stop at the station boundary until a person confirms the previous station.
+            pause_at_station(session, project, document, version, pipeline, station - 1)
+            pipeline.progress_percent = float(min(completed_weight, 99))
+            if durable:
+                session.commit()
+            return pipeline
         if durable:
             lease_seconds = max(settings.ingestion_worker_lease_seconds, 900) if step_name in EXTERNAL_SIDE_EFFECT_STEPS else settings.ingestion_worker_lease_seconds
             step, claim_state = _claim_step(session, pipeline.id, step_name, lease_seconds)
@@ -625,8 +634,11 @@ def _execute_auto_extraction(
         pipeline.current_step_name = step_name
         if durable:
             session.commit()
+    from app.domain.stations import mark_station_ready
+    mark_station_ready(session, version.id, 4)
     now = datetime.now(UTC)
     pipeline.status = "submission_ready"
+    pipeline.current_waiting_role = pipeline.current_action_url = None
     pipeline.progress_percent = 100
     pipeline.current_step_name = "prepare_submission"
     pipeline.completed_at = now
@@ -744,7 +756,9 @@ def _reset_from_step(session: Session, version_id: UUID, steps: dict[str, Pipeli
         step.lease_expires_at = None
         if name != start_step:
             step.error_message = None
-    if AUTO_EXTRACTION_STEPS.index(start_step) <= AUTO_EXTRACTION_STEPS.index("chunk_knowledge"):
+    from app.domain.stations import uses_stations
+    if AUTO_EXTRACTION_STEPS.index(start_step) <= AUTO_EXTRACTION_STEPS.index("chunk_knowledge") and not uses_stations(session, version_id):
+        # CHG-442: with stations a failed re-chunk rolled back; existing chunks are the reuse pool and stay.
         session.execute(delete(Chunk).where(Chunk.document_version_id == version_id))
 
 
@@ -827,8 +841,15 @@ def _execute_step(
         return _artifact(version, step_name, {"paragraphs": paragraphs, "document_layout": layout, "document_structure": structure_metadata, "adapter_source": f"markdown-structure-parser:{adapter_source}"})
     if step_name == "chunk_knowledge":
         markdown_source, _adapter_source = _canonical_markdown_source(artifacts)
-        chunks = _create_structure_chunks(session, settings, project, document, version, markdown_source)
-        return _artifact(version, step_name, {"chunk_count": len(chunks), "chunk_ids": [str(chunk.id) for chunk in chunks], "adapter_source": (version.chunk_strategy or {}).get("chunker_version"), "processing_versions": _processing_versions(version)})
+        from app.domain.station_reuse import active_chunks, carry_from_pool, take_reuse_pool
+        # CHG-442 STAGE442-009/010: re-chunking keeps the work of unchanged chunks (tags, references, vectors).
+        pool = take_reuse_pool(session, version)
+        chunks = _create_structure_chunks(session, settings, project, document, version, markdown_source, replace_existing=not pool,
+                                          identity_namespace=uuid4() if pool else None)  # chunk ids derive from content; keep them apart from the pool
+        reuse = carry_from_pool(session, version, chunks, pool, markdown_source) if pool else {}
+        if pool:
+            chunks = active_chunks(session, version.id)
+        return _artifact(version, step_name, {"chunk_count": len(chunks), "chunk_ids": [str(chunk.id) for chunk in chunks], "adapter_source": (version.chunk_strategy or {}).get("chunker_version"), "processing_versions": _processing_versions(version), **({"station_reuse": reuse} if pool else {})})
     if step_name == "generate_markdown":
         markdown, adapter_source = _canonical_markdown_source(artifacts)
         version.markdown_artifact_uri = _artifact_ref(version, step_name)
@@ -848,6 +869,9 @@ def _execute_step(
     if step_name == "build_staging_index":
         chunks = list(session.scalars(select(Chunk).where(Chunk.document_version_id == version.id, Chunk.status == "active").order_by(Chunk.chunk_index)))
         embedding_batch = load_canonical_embeddings(session, project=project, version=version, chunks=chunks)
+        if version.extraction_artifact_uri and hasattr(staging_adapter, "delete_version"):
+            # CHG-442 STAGE442-009: station 4 done again; drop documents of chunks that no longer exist.
+            staging_adapter.delete_version(project_id=project.id, version_id=version.id)
         result = staging_adapter.write_chunks(project=project, document=document, version=version, chunks=chunks, vectors=embedding_batch.vectors, profile=embedding_batch.profile)
         embedding_batch.build.status = "staged"
         embedding_batch.build.index_name = result.index_name
@@ -916,7 +940,17 @@ def _artifact(version: DocumentVersion, step_name: str, payload: dict[str, objec
 
 
 def _build_live_embeddings(session: Session, project: Project, version: DocumentVersion, chunks: list[Chunk]) -> dict[str, object]:
-    batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=get_settings())
+    from app.db.models import EmbeddingProfile
+    from app.domain.embeddings import _active_embedding_model, embed_content_chunks
+    from app.domain.station_reuse import reusable_vectors
+    model = _active_embedding_model(session, project, version)
+    profile = session.get(EmbeddingProfile, version.embedding_profile_id) if version.embedding_profile_id else None
+    reusable = reusable_vectors(session, model=model, profile=profile, chunks=chunks) if profile is not None else {}
+    if reusable:
+        # CHG-442 STAGE442-009: only chunks whose embedding input changed are sent to the model.
+        batch = embed_content_chunks(session, project=project, version=version, chunks=chunks, reusable=reusable, settings=get_settings())
+    else:
+        batch = embed_chunks(session, project=project, version=version, chunks=chunks, settings=get_settings())
     return {
         "adapter_source": batch.adapter_source,
         "embedding_model_id": str(batch.model.id),
@@ -1442,28 +1476,45 @@ def _apply_llm_tags(
     version.llm_model_id = model.id
     _delete_rule_tag_links(session, version, chunks)
     actor_user_id = pipeline.triggered_by
-    document_result = _generate_pipeline_tags(
-        session=session,
-        settings=settings,
-        model=model,
-        prompt=prompt,
-        text=document_source,
-        max_tags=8,
-        allow_empty=False,
-        usage_purpose="document_auto_tag",
-        project=project,
-        version=version,
-        pipeline=pipeline,
-    )
-    document_tags = _result_tags(document_result)
-    document_metadata = _tag_metadata(document_result, model=model, pipeline=pipeline, scope="document")
-    for tag_text in document_tags:
-        _attach_document_tag(session, project.id, version.id, tag_text, source="llm", actor_user_id=actor_user_id, metadata=document_metadata)
+    from app.domain.station_reuse import tag_input_digest, tag_receipt_matches
+    document_receipt = {"model_id": str(model.id), "config_version": model.config_version, "prompt_sha256": prompt.content_hash,
+                        "input_sha256": tag_input_digest(document_source)}
+    kept_document_tags = [tag.name for tag in session.scalars(select(Tag).join(DocumentVersionTag, DocumentVersionTag.tag_id == Tag.id).where(
+        DocumentVersionTag.document_version_id == version.id, DocumentVersionTag.source == "llm"))]
+    if (version.chunk_strategy or {}).get("document_tag_receipt") == document_receipt and kept_document_tags:
+        # CHG-442 STAGE442-009/010: the document text is unchanged; keep its tags without a model call.
+        document_tags = kept_document_tags
+    else:
+        document_result = _generate_pipeline_tags(
+            session=session,
+            settings=settings,
+            model=model,
+            prompt=prompt,
+            text=document_source,
+            max_tags=8,
+            allow_empty=False,
+            usage_purpose="document_auto_tag",
+            project=project,
+            version=version,
+            pipeline=pipeline,
+        )
+        document_tags = _result_tags(document_result)
+        document_metadata = _tag_metadata(document_result, model=model, pipeline=pipeline, scope="document")
+        session.execute(delete(DocumentVersionTag).where(DocumentVersionTag.document_version_id == version.id, DocumentVersionTag.source == "llm"))
+        for tag_text in document_tags:
+            _attach_document_tag(session, project.id, version.id, tag_text, source="llm", actor_user_id=actor_user_id, metadata=document_metadata)
+        version.chunk_strategy = {**(version.chunk_strategy or {}), "document_tag_receipt": document_receipt}
 
     chunk_results: list[dict[str, object]] = []
     chunk_tag_count = 0
+    reused_tag_chunks = 0
     for chunk in chunks:
         chunk_text = (chunk.retrieval_text or chunk.markdown_content or chunk.content or "").strip()
+        if tag_receipt_matches(chunk, model=model, prompt=prompt, text=chunk_text):
+            # Unchanged chunk (same input, model and prompt): its tags, manual ones included, stay as they are.
+            reused_tag_chunks += 1
+            chunk_results.append({"chunk_id": str(chunk.id), "chunk_index": chunk.chunk_index, "reused": True})
+            continue
         chunk_result = _generate_pipeline_tags(
             session=session,
             settings=settings,
@@ -1497,6 +1548,7 @@ def _apply_llm_tags(
         "chunk_tags": chunk_results,
         "document_tag_count": len(document_tags),
         "chunk_tag_count": chunk_tag_count,
+        "reused_tag_chunks": reused_tag_chunks,
     }
 
 

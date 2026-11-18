@@ -211,6 +211,7 @@ export default function SubmitReviewPage() {
               <span><Table2 size={16} /><strong>{chunkCounts.table}</strong><small>{t("submitReviewTable")}</small></span>
               <span><BarChart3 size={16} /><strong>{chunkCounts.chart}</strong><small>{t("labelChart")}</small></span>
             </div>
+            <dl className="submission-model-list station-summary-list"><div><dt>{t("evidenceReferenceCount")}</dt><dd>{evidence?.reference_summary?.total ?? 0}</dd></div><div><dt>{t("evidenceUnresolvedReferenceCount")}</dt><dd>{evidence?.reference_summary?.unresolved ?? 0}</dd></div><div><dt>{t("evidenceOverlapGroupCount")}</dt><dd>{evidence?.overlap_group_count ?? 0}</dd></div></dl>
             <dl className="submission-model-list"><div><dt>{t("labelPipeline")}</dt><dd>{detail?.pipeline?.status ?? t("pipelineNotStarted")}</dd></div><div><dt>{t("pipelineCurrentStep")}</dt><dd>{detail?.pipeline?.current_step_name ?? "-"}</dd></div><div><dt>{t("submitReviewProgress")}</dt><dd>{detail?.pipeline?.progress_percent ?? 0}%</dd></div></dl>
           </section>
 

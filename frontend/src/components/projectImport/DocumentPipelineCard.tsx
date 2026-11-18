@@ -136,6 +136,7 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
           <PipelineElapsed pipeline={pipeline} now={elapsedNow} enabled={elapsedEnabled} locale={locale} />
           {!pipeline.execution ? <span>{t("pipelineEta")}：{localize(pipeline.eta)}</span> : null}
           {pipeline.waitingRole ? <span>{t("pipelineWaiting")}：{localize(pipeline.waitingRole)}</span> : null}
+          {pipeline.waitingStation ? <span className="station-waiting-note">{format("stationWaitingConfirm", { station: pipeline.waitingStation })}</span> : null}
         </div>
         <div className="progress-line document-progress">
           <span style={{ width: `${pipeline.progress}%` }} />
@@ -165,6 +166,11 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
             </button>
           ) : null}
           {reviewLocked ? <span className="ready-summary"><ShieldCheck size={15} /> {t("projectImportReviewExtractionLocked")}</span> : null}
+          {pipeline.waitingStation ? (
+            <Link className="action-button" href={`/project/${projectId}/knowledge/${document.id}?station=${pipeline.waitingStation}`}>
+              <ArrowRight size={16} /> {format("stationGoTo", { station: pipeline.waitingStation })}
+            </Link>
+          ) : null}
           {stageAction ? (
             <Link className="action-button secondary" href={stageAction.href}>
               <ArrowRight size={16} /> {stageAction.label}

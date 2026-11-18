@@ -21,7 +21,7 @@ export type {
   DataSourceConnectionTestResponse, DataSyncRunResponse, DataSourceCreateResponse
 } from "./apiClient/documentTypes";
 export type {
-  ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse,
+  ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse, ExtractionStationState, StationReuseSummary, ChunkReferenceItem, ChunkReferenceSummary, ChunkReferenceListResponse,
   SubmissionEvidenceResponse, DocumentLayoutPage,
   OriginalFileViewerMetadata,
   ApprovalSummary, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
@@ -61,6 +61,10 @@ export {
   listNotificationPage, getNotificationUnreadCount, markNotificationRead, markAllNotificationsRead,
   resolveNotification
 } from "./apiClient/reviewRequests";
+export {
+  confirmStation, reopenStation, createStationRevision, listChunkReferences, createChunkReference,
+  updateChunkReference, deleteChunkReference
+} from "./apiClient/stationRequests";
 export type {
   CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters
 } from "./apiClient/reviewRequests";

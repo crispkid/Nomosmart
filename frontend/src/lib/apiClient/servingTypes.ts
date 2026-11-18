@@ -50,6 +50,8 @@ export type ProjectChatQueryResponse = {
     page?: number | null;
     source_mapping?: unknown[];
     index_name?: string | null;
+    /** CHG-442 REF442-006/007: added because a retrieved chunk references this document. */
+    via_reference?: boolean;
   }[];
   manifest_version_ids: string[];
   selected_version_ids?: string[];
