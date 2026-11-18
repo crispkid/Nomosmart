@@ -190,9 +190,67 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
                     full = True
                     break
     if scope == "published":
+        from app.domain.system_parameter_store import question_answering_settings
+        qa = question_answering_settings(session)  # CHG-445 ROUTE445-004: database-owned, read per question
+        if qa["reference_routing_enabled"]:
+            citations.extend(_route_reference_question(session, project_id, versions, citations, question, query_targets,
+                                                       chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
+                                                       limit=qa["reference_routing_max_documents"], source_channel=source_channel,
+                                                       actor_user_id=actor_user_id))
         citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
-                                                  chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings))
+                                                  chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
+                                                  enabled=qa["reference_expansion_enabled"], limit=qa["reference_expansion_max_chunks"]))
     return citations
+
+
+def _route_reference_question(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
+                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
+                              chunks_by_position: dict, settings, limit: int, source_channel: str,
+                              actor_user_id: UUID | None) -> list[ProjectChatCitation]:
+    """CHG-445 ROUTE445-001/002: a reference question gets the named document and the documents linked to it.
+
+    Linked documents come from resolved references inside this authorized published scope, ordered by reference
+    count; the named documents come first; at most `limit` documents in all. Each document is searched once more with
+    the same question and query vector (no new embedding) and contributes its best chunk, marked `via_reference`.
+    """
+    from app.domain.question_routing import classify_question
+    project = session.get(Project, project_id)
+    model = session.get(AIModel, project.llm_model_id) if project is not None and project.llm_model_id else None
+    if model is None or model.deleted_at is not None or model.model_type != "Chat":
+        return []
+    version_by_document = {version.document_id: version for version in versions}
+    titles = {title: document_id for document_id, title in session.execute(
+        select(Document.id, Document.title).where(Document.id.in_(list(version_by_document)), Document.is_deleted.is_(False)))}
+    decision = classify_question(model=model, question=question, documents=titles, settings=settings,
+                                 source_channel=source_channel, project_id=project_id, actor_user_id=actor_user_id)
+    if decision.intent == "none":
+        return []
+    named = set(decision.document_ids)
+    column, other = ((ChunkReference.target_document_id, ChunkReference.document_id) if decision.intent == "referenced_by"
+                     else (ChunkReference.document_id, ChunkReference.target_document_id))
+    linked: Counter[UUID] = Counter(session.scalars(
+        select(other).join(Chunk, Chunk.id == ChunkReference.chunk_id)
+        .where(ChunkReference.project_id == project_id, ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+               Chunk.status == "active", ChunkReference.document_version_id.in_([version.id for version in versions]), column.in_(named))))
+    ordered = list(decision.document_ids) + [doc for doc, _count in sorted(linked.items(), key=lambda item: (-item[1], str(item[0])))
+                                             if doc not in named and doc in version_by_document]
+    found = {citation.document_id for citation in citations}
+    added: list[ProjectChatCitation] = []
+    for document_id in ordered[:limit]:
+        if document_id in found:
+            continue
+        version = version_by_document[document_id]
+        target = query_targets.get(version.id)
+        if target is None:
+            continue
+        index_name, query_vector, mapping_version = target
+        hits = _opensearch_hybrid_search(index_name, project_id, question, query_vector, [str(version.id)], 3,
+                                         scope="published", mapping_version=mapping_version)
+        for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                project_id=project_id, scoped_version_ids={version.id}, limit=1):
+            added.append(_hybrid_citation(chunk, hit, index_name, via_reference=True))
+            found.add(document_id)
+    return added
 
 
 def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference: bool = False) -> ProjectChatCitation:
@@ -218,14 +276,13 @@ def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference:
 
 def _expand_along_references(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
-                             chunks_by_position: dict, settings) -> list[ProjectChatCitation]:
+                             chunks_by_position: dict, settings, enabled: bool, limit: int) -> list[ProjectChatCitation]:
     """CHG-442 REF442-006: one best chunk from each document linked to a retrieved one by a resolved reference.
 
     Depth 1, both directions, only documents already inside this authorized published scope, ordered by
-    the number of references, at most `reference_expansion_max_chunks` extra chunks.
+    the number of references, at most `limit` extra chunks (system setting `reference_expansion_max_chunks`, CHG-445).
     """
-    limit = settings.reference_expansion_max_chunks
-    if not settings.reference_expansion_enabled or limit <= 0 or not citations:
+    if not enabled or limit <= 0 or not citations:
         return []
     version_by_document = {version.document_id: version for version in versions}
     found = {citation.document_id for citation in citations}

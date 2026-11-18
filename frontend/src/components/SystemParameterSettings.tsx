@@ -12,8 +12,9 @@ import { FeedbackMessage } from "./FeedbackMessage";
 import { SettingsCard, SettingsFieldRow } from "./SettingsCard";
 
 type Key = keyof SystemParameterApiValues;
-type Field = { key: Key; label: TranslationKey; help: TranslationKey; max?: number; min?: number; zero?: boolean };
-const fields: Record<"general" | "documents", { panel: string; title: TranslationKey; fields: Field[] }[]> = {
+type Field = { key: Key; label: TranslationKey; help: TranslationKey; max?: number; min?: number; zero?: boolean; kind?: "boolean" };
+type Section = "general" | "documents" | "question_answering";
+const fields: Record<Section, { panel: string; title: TranslationKey; fields: Field[] }[]> = {
   general: [
     { panel: "time", title: "settingsTime", fields: [{ key: "default_timezone", label: "systemDefaultTimezoneLabel", help: "settingsTimezoneHelp" }] },
     { panel: "drafts", title: "settingsDrafts", fields: [{ key: "session_expired_form_draft_ttl_minutes", label: "systemSessionDraftTtlLabel", help: "systemSessionDraftTtlHelp", min: 5, max: 120, zero: true }] }
@@ -25,11 +26,23 @@ const fields: Record<"general" | "documents", { panel: string; title: Translatio
       { key: "ocr_request_max_output_tokens", label: "ocrRequestTokenSettingLabel", help: "ocrRequestTokenSettingHelp", min: 1, max: 2147483647 },
       { key: "ocr_document_max_tokens", label: "ocrDocumentTokenSettingLabel", help: "ocrDocumentTokenSettingHelp", min: 1, max: 2147483647 }
     ] }
+  ],
+  // CHG-445 ROUTE445-005
+  question_answering: [
+    { panel: "routing", title: "settingsReferenceRouting", fields: [
+      { key: "reference_routing_enabled", label: "referenceRoutingEnabledLabel", help: "referenceRoutingEnabledHelp", kind: "boolean" },
+      { key: "reference_routing_max_documents", label: "referenceRoutingMaxDocumentsLabel", help: "referenceRoutingMaxDocumentsHelp", min: 1, max: 50 }
+    ] },
+    { panel: "expansion", title: "settingsReferenceExpansion", fields: [
+      { key: "reference_expansion_enabled", label: "referenceExpansionEnabledLabel", help: "referenceExpansionEnabledHelp", kind: "boolean" },
+      { key: "reference_expansion_max_chunks", label: "referenceExpansionMaxChunksLabel", help: "referenceExpansionMaxChunksHelp", min: 0, max: 10, zero: true }
+    ] }
   ]
 };
+const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks" };
 
 export default function SystemParameterSettings({ section, onDirtyChange }: {
-  section: "general" | "documents"; onDirtyChange: (dirty: boolean) => void;
+  section: Section; onDirtyChange: (dirty: boolean) => void;
 }) {
   const { apiFetch, can, currentUser, operationGuards } = useAuth();
   const { t, format, locale } = useI18n();
@@ -65,8 +78,7 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
     const restore = (event: Event) => {
       const detail = (event as CustomEvent<{ formKey: string; payload: Record<string, unknown> }>).detail;
       if (detail?.formKey !== "system.parameters") return;
-      const aliases: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens" };
-      const restored = Object.fromEntries(keys.filter(key => ["string", "number"].includes(typeof detail.payload[aliases[key]])).map(key => [key, String(detail.payload[aliases[key]])]));
+      const restored = Object.fromEntries(keys.filter(key => ["string", "number", "boolean"].includes(typeof detail.payload[ALIASES[key]])).map(key => [key, String(detail.payload[ALIASES[key]])]));
       restoredDraft.current = restored;
       setDraft(previous => ({ ...previous, ...restored }));
     };
@@ -77,10 +89,12 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   async function save() {
     if (!data || !editable || blocked) return;
     const problems: Partial<Record<Key, TranslationKey>> = {};
-    const values: Record<string, string | number> = {};
+    const values: Record<string, string | number | boolean> = {};
     for (const field of groups.flatMap(group => group.fields)) {
       const value = draft[field.key] ?? "";
-      if (field.key === "default_timezone") {
+      if (field.kind === "boolean") {
+        values[field.key] = value === "true";
+      } else if (field.key === "default_timezone") {
         try { if (!value) throw new Error(); new Intl.DateTimeFormat("en", { timeZone: value }); }
         catch { problems[field.key] = "settingsInvalidTimezone"; }
         values[field.key] = value;
@@ -134,7 +148,8 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
     {groups.map(group => <SettingsCard key={group.panel} panel={group.panel} title={t(group.title)}>
       {group.fields.map(field => {
         const id = `setting-${field.key}`, metadata = data?.parameter_metadata[field.key];
-        const aliases: Record<string, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens" };
+        const aliases = ALIASES;
+        if (field.kind === "boolean") return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)}><label className="settings-toggle"><input id={id} type="checkbox" disabled={!editable || !data || blocked} aria-describedby={`${id}-help`} checked={draft[field.key] === "true"} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: String(event.target.checked) })); setNotice(null); }} /><span>{t(draft[field.key] === "true" ? "settingsEnabled" : "settingsDisabled")}</span></label><small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{metadata?.updated_by ? ` · ${metadata.updated_by}` : ""}</small></SettingsFieldRow>;
         return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)} extra={field.key === "max_upload_size_mb" && data ? <small>{format("settingsPlatformLimit", { limit: data.deployment_max_upload_size_mb })}</small> : undefined}><input id={id} disabled={!editable || !data || blocked} aria-invalid={Boolean(errors[field.key])} aria-describedby={`${id}-help${errors[field.key] ? ` ${id}-error` : ""}`} type={field.max ? "number" : "text"} min={field.zero ? 0 : field.min} max={field.key === "max_upload_size_mb" && data ? Math.min(field.max!, data.deployment_max_upload_size_mb) : field.max} value={draft[field.key] ?? ""} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setErrors(previous => ({ ...previous, [field.key]: undefined })); setNotice(null); }} />{errors[field.key] ? <small className="settings-field-error" id={`${id}-error`}>{t(errors[field.key]!)}</small> : null}<small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{metadata?.updated_by ? ` · ${metadata.updated_by}` : ""}</small></SettingsFieldRow>;
       })}
     </SettingsCard>)}

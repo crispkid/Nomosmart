@@ -1645,6 +1645,11 @@ class SystemParametersCorePayload(BaseModel):
 
 
 class SystemParametersPayload(SystemParametersCorePayload):
+    # CHG-445 ROUTE445-004
+    reference_routing_enabled: bool
+    reference_routing_max_documents: int
+    reference_expansion_enabled: bool
+    reference_expansion_max_chunks: int
     ocr_page_max_output_tokens: int
     ocr_request_max_output_tokens: int
     ocr_token_budget_policy: str
@@ -1664,6 +1669,10 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
     ocr_request_max_output_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     ocr_document_max_tokens: int | None = Field(default=None, strict=True, ge=1, le=2147483647)
     expected_ocr_token_settings_hash: str | None = Field(default=None, pattern=r"^[0-9a-f]{64}$")
+    reference_routing_enabled: bool | None = Field(default=None, strict=True)
+    reference_routing_max_documents: int | None = Field(default=None, strict=True, ge=1, le=50)
+    reference_expansion_enabled: bool | None = Field(default=None, strict=True)
+    reference_expansion_max_chunks: int | None = Field(default=None, strict=True, ge=0, le=10)
 
     @model_validator(mode="before")
     @classmethod

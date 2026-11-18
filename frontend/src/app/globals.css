@@ -12518,3 +12518,7 @@ small {
 .action-button.compact { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .station-waiting-note { color: var(--feedback-warning-text); font-weight: 700; }
 .graph-explorer-edges path.relation-references { stroke: var(--deep-green); stroke-dasharray: 2 4; }
+
+/* CHG-445 ROUTE445-005: on/off system settings. */
+.settings-toggle { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; cursor: pointer; }
+.settings-toggle input { width: 18px; height: 18px; accent-color: var(--deep-green); }

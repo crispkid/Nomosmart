@@ -132,7 +132,8 @@ async def update_parameters(request: Request, context: IdentityContext = Depends
     require_menu_permission(list(context.grants), MENU_SYSTEM_MANAGEMENT, PermissionAction.EDIT)
     body = await _body(request)
     expected = body.get("expected_section_revisions")
-    if not isinstance(expected, dict) or set(expected) != set(store.SECTIONS):
+    # CHG-445: a client may omit sections it does not change (older clients send only general and documents).
+    if not isinstance(expected, dict) or not {"general", "documents"} <= set(expected) <= set(store.SECTIONS):
         raise AppError("system_parameters_revision_required", "Reload settings before saving", status_code=428)
     try:
         payload = SystemParametersUpdatePayload.model_validate(body)
@@ -151,8 +152,12 @@ def _put_transaction(values, expected, payload, ocr_changed, request, context, s
         legacy_rows = list(session.scalars(select(SystemParameter).where(SystemParameter.key == PAGE_KEY)))
         if values[PAGE_KEY] != legacy_page_from_rows(legacy_rows):
             raise AppError("ocr_page_token_setting_retired", "Per-page OCR output setting is retired; use the request output setting", status_code=422)
-    store.update_sections(session, changes={section: {key: values[key] for key in keys if key in values}
-        for section, keys in store.SECTIONS.items()}, expected=expected, actor=context.user_id,
+    changes = {section: {key: values[key] for key in keys if key in values} for section, keys in store.SECTIONS.items()}
+    changes = {section: patch for section, patch in changes.items() if patch or section in ("general", "documents")}
+    if set(changes) - set(expected):
+        raise AppError("system_parameters_revision_required", "Reload settings before saving", status_code=428)
+    expected = {section: expected[section] for section in changes}
+    store.update_sections(session, changes=changes, expected=expected, actor=context.user_id,
         request_id=request.state.request_id, deployment_limit=request.app.state.settings.max_upload_size_mb,
         ocr_hash=payload.expected_ocr_token_settings_hash if ocr_changed else None)
     result = _payload(session, request.app.state.settings)
