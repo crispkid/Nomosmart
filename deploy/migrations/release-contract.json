@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.3.0",
-  "required_version": "064",
+  "required_version": "065",
   "targets": {
     "SQL": {
-      "file": "V064__four_stage_extraction_references.sql",
-      "checksum": -706362957,
-      "sha256": "b9f734dde1cc739f0630daf0e14ae366c004b57238dc4330601ca45a4d60561e"
+      "file": "V065__question_answering_settings.sql",
+      "checksum": -1370109692,
+      "sha256": "691cc058401c9b5e072cdc620edfdc4dbc852baad428709a2f16e4011360489a"
     }
   }
 }

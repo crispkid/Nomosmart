@@ -40,6 +40,7 @@ export const settingsSections = [
   { id: "identity", labelKey: "settingsIdentity", panels: ["login", "directory", "credentials", "sync", "sync-history", "emergency"] },
   { id: "ai", labelKey: "settingsAI", panels: ["models", "prompts"] },
   { id: "documents", labelKey: "settingsDocuments", panels: ["upload", "retention", "ocr"] },
+  { id: "question_answering", labelKey: "settingsQuestionAnswering", panels: ["routing", "expansion"] },
   { id: "apiKeys", labelKey: "settingsApiKeys", panels: ["clients"] },
   { id: "general", labelKey: "settingsGeneral", panels: ["time", "drafts"] },
   { id: "status", labelKey: "settingsStatus", panels: ["runtime", "dependencies", "providers", "errors"] }

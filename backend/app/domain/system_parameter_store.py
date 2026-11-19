@@ -14,7 +14,11 @@ from app.services.audit import add_audit
 SECTIONS = {
     "general": ("default_timezone", "session_expired_form_draft_ttl_minutes"),
     "documents": ("max_upload_size_mb", "staging_index_ttl_days", "ocr_request_max_output_tokens", "ocr_document_max_tokens"),
+    # CHG-445 ROUTE445-004: reference routing and reference expansion for published-scope answers.
+    "question_answering": ("reference_routing_enabled", "reference_routing_max_documents",
+                           "reference_expansion_enabled", "reference_expansion_max_chunks"),
 }
+BOOLEAN_KEYS = ("reference_routing_enabled", "reference_expansion_enabled")
 KEYS = tuple(key for keys in SECTIONS.values() for key in keys)
 
 
@@ -25,10 +29,14 @@ def unavailable():
 def validate(values, *, deployment_limit=None):
     errors = {}
     limits = {"max_upload_size_mb": (1, 10240), "staging_index_ttl_days": (1, 3650),
-              "ocr_request_max_output_tokens": (1, 2147483647), "ocr_document_max_tokens": (1, 2147483647)}
+              "ocr_request_max_output_tokens": (1, 2147483647), "ocr_document_max_tokens": (1, 2147483647),
+              "reference_routing_max_documents": (1, 50), "reference_expansion_max_chunks": (0, 10)}
     for key, (low, high) in limits.items():
         if key in values and (type(values[key]) is not int or not low <= values[key] <= high):
             errors[key] = "integer_out_of_range"
+    for key in BOOLEAN_KEYS:
+        if key in values and type(values[key]) is not bool:
+            errors[key] = "boolean_required"
     key = "session_expired_form_draft_ttl_minutes"
     if key in values and (type(values[key]) is not int or values[key] != 0 and not 5 <= values[key] <= 120):
         errors[key] = "integer_out_of_range"
@@ -59,6 +67,11 @@ def read_values(session, keys=KEYS, *, defaults=False):
     except AppError as exc:
         raise unavailable() from exc
     return values
+
+
+def question_answering_settings(session) -> dict:
+    """ROUTE445-004: current reference routing and expansion values; read per question so changes apply at once."""
+    return read_values(session, SECTIONS["question_answering"])
 
 
 def intake_settings(session, settings):

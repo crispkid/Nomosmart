@@ -330,8 +330,6 @@ class Settings(MigrationProbeSettings):
     # CHG-436 MTVAL436-002: questions allowed in one multi-turn validation scenario.
     validation_scenario_max_turns: int = Field(default=20, ge=2, le=50)
     # CHG-442 REF442-006: Q&A adds chunks of documents linked by references to the retrieved ones.
-    reference_expansion_enabled: bool = True
-    reference_expansion_max_chunks: int = Field(default=3, ge=0, le=10)
     report_export_batch_size: int = Field(default=500, ge=50, le=2000)
     report_export_timeout_seconds: int = Field(default=300, ge=30, le=3600)
     deployment_bootstrap_release: str = ""

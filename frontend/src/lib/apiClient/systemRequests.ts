@@ -128,6 +128,6 @@ export async function queueIdentitySync(apiFetch: ApiFetch) { return apiJson<Ide
 export async function listIdentitySyncRuns(apiFetch: ApiFetch, signal?: AbortSignal) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs", { signal })).items; }
 export async function getIdentitySyncRun(apiFetch: ApiFetch, runId: string) { return apiJson<IdentitySyncRunResponse>(apiFetch, `/identity-sync/runs/${runId}`); }
 
-export async function patchSystemParameters(apiFetch: ApiFetch, section: "general" | "documents", expected_revision: string, values: Partial<SystemParameterApiValues>) {
+export async function patchSystemParameters(apiFetch: ApiFetch, section: "general" | "documents" | "question_answering", expected_revision: string, values: Partial<SystemParameterApiValues>) {
   return apiJson<SystemParameterSectionResponse>(apiFetch, "/system/parameters", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ section, expected_revision, values }) });
 }

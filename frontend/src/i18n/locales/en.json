@@ -2587,5 +2587,18 @@
   "contentEditStationRevisionRequired": "Start a revision to make changes from station 1.",
   "stationRevisionUnavailableError": "A revision cannot be started from this version.",
   "manualChunkDuplicateRange": "A chunk with exactly this range already exists.",
-  "graphRelationReferences": "References"
+  "graphRelationReferences": "References",
+  "settingsQuestionAnswering": "Question answering",
+  "settingsReferenceRouting": "Reference questions",
+  "settingsReferenceExpansion": "Reference expansion",
+  "referenceRoutingEnabledLabel": "Detect reference questions",
+  "referenceRoutingEnabledHelp": "When on, every published-scope question is first checked by the project's Chat model for 'which documents reference X' or 'which documents does X reference'; if so, the linked documents are added from the reference data. Adds one model call per question.",
+  "referenceRoutingMaxDocumentsLabel": "Documents added for a reference question",
+  "referenceRoutingMaxDocumentsHelp": "1–50. Includes the named document itself, ordered by reference count. Applies from the next question.",
+  "referenceExpansionEnabledLabel": "Expand along references",
+  "referenceExpansionEnabledHelp": "When on, answers also use chunks of documents linked by references to the search results (published scope only).",
+  "referenceExpansionMaxChunksLabel": "Chunks added by expansion",
+  "referenceExpansionMaxChunksHelp": "0–10; 0 adds none. Applies from the next question.",
+  "settingsEnabled": "On",
+  "settingsDisabled": "Off"
 }

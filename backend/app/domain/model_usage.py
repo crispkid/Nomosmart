@@ -81,6 +81,23 @@ def record_query_rewrite_usage(
     return _commit_usage_event(expected, session_factory=session_factory, conflict_code="query_rewrite_usage_identity_conflict")
 
 
+def record_question_routing_usage(
+    *, model: AIModel, source_channel: str, status: str, token_usage: dict[str, Any] | None = None,
+    latency_ms: int | None = None, error_code: str | None = None, project_id: UUID | None = None,
+    actor_user_id: UUID | None = None, prompt_version: str = "reference-routing-v1",
+    session_factory: sessionmaker[Session] | None = None,
+) -> AIModelUsageEvent:
+    """CHG-445 ROUTE445-003: one question-routing classification, committed independently of the answer."""
+    if model.model_type != "Chat" or status not in {"success", "failed"}:
+        raise AppError("question_routing_usage_identity_conflict", "Question routing usage context is invalid", status_code=409)
+    expected = _build_model_usage_event(
+        model=model, event_id=uuid4(), usage_purpose="question_routing", source_channel=source_channel, status=status,
+        token_usage=token_usage, latency_ms=latency_ms, error_code=error_code, project_id=project_id,
+        actor_user_id=actor_user_id, metadata={"model_config_version": model.config_version, "prompt_version": prompt_version},
+    )
+    return _commit_usage_event(expected, session_factory=session_factory, conflict_code="question_routing_usage_identity_conflict")
+
+
 def record_reconciliation_embedding_usage(
     *, model: AIModel, event_id: UUID, project_id: UUID, document_id: UUID,
     document_version_id: UUID, status: str, chunk_count: int,
