@@ -19,7 +19,7 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 from app.domain.chunk_overlaps import chunk_overlaps
 from app.domain.stations import confirm_station, create_station_revision, paused_station, reopen_station, reuse_summary, station_rows, uses_stations
-from app.domain.chunk_references import extract_version_references, reference_summary, resolve_pending_references
+from app.domain.chunk_references import extract_version_references, reference_summary, release_deleted_target, resolve_pending_references
 from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
@@ -866,21 +866,33 @@ def update_document_lifecycle(
     if payload.status == "active" and manifest is None:
         raise AppError("active_manifest_required", "Document requires a ready active manifest before activation", status_code=409)
     cancelled_runs = 0
+    was_deleted = bool(document.is_deleted)
+    relink: dict[str, int] = {}
     if payload.status == "deleted":
         document.status = "deleted"
         document.is_deleted = True
         # CHG-444 QUEUE444-001/002: a not-started extraction leaves the dispatch queue with the document.
         cancelled_runs = cancel_queued_extractions(session, document)
+        if not was_deleted:
+            # CHG-447 RELINK447-001: references to the deleted document are released and retried elsewhere.
+            relink["references_released"] = release_deleted_target(session, project.id, document.id)
+            relink["references_resolved"] = resolve_pending_references(session, project.id)
     else:
-        if document.is_deleted:
+        if was_deleted:
             # REN442-004 G5-A: a deleted document's name may have been reused meanwhile.
             ensure_title_available(session, document.title, visible_project_ids=set(context.visible_project_ids), exclude_document_id=document.id, source_type=document.source_type)
         document.status = payload.status
         document.is_deleted = False
+        if was_deleted:
+            # CHG-447 RELINK447-002: a restored document can take its references back.
+            relink["references_resolved"] = resolve_pending_references(session, project.id)
+    if any(relink.values()):
+        from app.domain.graph_references import sync_reference_edges
+        sync_reference_edges(session, request.app.state.settings, project.id)
     document.lock_version += 1
     event_type = {"active": "source_activated", "inactive": "source_deactivated", "deleted": "source_deleted"}[payload.status]
     create_source_reference_events(session, source_document=document, event_type=event_type)
-    add_audit(session, actor_user_id=context.user_id, action="document.lifecycle.update", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"status": payload.status, "reason": payload.reason, "impact": impact.model_dump(mode="json"), "cancelled_extraction_runs": cancelled_runs})
+    add_audit(session, actor_user_id=context.user_id, action="document.lifecycle.update", resource_type="document", resource_id=document.id, result="success", request_id=request.state.request_id, summary={"status": payload.status, "reason": payload.reason, "impact": impact.model_dump(mode="json"), "cancelled_extraction_runs": cancelled_runs, **relink})
     session.commit()
     version = session.scalar(select(DocumentVersion).where(DocumentVersion.document_id == document.id, DocumentVersion.chunk_strategy["content_update_cancelled"].astext.is_distinct_from("true")).order_by(DocumentVersion.created_at.desc()).limit(1))
     pipeline = session.scalar(select(PipelineRun).where(PipelineRun.document_id == document.id, ~hidden_cancelled_run()).order_by(PipelineRun.created_at.desc()).limit(1))
