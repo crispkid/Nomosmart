@@ -44,7 +44,7 @@ export type GraphExplorerEdge = {
   id: string;
   label: string;
   meta?: GraphExplorerMeta[];
-  relation: "contains" | "references" | "semantic" | "source" | "tagged_as";
+  relation: "contains" | "references" | "semantic" | "source" | "supersedes" | "tagged_as";
   showLabel?: boolean;
   source: string;
   target: string;

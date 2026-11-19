@@ -163,6 +163,8 @@ export type ChunkReferenceItem = {
   id: string; chunk_id: string; chunk_index: number | null; raw_text: string; start_offset: number | null; end_offset: number | null;
   normalized_name: string; status: "resolved" | "unresolved" | "external"; target_document_id: string | null; target_title: string | null;
   source: "rule" | "manual"; is_deleted: boolean; lock_version: number;
+  /** CHG-446 SUPER446-003 */
+  relation_type?: "references" | "supersedes";
 };
 export type ChunkReferenceSummary = { total: number; resolved: number; unresolved: number; external: number };
 export type ChunkReferenceListResponse = { document_version_id: string; editable: boolean; items: ChunkReferenceItem[]; summary: ChunkReferenceSummary };

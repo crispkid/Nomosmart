@@ -293,6 +293,7 @@ export function liveDocumentFromSummary(document: DocumentSummary, t: Translate,
     dataSourceId: document.service_source?.data_source_id,
     serviceSource,
     referenceSource,
+    supersededBy: document.superseded_by ?? [],
     chunks: version?.active_chunk_count ?? null,
     chunkCountRunId: version?.status === "submission_ready" && pipeline?.status === "submission_ready"
       && typeof version.active_chunk_count === "number" ? pipeline.id ?? undefined : undefined,

@@ -338,6 +338,11 @@ class DocumentReferenceSourceSummary(BaseModel):
     pending_event_count: int = 0
 
 
+class DocumentSupersededBy(BaseModel):
+    document_id: UUID
+    title: str
+
+
 class DocumentSummary(BaseModel):
     id: UUID
     created_by_name: str | None = None
@@ -356,6 +361,8 @@ class DocumentSummary(BaseModel):
     service_source: DocumentServiceSourceSummary | None = None
     reference_source: DocumentReferenceSourceSummary | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
+    # CHG-446 SUPER446-006: published documents that supersede this one.
+    superseded_by: list[DocumentSupersededBy] = Field(default_factory=list)
 
 
 class DocumentSummaryPage(BaseModel):
@@ -1976,6 +1983,7 @@ class ChunkReferenceItem(BaseModel):
     target_document_id: UUID | None = None
     target_title: str | None = None
     source: Literal["rule", "manual"]
+    relation_type: Literal["references", "supersedes"] = "references"  # CHG-446 SUPER446-003
     is_deleted: bool = False
     lock_version: int
 
@@ -1999,6 +2007,7 @@ class ChunkReferenceCreatePayload(BaseModel):
     raw_text: str = Field(min_length=1, max_length=500)
     target_document_id: UUID | None = None
     external: bool = False
+    relation_type: Literal["references", "supersedes"] = "references"  # CHG-446 SUPER446-003
 
 
 class ChunkReferenceUpdatePayload(BaseModel):

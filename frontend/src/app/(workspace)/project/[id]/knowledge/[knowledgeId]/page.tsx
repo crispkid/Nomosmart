@@ -557,6 +557,7 @@ export default function KnowledgePage() {
         </div>
       </div>
 
+      {liveDetail?.document.superseded_by?.length ? <FeedbackMessage tone="warning">{format("documentSupersededBy", { titles: liveDetail.document.superseded_by.map(item => `〈${item.title}〉`).join("、") })}</FeedbackMessage> : null}
       {stationMode && liveDetail ? <div className="station-header">
         <StationStepper detail={liveDetail} onView={(station) => { setPickedStation(station); setStationError(null); if (station < 3 && documentView === "tags") setDocumentView("original"); }} t={t} viewStation={viewStation} />
         {liveDetail.content_edit_reason === "content_edit_station_revision_required" && liveDetail.document.capabilities?.can_edit_chunks

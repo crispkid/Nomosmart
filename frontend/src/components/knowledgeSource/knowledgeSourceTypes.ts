@@ -64,6 +64,8 @@ export type CreatedKnowledgeDocument = {
   sourceState: SourceState;
   serviceSource?: ServiceSource;
   referenceSource?: ReferenceSource;
+  /** CHG-446 SUPER446-006 */
+  supersededBy?: Array<{ document_id: string; title: string }>;
   chunks: number | null;
   /** Run whose terminal count was confirmed by the document summary. */
   chunkCountRunId?: string;

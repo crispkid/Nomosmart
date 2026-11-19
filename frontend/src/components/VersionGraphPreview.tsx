@@ -33,6 +33,6 @@ export function VersionGraphPreview({ projectId, documentId, versionId, document
   return <>
     {graph.truncated ? <p role="status">{format("graphVersionTruncatedStatus", { limit: graph.node_limit })}</p> : null}
     <DocumentGraphPreview layoutScope={scope} layoutBinding={binding} documentTitle={documentTitle} version={version} documentTags={evidence.documentTags} graphChunks={evidence.chunks}
-      referenceLinks={graph.edges.filter(edge => edge.type === "REFERENCES").map(edge => ({ chunkId: edge.source, targetId: edge.target, title: graph.nodes.find(node => node.id === edge.target)?.label ?? edge.target }))} />
+      referenceLinks={graph.edges.filter(edge => edge.type === "REFERENCES" || edge.type === "SUPERSEDES").map(edge => ({ chunkId: edge.source, targetId: edge.target, title: graph.nodes.find(node => node.id === edge.target)?.label ?? edge.target, relation: edge.type === "SUPERSEDES" ? "supersedes" as const : "references" as const }))} />
   </>;
 }

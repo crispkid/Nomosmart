@@ -2600,5 +2600,10 @@
   "referenceExpansionMaxChunksLabel": "Chunks added by expansion",
   "referenceExpansionMaxChunksHelp": "0–10; 0 adds none. Applies from the next question.",
   "settingsEnabled": "On",
-  "settingsDisabled": "Off"
+  "settingsDisabled": "Off",
+  "referencesRelationLabel": "Relation",
+  "referencesRelationReferences": "References",
+  "referencesRelationSupersedes": "Supersedes",
+  "documentSupersededBy": "This document has been superseded by {titles}. Answers tell the model to prefer the newer rules; deactivating it is up to an administrator.",
+  "graphRelationSupersedes": "Supersedes"
 }

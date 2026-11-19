@@ -834,6 +834,8 @@ class ChunkReference(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(16), nullable=False)
     target_document_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("documents.id"))
     source: Mapped[str] = mapped_column(String(16), nullable=False)
+    # CHG-446 SUPER446-001 (V066): "references" or "supersedes" (this document supersedes the target).
+    relation_type: Mapped[str] = mapped_column(String(16), nullable=False, default="references", server_default="references")
     is_deleted: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     updated_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))

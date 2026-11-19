@@ -26,6 +26,13 @@ PATTERNS = (
     re.compile(rf"依(?:據|照)?\s*{_NAME}"),
     re.compile(rf"(?:參照|參考|詳見|請見|比照|準用)\s*{_NAME}"),
 )
+# CHG-446 SUPER446-002: "this document supersedes X". The quoted name may contain brackets and years.
+_QUOTED = r"[「《]([^」》\n]{2,60})[」》]"
+SUPERSEDE_PATTERNS = (
+    re.compile(rf"原{_QUOTED}[^。；\n]{{0,12}}?(?:廢止|停止適用|不再適用)"),
+    re.compile(rf"(?:取代|替代)(?:原)?{_QUOTED}"),
+    re.compile(rf"{_QUOTED}[^。；\n]{{0,12}}?(?:廢止|停止適用|不再適用)"),
+)
 _EXTENSION = re.compile(r"\.(pdf|docx?|xlsx?|pptx?|txt|md|markdown|html?|csv)$", re.I)
 MIN_CONTAINMENT_LENGTH = 4
 MAX_RAW_LENGTH = 500
@@ -37,6 +44,7 @@ class FoundReference:
     start: int
     end: int
     key: str
+    relation: str = "references"
 
 
 def reference_key(name: str) -> str:
@@ -46,10 +54,11 @@ def reference_key(name: str) -> str:
 
 
 def find_references(text: str) -> list[FoundReference]:
-    """Each text span yields at most one reference; 依《員工手冊》 counts once."""
+    """Each text span yields at most one reference; 依《員工手冊》 counts once. A span that states a supersede
+    (CHG-446) is recorded as `supersedes`, never also as a reference."""
     found: list[FoundReference] = []
     taken: list[tuple[int, int]] = []
-    for pattern in PATTERNS:
+    for relation, pattern in [*(("supersedes", item) for item in SUPERSEDE_PATTERNS), *(("references", item) for item in PATTERNS)]:
         for match in pattern.finditer(text or ""):
             start, end = match.span(1)
             if any(start < t_end and t_start < end for t_start, t_end in taken):
@@ -58,7 +67,7 @@ def find_references(text: str) -> list[FoundReference]:
             if len(key) < 2:
                 continue
             taken.append((start, end))
-            found.append(FoundReference(match.group(1)[:MAX_RAW_LENGTH], start, end, key[:MAX_RAW_LENGTH]))
+            found.append(FoundReference(match.group(1)[:MAX_RAW_LENGTH], start, end, key[:MAX_RAW_LENGTH], relation))
     return sorted(found, key=lambda item: item.start)
 
 
@@ -90,7 +99,7 @@ def _add_rule_references(session, version: DocumentVersion, chunk: Chunk, index:
             id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
             chunk_id=chunk.id, raw_text=item.raw_text, start_offset=item.start, end_offset=item.end,
             normalized_name=item.key, status="resolved" if target else "unresolved", target_document_id=target,
-            source="rule", is_deleted=False, created_by=actor_user_id, updated_by=actor_user_id, lock_version=1,
+            source="rule", relation_type=item.relation, is_deleted=False, created_by=actor_user_id, updated_by=actor_user_id, lock_version=1,
             created_at=now, updated_at=now))
         added += 1
         resolved += target is not None
@@ -125,10 +134,34 @@ def carry_chunk_references(session, version: DocumentVersion, chunk: Chunk, orig
                 id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
                 chunk_id=chunk.id, raw_text=row.raw_text, start_offset=row.start_offset, end_offset=row.end_offset,
                 normalized_name=row.normalized_name, status=row.status, target_document_id=row.target_document_id,
-                source=row.source, is_deleted=row.is_deleted, created_by=row.created_by, updated_by=row.updated_by,
-                lock_version=1, created_at=row.created_at, updated_at=now))
+                source=row.source, relation_type=row.relation_type, is_deleted=row.is_deleted, created_by=row.created_by,
+                updated_by=row.updated_by, lock_version=1, created_at=row.created_at, updated_at=now))
         return
     _add_rule_references(session, version, chunk, project_name_index(session, version.project_id), None, now)
+
+
+def backfill_supersedes(session, version: DocumentVersion) -> int:
+    """SUPER446-007: add supersede rows the rules find on active chunks that do not have them yet (any state,
+    removed ones included, so human corrections are kept). Existing reference rows are not changed."""
+    index = project_name_index(session, version.project_id)
+    now = datetime.now(UTC)
+    added = 0
+    for chunk in session.scalars(select(Chunk).where(Chunk.document_version_id == version.id, Chunk.status == "active")).all():
+        known = set(session.scalars(select(ChunkReference.normalized_name).where(
+            ChunkReference.chunk_id == chunk.id, ChunkReference.relation_type == "supersedes")).all())
+        for item in find_references(chunk.content):
+            if item.relation != "supersedes" or item.key in known:
+                continue
+            target = resolve_key(index, item.key, version.document_id)
+            session.add(ChunkReference(
+                id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
+                chunk_id=chunk.id, raw_text=item.raw_text, start_offset=item.start, end_offset=item.end,
+                normalized_name=item.key, status="resolved" if target else "unresolved", target_document_id=target,
+                source="rule", relation_type="supersedes", is_deleted=False, lock_version=1, created_at=now, updated_at=now))
+            known.add(item.key)
+            added += 1
+    session.flush()
+    return added
 
 
 def resolve_pending_references(session, project_id: UUID) -> int:
@@ -179,3 +212,23 @@ def require_target_document(session, project_id: UUID, source_document_id: UUID,
     if target.id == source_document_id:
         raise AppError("chunk_reference_self", "A document cannot reference itself", status_code=422)
     return target
+
+
+def superseded_by_map(session, document_ids: list[UUID]) -> dict[UUID, list[tuple[UUID, str]]]:
+    """SUPER446-006: for each document, the published documents that supersede it (resolved, not removed)."""
+    if not document_ids:
+        return {}
+    source = Document.__table__.alias("source_document")
+    rows = session.execute(
+        select(ChunkReference.target_document_id, source.c.id, source.c.title)
+        .join(Chunk, Chunk.id == ChunkReference.chunk_id)
+        .join(DocumentVersion, DocumentVersion.id == ChunkReference.document_version_id)
+        .join(source, source.c.id == ChunkReference.document_id)
+        .where(ChunkReference.relation_type == "supersedes", ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+               Chunk.status == "active", DocumentVersion.status == "active", DocumentVersion.published_at.is_not(None),
+               source.c.is_deleted.is_(False), ChunkReference.target_document_id.in_(document_ids))).all()
+    result: dict[UUID, list[tuple[UUID, str]]] = {}
+    for target, source_id, title in rows:
+        if (source_id, title) not in result.setdefault(target, []):
+            result[target].append((source_id, title))
+    return result

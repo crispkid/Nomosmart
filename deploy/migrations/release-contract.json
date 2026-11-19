@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.3.0",
-  "required_version": "065",
+  "required_version": "066",
   "targets": {
     "SQL": {
-      "file": "V065__question_answering_settings.sql",
-      "checksum": -1370109692,
-      "sha256": "691cc058401c9b5e072cdc620edfdc4dbc852baad428709a2f16e4011360489a"
+      "file": "V066__chunk_reference_relation_type.sql",
+      "checksum": 1801147645,
+      "sha256": "251d553e511097f4431a15fea6c9ea1f4621dda2d4195c47e0f6ca858c1a9cad"
     }
   }
 }
