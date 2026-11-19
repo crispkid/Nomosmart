@@ -96,6 +96,9 @@ export default function KnowledgePage() {
   const displayChunks = useMemo(() => liveDetail?.chunks.map((chunk) => liveChunk(chunk, t, format)) ?? [], [format, liveDetail?.chunks, t]);
   const stationMode = usesStations(liveDetail);
   const currentActiveStation = activeStation(liveDetail);
+  // CHG-447 FIX447-002: at stations 1-3 the next stage waits for the four confirmations, not for artifacts.
+  const stationsPending = stationMode && typeof liveDetail?.current_station === "number" && liveDetail.current_station >= 1 && liveDetail.current_station <= 3;
+  const nextStageBlockedKey = stationsPending ? "knowledgeDetailStationsPending" : liveDetail?.next_stage_block_reason === "chunks_required" ? "knowledgeDetailChunksRequired" : "knowledgeDetailArtifactsNotReady";
   const viewStation: StationNumber = !stationMode ? 4 : pickedStation && pickedStation <= (currentActiveStation ?? 4) ? pickedStation : currentActiveStation ?? 4;
   useEffect(() => {
     if (!chunkMenu) return;
@@ -553,7 +556,7 @@ export default function KnowledgePage() {
             {t(liveDetail?.chat_access?.mode === "published" ? "knowledgePublishedChat" : "chatTest")} <ArrowRight size={16} />
           </Link> : liveDetail?.chat_access?.mode === "history_only" ? <Link className="text-link" href={`/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
             {t("knowledgeChatHistoryOnly")}
-          </Link> : liveDetail && !knowledgeGateBlocked ? <span className="next-stage-disabled" title={t(liveDetail.next_stage_block_reason === "chunks_required" ? "knowledgeDetailChunksRequired" : "knowledgeDetailArtifactsNotReady")}><AlertTriangle size={16} /> {t("chatTest")}</span> : null}
+          </Link> : liveDetail && !knowledgeGateBlocked ? <span className="next-stage-disabled" title={t(nextStageBlockedKey)}><AlertTriangle size={16} /> {t("chatTest")}</span> : null}
         </div>
       </div>
 
@@ -675,7 +678,7 @@ export default function KnowledgePage() {
         busy={manualReadBusy} canRetry={canObserve && deniedReadRoute !== routeKey} onRetry={() => void recheckReadinessOnce()} /> :
       <div className={liveDetail?.next_stage_allowed ? "review-banner" : "review-banner warning"}>
         {liveDetail?.next_stage_allowed ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
-        <span>{liveDetail?.chat_access?.mode === "published" ? t("knowledgePublishedChat") : liveDetail?.next_stage_allowed ? t("knowledgeDetailReviewReady") : t(liveDetail?.next_stage_block_reason === "chunks_required" ? "knowledgeDetailChunksRequired" : "knowledgeDetailArtifactsNotReady")}</span>
+        <span>{liveDetail?.chat_access?.mode === "published" ? t("knowledgePublishedChat") : liveDetail?.next_stage_allowed ? t("knowledgeDetailReviewReady") : t(nextStageBlockedKey)}</span>
       </div>}
 
       {reopenTarget && liveDetail ? <StationReopenDialog busy={stationBusy} chunkCount={liveDetail.active_chunk_count} error={stationError} format={format} onCancel={() => setReopenTarget(null)}

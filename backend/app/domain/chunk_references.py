@@ -185,6 +185,26 @@ def resolve_pending_references(session, project_id: UUID) -> int:
     return count
 
 
+def release_deleted_target(session, project_id: UUID, document_id: UUID | None = None) -> int:
+    """CHG-447 RELINK447-001/003: resolved references and supersedes (rule or manual) whose target document is
+    deleted go back to `unresolved`; the raw text and normalized name stay, so `resolve_pending_references` can
+    map them to another document. `document_id` limits this to one target; without it every deleted target of
+    the project is released. External, unresolved and removed rows are unchanged."""
+    session.flush()  # the pending lifecycle change must be visible to the query
+    query = select(ChunkReference).join(Document, Document.id == ChunkReference.target_document_id).where(
+        ChunkReference.project_id == project_id, ChunkReference.status == "resolved",
+        ChunkReference.is_deleted.is_(False), Document.is_deleted.is_(True))
+    if document_id is not None:
+        query = query.where(ChunkReference.target_document_id == document_id)
+    rows = session.scalars(query.with_for_update(of=ChunkReference)).all()
+    now = datetime.now(UTC)
+    for row in rows:
+        row.status, row.target_document_id, row.updated_at = "unresolved", None, now
+        row.lock_version += 1
+    session.flush()
+    return len(rows)
+
+
 def version_reference_rows(session, version_id: UUID, *, include_removed: bool = False) -> list[tuple[ChunkReference, int, str | None]]:
     """References on active chunks, ordered by chunk and position, with the target document's name."""
     query = (select(ChunkReference, Chunk.chunk_index, Document.title)
