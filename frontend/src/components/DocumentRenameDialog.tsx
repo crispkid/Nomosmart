@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Pencil, X } from "lucide-react";
+import { X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { Modal } from "@/components/Modal";
 import { renameDocument, type ApiFetch, type DocumentSummary } from "@/lib/api";
@@ -48,9 +48,9 @@ export function DocumentRenameDialog({ apiFetch, projectId, documentId, title, e
 
   const close = () => { if (!saving) onClose(); };
   return (
-    <Modal aria-labelledby="document-rename-title" className="modal-panel" onBackdropMouseDown={close} onEscape={close}>
+    <Modal aria-labelledby="document-rename-title" className="modal-panel modal-compact" onBackdropMouseDown={close} onEscape={close}>
       <div className="modal-header">
-        <div><h2 id="document-rename-title"><Pencil size={18} /> {t("documentRenameTitle")}</h2></div>
+        <div><p className="eyebrow">{title}</p><h2 id="document-rename-title">{t("documentRenameTitle")}</h2></div>
         <button aria-label={t("documentRenameClose")} className="icon-button" disabled={saving} onClick={close} type="button"><X size={18} /></button>
       </div>
       <form onSubmit={(event) => { event.preventDefault(); void submit(); }}>

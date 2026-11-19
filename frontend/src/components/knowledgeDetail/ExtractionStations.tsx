@@ -128,9 +128,9 @@ export function StationReopenDialog({ station, chunkCount, busy, error, onCancel
   const redo = STATIONS.filter(item => item > station).map(item => format("stationNumbered", { station: item, name: stationName(item, t) })).join("、");
   const close = () => { if (!busy) onCancel(); };
   return (
-    <Modal aria-labelledby="station-reopen-title" className="modal-panel" onBackdropMouseDown={close} onEscape={close}>
+    <Modal aria-labelledby="station-reopen-title" className="modal-panel modal-compact" onBackdropMouseDown={close} onEscape={close}>
       <div className="modal-header">
-        <div><h2 id="station-reopen-title"><RotateCcw size={18} /> {format("stationReopenTitle", { station, name: stationName(station, t) })}</h2></div>
+        <div><h2 id="station-reopen-title">{format("stationReopenTitle", { station, name: stationName(station, t) })}</h2></div>
         <button aria-label={t("cancel")} className="icon-button" disabled={busy} onClick={close} type="button"><X size={18} /></button>
       </div>
       <p>{format("stationReopenBody", { stations: redo })}</p>
