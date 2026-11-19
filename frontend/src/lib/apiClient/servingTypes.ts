@@ -246,7 +246,7 @@ export type SystemParametersPayload = {
   ocr_token_settings_hash: string;
   section_revisions: Record<SystemParameterSection, string>;
   parameter_defaults: SystemParameterApiValues;
-  parameter_metadata: Record<string, { updated_at: string | null; updated_by: string | null }>;
+  parameter_metadata: Record<string, { updated_at: string | null; updated_by: string | null; updated_by_name?: string | null }>;
   deployment_max_upload_size_mb: number;
 };
 

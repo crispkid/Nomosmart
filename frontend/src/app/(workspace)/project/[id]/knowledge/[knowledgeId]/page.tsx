@@ -11,7 +11,7 @@ import { useParams, useSearchParams } from "next/navigation";
 import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Pencil, Tags, Trash2 } from "lucide-react";
 import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
 import { fileExtension } from "@/lib/documentNames";
-import { AppShell, Panel, StatusBadge } from "@/components/AppShell";
+import { AppShell, Panel, StatusBadge, statusLabel } from "@/components/AppShell";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { useAuth } from "@/components/AuthProvider";
 import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
@@ -548,7 +548,7 @@ export default function KnowledgePage() {
         <Link className="text-link" href={`/project/${params.id}/import`}><ArrowLeft size={16} /> {t("knowledgeDetailBackToDocuments")}</Link>
         {liveDetail ? <span className="document-title-edit"><strong>{liveDetail.document.title}</strong>{liveDetail.document.capabilities?.can_manage_lifecycle && liveDetail.document.source_type !== "project_reference" ? <button aria-label={format("documentRenameButtonLabel", { title: liveDetail.document.title })} className="icon-button" onClick={() => setRenameOpen(true)} title={t("documentRenameTitle")} type="button"><Pencil size={14} /></button> : null}</span> : null}
         <span>{t("knowledgeDetailDocumentVersion")} {liveDetail?.version.version_label ?? "-"}</span>
-        <span>{liveDetail?.pipeline?.status ?? t("knowledgeDetailNoPipeline")}</span>
+        <span>{liveDetail?.pipeline?.status ? statusLabel(liveDetail.pipeline.status, t) : t("knowledgeDetailNoPipeline")}</span>
         <StatusBadge status={liveDetail?.version.status ?? "loading"} />
         <div className="project-context-actions">
           {(liveDetail?.chat_access ? liveDetail.chat_access.query_enabled : liveDetail && !knowledgeGateBlocked && liveDetail.next_stage_allowed) ? <Link className="text-link next-stage-link" href={liveDetail?.chat_access?.mode === "published"

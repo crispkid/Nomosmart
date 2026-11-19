@@ -18,7 +18,7 @@ import {
 import { useAuth } from "@/components/AuthProvider";
 import { NotificationCenter } from "./NotificationCenter";
 import { FeedbackMessage, feedbackIcons } from "./FeedbackMessage";
-import { isSupportedLocale, supportedLocales, useI18n } from "@/lib/i18nClient";
+import { isSupportedLocale, supportedLocales, useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { workspaceArea } from "@/lib/workspaceNavigation";
 import { BrowserTitle } from "@/lib/browserTitle";
 import WorkspaceNavigation from "./WorkspaceNavigation";
@@ -183,40 +183,47 @@ export function StatCard({
   );
 }
 
+const statusLabelKeys: Record<string, TranslationKey> = {
+  queued: "statusQueued",
+  pending: "statusPending",
+  passed: "statusPassed",
+  needs_review: "statusNeedsReview",
+  error: "statusError",
+  partial_failed: "statusPartialFailed",
+  cancelled: "statusCancelled",
+  running: "statusRunning",
+  processing: "statusProcessing",
+  submission_ready: "statusSubmissionReady",
+  awaiting_confirmation: "statusAwaitingConfirmation",
+  pending_manager_review: "statusPendingManagerReview",
+  pending_owner_review: "statusPendingOwnerReview",
+  approved: "statusApproved",
+  publish_ready: "statusPublishReady",
+  publishing: "statusPublishing",
+  production_indexing: "statusProductionIndexing",
+  graph_syncing: "statusGraphSyncing",
+  published_active: "statusPublishedActive",
+  completed: "statusCompleted",
+  waiting_action: "statusWaitingAction",
+  failed: "statusFailed",
+  skipped: "statusSkipped",
+  active: "statusActive",
+  inactive: "statusInactive",
+  deleted: "statusDeleted",
+  review_rejected: "statusReviewRejected"
+};
+
+/** CHG-449 DISP449-001: localized text of a status value, shared by the badge and plain status text. */
+export function statusLabel(status: string, t: (key: TranslationKey) => string): string {
+  const key = statusLabelKeys[status];
+  return key ? t(key) : t("feedbackStatusUnknown");
+}
+
 export function StatusBadge({ status }: { status: string }) {
   const { t } = useI18n();
-  const labels: Record<string, ReturnType<typeof t>> = {
-    queued: t("statusQueued"),
-    pending: t("statusPending"),
-    passed: t("statusPassed"),
-    needs_review: t("statusNeedsReview"),
-    error: t("statusError"),
-    partial_failed: t("statusPartialFailed"),
-    cancelled: t("statusCancelled"),
-    running: t("statusRunning"),
-    processing: t("statusProcessing"),
-    submission_ready: t("statusSubmissionReady"),
-    awaiting_confirmation: t("statusAwaitingConfirmation"),
-    pending_manager_review: t("statusPendingManagerReview"),
-    pending_owner_review: t("statusPendingOwnerReview"),
-    approved: t("statusApproved"),
-    publish_ready: t("statusPublishReady"),
-    publishing: t("statusPublishing"),
-    production_indexing: t("statusProductionIndexing"),
-    graph_syncing: t("statusGraphSyncing"),
-    published_active: t("statusPublishedActive"),
-    completed: t("statusCompleted"),
-    waiting_action: t("statusWaitingAction"),
-    failed: t("statusFailed"),
-    skipped: t("statusSkipped"),
-    active: t("statusActive"),
-    inactive: t("statusInactive"),
-    deleted: t("statusDeleted"),
-    review_rejected: t("statusReviewRejected")
-  };
-  const tone = ["failed", "review_rejected", "deleted"].includes(status) ? "error" : ["completed", "approved", "published_active", "active", "submission_ready", "publish_ready", "skipped"].includes(status) ? "success" : status === "inactive" || !labels[status] ? "warning" : "info";
+  const tone = ["failed", "review_rejected", "deleted"].includes(status) ? "error" : ["completed", "approved", "published_active", "active", "submission_ready", "publish_ready", "skipped"].includes(status) ? "success" : status === "inactive" || !statusLabelKeys[status] ? "warning" : "info";
   const Icon = feedbackIcons[tone];
-  return <span className={`status-badge feedback-status-badge feedback-${tone}`}><Icon size={14} aria-hidden="true" />{labels[status] ?? t("feedbackStatusUnknown")}</span>;
+  return <span className={`status-badge feedback-status-badge feedback-${tone}`}><Icon size={14} aria-hidden="true" />{statusLabel(status, t)}</span>;
 }
 
 export function PageGrid({ children }: { children: React.ReactNode }) {
