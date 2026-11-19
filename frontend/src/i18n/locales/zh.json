@@ -2606,5 +2606,7 @@
   "referencesRelationSupersedes": "取代",
   "documentSupersededBy": "此文件已被{titles}取代。問答會提醒模型優先採用新規定；是否停用請由管理者決定。",
   "graphRelationSupersedes": "取代",
-  "knowledgeDetailStationsPending": "完成四站確認後才能進入下一階段。"
+  "knowledgeDetailStationsPending": "完成四站確認後才能進入下一階段。",
+  "settingsUpdatedBySystem": "系統",
+  "settingsUpdatedByUnknown": "未知使用者"
 }

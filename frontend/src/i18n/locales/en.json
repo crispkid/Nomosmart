@@ -2606,5 +2606,7 @@
   "referencesRelationSupersedes": "Supersedes",
   "documentSupersededBy": "This document has been superseded by {titles}. Answers tell the model to prefer the newer rules; deactivating it is up to an administrator.",
   "graphRelationSupersedes": "Supersedes",
-  "knowledgeDetailStationsPending": "Confirm all four stations before moving to the next stage."
+  "knowledgeDetailStationsPending": "Confirm all four stations before moving to the next stage.",
+  "settingsUpdatedBySystem": "System",
+  "settingsUpdatedByUnknown": "Unknown user"
 }

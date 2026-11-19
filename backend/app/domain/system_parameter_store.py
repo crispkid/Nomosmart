@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from sqlalchemy import select
 
 from app.core.errors import AppError
-from app.db.models import SystemParameter, SystemParameterSectionRevision
+from app.db.models import SystemParameter, SystemParameterSectionRevision, User
 from app.domain.ocr_token_settings import NativeOCRTokenSettings
 from app.services.audit import add_audit
 
@@ -110,7 +110,11 @@ def snapshot(session, sections=None, *, write=False):
     except AppError as exc:
         raise unavailable() from exc
     revisions = {row.section: revision(row.section, row.revision, values) for row in versions}
-    metadata = {row.key: {"updated_at": row.updated_at, "updated_by": row.updated_by} for row in rows}
+    # CHG-449 DISP449-002: names of the updaters already in this response only; users are never enumerated.
+    updater_ids = {row.updated_by for row in rows if row.updated_by is not None}
+    names = dict(session.execute(select(User.id, User.display_name).where(User.id.in_(updater_ids))).all()) if updater_ids else {}
+    metadata = {row.key: {"updated_at": row.updated_at, "updated_by": row.updated_by, "updated_by_name": names.get(row.updated_by)}
+                for row in rows}
     return values, defaults, revisions, metadata, rows, versions
 
 
