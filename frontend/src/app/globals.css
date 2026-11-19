@@ -1390,6 +1390,69 @@ button {
   cursor: pointer;
 }
 
+/* CHG-453 UISTD453-001..004: zero-specificity baselines. Any existing class rule wins, so screens that already
+   style their controls keep their look; controls without their own rule still follow DESIGN.md. */
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="hidden"], [type="color"]), select, textarea) {
+  box-sizing: border-box;
+  min-height: 40px;
+  border: 1px solid var(--cool-gray);
+  border-radius: var(--radius-control);
+  padding: 8px 12px;
+  background: var(--cloud-white);
+  color: var(--slate);
+  font: inherit;
+}
+
+:where(textarea) {
+  min-height: 86px;
+  resize: vertical;
+}
+
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="hidden"], [type="color"]), select, textarea):focus {
+  outline: none;
+  border-color: var(--deep-green);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--calm-green) 16%, transparent);
+}
+
+:where(input:not([type="checkbox"], [type="radio"], [type="file"], [type="range"], [type="hidden"], [type="color"]), select, textarea):disabled {
+  background: var(--cool-gray);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+
+:where(input, select, textarea)[aria-invalid="true"] {
+  border-color: var(--soft-coral);
+}
+
+:where(button.text-link) {
+  border: 0;
+  padding: 0 4px;
+  background: transparent;
+}
+
+:where(b, strong) {
+  font-weight: 700;
+}
+
+/* CHG-453: inputs drawn inside a bordered wrapper (search boxes, toolbars) keep their bare look. Placed before the
+   wrapper rules, so each wrapper's own declarations still win. */
+:is(.reference-search, .project-document-search, .system-toolbar, .system-role-toolbar, .settings-search) input {
+  min-height: revert;
+  padding: revert;
+  border-radius: revert;
+  background: revert;
+}
+
+:is(.reference-search, .project-document-search, .system-toolbar, .system-role-toolbar, .settings-search) input:focus {
+  box-shadow: none;
+}
+
+/* Standard small dialog (CHG-453 UISTD453-004): forms and confirmations with a few fields. */
+.modal-panel.modal-compact {
+  width: min(560px, 100%);
+  padding: 18px;
+}
+
 .app-shell {
   display: flex;
   flex-direction: column;
@@ -12446,6 +12509,13 @@ small {
   align-items: center;
   gap: 8px;
   min-width: 0;
+}
+
+/* CHG-453: the wrapper is not a field label; keep the name in regular body text. */
+.field-stack span.document-rename-field {
+  color: inherit;
+  font-size: 14px;
+  font-weight: 400;
 }
 
 .document-rename-field input {
