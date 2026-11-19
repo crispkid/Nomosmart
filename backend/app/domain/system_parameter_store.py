@@ -16,9 +16,10 @@ SECTIONS = {
     "documents": ("max_upload_size_mb", "staging_index_ttl_days", "ocr_request_max_output_tokens", "ocr_document_max_tokens"),
     # CHG-445 ROUTE445-004: reference routing and reference expansion for published-scope answers.
     "question_answering": ("reference_routing_enabled", "reference_routing_max_documents",
-                           "reference_expansion_enabled", "reference_expansion_max_chunks"),
+                           "reference_expansion_enabled", "reference_expansion_max_chunks",
+                           "subquestion_enabled", "subquestion_max"),  # CHG-450 SUBQ450-004
 }
-BOOLEAN_KEYS = ("reference_routing_enabled", "reference_expansion_enabled")
+BOOLEAN_KEYS = ("reference_routing_enabled", "reference_expansion_enabled", "subquestion_enabled")
 KEYS = tuple(key for keys in SECTIONS.values() for key in keys)
 
 
@@ -30,7 +31,8 @@ def validate(values, *, deployment_limit=None):
     errors = {}
     limits = {"max_upload_size_mb": (1, 10240), "staging_index_ttl_days": (1, 3650),
               "ocr_request_max_output_tokens": (1, 2147483647), "ocr_document_max_tokens": (1, 2147483647),
-              "reference_routing_max_documents": (1, 50), "reference_expansion_max_chunks": (0, 10)}
+              "reference_routing_max_documents": (1, 50), "reference_expansion_max_chunks": (0, 10),
+              "subquestion_max": (1, 5)}
     for key, (low, high) in limits.items():
         if key in values and (type(values[key]) is not int or not low <= values[key] <= high):
             errors[key] = "integer_out_of_range"

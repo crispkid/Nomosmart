@@ -6,10 +6,10 @@ import type { TranslationKey } from "@/lib/i18nClient";
 import { settingsSections, type SettingsPosition } from "@/lib/systemRouteState";
 
 const settingsPanelLabels: Record<string, TranslationKey> = {
-  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", routing: "settingsReferenceRouting", expansion: "settingsReferenceExpansion", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
+  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", routing: "settingsReferenceRouting", expansion: "settingsReferenceExpansion", subquestions: "settingsSubquestions", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
 };
 const settingsPanelHelp: Record<string, TranslationKey> = {
-  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription", routing: "referenceRoutingEnabledHelp", expansion: "referenceExpansionEnabledHelp"
+  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription", routing: "referenceRoutingEnabledHelp", expansion: "referenceExpansionEnabledHelp", subquestions: "subquestionEnabledHelp"
 };
 
 const settingsSearchFields: Record<string, TranslationKey[]> = {
@@ -22,7 +22,8 @@ const settingsSearchFields: Record<string, TranslationKey[]> = {
   clients: ["systemApiKeyRequestsPerMinute", "systemApiKeyExpiresAt", "systemApiKeyProjectScopes", "systemApiKeyContactName"],
   ocr: ["ocrRequestTokenSettingLabel", "ocrDocumentTokenSettingLabel", "ocrDocumentTokenSettingHelp"],
   routing: ["referenceRoutingEnabledLabel", "referenceRoutingMaxDocumentsLabel"],
-  expansion: ["referenceExpansionEnabledLabel", "referenceExpansionMaxChunksLabel"]
+  expansion: ["referenceExpansionEnabledLabel", "referenceExpansionMaxChunksLabel"],
+  subquestions: ["subquestionEnabledLabel", "subquestionMaxLabel"]
 };
 
 // Icons are keyed by section id so adding a section cannot shift or drop them (CHG-445).

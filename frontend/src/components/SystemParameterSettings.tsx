@@ -37,10 +37,15 @@ const fields: Record<Section, { panel: string; title: TranslationKey; fields: Fi
     { panel: "expansion", title: "settingsReferenceExpansion", fields: [
       { key: "reference_expansion_enabled", label: "referenceExpansionEnabledLabel", help: "referenceExpansionEnabledHelp", kind: "boolean" },
       { key: "reference_expansion_max_chunks", label: "referenceExpansionMaxChunksLabel", help: "referenceExpansionMaxChunksHelp", min: 0, max: 10, zero: true }
+    ] },
+    // CHG-450 SUBQ450-004
+    { panel: "subquestions", title: "settingsSubquestions", fields: [
+      { key: "subquestion_enabled", label: "subquestionEnabledLabel", help: "subquestionEnabledHelp", kind: "boolean" },
+      { key: "subquestion_max", label: "subquestionMaxLabel", help: "subquestionMaxHelp", min: 1, max: 5 }
     ] }
   ]
 };
-const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks" };
+const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks", subquestion_enabled: "subquestionEnabled", subquestion_max: "subquestionMax" };
 
 export default function SystemParameterSettings({ section, onDirtyChange }: {
   section: Section; onDirtyChange: (dirty: boolean) => void;
