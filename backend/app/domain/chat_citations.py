@@ -22,6 +22,7 @@ _PERSISTED_CITATION_FIELDS = {
     "chunk_id",
     "chunk_index",
     "via_reference",  # CHG-442 REF442-007
+    "via_subquestion",  # CHG-450 SUBQ450-002
     "title",
     "score",
     "excerpt",

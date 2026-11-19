@@ -2608,5 +2608,10 @@
   "graphRelationSupersedes": "Supersedes",
   "knowledgeDetailStationsPending": "Confirm all four stations before moving to the next stage.",
   "settingsUpdatedBySystem": "System",
-  "settingsUpdatedByUnknown": "Unknown user"
+  "settingsUpdatedByUnknown": "Unknown user",
+  "settingsSubquestions": "Multi-part questions",
+  "subquestionEnabledLabel": "Search each part separately",
+  "subquestionEnabledHelp": "When on, a question that asks several things is split into sub-questions in the same model call that classifies reference questions, and each sub-question adds 2 chunks (published scope only; needs \"Detect reference questions\" on).",
+  "subquestionMaxLabel": "Maximum sub-questions",
+  "subquestionMaxHelp": "1–5. Applies from the next question."
 }

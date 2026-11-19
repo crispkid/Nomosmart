@@ -7,6 +7,7 @@ citation-bound answer call.
 from __future__ import annotations
 
 import json
+import logging
 import re
 from collections import Counter
 import urllib.request
@@ -28,6 +29,9 @@ from base64 import b64encode
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 from uuid import UUID
+
+logger = logging.getLogger("nomosmart.retrieval")
+SUBQUESTION_CHUNKS = 2  # CHG-450 D450-03: new chunks per sub-question
 
 
 def _resolve_retrieval_scope(session: Session, project_id: UUID, document_version_ids: list[UUID] | None) -> tuple[list[ActiveVersionManifest], set[UUID], set[UUID]]:
@@ -193,10 +197,16 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
         from app.domain.system_parameter_store import question_answering_settings
         qa = question_answering_settings(session)  # CHG-445 ROUTE445-004: database-owned, read per question
         if qa["reference_routing_enabled"]:
-            citations.extend(_route_reference_question(session, project_id, versions, citations, question, query_targets,
+            max_sub = qa["subquestion_max"] if qa["subquestion_enabled"] else 0  # CHG-450 SUBQ450-004
+            decision = _classify_published_question(session, project_id, versions, question, settings=settings, source_channel=source_channel,
+                                                    actor_user_id=actor_user_id, max_sub_questions=max_sub)
+            if decision is not None:
+                citations.extend(_route_reference_question(session, project_id, versions, citations, question, query_targets, decision,
+                                                           chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                           limit=qa["reference_routing_max_documents"]))
+                citations.extend(_search_sub_questions(session, project_id, profile_versions, citations, decision.sub_questions,
                                                        chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
-                                                       limit=qa["reference_routing_max_documents"], source_channel=source_channel,
-                                                       actor_user_id=actor_user_id))
+                                                       source_channel=source_channel, actor_user_id=actor_user_id))
         citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
                                                   chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
                                                   enabled=qa["reference_expansion_enabled"], limit=qa["reference_expansion_max_chunks"]))
@@ -204,26 +214,70 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
     return citations
 
 
+def _classify_published_question(session: Session, project_id: UUID, versions: list[DocumentVersion], question: str, *, settings,
+                                 source_channel: str, actor_user_id: UUID | None, max_sub_questions: int):
+    """CHG-445 ROUTE445-001 / CHG-450 SUBQ450-001: one Chat model call decides the reference intent and the sub-questions.
+    Returns None when the project has no usable Chat model."""
+    from app.domain.question_routing import classify_question
+    project = session.get(Project, project_id)
+    model = session.get(AIModel, project.llm_model_id) if project is not None and project.llm_model_id else None
+    if model is None or model.deleted_at is not None or model.model_type != "Chat":
+        return None
+    version_by_document = {version.document_id: version for version in versions}
+    titles = {title: document_id for document_id, title in session.execute(
+        select(Document.id, Document.title).where(Document.id.in_(list(version_by_document)), Document.is_deleted.is_(False)))}
+    return classify_question(model=model, question=question, documents=titles, settings=settings, source_channel=source_channel,
+                             project_id=project_id, actor_user_id=actor_user_id, max_sub_questions=max_sub_questions)
+
+
+def _search_sub_questions(session: Session, project_id: UUID, profile_versions: dict[UUID, list[DocumentVersion]],
+                          citations: list[ProjectChatCitation], sub_questions: list[str], *, chunks_by_id: dict, chunks_by_position: dict,
+                          settings, source_channel: str, actor_user_id: UUID | None) -> list[ProjectChatCitation]:
+    """CHG-450 SUBQ450-002/003: each sub-question gets its own query vector and hybrid search over the same authorized
+    published scope, and adds up to SUBQUESTION_CHUNKS chunks not cited yet. A failing sub-question is skipped."""
+    taken = {citation.chunk_id for citation in citations}
+    added: list[ProjectChatCitation] = []
+    for sub_question in sub_questions:
+        count = 0
+        try:
+            for profile_id, scoped_versions in profile_versions.items():
+                if count >= SUBQUESTION_CHUNKS:
+                    break
+                profile = session.get(EmbeddingProfile, profile_id)
+                if profile is None:
+                    continue
+                _model, vector = embed_query(session, profile=profile, question=sub_question, settings=settings, project_id=project_id,
+                                             actor_user_id=actor_user_id, source_channel=source_channel)
+                for index_name, scoped_version_ids in _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, "published"):
+                    if count >= SUBQUESTION_CHUNKS:
+                        break
+                    hits = _opensearch_hybrid_search(index_name, project_id, sub_question, vector, [str(item) for item in scoped_version_ids],
+                                                     SUBQUESTION_CHUNKS + len(taken), scope="published", mapping_version=profile.mapping_version)
+                    for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                            project_id=project_id, scoped_version_ids=scoped_version_ids,
+                                                            limit=SUBQUESTION_CHUNKS + len(taken)):
+                        if chunk.id in taken:
+                            continue
+                        added.append(_hybrid_citation(chunk, hit, index_name, via_subquestion=True))
+                        taken.add(chunk.id)
+                        count += 1
+                        if count >= SUBQUESTION_CHUNKS:
+                            break
+        except Exception as exc:  # noqa: BLE001 - SUBQ450-003: one sub-question never fails the answer
+            logger.warning("subquestion_search_failed", extra={"project_id": str(project_id), "error_code": getattr(exc, "code", type(exc).__name__)})
+    return added
+
+
 def _route_reference_question(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
-                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
-                              chunks_by_position: dict, settings, limit: int, source_channel: str,
-                              actor_user_id: UUID | None) -> list[ProjectChatCitation]:
+                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], decision, *, chunks_by_id: dict,
+                              chunks_by_position: dict, limit: int) -> list[ProjectChatCitation]:
     """CHG-445 ROUTE445-001/002: a reference question gets the named document and the documents linked to it.
 
     Linked documents come from resolved references inside this authorized published scope, ordered by reference
     count; the named documents come first; at most `limit` documents in all. Each document is searched once more with
     the same question and query vector (no new embedding) and contributes its best chunk, marked `via_reference`.
     """
-    from app.domain.question_routing import classify_question
-    project = session.get(Project, project_id)
-    model = session.get(AIModel, project.llm_model_id) if project is not None and project.llm_model_id else None
-    if model is None or model.deleted_at is not None or model.model_type != "Chat":
-        return []
     version_by_document = {version.document_id: version for version in versions}
-    titles = {title: document_id for document_id, title in session.execute(
-        select(Document.id, Document.title).where(Document.id.in_(list(version_by_document)), Document.is_deleted.is_(False)))}
-    decision = classify_question(model=model, question=question, documents=titles, settings=settings,
-                                 source_channel=source_channel, project_id=project_id, actor_user_id=actor_user_id)
     if decision.intent == "none":
         return []
     if decision.intent in ("supersedes", "superseded_by"):
@@ -258,7 +312,7 @@ def _route_reference_question(session: Session, project_id: UUID, versions: list
     return added
 
 
-def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference: bool = False) -> ProjectChatCitation:
+def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference: bool = False, via_subquestion: bool = False) -> ProjectChatCitation:
     return ProjectChatCitation(
         document_id=chunk.document_id,
         document_version_id=chunk.document_version_id,
@@ -276,6 +330,7 @@ def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference:
         generation_text=chunk.content,
         raw_markdown=chunk.markdown_content if (chunk.chunk_strategy or {}).get("source") == "structure_aware" else None,
         via_reference=via_reference,
+        via_subquestion=via_subquestion,
     )
 
 

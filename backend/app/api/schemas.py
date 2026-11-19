@@ -1244,6 +1244,8 @@ class ProjectChatCitation(BaseModel):
     raw_markdown: str | None = Field(default=None, exclude=True)
     # CHG-442 REF442-006/007: added because a retrieved document references it (or is referenced by it).
     via_reference: bool = False
+    # CHG-450 SUBQ450-002: added by the search for a sub-question of a multi-part question.
+    via_subquestion: bool = False
 
 
 class ProjectChatQueryResponse(BaseModel):
@@ -1657,6 +1659,9 @@ class SystemParametersPayload(SystemParametersCorePayload):
     reference_routing_max_documents: int
     reference_expansion_enabled: bool
     reference_expansion_max_chunks: int
+    # CHG-450 SUBQ450-004
+    subquestion_enabled: bool
+    subquestion_max: int
     ocr_page_max_output_tokens: int
     ocr_request_max_output_tokens: int
     ocr_token_budget_policy: str
@@ -1680,6 +1685,8 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
     reference_routing_max_documents: int | None = Field(default=None, strict=True, ge=1, le=50)
     reference_expansion_enabled: bool | None = Field(default=None, strict=True)
     reference_expansion_max_chunks: int | None = Field(default=None, strict=True, ge=0, le=10)
+    subquestion_enabled: bool | None = Field(default=None, strict=True)
+    subquestion_max: int | None = Field(default=None, strict=True, ge=1, le=5)
 
     @model_validator(mode="before")
     @classmethod
