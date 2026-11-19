@@ -4,23 +4,23 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart is an enterprise knowledge management platform for turning documents and connected data into reviewed, searchable knowledge with traceable answers.
 
-Version: **0.3.0**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+Version: **0.4.0**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
 
-## What's new in 0.3.0
+## What's new in 0.4.0
 
-- **One question-answering API (Open Responses)**: the in-product chat test and integration clients use the same Open Responses compatible `POST …/responses` contract (JSON, or SSE with `stream: true`). The chat test streams answers as they arrive. The previous `/chat`, `/chat/stream`, `/chat/responses/{id}/feedback` and `/chat/query` endpoints are removed.
-- **Multi-turn conversations**: each question chooses single- or multi-turn with `previous_response_id`. Earlier turns come only from stored answers of the same API key and employee (or the same chat-test user), follow-ups are rewritten into a standalone search question, and answers cite only passages found for that turn. The chat test picks single- or multi-turn when a conversation starts.
-- **Multi-turn CSV validation**: rows sharing a `conversation_key` run in `turn` order as one conversation; the Judge sees the earlier turns, a failed turn skips the rest of its scenario, and results report a scenario pass rate.
-- **FTP, FTPS and SFTP removed**: data services support S3 and HTTP API only; the `paramiko` dependency and the related Compose/Helm settings are gone.
-- **Clean-up**: unused frontend and backend code and translation keys were removed.
+- **Four-station extraction**: each document version goes through content check, chunking, tags and references, and index and test. Every station waits for an editor's confirmation, an editor can go back to an earlier station while unchanged chunks keep their work, and chunks can be added by selecting text. Submission is possible only after station 4. Documents can be renamed; names are unique across the site.
+- **References and supersedes**: station 3 finds citations of other documents and "this rule replaces X" statements, maps them to project documents and lets editors correct them. Published relations appear as lines in the project graph, answers bring in the documents a question asks about, and a superseded document shows which newer one replaces it. Deleting a target document releases its references so they can map again; `python -m app.deployment.backfill_relations` repairs existing data.
+- **Better answers across documents**: questions about which documents cite or replace another are routed through the reference data, and a question that asks several things is split into sub-questions that are searched separately. These options and their limits are managed in System settings → Question answering.
+- **Safer review and lifecycle**: a document under review cannot be deleted until its submission is cancelled, an approved version of a deleted document cannot be published, and deleting a queued document no longer blocks the extraction queue. External question answering retries temporary model failures and reports clearer errors.
+- **Interface**: statuses and setting updaters are shown in words, controls and dialogs follow one style, and the in-product API guide has a quick start.
 
-0.3.0 contains breaking API and Helm changes; see [Upgrading](#upgrading-from-an-older-version). Changes in 0.2.5: [GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5).
+0.4.0 adds database migrations V064–V067; see [Upgrading](#upgrading-from-an-older-version), especially for databases that already hold 0.3.0 documents. Changes in 0.3.0: [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0).
 
 ## Features
 
 - Import PDF, UTF-8 TXT and Markdown files, plus S3 and HTTP API sources (FTP, FTPS and SFTP sources were removed in 0.3.0).
 - Send original PDFs directly to a configured LLM for Markdown output; read TXT/Markdown directly.
-- Create knowledge chunks, tags and embeddings while preserving original documents, versions and citations.
+- Extract in four confirmed stations: knowledge chunks, tags, references between documents and embeddings, while preserving original documents, versions and citations.
 - Submit, reject and publish content under project permissions, retaining completed work and review history.
 - Use keyword, vector and hybrid search, knowledge graphs and answers with source citations.
 - Test answers in single- or multi-turn conversations, and run CSV validation with multi-turn scenarios, Judge scoring and a scenario pass rate.
@@ -54,7 +54,7 @@ The Backend owns authentication, authorization, configuration and dispatch. Work
 | Authoritative data | PostgreSQL 18.4; forward-only Flyway migrations |
 | Object storage | S3-compatible storage; RustFS for bundled deployments |
 | Search and graph | OpenSearch 2.19 and Neo4j 5.26 Community |
-| Deployment | Docker Compose v2 and Helm Chart 0.3.0 |
+| Deployment | Docker Compose v2 and Helm Chart 0.4.0 |
 
 ## PDF and model configuration
 
@@ -162,10 +162,11 @@ Copy the [target TOML](deploy/installer/nomosmart-install.protocol.example.toml)
 1. Verify package/image identities and retain recoverable existing data, configuration, encryption keys and TLS/CA materials. Review the target deployment difference.
 2. Pause old import/synchronization producers and stop old Workers/Beat. Coordinate Frontend, Backend, Worker and Beat updates to avoid mixed-version writers.
 3. Supply complete current authentication settings, select LDAP/AD or OIDC, and retain internal UUIDs, user/role relationships and history. Remove retired `keycloak.*` deployment fields. Use reviewed complete Helm values with `--reset-values`, not `--reuse-values`.
-4. Use the normal migration flow to advance existing databases to **063**. Fresh databases use B054 followed by V055–V063; V062 and V063 only add columns. Compose installations created by an earlier version pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=063` and `MIGRATION_REQUIRED_CHECKSUM=1135291166` before starting 0.3.0, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
-5. Update integrations for the 0.3.0 API (breaking): ask questions with `POST /api/public/v1/responses` and `model: "nomosmart:project/<project_id>"` instead of `/projects/{id}/chat` and `/chat/stream`, send feedback to `/responses/resp_<id>/feedback`, and read Open Responses responses and errors. `Idempotency-Key` is now optional. Remove the Helm values `ftpsCa` and `sftpKnownHosts`, which the values schema now rejects. Optional new settings with defaults: `CHAT_HISTORY_MAX_TURNS` (5), `CHAT_HISTORY_MAX_CHARACTERS` (12000) and `VALIDATION_SCENARIO_MAX_TURNS` (20).
-6. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
-7. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
+4. Use the normal migration flow to advance existing databases to **067**. Fresh databases use B054 followed by V055–V067. Compose installations created by an earlier version pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=067` and `MIGRATION_REQUIRED_CHECKSUM=1913543487` before starting 0.4.0, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
+5. From 0.3.0 with existing documents: V064 requires live document names to be unique across all projects (ignoring case and surrounding spaces; documents linked from another project are excluded), so rename duplicates before upgrading (otherwise the migration stops and data is unchanged). Documents extracted before 0.4.0 keep answering questions but have no stations or references; re-extract them to get both. After the upgrade, run `python -m app.deployment.backfill_relations` once in the backend container (safe to repeat). A document under review can no longer be deleted; cancel the submission first. Question answering options (reference routing, reference expansion, sub-questions) are system settings, not environment variables.
+6. When upgrading from a version before 0.3.0, also update integrations for the 0.3.0 API (breaking): ask questions with `POST /api/public/v1/responses` and `model: "nomosmart:project/<project_id>"` instead of `/projects/{id}/chat` and `/chat/stream`, send feedback to `/responses/resp_<id>/feedback`, and read Open Responses responses and errors. `Idempotency-Key` is now optional. Remove the Helm values `ftpsCa` and `sftpKnownHosts`, which the values schema now rejects. Optional new settings with defaults: `CHAT_HISTORY_MAX_TURNS` (5), `CHAT_HISTORY_MAX_CHARACTERS` (12000) and `VALIDATION_SCENARIO_MAX_TURNS` (20).
+7. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
+8. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
 
 Application rollback and schema rollback are different operations. Do not drop new tables to downgrade or let old Workers write the new policy. Coordinate recovery using retained snapshots and compatible versions. The [authentication upgrade guide](docs/AUTHENTICATION.en.md) and [PDF operations guide](docs/NATIVE-PDF-OCR-OPERATIONS.md) describe limits. Publishing a version does not update existing deployments.
 
@@ -181,7 +182,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 
 Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
-0.3.0 is qualified on its own source and images: all 34 mandatory scenarios (including Open Responses, multi-turn conversations and multi-turn validation) and 19 release gates are run, and the package is signed and verified, including tamper and wrong-fingerprint checks and a real `init`. The evidence, including complete-denominator coverage, ships with the [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0); 80% coverage is an improvement target and does not decide readiness. The FTP code is removed, so no FTP risk acceptance applies. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
+0.4.0 is qualified on its own source and images: all 38 mandatory scenarios (including four-station extraction, references and supersedes, sub-questions and the review delete guard) and 19 release gates are run, and the package is signed and verified, including tamper and wrong-fingerprint checks and a real `init`. The evidence, including complete-denominator coverage, ships with the [GitHub Release v0.4.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0); 80% coverage is an improvement target and does not decide readiness. The FTP code is removed, so no FTP risk acceptance applies. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
 
 ## Repository and development
 

@@ -231,7 +231,7 @@ services:
     restart: unless-stopped
 
   frontend:
-    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.3.0}
+    image: ${FRONTEND_IMAGE:-nomosmart/frontend:0.4.0}
     cap_drop: ["ALL"]
     security_opt: ["no-new-privileges:true"]
     mem_limit: ${FRONTEND_MEM_LIMIT:-1g}
@@ -270,7 +270,7 @@ services:
 
   backend:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.3.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.4.0}
     mem_limit: ${BACKEND_MEM_LIMIT:-2g}
     build:
       context: ./backend
@@ -319,7 +319,7 @@ services:
 
   celery-worker:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.3.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.4.0}
     mem_limit: ${WORKER_MEM_LIMIT:-4g}
     build:
       context: ./backend
@@ -349,7 +349,7 @@ services:
 
   celery-beat:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.3.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.4.0}
     mem_limit: ${BEAT_MEM_LIMIT:-512m}
     build:
       context: ./backend
@@ -406,7 +406,7 @@ services:
 
   deployment-bootstrap:
     <<: *nonroot_runtime
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.3.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.4.0}
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -447,7 +447,7 @@ services:
   deployment-finalize:
     <<: *nonroot_runtime
     profiles: ["finalize"]
-    image: ${BACKEND_IMAGE:-nomosmart/backend:0.3.0}
+    image: ${BACKEND_IMAGE:-nomosmart/backend:0.4.0}
     build:
       context: ./backend
       dockerfile: Dockerfile

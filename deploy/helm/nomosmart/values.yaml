@@ -69,16 +69,16 @@ compatibility:
   publicApiContract: v1-scoped-graph-idempotent
   securityContract: chg260-mounted-secrets-password-only
 
-# Pin application images by digest with tag: "0.3.0@sha256:<digest>",
+# Pin application images by digest with tag: "0.4.0@sha256:<digest>",
 # the same form used for the migration image below.
 image:
   frontend:
     repository: nomosmart/frontend
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   backend:
     repository: nomosmart/backend
-    tag: "0.3.0"
+    tag: "0.4.0"
     pullPolicy: IfNotPresent
   migration:
     repository: flyway/flyway

@@ -557,9 +557,9 @@ The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Bea
 
 既有 `nodeSelector` 現在一致套用到後端、前端、Worker、兩種 Beat，以及 migration／bootstrap／finalize 工作。預設 `{}` 由排程器安排；需要指定節點時在環境 values 填入節點標籤。外部服務仍由操作人員管理其節點位置；單節點驗證不代表跨節點網路或 HA 已通過。
 
-## Release package contract (v5, 0.3.0)
+## Release package contract (v5, 0.4.0)
 
-0.3.0 is published as a signed **v5** package (`schema_version` 5, package type
+0.4.0 is published as a signed **v5** package (`schema_version` 5, package type
 `nomosmart-local-risk-reviewed-release`, purpose `local-risk-reviewed-release`). It is
 assembled with `deploy/release/nomosmart-release assemble-reviewed-local` from a clean
 detached source and evidence for all 19 required gates, the quality policy readiness
@@ -572,7 +572,7 @@ Verify a downloaded package with a signer fingerprint obtained through an indepe
 trusted channel; the public key inside the package does not establish trust:
 
 ```sh
-python3 deploy/release/nomosmart-release verify-package --package /operator/path/nomosmart-0.3.0 \
+python3 deploy/release/nomosmart-release verify-package --package /operator/path/nomosmart-0.4.0 \
   --purpose local-risk-reviewed-release --trusted-fingerprint "$NOMOSMART_TRUSTED_FINGERPRINT"
 ```
 

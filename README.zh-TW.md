@@ -4,23 +4,23 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.3.0**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.4.0**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
 
-## 0.3.0 更新重點
+## 0.4.0 更新重點
 
-- **統一的問答 API（Open Responses）**：產品內的對話測試與外部整合使用同一份相容 Open Responses 的 `POST …/responses` 格式（一般回應，或 `stream: true` 以 SSE 串流）；對話測試的回答改為逐字顯示。舊的 `/chat`、`/chat/stream`、`/chat/responses/{id}/feedback` 與 `/chat/query` 端點已移除。
-- **多輪對話**：每次提問以 `previous_response_id` 自行決定單輪或多輪。前文只來自同一個 API Key 與員工編號（或同一位對話測試使用者）存過的回答；追問會先改寫成可獨立搜尋的問題，答案只引用本輪找到的段落。對話測試在新增對話時選單輪或多輪。
-- **批次驗證多輪情境**：CSV 中相同 `conversation_key` 的列依 `turn` 順序組成一段對話；Judge 會看到前文，某一題失敗時同情境後續題目略過，結果顯示情境通過率。
-- **移除 FTP、FTPS、SFTP**：資料服務只支援 S3 與 HTTP API；`paramiko` 套件及相關 Compose／Helm 設定一併移除。
-- **清理**：移除未使用的前後端程式與翻譯鍵。
+- **四站式知識萃取**：每個文件版本依序經過「內容確認、切片、標籤與引用、索引與測試」四站，每一站都要編輯者確認才往下走；可以回到前一站修改，沒變動的切片保留原本成果；可以選取文字手動切片。第 4 站完成後才能送審。文件可以改名，全站名稱不重複。
+- **引用與取代關係**：第 3 站會找出引用其他文件的文字，以及「本辦法取代 X」這類取代說明，對應到專案文件並可人工修正。已發布的關係會在專案圖譜顯示連線；問答會帶入題目問到的相關文件；被取代的文件會顯示由哪一份新文件取代。目標文件刪除時，指向它的引用會釋放並重新對應；既有資料可用 `python -m app.deployment.backfill_relations` 修復。
+- **跨文件問答更完整**：問「哪些文件引用或取代某文件」時會改走引用資料；一題同時問好幾件事時，會拆成子問題分別搜尋。這些功能與上限在「系統設定 → 問答」管理。
+- **審核與文件生命週期更安全**：送審中的文件要先取消送審才能刪除；已刪除文件的已核准版本不能發布；刪除排隊中的文件不會再卡住萃取佇列。外部問答遇到暫時性的模型錯誤會重試，錯誤訊息也更清楚。
+- **介面**：處理狀態與設定更新者以文字顯示；輸入框、按鈕與對話框統一樣式；產品內 API 說明新增快速開始。
 
-0.3.0 含 API 與 Helm 的破壞性變更，請見[從舊版升級](#從舊版升級)。0.2.5 的內容：[GitHub Release v0.2.5](https://github.com/crispkid/Nomosmart/releases/tag/v0.2.5)。
+0.4.0 新增資料庫遷移 V064–V067，請見[從舊版升級](#從舊版升級)，特別是已有 0.3.0 文件的資料庫。0.3.0 的內容：[GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0)。
 
 ## 核心功能
 
 - 匯入 PDF、UTF-8 TXT、Markdown，以及 S3 與 HTTP API 資料來源（FTP、FTPS、SFTP 來源已在 0.3.0 移除）。
 - PDF 原檔直接交給已設定的 LLM 產生 Markdown；TXT／Markdown 直接讀取。
-- 建立知識切片、標籤與 Embedding，保存原始文件、版本及來源引用。
+- 以四站確認流程建立知識切片、標籤、文件間引用與 Embedding，保存原始文件、版本及來源引用。
 - 依專案權限送審、退審及發布；保留已完成成果與審核歷程。
 - 提供關鍵字、向量與混合搜尋、知識圖譜，以及附來源引用的問答。
 - 以單輪或多輪對話測試回答，並以 CSV 批次驗證多輪情境，含 Judge 評分與情境通過率。
@@ -54,7 +54,7 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 | 權威資料 | PostgreSQL 18.4；Flyway 管理只能向前套用的移轉 |
 | 檔案儲存 | S3 相容服務；內建部署使用 RustFS |
 | 搜尋／圖譜 | OpenSearch 2.19、Neo4j 5.26 Community |
-| 部署 | Docker Compose v2、Helm Chart 0.3.0 |
+| 部署 | Docker Compose v2、Helm Chart 0.4.0 |
 
 ## PDF 與模型設定
 
@@ -162,10 +162,11 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 1. 驗證版本包與映像摘要，保留可回復的既有資料、設定、加密金鑰與 TLS／CA；檢視目標部署差異。
 2. 暫停舊匯入／同步 producer，停止舊 Worker／Beat，協調更新 Frontend、Backend、Worker 與 Beat，避免新舊寫入者混用。
 3. 使用完整的新認證設定：選定 LDAP／AD 或 OIDC，保留內部 UUID、使用者／角色關係及歷史。移除舊 `keycloak.*` 等部署欄位；Helm 使用已檢視的完整 values 與 `--reset-values`，不要以 `--reuse-values` 帶回舊設定。
-4. 讓正常 migration 流程將既有資料庫依序升到 **063**；全新資料庫使用 B054 基線後套 V055–V063，V062、V063 只新增欄位。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.3.0 前請改為 `MIGRATION_REQUIRED_VERSION=063`、`MIGRATION_REQUIRED_CHECKSUM=1135291166`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
-5. 依 0.3.0 API 更新整合程式（破壞性變更）：改用 `POST /api/public/v1/responses` 並以 `model: "nomosmart:project/<project_id>"` 指定專案，取代 `/projects/{id}/chat` 與 `/chat/stream`；回饋改送 `/responses/resp_<id>/feedback`；回應與錯誤改為 Open Responses 格式。`Idempotency-Key` 改為選填。移除 Helm 的 `ftpsCa` 與 `sftpKnownHosts`（values schema 已不接受）。可選的新設定（皆有預設值）：`CHAT_HISTORY_MAX_TURNS`（5）、`CHAT_HISTORY_MAX_CHARACTERS`（12000）、`VALIDATION_SCENARIO_MAX_TURNS`（20）。
-6. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
-7. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
+4. 讓正常 migration 流程將既有資料庫依序升到 **067**；全新資料庫使用 B054 基線後套 V055–V067。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.4.0 前請改為 `MIGRATION_REQUIRED_VERSION=067`、`MIGRATION_REQUIRED_CHECKSUM=1913543487`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
+5. 從 0.3.0 帶既有文件升級：V064 要求所有專案中未刪除的文件名稱不重複（不分大小寫、忽略前後空白；從其他專案引用的文件不計），升級前請先把同名文件改名（否則遷移會停止，資料不變）。0.4.0 之前萃取的文件仍可問答，但沒有站別與引用資料，重新萃取後才會有。升級後在 backend 容器執行一次 `python -m app.deployment.backfill_relations`（可重複執行）。送審中的文件不能直接刪除，請先取消送審。問答相關功能（引用路由、引用擴展、子問題）改在系統設定管理，不使用環境變數。
+6. 從 0.3.0 以前的版本升級時，另需依 0.3.0 API 更新整合程式（破壞性變更）：改用 `POST /api/public/v1/responses` 並以 `model: "nomosmart:project/<project_id>"` 指定專案，取代 `/projects/{id}/chat` 與 `/chat/stream`；回饋改送 `/responses/resp_<id>/feedback`；回應與錯誤改為 Open Responses 格式。`Idempotency-Key` 改為選填。移除 Helm 的 `ftpsCa` 與 `sftpKnownHosts`（values schema 已不接受）。可選的新設定（皆有預設值）：`CHAT_HISTORY_MAX_TURNS`（5）、`CHAT_HISTORY_MAX_CHARACTERS`（12000）、`VALIDATION_SCENARIO_MAX_TURNS`（20）。
+7. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
+8. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
 
 移轉與版本回復是不同操作。不要以刪新表降版，或直接讓舊 Worker 寫入新版政策；依既有快照及相容版本做協調回復。[認證升級指南](docs/AUTHENTICATION.zh-TW.md)與[PDF 操作指南](docs/NATIVE-PDF-OCR-OPERATIONS.md)保留具體限制。發布版本不會自動更新既有部署。
 
@@ -181,7 +182,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-0.3.0 以本版原始碼與映像驗證：34 項必要情境（含 Open Responses、多輪對話與批次驗證多輪情境）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
+0.4.0 以本版原始碼與映像驗證：38 項必要情境（含四站萃取、引用與取代、子問題與審核中禁止刪除）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.4.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 

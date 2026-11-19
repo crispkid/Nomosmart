@@ -3,8 +3,8 @@
   "policy_id": "nomosmart-risk-quality-v1",
   "scope": "local-risk-reviewed-release",
   "authority": {
-    "change_id": "CHG-438",
-    "approval_sha256": "5d5c62f8b00c60e53e2e73921ed8b8173a5819b3b237d7d5cbeadfa8b8d63e5b"
+    "change_id": "CHG-454",
+    "approval_sha256": "61a0ae0e6b5627e26ae932427ee192afb031cf43a556599ea8f6a0bf331b035b"
   },
   "coverage": {
     "measurement_required": true,
@@ -226,6 +226,38 @@
       "group": "security",
       "requirement": "PROTAUTH-009; secret handling; security targets",
       "behavior": "typed設定、加密連線密碼、無秘密日誌及獨立key驗證",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "four_stations",
+      "group": "ingestion",
+      "requirement": "STAGE442-001..012; CHUNK442-001..003",
+      "behavior": "四站逐站停等確認、確認權限與冪等、回前站保留未變更成果、選取文字手動切片與重疊提醒、只有第4站完成後才能送審",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "references_supersedes",
+      "group": "retrieval",
+      "requirement": "REF442-001..007; SUPER446-001..008; RELINK447-001..004; ROUTE445-001..003",
+      "behavior": "引用與取代萃取與對應、人工修正、發布後正式圖譜線、刪除目標釋放與還原重新對應、引用類問題路由帶入相關文件",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "subquestions",
+      "group": "retrieval",
+      "requirement": "SUBQ450-001..005; ROUTE445-004",
+      "behavior": "多重提問在同一次分流呼叫拆成子問題分別搜尋、單一問題不拆、設定開關與上限即時生效、分流失敗不拆",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "review_delete_guard",
+      "group": "governance",
+      "requirement": "REVDEL452-001..003",
+      "behavior": "審核中刪除409且不變、取消送審後可刪除、已刪除文件的已核准版本不得發布、還原後可發布",
       "mandatory": true,
       "verification_level": "live"
     },
