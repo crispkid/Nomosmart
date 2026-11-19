@@ -32,6 +32,11 @@ export function useStatusChangeState() {
   return { committedStatuses, setCommittedStatuses, pendingStatusChange, setPendingStatusChange, statusSubmitting, setStatusSubmitting, statusError, setStatusError };
 }
 
+/** CHG-452 REVDEL452-002: a document with a pending review cannot be deleted until the submission is cancelled. */
+export function deletionBlockedByReview(change: Pick<PendingStatusChange, "to" | "pendingReviewCount">): boolean {
+  return change.to === "deleted" && (change.pendingReviewCount ?? 0) > 0;
+}
+
 /** Document lifecycle status actions, created each render once page dependencies exist. */
 export function createStatusChangeActions(state: StatusChangeState, deps: StatusChangeDeps) {
   const { apiFetch, format, params, t, canEditLifecycle, notify, setCreatedImports, setLiveDocuments } = deps;
@@ -53,7 +58,7 @@ export function createStatusChangeActions(state: StatusChangeState, deps: Status
       if ("isLive" in document && document.isLive) {
         try {
           const impact = await getDocumentLifecycleImpact(apiFetch, params.id, document.id, requestedStatus);
-          setPendingStatusChange((current) => current?.documentId === document.id && current.to === requestedStatus ? { ...current, projects: impactSummaryProjects(impact.impacted_reference_count, impact.impacted_active_version_count), requiresConfirmation: impact.requires_confirmation } : current);
+          setPendingStatusChange((current) => current?.documentId === document.id && current.to === requestedStatus ? { ...current, projects: impactSummaryProjects(impact.impacted_reference_count, impact.impacted_active_version_count), requiresConfirmation: impact.requires_confirmation, pendingReviewCount: impact.pending_review_count ?? 0 } : current);
         } catch (error) {
           setStatusError(operationalErrorMessage(error, t, format, "projectImportImpactLoadFailed"));
         }
@@ -93,7 +98,7 @@ export function createStatusChangeActions(state: StatusChangeState, deps: Status
   }
 
   async function confirmStatusChange() {
-    if (!canEditLifecycle || !pendingStatusChange || statusSubmitting) return;
+    if (!canEditLifecycle || !pendingStatusChange || statusSubmitting || deletionBlockedByReview(pendingStatusChange)) return;
     const change = pendingStatusChange;
     setStatusSubmitting(true);
     setStatusError("");
@@ -153,6 +158,7 @@ export function createStatusChangeView(state: StatusChangeState, actions: Status
               <button aria-label={t("projectImportCloseLifecycleWarning")} className="icon-button" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button"><X size={18} /></button>
             </div>
 	            <div className="warning-body"><AlertTriangle size={24} /><div><strong>{pendingStatusChange.documentTitle}</strong><small>{t("projectImportLifecycleWarningHelp")}</small></div></div>
+	            {deletionBlockedByReview(pendingStatusChange) ? <FeedbackMessage tone="warning">{t("documentDeleteReviewPending")}</FeedbackMessage> : null}
 	            {statusError ? <FeedbackMessage tone="error"> {localize(statusError)}</FeedbackMessage> : null}
 	            <div className="status-change-preview">
               <span><small>{t("projectImportCurrentStatus")}</small><strong>{documentStatusLabel(pendingStatusChange.from, t)}</strong></span>
@@ -162,7 +168,7 @@ export function createStatusChangeView(state: StatusChangeState, actions: Status
             <div className="impacted-projects">
               {pendingStatusChange.projects.length ? pendingStatusChange.projects.map((project) => <span key={project}>{project}</span>) : <span>{t("projectImportNoReferenceProjects")}</span>}
             </div>
-            <div className="modal-actions"><button className="action-button secondary" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={statusSubmitting} onClick={confirmStatusChange} type="button">{statusSubmitting ? t("projectImportSubmitting") : t("projectImportConfirmContinue")}</button></div>
+            <div className="modal-actions"><button className="action-button secondary" disabled={statusSubmitting} onClick={() => setPendingStatusChange(null)} type="button">{t("cancel")}</button><button className="action-button danger" disabled={statusSubmitting || deletionBlockedByReview(pendingStatusChange)} onClick={confirmStatusChange} type="button">{statusSubmitting ? t("projectImportSubmitting") : t("projectImportConfirmContinue")}</button></div>
           </Modal>
       ) : null}
       </>

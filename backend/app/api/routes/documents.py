@@ -28,7 +28,7 @@ from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, Approva
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.domain.queued_extraction import cancel_queued_extractions, hidden_cancelled_run
-from app.db.models import AIModel, ActiveVersionManifest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
+from app.db.models import AIModel, ActiveVersionManifest, ApprovalRequest, ChatRecord, Chunk, ChunkTag, DataConnection, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, DocumentVersionTag, PipelineRun, PipelineRunStep, Project, Tag, ValidationRun
 from app.db.session import get_db, get_session_factory
 from app.domain.tag_details import chunk_tag_details as _chunk_tag_details, document_tag_details as _document_tag_details
 from app.domain.ai_provider import generate_knowledge_tags
@@ -860,6 +860,14 @@ def update_document_lifecycle(
     if payload.status not in {"active", "inactive", "deleted"}:
         raise AppError("invalid_lifecycle_status", "Lifecycle status must be active, inactive, or deleted", status_code=422)
     impact = _lifecycle_impact(session, document, payload.status)
+    if payload.status == "deleted":
+        # CHG-452 REVDEL452-001: a document under review is not deleted; cancel the submission first. The pending
+        # requests are locked so a concurrent cancel or decision cannot slip between this check and the delete.
+        pending = list(session.scalars(select(ApprovalRequest.id).where(
+            ApprovalRequest.document_id == document.id, ApprovalRequest.status.in_(PENDING_REVIEW_STATUSES)).with_for_update()))
+        if pending:
+            raise AppError("document_review_pending", "Cancel the review submission before deleting this document", status_code=409,
+                           details={"pending_review_count": len(pending)})
     if impact.requires_confirmation and not payload.impact_confirmed:
         raise AppError("impact_confirmation_required", "Lifecycle transition requires impact confirmation", status_code=422)
     manifest = session.scalar(select(ActiveVersionManifest).where(ActiveVersionManifest.document_id == document.id, ActiveVersionManifest.index_ready.is_(True)))
@@ -2270,11 +2278,15 @@ def _reference_source_summary(session: Session, document: Document, version: Doc
     )
 
 
+PENDING_REVIEW_STATUSES = ("pending_manager_review", "pending_owner_review")  # CHG-452 D452-01: the cancellable review states
+
+
 def _lifecycle_impact(session: Session, document: Document, requested_status: str) -> LifecycleImpactResponse:
     reference_count = session.scalar(select(func.count()).select_from(DocumentReference).where(DocumentReference.source_document_id == document.id, DocumentReference.status == "active")) or 0
     active_version_count = session.scalar(select(func.count()).select_from(ActiveVersionManifest).where(ActiveVersionManifest.document_id == document.id, ActiveVersionManifest.index_ready.is_(True))) or 0
     requires_confirmation = requested_status in {"inactive", "deleted"} and (reference_count > 0 or active_version_count > 0)
-    return LifecycleImpactResponse(document_id=document.id, requested_status=requested_status, impacted_reference_count=reference_count, impacted_active_version_count=active_version_count, requires_confirmation=requires_confirmation)
+    pending_review_count = session.scalar(select(func.count()).select_from(ApprovalRequest).where(ApprovalRequest.document_id == document.id, ApprovalRequest.status.in_(PENDING_REVIEW_STATUSES))) or 0
+    return LifecycleImpactResponse(document_id=document.id, requested_status=requested_status, impacted_reference_count=reference_count, impacted_active_version_count=active_version_count, requires_confirmation=requires_confirmation, pending_review_count=pending_review_count)
 
 
 def _version_summary(version: DocumentVersion, *, expose_storage: bool = True, metadata: dict | None = None) -> DocumentVersionSummary:

@@ -2613,5 +2613,6 @@
   "subquestionEnabledLabel": "拆成子問題分別搜尋",
   "subquestionEnabledHelp": "開啟後，一題同時問好幾件事時，會在判斷引用類問題的同一次模型呼叫中拆成子問題，每個子問題再各帶入 2 個切片（只在已發布範圍；需同時開啟「判斷引用類問題」）。",
   "subquestionMaxLabel": "最多拆成幾個子問題",
-  "subquestionMaxHelp": "1–5。下一題即生效。"
+  "subquestionMaxHelp": "1–5。下一題即生效。",
+  "documentDeleteReviewPending": "這份文件正在審核中，請先取消送審再刪除。"
 }

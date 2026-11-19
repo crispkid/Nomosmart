@@ -662,7 +662,8 @@ def publish_document_version(
     if session.get(ProjectOwner, (version.project_id, context.user_id)) is None:
         raise AppError("project_owner_required", "Project Owner relationship is required to publish", status_code=403)
     document = session.get(Document, version.document_id)
-    if document is None:
+    if document is None or document.is_deleted or document.status == "deleted":
+        # CHG-452 REVDEL452-003: an approved version of a deleted document is not published.
         raise AppError("document_not_found", "Document was not found", status_code=404)
     manifest, index_result, graph_job = publish_version(
         session=session,
