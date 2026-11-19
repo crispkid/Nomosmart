@@ -2600,5 +2600,10 @@
   "referenceExpansionMaxChunksLabel": "擴展最多帶入切片數",
   "referenceExpansionMaxChunksHelp": "0–10，0 表示不帶入。下一題即生效。",
   "settingsEnabled": "開啟",
-  "settingsDisabled": "關閉"
+  "settingsDisabled": "關閉",
+  "referencesRelationLabel": "關係種類",
+  "referencesRelationReferences": "引用",
+  "referencesRelationSupersedes": "取代",
+  "documentSupersededBy": "此文件已被{titles}取代。問答會提醒模型優先採用新規定；是否停用請由管理者決定。",
+  "graphRelationSupersedes": "取代"
 }

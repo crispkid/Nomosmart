@@ -16,18 +16,21 @@ from uuid import UUID
 from app.core.errors import AppError
 from app.db.models import AIModel
 
-PROMPT_VERSION = "reference-routing-v1"
+PROMPT_VERSION = "reference-routing-v2"  # CHG-446: supersede intents
 TIMEOUT_SECONDS = 10
 MAX_TITLES = 300
-INTENTS = {"referenced_by", "references", "none"}
+INTENTS = {"referenced_by", "references", "supersedes", "superseded_by", "none"}
 SYSTEM_PROMPT = """You classify one question asked to a document knowledge base. Do not answer it.
-Decide whether the question asks about references between documents:
+Decide whether the question asks about relations between documents:
 - "referenced_by": which documents cite, refer to, are based on, or apply a named document.
 - "references": which documents a named document cites, refers to, or is based on.
+- "supersedes": which earlier documents or rules a named document replaces, supersedes or repeals.
+- "superseded_by": which document replaced, superseded or repealed a named (often older) document.
 - "none": anything else, including questions about document content, effects or who is affected.
-Choose the named documents only from the provided title list; an abbreviation or short name may match a listed title.
-If no listed title fits, use "none".
-Reply with JSON only: {"intent": "referenced_by" | "references" | "none", "documents": ["<exact listed title>", ...]}"""
+Choose the named documents from the provided title list when they are listed; an abbreviation or short name may match a
+listed title. A named document that is not in the list goes to "other_names" exactly as written in the question.
+If the question is not about these relations, use "none".
+Reply with JSON only: {"intent": "...", "documents": ["<exact listed title>", ...], "other_names": ["<name>", ...]}"""
 
 
 @dataclass
@@ -35,6 +38,7 @@ class RoutingDecision:
     intent: str = "none"
     document_ids: list[UUID] = field(default_factory=list)
     status: str = "skipped"
+    other_names: list[str] = field(default_factory=list)  # CHG-446: named documents not in the system
 
 
 def _shortlist(question: str, titles: list[str]) -> list[str]:
@@ -52,6 +56,10 @@ def _parse(content: str, allowed: dict[str, UUID]) -> RoutingDecision:
     if intent not in INTENTS or not isinstance(names, list):
         raise ValueError("routing answer is malformed")
     ids = list(dict.fromkeys(allowed[name] for name in names if isinstance(name, str) and name in allowed))
+    others = data.get("other_names") or []
+    others = [name.strip()[:200] for name in others if isinstance(name, str) and name.strip()][:5] if isinstance(others, list) else []
+    if intent == "superseded_by" and (ids or others):
+        return RoutingDecision(intent, ids, "success", others)
     if intent == "none" or not ids:
         return RoutingDecision("none", [], "success")
     return RoutingDecision(intent, ids, "success")

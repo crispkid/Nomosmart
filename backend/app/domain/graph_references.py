@@ -19,7 +19,10 @@ from app.db.models import Chunk, ChunkReference, Document, DocumentVersion
 OWNER = "chunk-references-v1"
 
 
-def published_reference_edges(session, project_id: UUID) -> dict[tuple[str, str], dict]:
+RELATION_LABELS = {"references": "REFERENCES", "supersedes": "SUPERSEDES"}  # CHG-446 SUPER446-004
+
+
+def published_reference_edges(session, project_id: UUID, relation: str = "references") -> dict[tuple[str, str], dict]:
     """(source document, target document) -> {count, source_version_id} for published documents only."""
     live = {doc_id: version_id for doc_id, version_id in session.execute(
         select(Document.id, DocumentVersion.id).join(DocumentVersion, DocumentVersion.document_id == Document.id)
@@ -31,50 +34,56 @@ def published_reference_edges(session, project_id: UUID) -> dict[tuple[str, str]
         select(ChunkReference.document_id, ChunkReference.target_document_id)
         .join(Chunk, Chunk.id == ChunkReference.chunk_id)
         .where(ChunkReference.project_id == project_id, ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+               ChunkReference.relation_type == relation,
                Chunk.status == "active", ChunkReference.document_version_id.in_(list(live.values())))).all())
     return {(str(source), str(target)): {"count": count, "source_version_id": str(live[source])}
             for (source, target), count in counts.items() if target in live and source != target}
 
 
-def _replace(tx, project_id: str, edges: list[dict]) -> list[tuple]:
-    tx.run("MATCH (d:Document {project_id: $pid})-[r:REFERENCES]->(:Document) DELETE r", pid=project_id).consume()
+def _replace(tx, project_id: str, edges: list[dict], label: str = "REFERENCES") -> list[tuple]:
+    if label not in RELATION_LABELS.values():
+        raise AppError("graph_reference_mismatch", "Unknown relation label", status_code=503)
+    tx.run(f"MATCH (d:Document {{project_id: $pid}})-[r:{label}]->(:Document) DELETE r", pid=project_id).consume()
     if edges:
-        tx.run("""
+        tx.run(f"""
             UNWIND $edges AS e
-            MATCH (s:Document {id: e.source}), (t:Document {id: e.target})
-            MERGE (s)-[r:REFERENCES]->(t)
+            MATCH (s:Document {{id: e.source}}), (t:Document {{id: e.target}})
+            MERGE (s)-[r:{label}]->(t)
             SET r.count = e.count, r.source_version_id = e.source_version_id, r.projection_owner = $owner
             """, edges=edges, owner=OWNER).consume()
-    rows = tx.run("""
-        MATCH (s:Document {project_id: $pid})-[r:REFERENCES]->(t:Document)
+    rows = tx.run(f"""
+        MATCH (s:Document {{project_id: $pid}})-[r:{label}]->(t:Document)
         RETURN s.id AS source, t.id AS target, r.count AS count, r.projection_owner AS owner
         """, pid=project_id)
     return sorted((row["source"], row["target"], row["count"], row["owner"]) for row in rows)
 
 
 def sync_reference_edges(session, settings: Settings, project_id: UUID) -> int:
-    """Recompute and verify the project's REFERENCES edges; returns the edge count."""
+    """Recompute and verify the project's REFERENCES and SUPERSEDES edges; returns the edge count."""
     from app.domain.graph_reconciliation import Neo4jProjectionStore
-    desired = published_reference_edges(session, project_id)
-    edges = [{"source": s, "target": t, **value} for (s, t), value in sorted(desired.items())]
-    with Neo4jProjectionStore(settings).connection() as graph:
-        written = graph.execute_write(_replace, str(project_id), edges)
-    # Targets without a graph node (not yet synchronized) cannot hold an edge; everything else must match.
-    expected = sorted((e["source"], e["target"], e["count"], OWNER) for e in edges)
-    if any(row not in expected for row in written) or len(written) > len(expected):
-        raise AppError("graph_reference_mismatch", "Reference edges did not match after synchronization", status_code=503)
-    return len(written)
+    total = 0
+    for relation, label in RELATION_LABELS.items():
+        desired = published_reference_edges(session, project_id, relation)
+        edges = [{"source": s, "target": t, **value} for (s, t), value in sorted(desired.items())]
+        with Neo4jProjectionStore(settings).connection() as graph:
+            written = graph.execute_write(_replace, str(project_id), edges, label)
+        # Targets without a graph node (not yet synchronized) cannot hold an edge; everything else must match.
+        expected = sorted((e["source"], e["target"], e["count"], OWNER) for e in edges)
+        if any(row not in expected for row in written) or len(written) > len(expected):
+            raise AppError("graph_reference_mismatch", "Reference edges did not match after synchronization", status_code=503)
+        total += len(written)
+    return total
 
 
-def preview_reference_lines(session, version_ids: list[UUID]) -> list[tuple[str, str, str]]:
-    """REF442-007: (chunk id, target document id, target title) of resolved references on active chunks, for
-    graph previews of versions that are not published yet."""
+def preview_reference_lines(session, version_ids: list[UUID]) -> list[tuple[str, str, str, str]]:
+    """REF442-007 / SUPER446-004: (chunk id, target document id, target title, relation) of resolved references on
+    active chunks, for graph previews of versions that are not published yet."""
     if not version_ids:
         return []
     rows = session.execute(
-        select(ChunkReference.chunk_id, ChunkReference.target_document_id, Document.title)
+        select(ChunkReference.chunk_id, ChunkReference.target_document_id, Document.title, ChunkReference.relation_type)
         .join(Chunk, Chunk.id == ChunkReference.chunk_id)
         .join(Document, Document.id == ChunkReference.target_document_id)
         .where(ChunkReference.document_version_id.in_(version_ids), ChunkReference.status == "resolved",
                ChunkReference.is_deleted.is_(False), Chunk.status == "active", Document.is_deleted.is_(False))).all()
-    return [(str(chunk_id), str(target_id), title) for chunk_id, target_id, title in rows]
+    return [(str(chunk_id), str(target_id), title, relation) for chunk_id, target_id, title, relation in rows]

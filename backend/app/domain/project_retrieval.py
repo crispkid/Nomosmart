@@ -200,6 +200,7 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
         citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
                                                   chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
                                                   enabled=qa["reference_expansion_enabled"], limit=qa["reference_expansion_max_chunks"]))
+        _mark_superseded(session, project_id, citations)
     return citations
 
 
@@ -225,12 +226,16 @@ def _route_reference_question(session: Session, project_id: UUID, versions: list
                                  source_channel=source_channel, project_id=project_id, actor_user_id=actor_user_id)
     if decision.intent == "none":
         return []
+    if decision.intent in ("supersedes", "superseded_by"):
+        return _route_supersede_question(session, project_id, versions, citations, question, query_targets, decision,
+                                         chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, limit=limit)
     named = set(decision.document_ids)
     column, other = ((ChunkReference.target_document_id, ChunkReference.document_id) if decision.intent == "referenced_by"
                      else (ChunkReference.document_id, ChunkReference.target_document_id))
     linked: Counter[UUID] = Counter(session.scalars(
         select(other).join(Chunk, Chunk.id == ChunkReference.chunk_id)
         .where(ChunkReference.project_id == project_id, ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+               ChunkReference.relation_type == "references",
                Chunk.status == "active", ChunkReference.document_version_id.in_([version.id for version in versions]), column.in_(named))))
     ordered = list(decision.document_ids) + [doc for doc, _count in sorted(linked.items(), key=lambda item: (-item[1], str(item[0])))
                                              if doc not in named and doc in version_by_document]
@@ -274,6 +279,87 @@ def _hybrid_citation(chunk: Chunk, hit: dict, index_name: str, *, via_reference:
     )
 
 
+def _route_supersede_question(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
+                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], decision, *, chunks_by_id: dict,
+                              chunks_by_position: dict, limit: int) -> list[ProjectChatCitation]:
+    """CHG-446 SUPER446-005: the chunk that states the supersede is the evidence, so it is added directly.
+
+    `supersedes` X: the supersede chunks of X, then the superseded documents that are in scope (best chunk each).
+    `superseded_by` Y: the supersede chunks that name Y, matched by target document or by normalized name when Y is
+    not in the system. At most `limit` documents; all marked `via_reference`.
+    """
+    from app.domain.chunk_references import reference_key
+    version_ids = [version.id for version in versions]
+    version_by_document = {version.document_id: version for version in versions}
+    rows = select(ChunkReference).join(Chunk, Chunk.id == ChunkReference.chunk_id).where(
+        ChunkReference.project_id == project_id, ChunkReference.relation_type == "supersedes", ChunkReference.is_deleted.is_(False),
+        Chunk.status == "active", ChunkReference.document_version_id.in_(version_ids))
+    if decision.intent == "supersedes":
+        rows = rows.where(ChunkReference.document_id.in_(decision.document_ids))
+    else:
+        keys = [reference_key(name) for name in decision.other_names]
+        rows = rows.where(or_(ChunkReference.target_document_id.in_(decision.document_ids or [UUID(int=0)]),
+                              ChunkReference.normalized_name.in_(keys or [""])))
+    found_chunks = {citation.chunk_id for citation in citations}
+    documents: list[UUID] = []
+    added: list[ProjectChatCitation] = []
+    targets: list[UUID] = []
+    for row in session.scalars(rows.order_by(ChunkReference.created_at)):
+        chunk = chunks_by_id.get(row.chunk_id)
+        target = query_targets.get(row.document_version_id)
+        if chunk is None or target is None:
+            continue
+        if row.document_id not in documents:
+            if len(documents) >= limit:
+                break
+            documents.append(row.document_id)
+        if chunk.id not in found_chunks:
+            added.append(_hybrid_citation(chunk, {"_score": None}, target[0], via_reference=True))
+            found_chunks.add(chunk.id)
+        if decision.intent == "supersedes" and row.target_document_id in version_by_document:
+            targets.append(row.target_document_id)
+    for document_id in dict.fromkeys(targets):
+        if len(documents) >= limit or document_id in documents:
+            continue
+        version = version_by_document[document_id]
+        index_name, query_vector, mapping_version = query_targets.get(version.id, (None, None, None))
+        if index_name is None:
+            continue
+        hits = _opensearch_hybrid_search(index_name, project_id, question, query_vector, [str(version.id)], 3,
+                                         scope="published", mapping_version=mapping_version)
+        for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                project_id=project_id, scoped_version_ids={version.id}, limit=1):
+            if chunk.id not in found_chunks:
+                added.append(_hybrid_citation(chunk, hit, index_name, via_reference=True))
+                found_chunks.add(chunk.id)
+        documents.append(document_id)
+    return added
+
+
+def _mark_superseded(session: Session, project_id: UUID, citations: list[ProjectChatCitation]) -> None:
+    """CHG-446 SUPER446-006: tell the model when a cited document has been superseded by a published document."""
+    cited = {citation.document_id for citation in citations}
+    if not cited:
+        return
+    newer: dict[UUID, list[str]] = {}
+    for target, title in session.execute(
+            select(ChunkReference.target_document_id, Document.title)
+            .join(Chunk, Chunk.id == ChunkReference.chunk_id)
+            .join(DocumentVersion, DocumentVersion.id == ChunkReference.document_version_id)
+            .join(Document, Document.id == ChunkReference.document_id)
+            .where(ChunkReference.project_id == project_id, ChunkReference.relation_type == "supersedes",
+                   ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False), Chunk.status == "active",
+                   DocumentVersion.status == "active", DocumentVersion.published_at.is_not(None), Document.is_deleted.is_(False),
+                   ChunkReference.target_document_id.in_(cited))):
+        if title not in newer.setdefault(target, []):
+            newer[target].append(title)
+    for citation in citations:
+        titles = newer.get(citation.document_id)
+        if titles and citation.generation_text and not citation.generation_text.startswith("（注意"):
+            names = "、".join(f"〈{title}〉" for title in titles)
+            citation.generation_text = f"（注意：本文件已被{names}取代，請優先採用新規定。）\n{citation.generation_text}"
+
+
 def _expand_along_references(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
                              chunks_by_position: dict, settings, enabled: bool, limit: int) -> list[ProjectChatCitation]:
@@ -291,6 +377,7 @@ def _expand_along_references(session: Session, project_id: UUID, versions: list[
             select(ChunkReference.document_id, ChunkReference.target_document_id)
             .join(Chunk, Chunk.id == ChunkReference.chunk_id)
             .where(ChunkReference.project_id == project_id, ChunkReference.status == "resolved", ChunkReference.is_deleted.is_(False),
+                   ChunkReference.relation_type == "references",
                    Chunk.status == "active", ChunkReference.document_version_id.in_([version.id for version in versions]),
                    or_(ChunkReference.document_id.in_(found), ChunkReference.target_document_id.in_(found)))):
         other = target if source in found else source

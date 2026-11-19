@@ -131,6 +131,7 @@ type ProjectGraphLabels = {
   project: string;
   referenceProject: string;
   references: string;
+  supersedes: string;
   s3: string;
   tagCount: string;
   tagGroupDetail: string;
@@ -347,10 +348,12 @@ function buildProjectExplorerGraph(graph: ProjectGraphResponse, labels: ProjectG
 
   // CHG-442 REF442-007: reference lines between documents, and from a preview chunk to the document it cites.
   const nodeIds = new Set(nodes.map((node) => node.id));
-  graph.edges.filter((edge) => edge.type === "REFERENCES").forEach((edge) => {
+  graph.edges.filter((edge) => edge.type === "REFERENCES" || edge.type === "SUPERSEDES").forEach((edge) => {
     const source = nodeIds.has(edge.source) ? edge.source : nodes.find((node) => node.id.endsWith(`-chunk-${edge.source}`))?.id;
     if (!source || !nodeIds.has(edge.target)) return;
-    edges.push({ id: `references-${source}-${edge.target}`, label: labels.references, relation: "references", source, target: edge.target });
+    const supersedes = edge.type === "SUPERSEDES"; // CHG-446 SUPER446-004
+    edges.push({ id: `${supersedes ? "supersedes" : "references"}-${source}-${edge.target}`, label: supersedes ? labels.supersedes : labels.references,
+      relation: supersedes ? "supersedes" : "references", source, target: edge.target });
   });
 
   return { edges, nodes };
@@ -419,6 +422,7 @@ export function ProjectGraphPreview() {
     project: t("graphLegendProject"),
     referenceProject: t("graphRelationSourceReferenceProject"),
     references: t("graphRelationReferences"),
+    supersedes: t("graphRelationSupersedes"),
     s3: t("graphRelationSourceS3"),
     tagCount: t("graphExplorerTagCount"),
     tagGroupDetail: t("graphTagGroupDetail"),

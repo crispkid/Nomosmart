@@ -17,7 +17,7 @@ export async function createStationRevision(apiFetch: ApiFetch, projectId: strin
 export async function listChunkReferences(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, signal?: AbortSignal) {
   return apiJson<ChunkReferenceListResponse>(apiFetch, `${versionPath(projectId, documentId, versionId)}/chunk-references`, { signal });
 }
-export async function createChunkReference(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, payload: { chunk_id: string; raw_text: string; target_document_id?: string | null; external?: boolean }) {
+export async function createChunkReference(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, payload: { chunk_id: string; raw_text: string; target_document_id?: string | null; external?: boolean; relation_type?: "references" | "supersedes" }) {
   return apiJson<ChunkReferenceItem>(apiFetch, `${versionPath(projectId, documentId, versionId)}/chunk-references`, json("POST", payload));
 }
 export async function updateChunkReference(apiFetch: ApiFetch, projectId: string, documentId: string, versionId: string, referenceId: string, payload: { lock_version: number; action: "assign" | "external" | "unresolve"; target_document_id?: string | null }) {

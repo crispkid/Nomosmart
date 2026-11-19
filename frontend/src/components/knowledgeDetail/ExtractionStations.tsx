@@ -254,6 +254,7 @@ export function ChunkReferencePanel({ apiFetch, projectId, detail, chunkId, edit
   const [actionError, setActionError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
+  const [draftRelation, setDraftRelation] = useState<"references" | "supersedes">("references");
   const [revision, setRevision] = useState(0);
   const versionId = detail.version.id;
   const documentId = detail.document.id;
@@ -300,6 +301,7 @@ export function ChunkReferencePanel({ apiFetch, projectId, detail, chunkId, edit
           <li key={item.id}>
             <div className="chunk-reference-line">
               {onlyUnresolved && item.chunk_index ? <button className="chunk-index-badge" onClick={() => onSelectChunk(item.chunk_id)} type="button">#{item.chunk_index}</button> : null}
+              <span className={`chunk-relation-badge relation-${item.relation_type ?? "references"}`}>{t(item.relation_type === "supersedes" ? "referencesRelationSupersedes" : "referencesRelationReferences")}</span>
               <span className="chunk-reference-text">{item.raw_text}</span>
               <span className={`status-badge feedback-status-badge feedback-${item.status === "unresolved" ? "warning" : item.status === "resolved" ? "success" : "info"}`}>{t(REFERENCE_STATUS[item.status])}</span>
               {item.target_title ? <small>→ {item.target_title}</small> : null}
@@ -319,7 +321,11 @@ export function ChunkReferencePanel({ apiFetch, projectId, detail, chunkId, edit
         ))}
       </ul>
       {editable && chunkId && !onlyUnresolved ? (
-        <form className="chunk-reference-add" onSubmit={event => { event.preventDefault(); const text = draft.trim(); if (text) void run("add", async () => { await createChunkReference(apiFetch, projectId, documentId, versionId, { chunk_id: chunkId, raw_text: text }); setDraft(""); }); }}>
+        <form className="chunk-reference-add" onSubmit={event => { event.preventDefault(); const text = draft.trim(); if (text) void run("add", async () => { await createChunkReference(apiFetch, projectId, documentId, versionId, { chunk_id: chunkId, raw_text: text, relation_type: draftRelation }); setDraft(""); }); }}>
+          <select aria-label={t("referencesRelationLabel")} disabled={busy !== null} onChange={event => setDraftRelation(event.target.value as "references" | "supersedes")} value={draftRelation}>
+            <option value="references">{t("referencesRelationReferences")}</option>
+            <option value="supersedes">{t("referencesRelationSupersedes")}</option>
+          </select>
           <input aria-label={t("referencesRawTextLabel")} disabled={busy !== null} maxLength={500} onChange={event => setDraft(event.target.value)} placeholder={t("referencesRawTextLabel")} value={draft} />
           <button className="action-button secondary compact" disabled={busy !== null || !draft.trim()} type="submit">{t("referencesAdd")}</button>
         </form>

@@ -70,7 +70,7 @@ def _copy_references(session, version: DocumentVersion, source: Chunk, target: C
             id=uuid4(), project_id=version.project_id, document_id=version.document_id, document_version_id=version.id,
             chunk_id=target.id, raw_text=row.raw_text, start_offset=row.start_offset, end_offset=row.end_offset,
             normalized_name=row.normalized_name, status=row.status, target_document_id=row.target_document_id,
-            source=row.source, is_deleted=row.is_deleted, created_by=row.created_by, updated_by=row.updated_by,
+            source=row.source, relation_type=row.relation_type, is_deleted=row.is_deleted, created_by=row.created_by, updated_by=row.updated_by,
             lock_version=1, created_at=row.created_at, updated_at=now))
 
 

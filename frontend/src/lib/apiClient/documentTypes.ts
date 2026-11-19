@@ -109,6 +109,8 @@ export type DocumentSummary = {
   service_source?: DocumentServiceSourceSummary | null;
   reference_source?: DocumentReferenceSourceSummary | null;
   capabilities: ProjectCapabilities;
+  /** CHG-446 SUPER446-006: published documents that supersede this one. */
+  superseded_by?: Array<{ document_id: string; title: string }>;
 };
 
 type DocumentServiceSourceSummary = {

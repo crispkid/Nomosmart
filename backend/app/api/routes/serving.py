@@ -2062,17 +2062,20 @@ def _read_neo4j_project_graph(project: Project, active_version_ids: set[UUID], n
     # documents show the document-to-document REFERENCES relation kept in PostgreSQL and the formal graph.
     from app.domain.graph_references import preview_reference_lines, published_reference_edges
     preview_ids = [version_id for version_id in active_version_ids if allow_preview and (v := session.get(DocumentVersion, version_id)) is not None and v.published_at is None]
-    for chunk_id, target_id, title in preview_reference_lines(session, preview_ids):
+    from app.domain.graph_references import RELATION_LABELS
+    for chunk_id, target_id, title, relation in preview_reference_lines(session, preview_ids):
         if chunk_id not in nodes:
             continue
         if target_id not in nodes:
             nodes[target_id] = ProjectGraphNode(id=target_id, type="Document", label=title, metadata={"technical_id": target_id, "reference_target": True})
-        key = f"{chunk_id}:{target_id}:REFERENCES"
-        edges[key] = ProjectGraphEdge(id=key, source=chunk_id, target=target_id, type="REFERENCES", metadata={})
-    for (source_id, target_id), meta in published_reference_edges(session, project.id).items():
-        if source_id in nodes and target_id in nodes:
-            key = f"{source_id}:{target_id}:REFERENCES"
-            edges[key] = ProjectGraphEdge(id=key, source=source_id, target=target_id, type="REFERENCES", metadata={"count": meta["count"]})
+        label = RELATION_LABELS[relation]
+        key = f"{chunk_id}:{target_id}:{label}"
+        edges[key] = ProjectGraphEdge(id=key, source=chunk_id, target=target_id, type=label, metadata={})
+    for relation, label in RELATION_LABELS.items():
+        for (source_id, target_id), meta in published_reference_edges(session, project.id, relation).items():
+            if source_id in nodes and target_id in nodes:
+                key = f"{source_id}:{target_id}:{label}"
+                edges[key] = ProjectGraphEdge(id=key, source=source_id, target=target_id, type=label, metadata={"count": meta["count"]})
     priority = {"Project": 0, "Document": 1, "DocumentVersion": 2, "Chunk": 3, "Tag": 4}
     ordered = sorted(nodes.values(), key=lambda n: (priority[n.type], n.metadata.get("chunk_index", 0), n.id))
     visible = {n.id: n for n in ordered[:node_limit]}

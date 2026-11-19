@@ -376,6 +376,7 @@ class _DocumentListPrefetch:
     versions: dict[UUID, list[DocumentVersion]]
     connections: list[DataConnection]
     references: dict[UUID, DocumentReference]
+    superseded: dict[UUID, list[tuple[UUID, str]]] | None = None
 
 
 def _prefetch_document_list(session: Session, project_id: UUID, document_ids: list[UUID]) -> _DocumentListPrefetch:
@@ -396,7 +397,9 @@ def _prefetch_document_list(session: Session, project_id: UUID, document_ids: li
             .order_by(DocumentReference.target_document_id, desc(DocumentReference.updated_at), desc(DocumentReference.created_at))
         )}
     connections = list(session.scalars(select(DataConnection).where(DataConnection.project_id == project_id)))
-    return _DocumentListPrefetch(versions=versions, connections=connections, references=references)
+    from app.domain.chunk_references import superseded_by_map
+    return _DocumentListPrefetch(versions=versions, connections=connections, references=references,
+                                 superseded=superseded_by_map(session, document_ids))
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=200)
@@ -2171,7 +2174,15 @@ def _project_document(
         reference_source=_reference_source_summary(session, document, version, visible_project_ids,
             prefetched.references if prefetched is not None else None),
         capabilities=effective_capabilities,
+        superseded_by=[{"document_id": source_id, "title": title} for source_id, title in (
+            prefetched.superseded.get(document.id, []) if prefetched is not None and prefetched.superseded is not None
+            else _superseded_by_one(session, document.id))],
     )
+
+
+def _superseded_by_one(session: Session, document_id: UUID) -> list[tuple[UUID, str]]:
+    from app.domain.chunk_references import superseded_by_map
+    return superseded_by_map(session, [document_id]).get(document_id, [])
 
 
 def _service_source_summary(session: Session, document: Document, connections: list[DataConnection] | None = None) -> DocumentServiceSourceSummary | None:

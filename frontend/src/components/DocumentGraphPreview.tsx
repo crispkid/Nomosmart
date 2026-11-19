@@ -11,7 +11,7 @@ type DocumentGraphPreviewProps = {
   documentTitle?: string;
   graphChunks?: DocumentGraphChunk[];
   /** CHG-442 REF442-007: resolved references from a chunk to another document. */
-  referenceLinks?: Array<{ chunkId: string; targetId: string; title: string }>;
+  referenceLinks?: Array<{ chunkId: string; targetId: string; title: string; relation?: "references" | "supersedes" }>;
   version?: string;
 };
 
@@ -199,7 +199,8 @@ export function DocumentGraphPreview({ layoutScope, layoutBinding,
       nodes.push({ id, kind: "document", meta: [], semanticLayer: 2, subtitle: t("graphRelationReferences"), technicalId: link.targetId, title: link.title, x: point.x, y: point.y });
       referencedNodes.set(id, link.title);
     }
-    edges.push({ id: `${source.id}-${id}`, label: t("graphRelationReferences"), relation: "references", source: source.id, target: id });
+    const supersedes = link.relation === "supersedes"; // CHG-446 SUPER446-004
+    edges.push({ id: `${source.id}-${id}-${supersedes ? "s" : "r"}`, label: t(supersedes ? "graphRelationSupersedes" : "graphRelationReferences"), relation: supersedes ? "supersedes" : "references", source: source.id, target: id });
   });
 
   return (

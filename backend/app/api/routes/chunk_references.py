@@ -39,7 +39,7 @@ def _response(session: Session, project, version, context: IdentityContext) -> C
     items = [ChunkReferenceItem(id=row.id, chunk_id=row.chunk_id, chunk_index=index, raw_text=row.raw_text, start_offset=row.start_offset,
                                 end_offset=row.end_offset, normalized_name=row.normalized_name, status=row.status,
                                 target_document_id=row.target_document_id, target_title=title, source=row.source,
-                                is_deleted=row.is_deleted, lock_version=row.lock_version)
+                                relation_type=row.relation_type, is_deleted=row.is_deleted, lock_version=row.lock_version)
              for row, index, title in version_reference_rows(session, version.id)]
     return ChunkReferenceListResponse(document_version_id=version.id, editable=_editable(session, project, version, context), items=items,
                                       summary=ChunkReferenceSummary(**reference_summary(session, version.id)))
@@ -86,13 +86,15 @@ def create_chunk_reference(project_id: UUID, document_id: UUID, version_id: UUID
     now = datetime.now(UTC)
     row = ChunkReference(id=uuid4(), project_id=project.id, document_id=document.id, document_version_id=version.id, chunk_id=chunk.id,
                          raw_text=raw, normalized_name=key, status="resolved" if target else "external" if payload.external else "unresolved",
-                         target_document_id=target.id if target else None, source="manual", is_deleted=False, created_by=context.user_id,
+                         target_document_id=target.id if target else None, source="manual", relation_type=payload.relation_type,
+                         is_deleted=False, created_by=context.user_id,
                          updated_by=context.user_id, lock_version=1, created_at=now, updated_at=now)
     session.add(row)
     _refresh_tag_preview(session, project, document, version)
     add_audit(session, actor_user_id=context.user_id, action="knowledge.chunk_reference.create", resource_type="chunk", resource_id=chunk.id,
               result="success", request_id=request.state.request_id,
-              summary={"reference_id": str(row.id), "status": row.status, "target_document_id": str(row.target_document_id) if target else None})
+              summary={"reference_id": str(row.id), "status": row.status, "relation_type": row.relation_type,
+                       "target_document_id": str(row.target_document_id) if target else None})
     session.commit()
     return _response(session, project, version, context)
 

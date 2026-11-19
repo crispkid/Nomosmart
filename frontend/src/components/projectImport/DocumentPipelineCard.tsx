@@ -85,6 +85,7 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
               {activeVersion ? <em className="version-role-active"><CheckCircle2 size={12} /> {t("statusActive")}：{activeVersion}</em> : null}
               {workingVersion && workingVersion !== activeVersion ? <em className="version-role-working"><Clock3 size={12} /> {t("projectImportWorkingVersion")}：{workingVersion}</em> : null}
             </span>
+            {document.supersededBy?.length ? <span className="superseded-note"><AlertTriangle size={13} /> {format("documentSupersededBy", { titles: document.supersededBy.map(item => `〈${item.title}〉`).join("、") })}</span> : null}
             {referenceSource ? <span className="reference-project-name"><Layers3 size={13} /> {t("projectImportReferenceSource")}：{referenceSource.projectName}</span> : null}
             {referenceSource?.pendingEventCount ? (
               <span className="reference-update-note"><AlertTriangle size={13} /> {format("projectImportReferencePendingEvents", { count: referenceSource.pendingEventCount })}</span>
