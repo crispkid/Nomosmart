@@ -43,6 +43,8 @@ export type PendingStatusChange = {
   isLive: boolean;
   lockVersion?: number;
   requiresConfirmation: boolean;
+  /** CHG-452 REVDEL452-002: approval requests still waiting for a reviewer (deletion is refused). */
+  pendingReviewCount?: number;
 };
 
 export type VersionSwitchTarget = {

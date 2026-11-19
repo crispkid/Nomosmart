@@ -8,6 +8,8 @@ type Format = (key: TranslationKey, params: Record<string, string | number>) => 
 
 const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   ...OCR_NATIVE_ERROR_KEYS,
+  // CHG-452 REVDEL452-001/002
+  document_review_pending: "documentDeleteReviewPending",
   // CHG-442 REN442-001/004: document names.
   document_title_invalid: "documentTitleInvalid",
   document_title_duplicate: "documentTitleDuplicateGeneric",

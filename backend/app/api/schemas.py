@@ -568,6 +568,8 @@ class LifecycleImpactResponse(BaseModel):
     impacted_reference_count: int
     impacted_active_version_count: int
     requires_confirmation: bool
+    # CHG-452 REVDEL452-002: approval requests still waiting for a reviewer; deletion is refused while > 0.
+    pending_review_count: int = 0
 
 
 class DocumentReferenceCreatePayload(BaseModel):

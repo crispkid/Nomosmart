@@ -356,6 +356,8 @@ export type LifecycleImpactResponse = {
   impacted_reference_count: number;
   impacted_active_version_count: number;
   requires_confirmation: boolean;
+  /** CHG-452 REVDEL452-002 */
+  pending_review_count?: number;
 };
 
 type DocumentReferenceResponse = {
