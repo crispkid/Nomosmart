@@ -138,6 +138,8 @@ export type ApprovalTaskDetail = {
   evidence_stale: boolean;
   read_only: boolean;
   read_only_reason: string | null;
+  /** F454-RETURN-01 RET454-003: decisions this user may take; ["reject"] = Project Owner returning for an unavailable reviewer. */
+  allowed_decisions?: Array<"approve" | "reject">;
   evidence_revision: string | null;
   evidence_generated_at: string | null;
   evidence_verifiable: boolean;

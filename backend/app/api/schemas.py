@@ -945,6 +945,7 @@ class ApprovalTaskDetail(BaseModel):
     evidence_stale: bool = False
     read_only: bool = False
     read_only_reason: str | None = None
+    allowed_decisions: list[str] = Field(default_factory=list)  # F454-RETURN-01 RET454-003
     evidence_revision: str | None = None
     evidence_generated_at: datetime | None = None
     evidence_verifiable: bool = False
