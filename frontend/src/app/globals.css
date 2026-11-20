@@ -10139,6 +10139,11 @@ small {
 .system-prompt-target span { color: var(--muted); font-size: 12px; }
 .system-prompt-target small { color: var(--muted); }
 .system-toolbar.compact { margin: 0; }
+/* CHG-467 REVROUTE467-009: filter and refresh above the approval administration table. */
+.approval-administration-toolbar { grid-template-columns: minmax(200px, 320px) auto; justify-content: space-between; margin-bottom: 12px; }
+@media (max-width: 768px) { .approval-administration-toolbar { grid-template-columns: 1fr; } }
+.system-table .approval-administration-nowrap { white-space: nowrap; }
+.system-table .approval-administration-nowrap .system-row-actions { flex-wrap: nowrap; }
 
 .system-prompt-modal {
   display: flex;

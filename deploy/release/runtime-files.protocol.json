@@ -95,6 +95,7 @@
     "deploy/helm/nomosmart/files/sql/V065__question_answering_settings.sql",
     "deploy/helm/nomosmart/files/sql/V066__chunk_reference_relation_type.sql",
     "deploy/helm/nomosmart/files/sql/V067__question_answering_subquestions.sql",
+    "deploy/helm/nomosmart/files/sql/V068__approval_review_routing.sql",
     "deploy/helm/nomosmart/templates/_auth-keyring.tpl",
     "deploy/helm/nomosmart/templates/_bootstrap-init.tpl",
     "deploy/helm/nomosmart/templates/_helpers.tpl",
@@ -269,6 +270,7 @@
     "sql/migrations/V064__four_stage_extraction_references.sql",
     "sql/migrations/V065__question_answering_settings.sql",
     "sql/migrations/V066__chunk_reference_relation_type.sql",
-    "sql/migrations/V067__question_answering_subquestions.sql"
+    "sql/migrations/V067__question_answering_subquestions.sql",
+    "sql/migrations/V068__approval_review_routing.sql"
   ]
 }

@@ -24,6 +24,9 @@ const copies: Record<string, [TranslationKey, TranslationKey]> = {
   "review.owner.pending": ["notificationReviewOwnerPendingTitle", "notificationReviewOwnerPendingMessage"],
   "review.approved": ["notificationReviewApprovedTitle", "notificationReviewApprovedMessage"],
   "review.rejected": ["notificationReviewRejectedTitle", "notificationReviewRejectedMessage"],
+  // CHG-467 REVROUTE467-010/011
+  "review.reassigned": ["notificationReviewReassignedTitle", "notificationReviewReassignedMessage"],
+  "review.returned_by_administration": ["notificationReviewReturnedByAdministrationTitle", "notificationReviewReturnedByAdministrationMessage"],
   "document.published": ["notificationDocumentPublishedTitle", "notificationDocumentPublishedMessage"],
   "document.active_switched": ["notificationDocumentActiveSwitchedTitle", "notificationDocumentActiveSwitchedMessage"],
   reference_source_event: ["notificationReferenceTitle", "notificationReferenceMessage"],

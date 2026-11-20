@@ -21,6 +21,8 @@ export type ApprovalTaskResponse = {
   assignee_user_id: string | null;
   original_manager_user_id?: string | null;
   review_stage: string;
+  review_route?: "manager" | "delegate" | "project_owner_fallback";
+  review_route_reason?: string | null;
   status: string;
   lock_version: number;
   submitted_at: string;
@@ -46,6 +48,8 @@ export type ApprovalRequestResponse = {
   priority: string;
   source_type: string | null;
   status: string;
+  review_route?: "manager" | "delegate" | "project_owner_fallback";
+  review_route_reason?: string | null;
   current_task_id: string | null;
   submitted_at: string;
   approved_at: string | null;
@@ -218,6 +222,16 @@ type SubmissionEvidenceActor = {
   title: string | null;
 };
 
+// CHG-467 REVROUTE467-003: who reviews this submission if it is sent now.
+export type ReviewRouteMode = "manager" | "delegate" | "project_owner_fallback" | "unavailable";
+export type ReviewRoutePerson = { id: string; display_name: string };
+export type ReviewRoute = {
+  mode: ReviewRouteMode;
+  reviewer: ReviewRoutePerson | null;
+  original_manager: ReviewRoutePerson | null;
+  reason: string | null;
+};
+
 export type SubmissionEvidenceResponse = {
   detail: KnowledgeDetailResponse;
   evidence_revision: string;
@@ -239,6 +253,7 @@ export type SubmissionEvidenceResponse = {
   validation_runs: Array<Record<string, unknown>>;
   reference_summary?: Partial<ChunkReferenceSummary>;
   overlap_group_count?: number;
+  review_route?: ReviewRoute | null;
 };
 
 type DocumentLayoutArtifact = {

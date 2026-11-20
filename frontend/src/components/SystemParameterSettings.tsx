@@ -14,7 +14,7 @@ import { SettingsCard, SettingsFieldRow } from "./SettingsCard";
 
 type Key = keyof SystemParameterApiValues;
 type Field = { key: Key; label: TranslationKey; help: TranslationKey; max?: number; min?: number; zero?: boolean; kind?: "boolean" };
-type Section = "general" | "documents" | "question_answering";
+type Section = "general" | "documents" | "question_answering" | "approvals";
 const fields: Record<Section, { panel: string; title: TranslationKey; fields: Field[] }[]> = {
   general: [
     { panel: "time", title: "settingsTime", fields: [{ key: "default_timezone", label: "systemDefaultTimezoneLabel", help: "settingsTimezoneHelp" }] },
@@ -43,9 +43,15 @@ const fields: Record<Section, { panel: string; title: TranslationKey; fields: Fi
       { key: "subquestion_enabled", label: "subquestionEnabledLabel", help: "subquestionEnabledHelp", kind: "boolean" },
       { key: "subquestion_max", label: "subquestionMaxLabel", help: "subquestionMaxHelp", min: 1, max: 5 }
     ] }
+  ],
+  // CHG-467 REVROUTE467-005
+  approvals: [
+    { panel: "fallback", title: "settingsApprovalFallback", fields: [
+      { key: "approval_owner_fallback_enabled", label: "approvalOwnerFallbackLabel", help: "approvalOwnerFallbackHelp", kind: "boolean" }
+    ] }
   ]
 };
-const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks", subquestion_enabled: "subquestionEnabled", subquestion_max: "subquestionMax" };
+const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks", subquestion_enabled: "subquestionEnabled", subquestion_max: "subquestionMax", approval_owner_fallback_enabled: "approvalOwnerFallbackEnabled" };
 
 export default function SystemParameterSettings({ section, onDirtyChange }: {
   section: Section; onDirtyChange: (dirty: boolean) => void;

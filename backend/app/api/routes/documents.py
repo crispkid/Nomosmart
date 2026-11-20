@@ -24,7 +24,7 @@ from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload, ReviewRoutePerson, ReviewRouteResponse
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.domain.queued_extraction import cancel_queued_extractions, hidden_cancelled_run
@@ -37,7 +37,7 @@ from app.domain.chunk_artifacts import chunk_artifact_state, lock_chunk_write_sc
 from app.domain.document_content_updates import (can_edit_content, scoped_content, current_content, editor_source, content_edit_mode,
     queue_content_update, scoped_update, job_response, retry_content_update, cancel_failed_update, effective_pipeline)
 from app.api.schemas import ContentUpdatePayload, ContentRetryPayload, ContentCancelPayload
-from app.db.models import DocumentContentUpdate
+from app.db.models import DocumentContentUpdate, User
 from app.domain.chunk_representations import build_manual_chunk_representation
 from app.domain.chunk_deletion import delete_candidate_chunk, reference_conflict
 from app.domain.document_imports import UploadedFilePayload, create_reextraction_revision, create_updated_file_version, create_uploaded_document, DocumentListPosition, latest_versions, start_document_extraction
@@ -55,7 +55,7 @@ from app.domain.upload_content import UploadContent
 from app.domain.public_api_controls import begin_idempotent_operation, complete_idempotent_operation, require_idempotency_key
 from app.domain.model_usage import record_model_usage
 from app.domain.reference_events import create_source_reference_events
-from app.domain.review_publish import submit_review
+from app.domain.review_publish import resolve_review_route, submit_review
 from app.domain.submission_evidence import build_submission_evidence
 from app.domain.system_prompts import resolve_system_prompt
 from app.integrations.s3_storage import S3ObjectStorage
@@ -823,7 +823,19 @@ def get_document_version_submission_evidence(
         validation_runs=validation_runs,
         reference_summary=reference_summary(session, version.id),
         overlap_group_count=detail.overlap_group_count,
+        review_route=_review_route_response(session, context.user_id, project.id),
     )
+
+
+def _review_route_response(session: Session, user_id: UUID, project_id: UUID) -> ReviewRouteResponse:
+    route = resolve_review_route(session, user_id, project_id)
+
+    def person(person_id):
+        user = session.get(User, person_id) if person_id else None
+        return ReviewRoutePerson(id=user.id, display_name=user.display_name) if user is not None else None
+
+    return ReviewRouteResponse(mode=route.mode, reviewer=person(route.reviewer_id),
+                               original_manager=person(route.original_manager_id), reason=route.reason)
 
 
 @router.get("/{document_id}/lifecycle-impact", response_model=LifecycleImpactResponse)

@@ -18,8 +18,9 @@ SECTIONS = {
     "question_answering": ("reference_routing_enabled", "reference_routing_max_documents",
                            "reference_expansion_enabled", "reference_expansion_max_chunks",
                            "subquestion_enabled", "subquestion_max"),  # CHG-450 SUBQ450-004
+    "approvals": ("approval_owner_fallback_enabled",),  # CHG-467 REVROUTE467-005
 }
-BOOLEAN_KEYS = ("reference_routing_enabled", "reference_expansion_enabled", "subquestion_enabled")
+BOOLEAN_KEYS = ("reference_routing_enabled", "reference_expansion_enabled", "subquestion_enabled", "approval_owner_fallback_enabled")
 KEYS = tuple(key for keys in SECTIONS.values() for key in keys)
 
 
@@ -74,6 +75,11 @@ def read_values(session, keys=KEYS, *, defaults=False):
 def question_answering_settings(session) -> dict:
     """ROUTE445-004: current reference routing and expansion values; read per question so changes apply at once."""
     return read_values(session, SECTIONS["question_answering"])
+
+
+def approval_owner_fallback_enabled(session) -> bool:
+    """REVROUTE467-005: read at each submission so a change applies to the next submission only."""
+    return bool(read_values(session, SECTIONS["approvals"])["approval_owner_fallback_enabled"])
 
 
 def intake_settings(session, settings):

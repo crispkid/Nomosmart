@@ -2,6 +2,7 @@
 
 import { DropdownSelect } from "@/components/DropdownSelect";
 import SystemParameterSettings from "./SystemParameterSettings";
+import { ApprovalAdministrationPanel } from "./system/ApprovalAdministrationPanel";
 import { SectionHeader, StateBadge, operationStatusLabel } from "./system/SystemUi";
 import { SystemStatusPanel } from "./system/SystemStatusPanel";
 import { modalScope, type ModalState, type ModelRow, type PromptRow, type SystemReadState } from "./system/modalState";
@@ -52,7 +53,7 @@ export default function SystemManagementWorkspace({
   const { apiFetch, can, currentUser, operationGuards } = useAuth();
   const [position, setPosition] = useState<SettingsPosition>(initialPosition);
   const activeSection = position.section;
-  const activeTab: TabId = activeSection === "people" ? "users" : activeSection === "ai" ? "models" : activeSection === "general" || activeSection === "documents" || activeSection === "question_answering" ? "parameters" : activeSection;
+  const activeTab: TabId = activeSection === "people" ? "users" : activeSection === "ai" ? "models" : activeSection === "general" || activeSection === "documents" || activeSection === "question_answering" || activeSection === "approvals" ? "parameters" : activeSection;
   const [parameterDirty, setParameterDirty] = useState(false);
   const identityState = useIdentityState();
   const { identityDirty, setIdentityDirty, setSyncRuns, setBreakGlassStatus } = identityState;
@@ -263,7 +264,7 @@ export default function SystemManagementWorkspace({
     setUserPage(1); setRolePage(1); setClientCursors([undefined]); setProjectOffset(0); setMemberOffset(0);
     }
     setSystemLoading(true); setSystemError(null);
-    const resources: Record<SettingsPosition["section"], string[]> = { people: ["users", "roles", "groups", "mappings"], identity: ["breakGlass"], ai: ["models", "prompts"], apiKeys: ["projects", "clients"], status: ["status"], general: [], documents: [], question_answering: [] };
+    const resources: Record<SettingsPosition["section"], string[]> = { people: ["users", "roles", "groups", "mappings"], identity: ["breakGlass"], ai: ["models", "prompts"], apiKeys: ["projects", "clients"], status: ["status"], general: [], documents: [], question_answering: [], approvals: [] };
     await Promise.all(resources[activeSection].map(section => reloadSystemSection(section)));
     if (systemReadScopeRef.current !== scope) return;
     setLoadedSystemScope(scope); setLiveReady(true); setSystemLoading(false);
@@ -556,7 +557,8 @@ export default function SystemManagementWorkspace({
             <div className="system-security-note"><LockKeyhole size={17} /><div><strong>{t("systemSecurityMasking")}</strong><p>{t("systemSecurityMaskingHelp")}</p></div></div>
           </> : null}
 
-          {activeSection === "general" || activeSection === "documents" || activeSection === "question_answering" ? <SystemParameterSettings key={`${systemReadScope}:${activeSection}`} section={activeSection} onDirtyChange={setParameterDirty} /> : null}
+          {activeSection === "general" || activeSection === "documents" || activeSection === "question_answering" || activeSection === "approvals" ? <SystemParameterSettings key={`${systemReadScope}:${activeSection}`} section={activeSection} onDirtyChange={setParameterDirty} /> : null}
+          {activeSection === "approvals" ? <ApprovalAdministrationPanel /> : null}
         </div>
       </div>
       {activePromptEditor ? <div className="system-modal-backdrop" onKeyDown={handlePromptDialogKey} onMouseDown={(event) => { if (event.target === event.currentTarget) requestPromptLeave(() => setPromptEditorOpen(false)); }} role="presentation">

@@ -23,6 +23,9 @@ PROJECT_MODULE = "Project"
 PROJECT_ARCHIVE = "ProjectArchive"
 REPORT_MODULE = "Report"
 REPORT_MODEL_REPORT = "ModelReport"
+# CHG-467 REVROUTE467-008: independent permission to reassign or force-return review tasks.
+APPROVAL_MODULE = "Approval"
+APPROVAL_ADMINISTRATION = "ApprovalAdministration"
 
 MENU_PERMISSION_ACTIONS: dict[str, frozenset[PermissionAction]] = {
     MENU_KNOWLEDGE_PROJECTS: frozenset({PermissionAction.VIEW, PermissionAction.CREATE}),
@@ -41,6 +44,7 @@ MANAGED_PERMISSION_ACTIONS: dict[tuple[str, str], frozenset[PermissionAction]] =
     **{(MENU_MODULE, function_name): actions for function_name, actions in MENU_PERMISSION_ACTIONS.items()},
     (PROJECT_MODULE, PROJECT_ARCHIVE): frozenset({PermissionAction.EXECUTE}),
     (REPORT_MODULE, REPORT_MODEL_REPORT): frozenset({PermissionAction.VIEW}),
+    (APPROVAL_MODULE, APPROVAL_ADMINISTRATION): frozenset({PermissionAction.EXECUTE}),
 }
 
 

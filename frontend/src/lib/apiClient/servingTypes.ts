@@ -241,6 +241,8 @@ export type SystemParametersPayload = {
   /** CHG-450 SUBQ450-004: sub-question splitting (database-owned). */
   subquestion_enabled: boolean;
   subquestion_max: number;
+  /** CHG-467 REVROUTE467-005: send to Project Owners when no eligible manager can review. */
+  approval_owner_fallback_enabled: boolean;
   ocr_page_max_output_tokens: number;
   ocr_request_max_output_tokens: number;
   ocr_token_budget_policy: string;
@@ -253,8 +255,8 @@ export type SystemParametersPayload = {
   deployment_max_upload_size_mb: number;
 };
 
-export type SystemParameterSection = "general" | "documents" | "question_answering";
-export type SystemParameterApiValues = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes" | "ocr_request_max_output_tokens" | "ocr_document_max_tokens" | "reference_routing_enabled" | "reference_routing_max_documents" | "reference_expansion_enabled" | "reference_expansion_max_chunks" | "subquestion_enabled" | "subquestion_max">;
+export type SystemParameterSection = "general" | "documents" | "question_answering" | "approvals";
+export type SystemParameterApiValues = Pick<SystemParametersPayload, "max_upload_size_mb" | "default_timezone" | "staging_index_ttl_days" | "session_expired_form_draft_ttl_minutes" | "ocr_request_max_output_tokens" | "ocr_document_max_tokens" | "reference_routing_enabled" | "reference_routing_max_documents" | "reference_expansion_enabled" | "reference_expansion_max_chunks" | "subquestion_enabled" | "subquestion_max" | "approval_owner_fallback_enabled">;
 export type SystemParameterSectionResponse = { section: SystemParameterSection; revision: string; changed: boolean; values: Partial<SystemParameterApiValues>; defaults: Partial<SystemParameterApiValues>; parameter_metadata: SystemParametersPayload["parameter_metadata"] };
 
 export type UploadConfigResponse = {

@@ -538,6 +538,47 @@ class ApprovalRejectPayload(ApprovalDecisionPayload):
     comment: str = Field(min_length=1, max_length=4000)
 
 
+class ReviewRoutePerson(BaseModel):
+    id: UUID
+    display_name: str
+
+
+class ApprovalAdministrationTask(BaseModel):
+    """CHG-467 REVROUTE467-009: one in-progress review task for approval administration."""
+    id: UUID
+    approval_request_id: UUID
+    project_id: UUID
+    project_name: str
+    document_id: UUID
+    document_title: str
+    version_label: str | None = None
+    review_stage: str
+    review_route: str
+    assignee: ReviewRoutePerson | None = None
+    submitter: ReviewRoutePerson | None = None
+    submitted_at: datetime
+    lock_version: int
+    unattended: bool
+
+
+class ApprovalAdministrationTaskPage(BaseModel):
+    items: list[ApprovalAdministrationTask]
+    total: int
+
+
+class ApprovalReassignPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    assignee_user_id: UUID
+    reason: str = Field(min_length=1, max_length=500)
+    lock_version: int = Field(ge=1)
+
+
+class ApprovalAdministrativeReturnPayload(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reason: str = Field(min_length=1, max_length=500)
+    lock_version: int = Field(ge=1)
+
+
 class PublishVersionPayload(BaseModel):
     lock_version: int = Field(ge=1)
     impact_confirmed: bool = True
@@ -854,6 +895,9 @@ class ApprovalTaskResponse(ORMModel):
     assignee_user_id: UUID | None
     original_manager_user_id: UUID | None = None
     review_stage: str
+    # CHG-467 REVROUTE467-006
+    review_route: str = "manager"
+    review_route_reason: str | None = None
     status: str
     lock_version: int
     submitted_at: datetime
@@ -879,6 +923,9 @@ class ApprovalRequestResponse(ORMModel):
     priority: str = "normal"
     source_type: str | None = None
     status: str
+    # CHG-467 REVROUTE467-006
+    review_route: str = "manager"
+    review_route_reason: str | None = None
     current_task_id: UUID | None
     submitted_at: datetime
     approved_at: datetime | None
@@ -1031,6 +1078,14 @@ class SubmissionEvidenceActor(BaseModel):
     title: str | None = None
 
 
+class ReviewRouteResponse(BaseModel):
+    """CHG-467 REVROUTE467-003: who will review this submission if it is sent now."""
+    mode: str  # manager | delegate | project_owner_fallback | unavailable
+    reviewer: ReviewRoutePerson | None = None
+    original_manager: ReviewRoutePerson | None = None
+    reason: str | None = None
+
+
 class SubmissionEvidenceResponse(BaseModel):
     detail: KnowledgeDetailResponse
     evidence_revision: str
@@ -1053,6 +1108,7 @@ class SubmissionEvidenceResponse(BaseModel):
     # CHG-442 REF442-004: unresolved references never block submission; reviewers see the counts.
     reference_summary: dict[str, int] = Field(default_factory=dict)
     overlap_group_count: int = 0
+    review_route: ReviewRouteResponse | None = None
 
 
 class OriginalFileViewerMetadata(BaseModel):
@@ -1665,6 +1721,8 @@ class SystemParametersPayload(SystemParametersCorePayload):
     # CHG-450 SUBQ450-004
     subquestion_enabled: bool
     subquestion_max: int
+    # CHG-467 REVROUTE467-005
+    approval_owner_fallback_enabled: bool
     ocr_page_max_output_tokens: int
     ocr_request_max_output_tokens: int
     ocr_token_budget_policy: str
@@ -1690,6 +1748,7 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
     reference_expansion_max_chunks: int | None = Field(default=None, strict=True, ge=0, le=10)
     subquestion_enabled: bool | None = Field(default=None, strict=True)
     subquestion_max: int | None = Field(default=None, strict=True, ge=1, le=5)
+    approval_owner_fallback_enabled: bool | None = Field(default=None, strict=True)
 
     @model_validator(mode="before")
     @classmethod

@@ -26,7 +26,9 @@ def notification_resolution_policy(notification: Notification) -> tuple[bool, st
         or notification.action_type in {"graph_sync", "pipeline", "model", "configuration", "source", "reference"}
     )
     terminal_info = notification.notification_type in {
-        "review.approved", "review.rejected", "document.published", "document.active_switched"
+        "review.approved", "review.rejected", "document.published", "document.active_switched",
+        # CHG-467 REVROUTE467-010/011: informational notices to the submitter and the former reviewer.
+        "review.reassigned", "review.returned_by_administration",
     }
     informational = notification.severity in {"info", "success"} and notification.action_type in {None, "view", "ignore"}
     allowed = not managed and (terminal_info or informational)

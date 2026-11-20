@@ -7,7 +7,9 @@ export const permissionMenuRows = [
   { key: "Menu.Reports", moduleName: "Menu", functionName: "Reports", labelKey: "systemMenuReports", descriptionKey: "systemMenuReportsHelp", actions: ["view"] },
   { key: "Menu.SystemManagement", moduleName: "Menu", functionName: "SystemManagement", labelKey: "systemMenuSystemManagement", descriptionKey: "systemMenuSystemManagementHelp", actions: ["view", "create", "edit", "delete"] },
   { key: "Project.ProjectArchive", moduleName: "Project", functionName: "ProjectArchive", labelKey: "systemProjectArchive", descriptionKey: "systemProjectArchiveHelp", actions: ["execute"] },
-  { key: "Report.ModelReport", moduleName: "Report", functionName: "ModelReport", labelKey: "systemReportModelReport", descriptionKey: "systemReportModelReportHelp", actions: ["view"] }
+  { key: "Report.ModelReport", moduleName: "Report", functionName: "ModelReport", labelKey: "systemReportModelReport", descriptionKey: "systemReportModelReportHelp", actions: ["view"] },
+  // CHG-467 REVROUTE467-008: independent; no other permission implies it.
+  { key: "Approval.ApprovalAdministration", moduleName: "Approval", functionName: "ApprovalAdministration", labelKey: "systemApprovalAdministration", descriptionKey: "systemApprovalAdministrationHelp", actions: ["execute"] }
 ] as const;
 
 export type PermissionAction = "view" | "create" | "edit" | "delete" | "execute";

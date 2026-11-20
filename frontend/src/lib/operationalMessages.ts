@@ -36,6 +36,12 @@ const codeTranslationKeys: Partial<Record<string, TranslationKey>> = {
   model_invocation_rejected: "modelInvocationRejected",
   embedding_dimension_mismatch: "embeddingDimensionMismatch",
   openai_chat_completions_unsupported: "openAiChatCompletionsUnsupported",
+  // CHG-467 REVROUTE467-004/006/010/011
+  review_route_unavailable: "reviewRouteUnavailableError",
+  approval_self_review_forbidden: "approvalSelfReviewForbidden",
+  approval_reassign_target_invalid: "approvalReassignTargetInvalid",
+  approval_reassign_stage_unsupported: "approvalReassignStageUnsupported",
+  approval_administration_reason_required: "approvalAdministrationReasonRequired",
   approval_filter_invalid: "approvalFilterInvalid",
   approval_filter_conflict: "approvalFilterConflict",
   unsupported_upload_type: "uploadModalHelp",

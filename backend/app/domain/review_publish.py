@@ -394,15 +394,21 @@ def submit_review(
     submitter = session.get(User, actor_user_id)
     if submitter is None or not submitter.is_active:
         raise AppError("submitter_not_found", "Submitter is unavailable", status_code=403)
-    assignee_id, original_manager_id, assignment_reason = _manager_or_delegate(session, submitter, version.project_id)
+    route = resolve_review_route(session, submitter.id, version.project_id)
+    if route.mode == "unavailable":
+        # REVROUTE467-004: nothing is created; the server recomputes the route at submission time.
+        raise AppError("review_route_unavailable", "No eligible reviewer is available for this submission", status_code=409,
+                       details={"reason": route.reason})
+    assignee_id, original_manager_id, assignment_reason = route.reviewer_id, route.original_manager_id, route.reason
     delegated_from = original_manager_id if assignee_id is not None and assignee_id != original_manager_id else None
+    fallback = route.mode == "project_owner_fallback"
     now = datetime.now(UTC)
     manifest_hash = sha256(
         json.dumps(evidence_manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False, default=str).encode("utf-8")
     ).hexdigest()
     if manifest_hash != evidence_revision:
         raise AppError("submission_evidence_integrity_failed", "Submission evidence revision does not match its manifest", status_code=409)
-    request = ApprovalRequest(project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, owner_user_id=owner_user_id or actor_user_id, evidence_revision=evidence_revision, status="pending_manager_review", submitted_at=now, created_at=now)
+    request = ApprovalRequest(project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, owner_user_id=owner_user_id or actor_user_id, evidence_revision=evidence_revision, status="pending_owner_review" if fallback else "pending_manager_review", review_route=route.mode, review_route_reason=route.reason if fallback else None, submitted_at=now, created_at=now)
     session.add(request)
     session.flush()
     session.add(
@@ -419,15 +425,25 @@ def submit_review(
             created_by=actor_user_id,
         )
     )
-    task = ApprovalTask(approval_request_id=request.id, project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, assignee_user_id=assignee_id, original_manager_user_id=original_manager_id, review_stage=MANAGER_REVIEW, status="pending", submitted_at=now, created_at=now)
+    if fallback:
+        # REVROUTE467-006: the manager stage is waived; any Project Owner other than the submitter decides.
+        task = ApprovalTask(approval_request_id=request.id, project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, assignee_user_id=None, original_manager_user_id=original_manager_id, review_stage=OWNER_REVIEW, status="pending", submitted_at=now, created_at=now)
+    else:
+        task = ApprovalTask(approval_request_id=request.id, project_id=version.project_id, document_id=version.document_id, document_version_id=version.id, submitter_id=actor_user_id, assignee_user_id=assignee_id, original_manager_user_id=original_manager_id, review_stage=MANAGER_REVIEW, status="pending", submitted_at=now, created_at=now)
     session.add(task)
     session.flush()
     request.current_task_id = task.id
-    version.status = "pending_manager_review"
-    _mark_pipeline_waiting(session, version.id, MANAGER_REVIEW, "manager")
-    if assignee_id:
+    if fallback:
+        version.status = "pending_owner_review"
+        _complete_pipeline_step(session, version.id, MANAGER_REVIEW, "Manager review waived: no eligible manager; Project Owner fallback")
+        _mark_pipeline_waiting(session, version.id, OWNER_REVIEW, "project_owner")
+        for owner_id in route.owner_ids:
+            _notify(session, owner_id, version.project_id, "review.owner.pending", "待 Project Owner 審核", f"文件版本 {version.version_label} 沒有可審核的主管，依系統設定由 Project Owner 審核", {"approval_task_id": str(task.id), "document_version_id": str(version.id)})
+    else:
+        version.status = "pending_manager_review"
+        _mark_pipeline_waiting(session, version.id, MANAGER_REVIEW, "manager")
         _notify(session, assignee_id, version.project_id, "review.manager.pending", "待主管審核", f"文件版本 {version.version_label} 等待主管審核", {"approval_task_id": str(task.id), "document_version_id": str(version.id)})
-    add_audit(session, actor_user_id=actor_user_id, action="approval.submit", resource_type="document_version", resource_id=version.id, result="success", request_id=request_id, summary={"approval_request_id": str(request.id), "manager_user_id": str(assignee_id) if assignee_id else None, "original_manager_user_id": str(original_manager_id) if original_manager_id else None, "delegated_from_user_id": str(delegated_from) if delegated_from else None, "manager_assignment_reason": assignment_reason})
+    add_audit(session, actor_user_id=actor_user_id, action="approval.submit", resource_type="document_version", resource_id=version.id, result="success", request_id=request_id, summary={"approval_request_id": str(request.id), "review_route": route.mode, "manager_user_id": str(assignee_id) if assignee_id else None, "original_manager_user_id": str(original_manager_id) if original_manager_id else None, "delegated_from_user_id": str(delegated_from) if delegated_from else None, "manager_assignment_reason": assignment_reason, **({"manager_review_waived": True} if fallback else {})})
     return request
 
 
@@ -464,7 +480,7 @@ def approve_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, l
 
 
 def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lock_version: int, comment: str, request_id: str | None,
-                owner_fallback: bool = False) -> ApprovalTask:
+                owner_fallback: bool = False, administration: bool = False) -> ApprovalTask:
     if not comment.strip():
         raise AppError("rejection_reason_required", "Rejection reason is required", status_code=422)
     _ensure_pending_task(task, lock_version)
@@ -479,9 +495,9 @@ def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lo
     version.status = "review_rejected"
     version.inactive_reason = "review_rejected"
     _mark_pipeline_rejected(session, version.id, task.review_stage, "Review rejected")
-    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=(task.assignee_user_id or task.original_manager_user_id) if owner_fallback else _delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
+    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=(task.assignee_user_id or task.original_manager_user_id) if owner_fallback else (None if administration else _delegated_from(task, actor_user_id)), status="rejected", decision_source="administration" if administration else ("project_owner_fallback" if owner_fallback else "reviewer"), comment=comment, created_at=now))
     _notify(session, task.submitter_id, task.project_id, "review.rejected", "審核已退回", f"文件版本 {version.version_label} 已退回，請建立新 revision 修正後重新送審", {"document_version_id": str(version.id), "reason": comment})
-    add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment, **({"owner_fallback": True} if owner_fallback else {})})
+    add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment, **({"owner_fallback": True} if owner_fallback else {}), **({"administration": True} if administration else {})})
     from app.domain.staging_retention import schedule_retention
     schedule_retention(session, version, request.id, now)
     return task
@@ -793,18 +809,51 @@ def _embedding_build(session: Session, version: DocumentVersion, index_result: P
     return build
 
 
-def _manager_or_delegate(session: Session, submitter: User, project_id: UUID) -> tuple[UUID | None, UUID | None, str | None]:
-    manager_id = submitter.manager_user_id
+@dataclass(frozen=True)
+class ReviewRoute:
+    """CHG-467 REVROUTE467-002: how the manager stage of one submission is handled."""
+    mode: str  # manager | delegate | project_owner_fallback | unavailable
+    reviewer_id: UUID | None
+    original_manager_id: UUID | None
+    reason: str | None
+    owner_ids: tuple[UUID, ...] = ()
+
+
+def _user_active(user: User | None) -> bool:
+    return user is not None and user.is_active and user.directory_enabled and not user.locally_disabled
+
+
+def resolve_review_route(session: Session, submitter_id: UUID, project_id: UUID) -> ReviewRoute:
+    """Single implementation for the submission preview and the submission itself (REVROUTE467-002..004)."""
+    from app.domain.system_parameter_store import approval_owner_fallback_enabled
+
+    submitter = session.get(User, submitter_id)
+    manager_id = submitter.manager_user_id if submitter else None
     manager = session.get(User, manager_id) if manager_id else None
-    if manager is None or not manager.is_active or manager.id == submitter.id:
-        return None, manager_id, "manager_unavailable"
-    now = datetime.now(UTC)
-    delegate_id = manager.manager_delegate_user_id
-    within_period = (manager.manager_delegate_start_at is None or manager.manager_delegate_start_at <= now) and (manager.manager_delegate_end_at is None or manager.manager_delegate_end_at >= now)
-    candidate_id = delegate_id if delegate_id and within_period else manager.id
-    if candidate_id == submitter.id or not eligible_manager_reviewer(session, candidate_id, project_id):
-        return None, manager.id, "manager_reviewer_unavailable"
-    return candidate_id, manager.id, None
+    reason: str | None
+    if manager is None:
+        reason = "manager_missing"
+    elif not _user_active(manager):
+        reason = "manager_inactive"
+    else:
+        now = datetime.now(UTC)
+        delegate_id = manager.manager_delegate_user_id
+        within_period = (manager.manager_delegate_start_at is None or manager.manager_delegate_start_at <= now) and (
+            manager.manager_delegate_end_at is None or manager.manager_delegate_end_at >= now)
+        candidate_id = delegate_id if delegate_id and within_period else manager.id
+        if candidate_id != submitter_id and eligible_manager_reviewer(session, candidate_id, project_id):
+            return ReviewRoute("delegate" if candidate_id != manager.id else "manager", candidate_id, manager.id, None)
+        reason = "manager_not_eligible"
+    original = manager.id if manager is not None else None
+    if not approval_owner_fallback_enabled(session):
+        return ReviewRoute("unavailable", None, original, reason)
+    owner_ids = tuple(owner_id for owner_id in session.scalars(
+        select(ProjectOwner.user_id).where(ProjectOwner.project_id == project_id).order_by(ProjectOwner.user_id))
+        if owner_id != submitter_id and _user_active(session.get(User, owner_id))
+        and eligible_manager_reviewer(session, owner_id, project_id))
+    if not owner_ids:
+        return ReviewRoute("unavailable", None, original, "no_other_project_owner")
+    return ReviewRoute("project_owner_fallback", None, original, reason, owner_ids)
 
 
 def _delegated_from(task: ApprovalTask, actor_user_id: UUID) -> UUID | None:
