@@ -557,9 +557,11 @@ def _execute_auto_extraction(
             continue
         from app.domain.stations import STEP_STATION, pause_at_station, station_confirmed
         station = STEP_STATION[step_name]
-        if station > 1 and not station_confirmed(session, version.id, station - 1):
-            # CHG-442 STAGE442-002: stop at the station boundary until a person confirms the previous station.
-            pause_at_station(session, project, document, version, pipeline, station - 1)
+        # CHG-442 STAGE442-002: stop at the station boundary until a person confirms the earlier stations.
+        # F454-COPY-01: pause at the first unconfirmed one, so entries that reuse earlier work start at station 1.
+        unconfirmed = next((n for n in range(1, station) if not station_confirmed(session, version.id, n)), None)
+        if unconfirmed is not None:
+            pause_at_station(session, project, document, version, pipeline, unconfirmed)
             pipeline.progress_percent = float(min(completed_weight, 99))
             if durable:
                 session.commit()
