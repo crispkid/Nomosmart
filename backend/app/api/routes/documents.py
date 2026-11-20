@@ -1441,9 +1441,10 @@ def _delete_chunk_transaction(project_id: UUID, document_id: UUID, version_id: U
         summary={
             "project_id": str(project.id), "document_id": str(document.id), "document_version_id": str(version.id),
             "chunk_id": str(chunk_id), "chunk_index": deleted_index,
-            "lineage_id": str(lineage_id), "revision": revision, "reconciliation_id": str(reconciliation.id),
+            "lineage_id": str(lineage_id), "revision": revision, "reconciliation_id": str(reconciliation.id) if reconciliation is not None else None,  # none at station 2 (F454-CHUNKDEL-01)
             "orphan_tag_count": len(orphan_ids), "chat_count": deleted.chat_count,
             "validation_item_count": deleted.validation_item_count, "vector_count": deleted.vector_count,
+            "reference_count": deleted.reference_count,
         },
     )
     for tag_id in orphan_ids:

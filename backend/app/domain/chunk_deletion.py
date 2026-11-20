@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import (
     AIModelUsageEvent, ActiveVersionManifest, ApprovalEvidenceManifest,
-    ApprovalRequest, ChatFeedbackEvent, ChatRecord, Chunk, ChunkTag,
+    ApprovalRequest, ChatFeedbackEvent, ChatRecord, Chunk, ChunkReference, ChunkTag,
     DocumentVersion, EmbeddingBuild, EmbeddingBuildVector, PipelineRun,
     PipelineRunStep, PublicApiRequestLog,
     Tag, ValidationRun, ValidationRunItem,
@@ -27,6 +27,10 @@ REFERENCE_FKS = {
     ("chunks", "parent_chunk_id", "chunks"),
     ("chunks", "superseded_by_id", "chunks"),
     ("chunk_tags", "chunk_id", "chunks"),
+    # CHG-454 F454-CHUNKDEL-01: references extracted from (or added to) a chunk are deleted with it.
+    ("chunk_references", "chunk_id", "chunks"),
+    # V062 (0.3.0) multi-turn link: a later staging chat that followed a deleted chat is detached, not erased.
+    ("chat_records", "previous_response_id", "chat_records"),
     ("embedding_build_vectors", "chunk_id", "chunks"),
     ("ai_model_usage_events", "chat_record_id", "chat_records"),
     ("ai_model_usage_events", "validation_run_item_id", "validation_run_items"),
@@ -127,6 +131,7 @@ class DeletedCandidate:
     chat_count: int
     validation_item_count: int
     vector_count: int
+    reference_count: int = 0  # CHG-454 F454-CHUNKDEL-01
 
 
 def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Chunk,
@@ -148,6 +153,8 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
     tags = _locked(session, Tag, Tag.id.in_(tag_ids))
     _require(len(tags) == len(tag_ids) and all(row.project_id == version.project_id for row in tags))
     vectors = _locked(session, EmbeddingBuildVector, EmbeddingBuildVector.chunk_id == chunk.id)
+    references = _locked(session, ChunkReference, ChunkReference.chunk_id == chunk.id)
+    _require(all(_same_scope(row, version) for row in references))
     builds = _locked(session, EmbeddingBuild, EmbeddingBuild.id.in_({row.embedding_build_id for row in vectors}))
     _require(all(_same_scope(row, version) and row.status != "published" for row in builds))
     _require(session.scalar(select(ActiveVersionManifest.id).where(
@@ -160,6 +167,8 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
                  and _citations_in_scope(row.reference_docs, version)
                  and any(str(ref.get("chunk_id")) == str(chunk.id) for ref in row.reference_docs))
     chat_ids = {row.id for row in chats}
+    followers = [row for row in _locked(session, ChatRecord, ChatRecord.previous_response_id.in_(chat_ids)) if row.id not in chat_ids]
+    _require(all(_same_scope(row, version) and row.scope_mode == "document_staging" for row in followers))
     items = _locked(session, ValidationRunItem, or_(
         _mentions(ValidationRunItem.reference_docs, [chunk.id]), ValidationRunItem.chat_record_id.in_(chat_ids)))
     item_ids = {row.id for row in items}
@@ -226,6 +235,8 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
                      "field": field, "target_id": str(old), "reason": "candidate_chunk_permanent_delete"})
         setattr(row, field, None)
 
+    for row in followers:
+        detach(row, "previous_response_id", chat_ids)
     for row in lineage:
         detach(row, "parent_chunk_id", {chunk.id})
         detach(row, "superseded_by_id", {chunk.id})
@@ -238,7 +249,7 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
     for row in feedback + items:
         session.delete(row)
     session.flush()
-    for row in chats + vectors + assignments:
+    for row in chats + vectors + assignments + references:
         session.delete(row)
     session.flush()
     session.delete(chunk)
@@ -252,4 +263,4 @@ def delete_candidate_chunk(session: Session, version: DocumentVersion, chunk: Ch
         run.completed_count = sum(item.status in {"passed", "needs_review", "completed", "skipped"} for item in remaining)
         run.failed_count = sum(item.status in {"failed", "error"} for item in remaining)
     session.flush()
-    return DeletedCandidate(tag_ids, len(chats), len(items), len(vectors))
+    return DeletedCandidate(tag_ids, len(chats), len(items), len(vectors), len(references))
