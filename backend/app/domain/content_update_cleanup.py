@@ -16,6 +16,7 @@ from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, Appro
 from app.domain.content_pipeline_evidence import BODY_KEYS, DERIVED_BODY_STEPS, obsolete_step_bodies
 from app.domain.extraction_pipeline import LiveOpenSearchStagingIndexAdapter, staging_index_name
 from app.domain.graph_projection import build_graph_projection
+from app.domain.vector_checksum import stored_vector_matches
 
 BATCH_SIZE = 200
 
@@ -105,7 +106,7 @@ def verify_committed_candidate(session, settings, project, document, version, *,
             raise AppError("canonical_embedding_build_invalid", "Selected vector scope is invalid", status_code=409)
         for row, chunk in zip(rows, chunks, strict=True):
             if (row.chunk_id != chunk.id or row.chunk_index != chunk.chunk_index
-                or hashlib.sha256(json.dumps(row.vector, separators=(",", ":")).encode()).hexdigest() != row.vector_checksum):
+                or not stored_vector_matches(row.vector, row.vector_checksum)):
                 raise AppError("canonical_embedding_build_invalid", "Selected vector checksum is invalid", status_code=409)
         if hashlib.sha256("".join(row.vector_checksum for row in rows).encode("ascii")).hexdigest() != build.checksum:
             raise AppError("canonical_embedding_build_invalid", "Selected corpus checksum is invalid", status_code=409)

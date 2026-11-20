@@ -20,6 +20,7 @@ from app.db.models import AIModel, Chunk, DocumentVersion, EmbeddingBuild, Embed
 from app.domain.model_usage import record_model_usage, record_query_embedding_usage, record_reconciliation_embedding_usage
 from app.domain.retrieval_text import embedding_content_hash, provisional_retrieval_hash
 from app.domain.tokenization import UnicodeTokenCounter
+from app.domain.vector_checksum import normalize_vector, stored_vector_matches
 
 
 @dataclass(frozen=True)
@@ -515,8 +516,7 @@ def _load_embedding_batch(session: Session, model: AIModel, version: DocumentVer
                 or any(isinstance(value, bool) or not isinstance(value, (int, float))
                     or not math.isfinite(value) for value in row.vector)):
             raise AppError("canonical_embedding_build_invalid", "Canonical embedding vector mapping is invalid", status_code=409)
-        checksum = hashlib.sha256(json.dumps(row.vector, separators=(",", ":")).encode("utf-8")).hexdigest()
-        if checksum != row.vector_checksum:
+        if not stored_vector_matches(row.vector, row.vector_checksum):
             raise AppError("canonical_embedding_build_invalid", "Canonical embedding vector checksum is invalid", status_code=409)
         vectors.append([float(value) for value in row.vector])
     if bind_version:
@@ -627,7 +627,7 @@ def _openai_embedding_vectors(payload: dict[str, Any]) -> list[list[float]]:
         if not isinstance(item, dict) or not isinstance(item.get("embedding"), list):
             raise AppError("embedding_response_invalid", "Embedding adapter response did not contain vectors", status_code=502)
         try:
-            vectors.append([float(value) for value in item["embedding"]])
+            vectors.append(normalize_vector([float(value) for value in item["embedding"]]))
         except (TypeError, ValueError) as exc:
             raise AppError("embedding_response_invalid", "Embedding adapter vector contains invalid values", status_code=502) from exc
     return vectors
