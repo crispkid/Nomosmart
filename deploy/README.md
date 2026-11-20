@@ -403,7 +403,7 @@ target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=061`, `MIGRATION_REQUIRED_CHECKSUM=1514288448`, and
+`MIGRATION_REQUIRED_VERSION=067`, `MIGRATION_REQUIRED_CHECKSUM=1913543487`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
 `migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
 contract validates the additive SQL target, rather than inventing a same-version
