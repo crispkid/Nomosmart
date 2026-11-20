@@ -209,10 +209,8 @@ def reopen_station(session, *, project, document, version: DocumentVersion, stat
         raise AppError("station_not_reopenable", "Only stations 1 to 3 can be reopened", status_code=422)
     if version.lock_version != lock_version:
         raise AppError("stale_document_version", "Document version was changed by another request", status_code=409)
-    # F454-CANCEL-01: a submission that was cancelled does not lock the version (CANCELREC-001).
     if version.status not in REOPENABLE_VERSION_STATUSES or session.scalar(
-            select(ApprovalRequest.id).where(ApprovalRequest.document_version_id == version.id,
-                                             ApprovalRequest.status != "cancelled").limit(1)) is not None:
+            select(ApprovalRequest.id).where(ApprovalRequest.document_version_id == version.id).limit(1)) is not None:
         raise AppError("station_reopen_unavailable", "This version can no longer return to an earlier station", status_code=409)
     run = _current_run(session, version.id)
     if run is None or not (station_paused(run) or run.status == "submission_ready"):

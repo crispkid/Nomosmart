@@ -270,6 +270,8 @@ export default function ApprovalDetailPage() {
   const decisionUnknown = Boolean(decisionOutcome?.detail && localize(decisionOutcome.detail) === t("feedbackResultUnknown"));
   const publicationUnknown = Boolean(publishError && localize(publishError) === t("feedbackResultUnknown"));
   const canDecide = !decisionUnknown && !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && liveDetail?.task.status === "pending";
+  const allowedDecisions = liveDetail?.allowed_decisions ?? ["approve", "reject"];
+  const ownerFallback = !readOnly && allowedDecisions.includes("reject") && !allowedDecisions.includes("approve");
   const canPublish = !publicationUnknown && !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved" && liveDetail.document.capabilities?.can_publish === true;
   const contentCounts = displayChunks.reduce((counts, chunk) => ({ ...counts, [chunk.type]: counts[chunk.type] + 1 }), { text: 0, image: 0, table: 0, chart: 0 });
   const averageConfidence = displayChunks.length ? Math.round(displayChunks.reduce((sum, chunk) => sum + chunk.confidence, 0) / displayChunks.length * 100) : 0;
@@ -355,6 +357,12 @@ export default function ApprovalDetailPage() {
           <FeedbackMessage tone="info">
             <ShieldCheck size={17} />
             <span><strong>{t("approvalReadOnlyEvidence")}</strong><small>{readOnlyReason}</small></span>
+          </FeedbackMessage>
+        ) : null}
+        {ownerFallback ? (
+          <FeedbackMessage tone="info">
+            <ShieldCheck size={17} />
+            <span><strong>{t("approvalOwnerFallbackTitle")}</strong><small>{t("approvalOwnerFallbackNotice")}</small></span>
           </FeedbackMessage>
         ) : null}
         <header className="submission-heading">
@@ -501,8 +509,8 @@ export default function ApprovalDetailPage() {
                 }}>{t("feedbackQueryOutcome")}</button> : undefined}>{localize(publishError)}</FeedbackMessage>
               ) : null}
               <div aria-live="polite" className="approval-decision-actions" role={publishingVersion ? "status" : undefined}>
-                <button className="action-button" disabled={!canDecide} onClick={() => { setDecisionOutcome(null); setDecision("approve"); }} type="button"><ShieldCheck size={17} /> {t("approve")}</button>
-                <button className="action-button danger" disabled={!canDecide} onClick={() => { setDecisionOutcome(null); setDecision("reject"); }} type="button"><XCircle size={17} /> {t("reject")}</button>
+                <button className="action-button" disabled={!canDecide || !allowedDecisions.includes("approve")} onClick={() => { setDecisionOutcome(null); setDecision("approve"); }} type="button"><ShieldCheck size={17} /> {t("approve")}</button>
+                <button className="action-button danger" disabled={!canDecide || !allowedDecisions.includes("reject")} onClick={() => { setDecisionOutcome(null); setDecision("reject"); }} type="button"><XCircle size={17} /> {t("reject")}</button>
                 {liveDetail?.version.status === "approved" ? (
                   <button className="action-button secondary" disabled={!canPublish} onClick={() => { void publishLiveVersion(); }} type="button">
                     {publishingVersion ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}

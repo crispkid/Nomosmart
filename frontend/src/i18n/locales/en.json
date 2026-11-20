@@ -618,6 +618,8 @@
   "approvalPublishControlHelp": "Publishing requires explicit approval",
   "approvalLoadFailed": "Unable to load approval data",
   "approvalActorRequired": "You can view this approval. Only the assigned reviewer or a Project Owner can approve or reject it.",
+  "approvalOwnerFallbackTitle": "Return on behalf of the reviewer",
+  "approvalOwnerFallbackNotice": "The reviewer's account is disabled or no longer exists. As Project Owner you can return this submission, but not approve it. Enter a reason when returning.",
   "approvalPendingList": "Pending list",
   "approvalDocument": "Document",
   "approvalVersion": "Version",
@@ -2614,5 +2616,5 @@
   "subquestionEnabledHelp": "When on, a question that asks several things is split into sub-questions in the same model call that classifies reference questions, and each sub-question adds 2 chunks (published scope only; needs \"Detect reference questions\" on).",
   "subquestionMaxLabel": "Maximum sub-questions",
   "subquestionMaxHelp": "1–5. Applies from the next question.",
-  "documentDeleteReviewPending": "This document is under review. Cancel the review submission before deleting it."
+  "documentDeleteReviewPending": "This document is under review. Ask the reviewer to return it before deleting it."
 }

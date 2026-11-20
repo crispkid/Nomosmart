@@ -34,7 +34,7 @@ from app.api.schemas import (
     SwitchActiveVersionPayload,
 )
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
-from app.domain.approval_access import approval_request_read_predicate, can_decide_approval, require_approval_read
+from app.domain.approval_access import allowed_decisions, approval_request_read_predicate, owner_fallback_reject, require_approval_read, unavailable_reviewer_ids
 from app.domain.document_layout import project_document_layout as _document_layout
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
@@ -484,7 +484,7 @@ def get_approval_task(approval_task_id: UUID, context: IdentityContext = Depends
         read_only_reason = "version_changed"
     elif task.status != "pending":
         read_only_reason = "task_completed"
-    elif not can_decide_approval(session, task, context):
+    elif not allowed_decisions(session, task, context):
         read_only_reason = "approval_actor_required"
     records = list(session.scalars(select(ReviewRecord).where(ReviewRecord.document_version_id == task.document_version_id).order_by(ReviewRecord.created_at)))
     manifest_row = session.scalar(
@@ -556,6 +556,7 @@ def get_approval_task(approval_task_id: UUID, context: IdentityContext = Depends
         evidence_stale=evidence_stale,
         read_only=read_only_reason is not None,
         read_only_reason=read_only_reason,
+        allowed_decisions=[] if read_only_reason is not None else allowed_decisions(session, task, context),
         evidence_revision=manifest_row.evidence_revision if manifest_row is not None else request.evidence_revision,
         evidence_generated_at=manifest_row.generated_at if manifest_row is not None else None,
         evidence_verifiable=manifest_row is not None,
@@ -625,8 +626,9 @@ def reject(
     )
     if replay is not None:
         return replay
-    task = _scoped_task(session, approval_task_id, context, for_decision=True)
-    reject_task(session=session, actor_user_id=context.user_id, task=task, lock_version=payload.lock_version, comment=payload.comment, request_id=request.state.request_id)
+    task = _scoped_task(session, approval_task_id, context, for_decision=True, decision="reject")
+    reject_task(session=session, actor_user_id=context.user_id, task=task, lock_version=payload.lock_version, comment=payload.comment, request_id=request.state.request_id,
+                owner_fallback=task.review_stage == "manager_review" and task.assignee_user_id != context.user_id)
     session.flush()
     response = _approval_task_response(session, task)
     _complete_idempotent_operation(
@@ -735,6 +737,10 @@ def _pending_query(session: Session, context: IdentityContext):
         or_(
             and_(ApprovalTask.review_stage == "manager_review", ApprovalTask.assignee_user_id == context.user_id),
             and_(ApprovalTask.review_stage == "owner_review", ApprovalTask.project_id.in_(owner_project_ids)),
+            # F454-RETURN-01 RET454-002: the Owner sees manager-review tasks whose reviewer is unavailable.
+            and_(ApprovalTask.review_stage == "manager_review", ApprovalTask.project_id.in_(owner_project_ids),
+                 or_(ApprovalTask.assignee_user_id.is_(None), ApprovalTask.assignee_user_id.in_(unavailable_reviewer_ids()),
+                     ~select(User.id).where(User.id == ApprovalTask.assignee_user_id).exists())),
         ),
     )
 
@@ -1004,7 +1010,7 @@ def _pending_publish_response(
     )
 
 
-def _scoped_task(session: Session, task_id: UUID, context: IdentityContext, *, for_decision: bool = False) -> ApprovalTask:
+def _scoped_task(session: Session, task_id: UUID, context: IdentityContext, *, for_decision: bool = False, decision: str | None = None) -> ApprovalTask:
     task = session.get(ApprovalTask, task_id)
     if task is None:
         raise AppError("approval_task_not_found", "Approval task was not found", status_code=404)
@@ -1013,7 +1019,8 @@ def _scoped_task(session: Session, task_id: UUID, context: IdentityContext, *, f
     else:
         require_approval_read(session, task.approval_request_id, context)
     _require_active_project(session, task.project_id)
-    if for_decision and task.review_stage == "manager_review" and task.assignee_user_id != context.user_id:
+    if for_decision and task.review_stage == "manager_review" and task.assignee_user_id != context.user_id and not (
+            decision == "reject" and owner_fallback_reject(session, task, context)):  # RET454-002
         raise AppError("approval_assignee_required", "This approval task is assigned to another user", status_code=403)
     if for_decision and task.review_stage == "owner_review" and session.get(ProjectOwner, (task.project_id, context.user_id)) is None:
         raise AppError("project_owner_required", "Project Owner relationship is required for Owner review", status_code=403)

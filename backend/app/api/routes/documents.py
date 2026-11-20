@@ -866,7 +866,7 @@ def update_document_lifecycle(
         pending = list(session.scalars(select(ApprovalRequest.id).where(
             ApprovalRequest.document_id == document.id, ApprovalRequest.status.in_(PENDING_REVIEW_STATUSES)).with_for_update()))
         if pending:
-            raise AppError("document_review_pending", "Cancel the review submission before deleting this document", status_code=409,
+            raise AppError("document_review_pending", "This document is under review; ask the reviewer to return it before deleting", status_code=409,
                            details={"pending_review_count": len(pending)})
     if impact.requires_confirmation and not payload.impact_confirmed:
         raise AppError("impact_confirmation_required", "Lifecycle transition requires impact confirmation", status_code=422)

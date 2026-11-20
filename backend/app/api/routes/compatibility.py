@@ -17,7 +17,6 @@ from app.core.errors import AppError
 from app.db.models import (
     AIModel,
     ApprovalRequest,
-    ApprovalTask,
     AuditLog,
     Chunk,
     Document,
@@ -265,33 +264,19 @@ def cancel_approval_request(approval_request_id: UUID, request: Request, context
     if approval is None:
         raise AppError("approval_request_not_found", "Approval request was not found", status_code=404)
     _get_scoped_project(session, approval.project_id, context)
+    if approval.status != "cancelled" or approval.cancelled_at is None:
+        # F454-RETURN-01 RET454-001: a submitted review cannot be cancelled by anyone; the reviewer returns it instead.
+        raise AppError("approval_cancel_removed", "A submitted review cannot be cancelled; ask the reviewer to return it", status_code=409)
+    # Existing cancelled records (before 0.4.0): CANCELREC-003 safe repair stays available to the submitter or Owner.
     is_owner = session.get(ProjectOwner, (approval.project_id, context.user_id)) is not None
     if approval.submitter_id != context.user_id and not is_owner:
         raise AppError("approval_cancel_forbidden", "Only the submitter or Project Owner may cancel this request", status_code=403)
     version = session.scalar(select(DocumentVersion).where(
         DocumentVersion.id == approval.document_version_id).with_for_update())
-    if approval.status == "cancelled" and approval.cancelled_at is not None:
-        if version is not None and restore_cancelled_review_pipeline(session, approval, version):
-            add_audit(session, actor_user_id=context.user_id, action="approval_request.cancel_repair", resource_type="approval_request", resource_id=approval.id, result="success", request_id=request.state.request_id, summary={"pipeline_restored": True})
-            session.commit()
-        return ApprovalCancellationResponse(approval_request_id=approval.id, status=approval.status, cancelled_at=approval.cancelled_at)
-    if approval.status not in {"pending_manager_review", "pending_owner_review"}:
-        raise AppError("approval_not_cancellable", "Approval request is no longer cancellable", status_code=409)
-    now = datetime.now(UTC)
-    tasks = list(session.scalars(select(ApprovalTask).where(ApprovalTask.approval_request_id == approval.id, ApprovalTask.status == "pending").with_for_update()))
-    for task in tasks:
-        task.status = "cancelled"
-        task.completed_at = now
-    approval.status = "cancelled"
-    approval.cancelled_at = now
-    approval.current_task_id = None
-    if version is not None and version.status in {"pending_manager_review", "pending_owner_review"}:
-        version.status = "submission_ready"
-        version.lock_version += 1
-    restored = version is not None and restore_cancelled_review_pipeline(session, approval, version)
-    add_audit(session, actor_user_id=context.user_id, action="approval_request.cancel", resource_type="approval_request", resource_id=approval.id, result="success", request_id=request.state.request_id, summary={"cancelled_task_count": len(tasks), "pipeline_restored": restored})
-    session.commit()
-    return ApprovalCancellationResponse(approval_request_id=approval.id, status=approval.status, cancelled_at=now)
+    if version is not None and restore_cancelled_review_pipeline(session, approval, version):
+        add_audit(session, actor_user_id=context.user_id, action="approval_request.cancel_repair", resource_type="approval_request", resource_id=approval.id, result="success", request_id=request.state.request_id, summary={"pipeline_restored": True})
+        session.commit()
+    return ApprovalCancellationResponse(approval_request_id=approval.id, status=approval.status, cancelled_at=approval.cancelled_at)
 
 
 @router.get("/review-records", response_model=list[ReviewRecordListItem])

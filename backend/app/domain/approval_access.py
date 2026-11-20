@@ -97,6 +97,35 @@ def require_approval_read(session: Session, approval_request_id: UUID, context: 
         raise AppError("approval_read_denied", "Approval is outside the current user's review scope", status_code=403)
 
 
+def reviewer_unavailable(session: Session, task: ApprovalTask) -> bool:
+    """F454-RETURN-01 RET454-002: the assigned reviewer's account no longer exists or is disabled."""
+    if task.assignee_user_id is None:
+        return True
+    user = session.get(User, task.assignee_user_id)
+    return user is None or not user.is_active or not user.directory_enabled or user.locally_disabled
+
+
+def unavailable_reviewer_ids():
+    """SQL: users who cannot act as reviewer (RET454-002); a missing user is handled by the caller."""
+    return select(User.id).where(or_(User.is_active.is_(False), User.directory_enabled.is_(False), User.locally_disabled.is_(True)))
+
+
+def owner_fallback_reject(session: Session, task: ApprovalTask, context: IdentityContext) -> bool:
+    """RET454-002: a Project Owner may return (never approve) a manager-review task whose reviewer is unavailable."""
+    return (task.review_stage == "manager_review" and task.status == "pending" and task.assignee_user_id != context.user_id
+            and task.project_id in context.visible_project_ids
+            and session.get(ProjectOwner, (task.project_id, context.user_id)) is not None
+            and reviewer_unavailable(session, task))
+
+
+def allowed_decisions(session: Session, task: ApprovalTask, context: IdentityContext) -> list[str]:
+    if task.status != "pending":
+        return []
+    if can_decide_approval(session, task, context):
+        return ["approve", "reject"]
+    return ["reject"] if owner_fallback_reject(session, task, context) else []
+
+
 def can_decide_approval(session: Session, task: ApprovalTask, context: IdentityContext) -> bool:
     if task.project_id not in context.visible_project_ids:
         return False

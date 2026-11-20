@@ -618,6 +618,8 @@
   "approvalPublishControlHelp": "審核後需明確發布",
   "approvalLoadFailed": "無法載入簽核資料",
   "approvalActorRequired": "你可以檢視此簽核資料；核准或退回須由目前指派的審核者或專案 Owner 執行。",
+  "approvalOwnerFallbackTitle": "由專案 Owner 代為退回",
+  "approvalOwnerFallbackNotice": "審核人帳號已停用或不存在，專案 Owner 可代為退回，但不能核准。退回時請填寫原因。",
   "approvalPendingList": "待處理清單",
   "approvalDocument": "文件",
   "approvalVersion": "版本",
@@ -2614,5 +2616,5 @@
   "subquestionEnabledHelp": "開啟後，一題同時問好幾件事時，會在判斷引用類問題的同一次模型呼叫中拆成子問題，每個子問題再各帶入 2 個切片（只在已發布範圍；需同時開啟「判斷引用類問題」）。",
   "subquestionMaxLabel": "最多拆成幾個子問題",
   "subquestionMaxHelp": "1–5。下一題即生效。",
-  "documentDeleteReviewPending": "這份文件正在審核中，請先取消送審再刪除。"
+  "documentDeleteReviewPending": "這份文件正在審核中，請審核人退回後再刪除。"
 }

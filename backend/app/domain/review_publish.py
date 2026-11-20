@@ -463,7 +463,8 @@ def approve_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, l
     return task
 
 
-def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lock_version: int, comment: str, request_id: str | None) -> ApprovalTask:
+def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lock_version: int, comment: str, request_id: str | None,
+                owner_fallback: bool = False) -> ApprovalTask:
     if not comment.strip():
         raise AppError("rejection_reason_required", "Rejection reason is required", status_code=422)
     _ensure_pending_task(task, lock_version)
@@ -478,9 +479,9 @@ def reject_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, lo
     version.status = "review_rejected"
     version.inactive_reason = "review_rejected"
     _mark_pipeline_rejected(session, version.id, task.review_stage, "Review rejected")
-    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=_delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
+    session.add(ReviewRecord(project_id=task.project_id, document_id=task.document_id, document_version_id=task.document_version_id, review_stage=task.review_stage, reviewer_id=actor_user_id, delegated_from_user_id=(task.assignee_user_id or task.original_manager_user_id) if owner_fallback else _delegated_from(task, actor_user_id), status="rejected", comment=comment, created_at=now))
     _notify(session, task.submitter_id, task.project_id, "review.rejected", "審核已退回", f"文件版本 {version.version_label} 已退回，請建立新 revision 修正後重新送審", {"document_version_id": str(version.id), "reason": comment})
-    add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment})
+    add_audit(session, actor_user_id=actor_user_id, action=f"approval.{task.review_stage}.reject", resource_type="approval_task", resource_id=task.id, result="success", request_id=request_id, summary={"comment": comment, **({"owner_fallback": True} if owner_fallback else {})})
     from app.domain.staging_retention import schedule_retention
     schedule_retention(session, version, request.id, now)
     return task
