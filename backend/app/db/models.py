@@ -1043,6 +1043,9 @@ class ApprovalRequest(UUIDPrimaryKeyMixin, Base):
     evidence_revision: Mapped[str | None] = mapped_column(String(64))
     priority: Mapped[str] = mapped_column(String(32), nullable=False, default="normal", server_default=text("'normal'"))
     status: Mapped[str] = mapped_column(String(50), nullable=False)
+    # CHG-467 REVROUTE467-006: manager | delegate | project_owner_fallback (V068).
+    review_route: Mapped[str] = mapped_column(String(32), nullable=False, default="manager", server_default=text("'manager'"))
+    review_route_reason: Mapped[str | None] = mapped_column(String(64))
     current_task_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("approval_tasks.id", use_alter=True))
     submitted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1096,6 +1099,8 @@ class ReviewRecord(UUIDPrimaryKeyMixin, Base):
     reviewer_id: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     delegated_from_user_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    # CHG-467 REVROUTE467-011: reviewer | project_owner_fallback | administration (V068).
+    decision_source: Mapped[str] = mapped_column(String(32), nullable=False, default="reviewer", server_default=text("'reviewer'"))
     comment: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
 

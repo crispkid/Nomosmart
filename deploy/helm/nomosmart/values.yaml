@@ -251,9 +251,9 @@ worker:
     limits: {cpu: "1", memory: 1Gi}
 
 migration:
-  # Migration target from deploy/migrations/release-contract.json (067 since CHG-450).
-  requiredVersion: "067"
-  requiredChecksum: "1913543487"
+  # Migration target from deploy/migrations/release-contract.json (068 since CHG-467).
+  requiredVersion: "068"
+  requiredChecksum: "-1307752697"
   baselineChecksum: ""
   checkTimeoutSeconds: 10
   jdbcUrl: ""

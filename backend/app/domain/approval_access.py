@@ -132,5 +132,9 @@ def can_decide_approval(session: Session, task: ApprovalTask, context: IdentityC
     if task.review_stage == "manager_review":
         return task.assignee_user_id == context.user_id
     if task.review_stage == "owner_review":
-        return session.get(ProjectOwner, (task.project_id, context.user_id)) is not None
+        if session.get(ProjectOwner, (task.project_id, context.user_id)) is None:
+            return False
+        # REVROUTE467-006: in a Project Owner fallback the submitter never decides their own submission.
+        request = session.get(ApprovalRequest, task.approval_request_id)
+        return not (request is not None and request.review_route == "project_owner_fallback" and task.submitter_id == context.user_id)
     return False

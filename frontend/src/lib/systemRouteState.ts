@@ -41,6 +41,8 @@ export const settingsSections = [
   { id: "ai", labelKey: "settingsAI", panels: ["models", "prompts"] },
   { id: "documents", labelKey: "settingsDocuments", panels: ["upload", "retention", "ocr"] },
   { id: "question_answering", labelKey: "settingsQuestionAnswering", panels: ["routing", "expansion", "subquestions"] },
+  // CHG-467 REVROUTE467-005/009
+  { id: "approvals", labelKey: "settingsApprovals", panels: ["fallback", "administration"] },
   { id: "apiKeys", labelKey: "settingsApiKeys", panels: ["clients"] },
   { id: "general", labelKey: "settingsGeneral", panels: ["time", "drafts"] },
   { id: "status", labelKey: "settingsStatus", panels: ["runtime", "dependencies", "providers", "errors"] }

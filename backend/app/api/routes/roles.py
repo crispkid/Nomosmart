@@ -11,14 +11,14 @@ from app.core.errors import AppError
 from app.db.models import ExternalGroup, ExternalGroupRoleMapping, Role, RolePermission, RoleUser, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
-from app.security.permissions import MANAGED_PERMISSION_ACTIONS, MENU_KNOWLEDGE_PROJECTS, MENU_MODULE, MENU_REPORTS, MENU_SYSTEM_MANAGEMENT, PROJECT_ARCHIVE, PROJECT_MODULE, REPORT_MODEL_REPORT, REPORT_MODULE, PermissionAction, require_menu_permission
+from app.security.permissions import APPROVAL_ADMINISTRATION, APPROVAL_MODULE, MANAGED_PERMISSION_ACTIONS, MENU_KNOWLEDGE_PROJECTS, MENU_MODULE, MENU_REPORTS, MENU_SYSTEM_MANAGEMENT, PROJECT_ARCHIVE, PROJECT_MODULE, REPORT_MODEL_REPORT, REPORT_MODULE, PermissionAction, require_menu_permission
 from app.services.audit import add_audit
 from app.services.role_memberships import acquire_identity_membership_lock, reconcile_external_role_memberships
 
 
 router = APIRouter(prefix="/roles", tags=["roles"])
 MENU_MATRIX_FUNCTIONS = frozenset({MENU_KNOWLEDGE_PROJECTS, MENU_REPORTS, MENU_SYSTEM_MANAGEMENT})
-MANAGED_MATRIX_KEYS = frozenset((*((MENU_MODULE, function_name) for function_name in MENU_MATRIX_FUNCTIONS), (PROJECT_MODULE, PROJECT_ARCHIVE), (REPORT_MODULE, REPORT_MODEL_REPORT)))
+MANAGED_MATRIX_KEYS = frozenset((*((MENU_MODULE, function_name) for function_name in MENU_MATRIX_FUNCTIONS), (PROJECT_MODULE, PROJECT_ARCHIVE), (REPORT_MODULE, REPORT_MODEL_REPORT), (APPROVAL_MODULE, APPROVAL_ADMINISTRATION)))
 
 
 def _managed_permission_filter():
@@ -26,6 +26,7 @@ def _managed_permission_filter():
         and_(RolePermission.module_name == MENU_MODULE, RolePermission.function_name.in_(MENU_MATRIX_FUNCTIONS)),
         and_(RolePermission.module_name == PROJECT_MODULE, RolePermission.function_name == PROJECT_ARCHIVE),
         and_(RolePermission.module_name == REPORT_MODULE, RolePermission.function_name == REPORT_MODEL_REPORT),
+        and_(RolePermission.module_name == APPROVAL_MODULE, RolePermission.function_name == APPROVAL_ADMINISTRATION),
     )
 
 

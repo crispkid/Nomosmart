@@ -75,5 +75,7 @@ export {
   deactivateSystemPrompt, getPermissions, replacePermissions, getRoleUsers, replaceRoleUsers, listExternalGroups,
   listExternalGroupMappings, setRoleExternalGroupMapping, getSystemParameters, getUploadConfig,
   getSystemStatus, getBreakGlassStatus, queueIdentitySync, listIdentitySyncRuns,
-  getIdentitySyncRun, patchSystemParameters
+  getIdentitySyncRun, patchSystemParameters, listApprovalAdministrationTasks, listApprovalReviewerCandidates,
+  reassignApprovalTask, returnApprovalTask
 } from "./apiClient/systemRequests";
+export type { ApprovalAdministrationTask, ApprovalAdministrationPerson } from "./apiClient/systemRequests";

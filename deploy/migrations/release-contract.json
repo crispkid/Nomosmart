@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.4.0",
-  "required_version": "067",
+  "required_version": "068",
   "targets": {
     "SQL": {
-      "file": "V067__question_answering_subquestions.sql",
-      "checksum": 1913543487,
-      "sha256": "8c7498ec05ab8d2bb632a1d0f1cc5596ecfbd5a965dd9828428a010a6fc4d818"
+      "file": "V068__approval_review_routing.sql",
+      "checksum": -1307752697,
+      "sha256": "954ae994922ea3ed8c31731d8d3221178a7fe2ce695ffe5a559c81eb8ddb81f7"
     }
   }
 }

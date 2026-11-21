@@ -82,7 +82,9 @@ export default function SubmitReviewPage() {
   const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(() => new Set());
   const chatTestHref = `/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`;
   const versionId = detail?.version.id;
-  const canSubmitReview = Boolean(evidence?.can_submit_review && evidence.next_stage_allowed);
+  const reviewRoute = evidence?.review_route ?? null;
+  const routeUnavailable = reviewRoute?.mode === "unavailable";
+  const canSubmitReview = Boolean(evidence?.can_submit_review && evidence.next_stage_allowed && !routeUnavailable);
 
   useEffect(() => {
     if (!submissionResult) return;
@@ -169,10 +171,21 @@ export default function SubmitReviewPage() {
 
   const approvalSteps = [
     { label: t("submitReviewStepSubmitter"), person: t("submitReviewCurrentUser"), detail: t("submitReviewDocumentCreator"), icon: CircleUserRound, state: "current" },
-    { label: t("submitReviewStepManager"), person: t("submitReviewManagerFromDirectory"), detail: t("submitReviewFirstStage"), icon: ShieldCheck, state: "next" },
+    reviewRoute?.mode === "project_owner_fallback"
+      ? { label: t("submitReviewStepManager"), person: t("submitReviewRouteWaived"), detail: t("submitReviewRouteFallbackDetail"), icon: ShieldCheck, state: "pending" }
+      : reviewRoute?.mode === "unavailable"
+        ? { label: t("submitReviewStepManager"), person: t("submitReviewRouteUnavailable"), detail: reviewRouteReason(reviewRoute.reason), icon: ShieldCheck, state: "next" }
+        : { label: t("submitReviewStepManager"), person: reviewRoute?.reviewer?.display_name ?? t("submitReviewManagerFromDirectory"),
+            detail: reviewRoute?.mode === "delegate" && reviewRoute.original_manager ? format("submitReviewRouteDelegateDetail", { manager: reviewRoute.original_manager.display_name }) : t("submitReviewFirstStage"),
+            icon: ShieldCheck, state: "next" },
     { label: t("submitReviewStepOwner"), person: t("submitReviewAnyOwner"), detail: t("submitReviewSecondStage"), icon: UsersRound, state: "pending" },
     { label: t("publish"), person: t("submitReviewAuthorizedRole"), detail: t("submitReviewPublishDetail"), icon: CheckCircle2, state: "pending" }
   ] as const;
+  function reviewRouteReason(reason: string | null): string {
+    const key = ({ manager_missing: "reviewRouteReasonManagerMissing", manager_inactive: "reviewRouteReasonManagerInactive",
+      manager_not_eligible: "reviewRouteReasonManagerNotEligible", no_other_project_owner: "reviewRouteReasonNoOtherOwner" } as const)[reason as string];
+    return key ? t(key) : t("submitReviewRouteUnavailable");
+  }
   const localizedBlockReasons = evidence?.block_reasons.map((reason) => operationalCodeMessage(reason, t, format, "submitReviewWaitingVersion")) ?? [];
 
   return (
@@ -260,6 +273,7 @@ export default function SubmitReviewPage() {
           <p><ShieldCheck size={17} /><span>{t("submitReviewLockHelp")}</span></p>
           {!evidence?.can_submit_review ? <FeedbackField>{t("submitReviewPermissionDenied")}</FeedbackField> : null}
           {evidence && !evidence.next_stage_allowed ? <FeedbackField>{localizedBlockReasons.join(", ")}</FeedbackField> : null}
+          {routeUnavailable ? <FeedbackField>{format("submitReviewRouteUnavailableHelp", { reason: reviewRouteReason(reviewRoute?.reason ?? null) })}</FeedbackField> : null}
           {submitError ? <FeedbackField>{localize(submitError)}</FeedbackField> : null}
           <button className="action-button" disabled={submitting || !detail || !canSubmitReview} onClick={() => { void submitReview(); }} type="button"><Send size={17} /> {submitting ? t("submitReviewSubmitting") : t("submitReview")}</button>
         </footer>
@@ -280,7 +294,7 @@ export default function SubmitReviewPage() {
             <dl className="submission-success-detail">
               <div>
                 <dt>{t("submitReviewNextStageLabel")}</dt>
-                <dd>{t("submitReviewNextStageManagerReview")}</dd>
+                <dd>{submissionResult.review_route === "project_owner_fallback" ? t("submitReviewNextStageOwnerFallback") : t("submitReviewNextStageManagerReview")}</dd>
               </div>
               <div>
                 <dt>{t("submitReviewTaskIdLabel")}</dt>

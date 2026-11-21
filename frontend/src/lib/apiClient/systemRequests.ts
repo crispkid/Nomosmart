@@ -8,7 +8,7 @@ import type {
 } from "./identityTypes";
 import type {
   AIModelPayload, AIModelUpdatePayload, BreakGlassStatusResponse, SystemParameterApiValues,
-  SystemParameterSectionResponse, SystemParametersPayload, SystemPromptPayload,
+  SystemParameterSection, SystemParameterSectionResponse, SystemParametersPayload, SystemPromptPayload,
   SystemPromptVersionPayload, UploadConfigResponse
 } from "./servingTypes";
 
@@ -128,6 +128,31 @@ export async function queueIdentitySync(apiFetch: ApiFetch) { return apiJson<Ide
 export async function listIdentitySyncRuns(apiFetch: ApiFetch, signal?: AbortSignal) { return (await apiJson<{ items: IdentitySyncRunResponse[]; has_more: boolean; next_cursor: string | null }>(apiFetch, "/identity-sync/runs", { signal })).items; }
 export async function getIdentitySyncRun(apiFetch: ApiFetch, runId: string) { return apiJson<IdentitySyncRunResponse>(apiFetch, `/identity-sync/runs/${runId}`); }
 
-export async function patchSystemParameters(apiFetch: ApiFetch, section: "general" | "documents" | "question_answering", expected_revision: string, values: Partial<SystemParameterApiValues>) {
+export async function patchSystemParameters(apiFetch: ApiFetch, section: SystemParameterSection, expected_revision: string, values: Partial<SystemParameterApiValues>) {
   return apiJson<SystemParameterSectionResponse>(apiFetch, "/system/parameters", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ section, expected_revision, values }) });
+}
+
+// CHG-467 REVROUTE467-009..011: approval administration (requires Approval.ApprovalAdministration).
+export type ApprovalAdministrationPerson = { id: string; display_name: string };
+export type ApprovalAdministrationTask = {
+  id: string; approval_request_id: string; project_id: string; project_name: string; document_id: string; document_title: string;
+  version_label: string | null; review_stage: "manager_review" | "owner_review"; review_route: string;
+  assignee: ApprovalAdministrationPerson | null; submitter: ApprovalAdministrationPerson | null;
+  submitted_at: string; lock_version: number; unattended: boolean;
+};
+export async function listApprovalAdministrationTasks(apiFetch: ApiFetch, options: { unattended?: boolean; reviewStage?: string; offset?: number; limit?: number; signal?: AbortSignal } = {}) {
+  const query = new URLSearchParams();
+  if (options.unattended !== undefined) query.set("unattended", String(options.unattended));
+  if (options.reviewStage) query.set("review_stage", options.reviewStage);
+  query.set("offset", String(options.offset ?? 0)); query.set("limit", String(options.limit ?? 50));
+  return apiJson<{ items: ApprovalAdministrationTask[]; total: number }>(apiFetch, `/approval-administration/tasks?${query}`, { signal: options.signal });
+}
+export async function listApprovalReviewerCandidates(apiFetch: ApiFetch, taskId: string, signal?: AbortSignal) {
+  return apiJson<ApprovalAdministrationPerson[]>(apiFetch, `/approval-administration/tasks/${taskId}/reviewer-candidates`, { signal });
+}
+export async function reassignApprovalTask(apiFetch: ApiFetch, taskId: string, payload: { assignee_user_id: string; reason: string; lock_version: number }) {
+  return apiJson<ApprovalAdministrationTask>(apiFetch, `/approval-administration/tasks/${taskId}/reassign`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+}
+export async function returnApprovalTask(apiFetch: ApiFetch, taskId: string, payload: { reason: string; lock_version: number }) {
+  return apiJson<ApprovalAdministrationTask>(apiFetch, `/approval-administration/tasks/${taskId}/return`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
