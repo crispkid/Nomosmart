@@ -737,8 +737,8 @@ def _pending_query(session: Session, context: IdentityContext):
         or_(
             and_(ApprovalTask.review_stage == "manager_review", ApprovalTask.assignee_user_id == context.user_id),
             and_(ApprovalTask.review_stage == "owner_review", ApprovalTask.project_id.in_(owner_project_ids),
-                 # REVROUTE467-006: a fallback submission is not in its own submitter's queue.
-                 or_(ApprovalRequest.review_route != "project_owner_fallback", ApprovalTask.submitter_id != context.user_id)),
+                 # SELFREV471-001: a submission is never in its own submitter's Owner queue.
+                 ApprovalTask.submitter_id != context.user_id),
             # F454-RETURN-01 RET454-002: the Owner sees manager-review tasks whose reviewer is unavailable.
             and_(ApprovalTask.review_stage == "manager_review", ApprovalTask.project_id.in_(owner_project_ids),
                  or_(ApprovalTask.assignee_user_id.is_(None), ApprovalTask.assignee_user_id.in_(unavailable_reviewer_ids()),
@@ -1025,15 +1025,13 @@ def _scoped_task(session: Session, task_id: UUID, context: IdentityContext, *, f
     else:
         require_approval_read(session, task.approval_request_id, context)
     _require_active_project(session, task.project_id)
+    if for_decision and task.submitter_id == context.user_id:  # SELFREV471-001/002: never a decision on one's own submission
+        raise AppError("approval_self_review_forbidden", "The submitter cannot decide their own submission", status_code=403)
     if for_decision and task.review_stage == "manager_review" and task.assignee_user_id != context.user_id and not (
             decision == "reject" and owner_fallback_reject(session, task, context)):  # RET454-002
         raise AppError("approval_assignee_required", "This approval task is assigned to another user", status_code=403)
     if for_decision and task.review_stage == "owner_review" and session.get(ProjectOwner, (task.project_id, context.user_id)) is None:
         raise AppError("project_owner_required", "Project Owner relationship is required for Owner review", status_code=403)
-    if for_decision and task.review_stage == "owner_review" and task.submitter_id == context.user_id:
-        request = session.get(ApprovalRequest, task.approval_request_id)
-        if request is not None and request.review_route == "project_owner_fallback":  # REVROUTE467-006
-            raise AppError("approval_self_review_forbidden", "The submitter cannot decide this Project Owner fallback review", status_code=403)
     return task
 
 

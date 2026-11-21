@@ -110,9 +110,30 @@ def unavailable_reviewer_ids():
     return select(User.id).where(or_(User.is_active.is_(False), User.directory_enabled.is_(False), User.locally_disabled.is_(True)))
 
 
+def other_owner_ids(session: Session, submitter_id: UUID, project_id: UUID) -> tuple[UUID, ...]:
+    """CHG-471 SELFREV471-003/004: Project Owners other than the submitter who can decide the Owner stage."""
+    return tuple(owner_id for owner_id in session.scalars(
+        select(ProjectOwner.user_id).where(ProjectOwner.project_id == project_id).order_by(ProjectOwner.user_id))
+        if owner_id != submitter_id and not reviewer_unavailable_id(session, owner_id)
+        and eligible_manager_reviewer(session, owner_id, project_id))
+
+
+def reviewer_unavailable_id(session: Session, user_id: UUID) -> bool:
+    user = session.get(User, user_id)
+    return user is None or not user.is_active or not user.directory_enabled or user.locally_disabled
+
+
+def owner_stage_unattended(session: Session, task: ApprovalTask) -> bool:
+    """SELFREV471-004: an Owner-stage task nobody but its own submitter could decide."""
+    return task.review_stage == "owner_review" and not other_owner_ids(session, task.submitter_id, task.project_id)
+
+
 def owner_fallback_reject(session: Session, task: ApprovalTask, context: IdentityContext) -> bool:
-    """RET454-002: a Project Owner may return (never approve) a manager-review task whose reviewer is unavailable."""
+    """RET454-002: a Project Owner may return (never approve) a manager-review task whose reviewer is unavailable.
+
+    SELFREV471-002: never the submitter's own submission."""
     return (task.review_stage == "manager_review" and task.status == "pending" and task.assignee_user_id != context.user_id
+            and task.submitter_id != context.user_id
             and task.project_id in context.visible_project_ids
             and session.get(ProjectOwner, (task.project_id, context.user_id)) is not None
             and reviewer_unavailable(session, task))
@@ -134,7 +155,6 @@ def can_decide_approval(session: Session, task: ApprovalTask, context: IdentityC
     if task.review_stage == "owner_review":
         if session.get(ProjectOwner, (task.project_id, context.user_id)) is None:
             return False
-        # REVROUTE467-006: in a Project Owner fallback the submitter never decides their own submission.
-        request = session.get(ApprovalRequest, task.approval_request_id)
-        return not (request is not None and request.review_route == "project_owner_fallback" and task.submitter_id == context.user_id)
+        # SELFREV471-001 (extends REVROUTE467-006 to every route): the submitter never decides their own submission.
+        return task.submitter_id != context.user_id
     return False

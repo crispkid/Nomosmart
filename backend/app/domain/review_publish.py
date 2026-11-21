@@ -39,7 +39,7 @@ from app.db.models import (
 from app.domain.embeddings import EmbeddingBatch, load_canonical_embeddings, load_published_embeddings, resolve_index_retrieval_text
 from app.domain.graph_sync_jobs import enqueue_graph_sync, notify_graph_failure
 from app.domain.notifications import emit_notification_event
-from app.domain.approval_access import eligible_manager_reviewer
+from app.domain.approval_access import eligible_manager_reviewer, other_owner_ids
 from app.domain.search import vector_document_id
 from app.services.audit import add_audit
 
@@ -465,7 +465,8 @@ def approve_task(*, session: Session, actor_user_id: UUID, task: ApprovalTask, l
         request.current_task_id = owner_task.id
         version.status = "pending_owner_review"
         _mark_pipeline_waiting(session, version.id, OWNER_REVIEW, "project_owner")
-        for owner_id in session.scalars(select(ProjectOwner.user_id).where(ProjectOwner.project_id == task.project_id)):
+        for owner_id in session.scalars(select(ProjectOwner.user_id).where(ProjectOwner.project_id == task.project_id,
+                                                                            ProjectOwner.user_id != task.submitter_id)):  # SELFREV471-005
             _notify(session, owner_id, task.project_id, "review.owner.pending", "待 Owner 審核", f"文件版本 {version.version_label} 等待 Project Owner 審核", {"approval_task_id": str(owner_task.id), "document_version_id": str(version.id)})
     elif task.review_stage == OWNER_REVIEW:
         request.status = "approved"
@@ -842,15 +843,15 @@ def resolve_review_route(session: Session, submitter_id: UUID, project_id: UUID)
             manager.manager_delegate_end_at is None or manager.manager_delegate_end_at >= now)
         candidate_id = delegate_id if delegate_id and within_period else manager.id
         if candidate_id != submitter_id and eligible_manager_reviewer(session, candidate_id, project_id):
+            # SELFREV471-003: the Owner stage needs a Project Owner other than the submitter, or nobody could finish it.
+            if not other_owner_ids(session, submitter_id, project_id):
+                return ReviewRoute("unavailable", None, manager.id, "no_other_project_owner")
             return ReviewRoute("delegate" if candidate_id != manager.id else "manager", candidate_id, manager.id, None)
         reason = "manager_not_eligible"
     original = manager.id if manager is not None else None
     if not approval_owner_fallback_enabled(session):
         return ReviewRoute("unavailable", None, original, reason)
-    owner_ids = tuple(owner_id for owner_id in session.scalars(
-        select(ProjectOwner.user_id).where(ProjectOwner.project_id == project_id).order_by(ProjectOwner.user_id))
-        if owner_id != submitter_id and _user_active(session.get(User, owner_id))
-        and eligible_manager_reviewer(session, owner_id, project_id))
+    owner_ids = other_owner_ids(session, submitter_id, project_id)
     if not owner_ids:
         return ReviewRoute("unavailable", None, original, "no_other_project_owner")
     return ReviewRoute("project_owner_fallback", None, original, reason, owner_ids)
