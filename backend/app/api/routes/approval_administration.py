@@ -15,8 +15,8 @@ from app.api.schemas import ApprovalAdministrationTask, ApprovalAdministrationTa
 from app.core.errors import AppError
 from app.db.models import ApprovalRequest, ApprovalTask, Document, DocumentVersion, Project, ProjectMember, ProjectOwner, User
 from app.db.session import get_db
-from app.domain.approval_access import eligible_manager_reviewer, reviewer_unavailable, unavailable_reviewer_ids
-from app.domain.review_publish import MANAGER_REVIEW, _notify, reject_task
+from app.domain.approval_access import eligible_manager_reviewer, owner_stage_unattended, reviewer_unavailable, unavailable_reviewer_ids
+from app.domain.review_publish import MANAGER_REVIEW, OWNER_REVIEW, _notify, reject_task
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import APPROVAL_ADMINISTRATION, APPROVAL_MODULE, PermissionAction, require_permission
 from app.services.audit import add_audit
@@ -34,11 +34,25 @@ def _person(session: Session, user_id: UUID | None) -> ReviewRoutePerson | None:
 
 
 def _unattended_clause():
-    return (ApprovalTask.review_stage == MANAGER_REVIEW) & or_(
+    manager = (ApprovalTask.review_stage == MANAGER_REVIEW) & or_(
         ApprovalTask.assignee_user_id.is_(None),
         ApprovalTask.assignee_user_id.in_(unavailable_reviewer_ids()),
         ~select(User.id).where(User.id == ApprovalTask.assignee_user_id).exists(),
     )
+    # SELFREV471-004: an Owner-stage task with no active Project Owner other than its submitter. The SQL filter
+    # checks account state; the per-row flag (owner_stage_unattended) also checks application admission (D471-05).
+    other_owner = (select(ProjectOwner.user_id).join(User, User.id == ProjectOwner.user_id)
+                   .where(ProjectOwner.project_id == ApprovalTask.project_id, ProjectOwner.user_id != ApprovalTask.submitter_id,
+                          User.is_active.is_(True), User.directory_enabled.is_(True), User.locally_disabled.is_(False)).exists())
+    return or_(manager, (ApprovalTask.review_stage == OWNER_REVIEW) & ~other_owner)
+
+
+def _unattended(session: Session, task: ApprovalTask) -> bool:
+    if task.status != "pending":
+        return False
+    if task.review_stage == MANAGER_REVIEW:
+        return reviewer_unavailable(session, task)
+    return owner_stage_unattended(session, task)
 
 
 @router.get("/tasks", response_model=ApprovalAdministrationTaskPage)
@@ -76,7 +90,7 @@ def list_tasks(
             review_stage=task.review_stage, review_route=request.review_route,
             assignee=_person(session, task.assignee_user_id), submitter=_person(session, task.submitter_id),
             submitted_at=task.submitted_at, lock_version=task.lock_version,
-            unattended=task.review_stage == MANAGER_REVIEW and reviewer_unavailable(session, task),
+            unattended=_unattended(session, task),
         )
         for task, request, project, document, version in rows
     ]
@@ -107,7 +121,7 @@ def _task_response(session: Session, task: ApprovalTask) -> ApprovalAdministrati
         document_id=task.document_id, document_title=document.title, version_label=version.version_label if version else None,
         review_stage=task.review_stage, review_route=request.review_route, assignee=_person(session, task.assignee_user_id),
         submitter=_person(session, task.submitter_id), submitted_at=task.submitted_at, lock_version=task.lock_version,
-        unattended=task.status == "pending" and task.review_stage == MANAGER_REVIEW and reviewer_unavailable(session, task),
+        unattended=_unattended(session, task),
     )
 
 
