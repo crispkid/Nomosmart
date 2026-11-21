@@ -37,7 +37,8 @@ from app.services.audit import add_audit
 ACTION = AuditAction.APP_ENCRYPTION_ROTATE.value
 MAX_RECORDS = 50_000
 _GENERATION = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,31}\Z")
-_PUBLIC_SCOPES = ("public-chat:", "public-feedback:")
+# "public-chat:" rows predate CHG-434, which renamed the public API replay scope to "public-responses:".
+_PUBLIC_SCOPES = ("public-chat:", "public-responses:", "public-feedback:")
 _FIELDS = {
     AIModel: ("id", "name", "api_key_encrypted"),
     DataConnection: ("id", "project_id", "name", "credential_encrypted"),
@@ -45,7 +46,7 @@ _FIELDS = {
     SessionExpiredFormDraft: ("id", "user_id", "return_path", "form_key", "payload_encrypted"),
     PublicApiRequestLog: (
         "id", "question_encrypted", "answer_encrypted", "citations_encrypted",
-        "end_user_metadata_encrypted", "end_user_identity_hash", "end_user_employee_id",
+        "end_user_metadata_encrypted", "rewritten_query_encrypted", "end_user_identity_hash", "end_user_employee_id",
     ),
     ChatFeedbackEvent: (
         "id", "public_response_id", "integration_client_id", "idempotency_key_hash",
@@ -222,7 +223,8 @@ def _plan(session: Session, *, current: bytes, candidate: bytes, before: str, af
                     contexts = [f"public-response:{row.public_response_id}:feedback:{row.id}:end-user"]
                 else:
                     suffix = {"question_encrypted": "question", "answer_encrypted": "answer",
-                              "citations_encrypted": "citations", "end_user_metadata_encrypted": "end-user"}[column]
+                              "citations_encrypted": "citations", "end_user_metadata_encrypted": "end-user",
+                              "rewritten_query_encrypted": "rewritten-query"}[column]
                     contexts = [f"public-response:{row.id}:{suffix}"]
                 if model is ChatFeedbackEvent:
                     plaintext = decrypt_feedback_metadata(session, current, row)
