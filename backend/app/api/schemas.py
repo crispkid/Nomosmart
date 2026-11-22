@@ -36,9 +36,6 @@ class UserSummary(ORMModel):
     knowledge_owner: bool = False
     roles: list[UserRoleSummary] = Field(default_factory=list)
     system_notes: str | None = None
-    manager_delegate_user_id: UUID | None = None
-    manager_delegate_start_at: datetime | None = None
-    manager_delegate_end_at: datetime | None = None
     last_synced_at: datetime | None
 
 
@@ -46,12 +43,20 @@ class UserStatusUpdate(BaseModel):
     is_active: bool
 
 
+REMOVED_MANAGER_DELEGATE_FIELDS = ("manager_delegate_user_id", "manager_delegate_start_at", "manager_delegate_end_at")
+
+
 class UserLocalUpdate(BaseModel):
-    manager_delegate_user_id: UUID | None = None
-    manager_delegate_start_at: datetime | None = None
-    manager_delegate_end_at: datetime | None = None
     knowledge_owner: bool | None = None
     system_notes: str | None = Field(default=None, max_length=4000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def refuse_removed_delegate_fields(cls, value):
+        # CHG-480 DELEG480-002: manager delegates were removed; sending them is an explicit error, never ignored.
+        if isinstance(value, dict) and any(name in value for name in REMOVED_MANAGER_DELEGATE_FIELDS):
+            raise ValueError("manager delegate fields were removed")
+        return value
 
 
 class RoleCreate(BaseModel):

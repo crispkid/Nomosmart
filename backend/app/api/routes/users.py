@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 
 from app.api.schemas import UserLocalUpdate, UserRoleSummary, UserStatusUpdate, UserSummary
 from app.core.errors import AppError
-from app.domain.approval_access import eligible_manager_reviewer
 from app.db.models import AuthSession, IdentityUnlockGrant, Role, RolePermission, RoleUser, User
 from app.db.session import get_db
 from app.security.context import IdentityContext, get_identity_context
@@ -104,11 +103,6 @@ def update_user_local_fields(
     if user is None:
         raise AppError("user_not_found", "User was not found", status_code=404)
     changes = payload.model_dump(exclude_unset=True)
-    delegate_id = changes.get("manager_delegate_user_id")
-    if delegate_id is not None:
-        delegate = session.get(User, delegate_id)
-        if delegate is None or not eligible_manager_reviewer(session, delegate_id):
-            raise AppError("invalid_manager_delegate", "Manager delegate must be active with application access", status_code=422)
     for field, value in changes.items():
         setattr(user, field, value)
     safe_changes = {key: str(value) if isinstance(value, UUID) else value for key, value in changes.items()}

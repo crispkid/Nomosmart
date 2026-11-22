@@ -19,9 +19,6 @@ export type UserSummary = {
   knowledge_owner: boolean;
   roles?: UserRoleSummary[];
   system_notes: string | null;
-  manager_delegate_user_id?: string | null;
-  manager_delegate_start_at?: string | null;
-  manager_delegate_end_at?: string | null;
   last_synced_at: string | null;
 };
 
