@@ -3,8 +3,8 @@
   "policy_id": "nomosmart-risk-quality-v1",
   "scope": "local-risk-reviewed-release",
   "authority": {
-    "change_id": "CHG-454",
-    "approval_sha256": "61a0ae0e6b5627e26ae932427ee192afb031cf43a556599ea8f6a0bf331b035b"
+    "change_id": "CHG-479",
+    "approval_sha256": "0888e220994feab0f0feb4fa6b3d9f65c88c6a6cad3d40cfb2183853b2613205"
   },
   "coverage": {
     "measurement_required": true,
@@ -169,7 +169,7 @@
       "id": "public_api",
       "group": "retrieval",
       "requirement": "knowledge search; graph; citation; public API; ORESP434",
-      "behavior": "對外API（/api/public/v1/responses）金鑰、scope、撤銷及限速與應用登入分離",
+      "behavior": "對外API（/api/public/v1/responses）金鑰、scope、撤銷與停用後立即拒絕及限速與應用登入分離",
       "mandatory": true,
       "verification_level": "live"
     },
@@ -258,6 +258,14 @@
       "group": "governance",
       "requirement": "REVDEL452-001..003",
       "behavior": "審核中刪除409且不變、取消送審後可刪除、已刪除文件的已核准版本不得發布、還原後可發布",
+      "mandatory": true,
+      "verification_level": "live"
+    },
+    {
+      "id": "review_routing",
+      "group": "governance",
+      "requirement": "REVROUTE467-002..011; SELFREV471-001..003",
+      "behavior": "送審前路徑預覽（主管／Owner備援；代理人已移除）、無人可審拒絕送審、後台改派與退回不核准、送審者不得審自己",
       "mandatory": true,
       "verification_level": "live"
     },
