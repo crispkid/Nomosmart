@@ -223,7 +223,7 @@ type SubmissionEvidenceActor = {
 };
 
 // CHG-467 REVROUTE467-003: who reviews this submission if it is sent now.
-export type ReviewRouteMode = "manager" | "delegate" | "project_owner_fallback" | "unavailable";
+export type ReviewRouteMode = "manager" | "project_owner_fallback" | "unavailable";  // CHG-480: no delegate mode
 export type ReviewRoutePerson = { id: string; display_name: string };
 export type ReviewRoute = {
   mode: ReviewRouteMode;

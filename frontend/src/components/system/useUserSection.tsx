@@ -55,11 +55,6 @@ export function createUserActions(state: UserState, deps: UserDeps) {
     const payload: Parameters<typeof updateUser>[2] = {
       knowledge_owner: formData.get("knowledge_owner") === "on", system_notes: String(formData.get("system_notes") || "")
     };
-    const baseline = modal.user.raw?.manager_delegate_user_id;
-    if (baseline !== undefined && formData.has("manager_delegate_user_id")) {
-      const selected = String(formData.get("manager_delegate_user_id") || "").trim() || null;
-      if (selected !== baseline) payload.manager_delegate_user_id = selected;
-    }
     await runModalMutation(() => updateUser(apiFetch, modal.user.id, payload), updated => { setLiveUsers(current => current.map(user => user.id === updated.id ? userRow(updated) : user)); }, "systemUserLocalFieldsSaved");
   }
 
@@ -105,7 +100,6 @@ export function createUserView(state: UserState, actions: UserActions, deps: Pic
       <FeedbackForm inert={discardModal === modal} outcomeUnknown={modalBlocked} className="system-crud-form" onSubmit={(event) => { event.preventDefault(); void submitUser(new FormData(event.currentTarget)); }}>
       <div className="system-detail-grid"><div><small>{t("systemName")}</small><strong>{userRowName(modal.user)}</strong></div><div><small>{t("labelEmail")}</small><strong>{modal.user.email}</strong></div><div><small>{t("systemSourceColumn")}</small><strong>{identitySourceLabel(modal.user.source, t)}</strong></div><div><small>{t("systemStatusColumn")}</small><strong>{localizedStatus(modal.user.status)}</strong></div></div>
       <label className="identity-toggle"><input defaultChecked={Boolean(modal.user.raw?.knowledge_owner)} name="knowledge_owner" type="checkbox" /><span>{t("labelKnowledgeOwner")}</span></label>
-      <label><span>{t("systemManagerDelegateOptional")}</span><input defaultValue={modal.user.raw?.manager_delegate_user_id ?? ""} disabled={modal.user.raw?.manager_delegate_user_id === undefined} name="manager_delegate_user_id" placeholder="UUID" />{modal.user.raw?.manager_delegate_user_id === undefined ? <small>{t("systemManagerDelegateUnavailable")}</small> : null}</label>
       <label><span>{t("labelSystemNotes")}</span><textarea defaultValue={modal.user.raw?.system_notes ?? ""} name="system_notes" rows={4} /></label>
       <footer><button className="action-button secondary" onClick={closeModal} type="button">{t("cancel")}</button><button className="action-button" disabled={!canEditUsers || submitting} type="submit"><Save size={16} />{t("save")}</button></footer>
     </FeedbackForm>
