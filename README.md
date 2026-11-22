@@ -4,7 +4,14 @@ English | [繁體中文](README.zh-TW.md)
 
 NomoSmart is an enterprise knowledge management platform for turning documents and connected data into reviewed, searchable knowledge with traceable answers.
 
-Version: **0.4.0**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+Version: **0.4.1**. Deploy with Docker Compose or Kubernetes/Helm. The application supports Traditional Chinese and English.
+
+## What's new in 0.4.1
+
+- **Review routing**: before a submission is sent you see who will review it (the submitter's manager, the manager's delegate, or the Project Owners when the optional Owner fallback setting is on). If nobody can review, the submission is refused instead of waiting forever. A new Approval administration page lets authorized administrators reassign a manager-stage review or return a submission at any stage; it never approves. A submitter can never decide their own submission, even as Project Owner.
+- **Fixes**: an answer stream that the client leaves while it is starting is now recorded as cancelled (and its Idempotency-Key replays the cancellation); the soft-deleted residue maintenance tool works on the 0.4.0 schema again and stops when the residue still has references; application key rotation also covers follow-up question rewrites and replayed public responses; Next.js 16.4.5.
+
+0.4.1 adds database migration V068; see [Upgrading](#upgrading-from-an-older-version).
 
 ## What's new in 0.4.0
 
@@ -14,7 +21,7 @@ Version: **0.4.0**. Deploy with Docker Compose or Kubernetes/Helm. The applicati
 - **Safer review and lifecycle**: a document under review cannot be deleted until its submission is cancelled, an approved version of a deleted document cannot be published, and deleting a queued document no longer blocks the extraction queue. External question answering retries temporary model failures and reports clearer errors.
 - **Interface**: statuses and setting updaters are shown in words, controls and dialogs follow one style, and the in-product API guide has a quick start.
 
-0.4.0 adds database migrations V064–V067; see [Upgrading](#upgrading-from-an-older-version), especially for databases that already hold 0.3.0 documents. Changes in 0.3.0: [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0).
+0.4.0 added database migrations V064–V067; see [Upgrading](#upgrading-from-an-older-version), especially for databases that already hold 0.3.0 documents. Changes in 0.3.0: [GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0).
 
 ## Features
 
@@ -54,7 +61,7 @@ The Backend owns authentication, authorization, configuration and dispatch. Work
 | Authoritative data | PostgreSQL 18.4; forward-only Flyway migrations |
 | Object storage | S3-compatible storage; RustFS for bundled deployments |
 | Search and graph | OpenSearch 2.19 and Neo4j 5.26 Community |
-| Deployment | Docker Compose v2 and Helm Chart 0.4.0 |
+| Deployment | Docker Compose v2 and Helm Chart 0.4.1 |
 
 ## PDF and model configuration
 
@@ -162,8 +169,8 @@ Copy the [target TOML](deploy/installer/nomosmart-install.protocol.example.toml)
 1. Verify package/image identities and retain recoverable existing data, configuration, encryption keys and TLS/CA materials. Review the target deployment difference.
 2. Pause old import/synchronization producers and stop old Workers/Beat. Coordinate Frontend, Backend, Worker and Beat updates to avoid mixed-version writers.
 3. Supply complete current authentication settings, select LDAP/AD or OIDC, and retain internal UUIDs, user/role relationships and history. Remove retired `keycloak.*` deployment fields. Use reviewed complete Helm values with `--reset-values`, not `--reuse-values`.
-4. Use the normal migration flow to advance existing databases to **067**. Fresh databases use B054 followed by V055–V067. Compose installations created by an earlier version pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=067` and `MIGRATION_REQUIRED_CHECKSUM=1913543487` before starting 0.4.0, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
-5. From 0.3.0 with existing documents: V064 requires live document names to be unique across all projects (ignoring case and surrounding spaces; documents linked from another project are excluded), so rename duplicates before upgrading (otherwise the migration stops and data is unchanged). Documents extracted before 0.4.0 keep answering questions but have no stations or references; re-extract them to get both. After the upgrade, run `python -m app.deployment.backfill_relations` once in the backend container (safe to repeat). A document under review can no longer be deleted; cancel the submission first. Question answering options (reference routing, reference expansion, sub-questions) are system settings, not environment variables.
+4. Use the normal migration flow to advance existing databases to **068**. Fresh databases use B054 followed by V055–V068. Compose installations created by an earlier version pin the old target in `deploy/docker/nomosmart.env`: set `MIGRATION_REQUIRED_VERSION=068` and `MIGRATION_REQUIRED_CHECKSUM=-1307752697` before starting 0.4.1, otherwise bootstrap stops with `database_migration_version_unexpected` (data is unaffected). Never rewrite historical SQL or manually drop history fields. The [migration contract](deploy/migrations/release-contract.json) declares the target and checksum.
+5. From 0.3.0 with existing documents: V064 requires live document names to be unique across all projects (ignoring case and surrounding spaces; documents linked from another project are excluded), so rename duplicates before upgrading (otherwise the migration stops and data is unchanged). Documents extracted before 0.4.0 keep answering questions but have no stations or references; re-extract them to get both. After the upgrade, run `python -m app.deployment.backfill_relations` once in the backend container (safe to repeat). A document under review cannot be deleted; a submission can no longer be cancelled, so the reviewer returns it first. From 0.4.0, V068 only adds the review route fields, the Owner fallback setting (off) and the Approval administration permission for the built-in system-admin role; existing submissions keep their reviewers. Question answering options (reference routing, reference expansion, sub-questions) are system settings, not environment variables.
 6. When upgrading from a version before 0.3.0, also update integrations for the 0.3.0 API (breaking): ask questions with `POST /api/public/v1/responses` and `model: "nomosmart:project/<project_id>"` instead of `/projects/{id}/chat` and `/chat/stream`, send feedback to `/responses/resp_<id>/feedback`, and read Open Responses responses and errors. `Idempotency-Key` is now optional. Remove the Helm values `ftpsCa` and `sftpKnownHosts`, which the values schema now rejects. Optional new settings with defaults: `CHAT_HISTORY_MAX_TURNS` (5), `CHAT_HISTORY_MAX_CHARACTERS` (12000) and `VALIDATION_SCENARIO_MAX_TURNS` (20).
 7. Select an eligible native document model for new PDFs and configure capabilities, prices and output budgets. Retain old OCR models, page output, receipts and usage as history. Old unfinished work requires explicit review; it is not silently converted into a new request.
 8. Complete bootstrap, normal-administrator sign-in and finalization, then check readiness, sign-in and existing data reads. Existing browser sessions must sign in again.
@@ -182,7 +189,7 @@ Application rollback and schema rollback are different operations. Do not drop n
 
 Monitor the last successful directory sync, failed work, queues, audit records and readiness. Failed directory runs preserve the last successful snapshot. Reconcile uncertain paid requests through their receipts. If a worker disappears mid-document and new documents stop being admitted, release the stuck execution with `app.deployment.document_execution_recovery` (see [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)). Logs must not contain credentials, tokens, cookies or document bodies.
 
-0.4.0 is qualified on its own source and images: all 38 mandatory scenarios (including four-station extraction, references and supersedes, sub-questions and the review delete guard) and 19 release gates are run, and the package is signed and verified, including tamper and wrong-fingerprint checks and a real `init`. The evidence, including complete-denominator coverage, ships with the [GitHub Release v0.4.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0); 80% coverage is an improvement target and does not decide readiness. The FTP code is removed, so no FTP risk acceptance applies. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
+0.4.1 is qualified on its own source and images: all 39 mandatory scenarios (including four-station extraction, references and supersedes, sub-questions, the review delete guard and review routing) and 19 release gates are run, and the package is signed and verified, including tamper and wrong-fingerprint checks and a real `init`. The evidence, including complete-denominator coverage, ships with the [GitHub Release v0.4.1](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.1); 80% coverage is an improvement target and does not decide readiness. The FTP code is removed, so no FTP risk acceptance applies. Production multi-host capacity, HA, network isolation and production backup are not qualified (`production_ready=false`) and cannot be inferred from local acceptance.
 
 ## Repository and development
 

@@ -4,7 +4,14 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.4.0**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.4.1**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+
+## 0.4.1 更新重點
+
+- **審核路徑**：送審前就會顯示由誰審核（送審者的主管、主管的代理人，或在開啟「Owner 備援」設定時由專案 Owner 審核）；沒有人能審核時直接拒絕送審，不會一直卡住。新增「審核管理」頁面，有權限的管理者可以改派主管階段的審核，或在任何階段退回送審；這個頁面不能核准。送審者即使是專案 Owner，也不能審核自己的送審。
+- **修正**：用戶端在回答串流剛開始時離開，現在會記錄為取消（同一個 Idempotency-Key 重送會重播取消結果）；軟刪除殘留清理工具在 0.4.0 的資料結構下恢復可用，殘留資料還有引用時會停止；應用程式金鑰輪替也涵蓋追問改寫與公開回答的重播紀錄；Next.js 升級到 16.4.5。
+
+0.4.1 新增資料庫遷移 V068，請見[從舊版升級](#從舊版升級)。
 
 ## 0.4.0 更新重點
 
@@ -14,7 +21,7 @@ NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審�
 - **審核與文件生命週期更安全**：送審中的文件要先取消送審才能刪除；已刪除文件的已核准版本不能發布；刪除排隊中的文件不會再卡住萃取佇列。外部問答遇到暫時性的模型錯誤會重試，錯誤訊息也更清楚。
 - **介面**：處理狀態與設定更新者以文字顯示；輸入框、按鈕與對話框統一樣式；產品內 API 說明新增快速開始。
 
-0.4.0 新增資料庫遷移 V064–V067，請見[從舊版升級](#從舊版升級)，特別是已有 0.3.0 文件的資料庫。0.3.0 的內容：[GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0)。
+0.4.0 曾新增資料庫遷移 V064–V067，請見[從舊版升級](#從舊版升級)，特別是已有 0.3.0 文件的資料庫。0.3.0 的內容：[GitHub Release v0.3.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.3.0)。
 
 ## 核心功能
 
@@ -54,7 +61,7 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 | 權威資料 | PostgreSQL 18.4；Flyway 管理只能向前套用的移轉 |
 | 檔案儲存 | S3 相容服務；內建部署使用 RustFS |
 | 搜尋／圖譜 | OpenSearch 2.19、Neo4j 5.26 Community |
-| 部署 | Docker Compose v2、Helm Chart 0.4.0 |
+| 部署 | Docker Compose v2、Helm Chart 0.4.1 |
 
 ## PDF 與模型設定
 
@@ -162,8 +169,8 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 1. 驗證版本包與映像摘要，保留可回復的既有資料、設定、加密金鑰與 TLS／CA；檢視目標部署差異。
 2. 暫停舊匯入／同步 producer，停止舊 Worker／Beat，協調更新 Frontend、Backend、Worker 與 Beat，避免新舊寫入者混用。
 3. 使用完整的新認證設定：選定 LDAP／AD 或 OIDC，保留內部 UUID、使用者／角色關係及歷史。移除舊 `keycloak.*` 等部署欄位；Helm 使用已檢視的完整 values 與 `--reset-values`，不要以 `--reuse-values` 帶回舊設定。
-4. 讓正常 migration 流程將既有資料庫依序升到 **067**；全新資料庫使用 B054 基線後套 V055–V067。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.4.0 前請改為 `MIGRATION_REQUIRED_VERSION=067`、`MIGRATION_REQUIRED_CHECKSUM=1913543487`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
-5. 從 0.3.0 帶既有文件升級：V064 要求所有專案中未刪除的文件名稱不重複（不分大小寫、忽略前後空白；從其他專案引用的文件不計），升級前請先把同名文件改名（否則遷移會停止，資料不變）。0.4.0 之前萃取的文件仍可問答，但沒有站別與引用資料，重新萃取後才會有。升級後在 backend 容器執行一次 `python -m app.deployment.backfill_relations`（可重複執行）。送審中的文件不能直接刪除，請先取消送審。問答相關功能（引用路由、引用擴展、子問題）改在系統設定管理，不使用環境變數。
+4. 讓正常 migration 流程將既有資料庫依序升到 **068**；全新資料庫使用 B054 基線後套 V055–V068。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.4.1 前請改為 `MIGRATION_REQUIRED_VERSION=068`、`MIGRATION_REQUIRED_CHECKSUM=-1307752697`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
+5. 從 0.3.0 帶既有文件升級：V064 要求所有專案中未刪除的文件名稱不重複（不分大小寫、忽略前後空白；從其他專案引用的文件不計），升級前請先把同名文件改名（否則遷移會停止，資料不變）。0.4.0 之前萃取的文件仍可問答，但沒有站別與引用資料，重新萃取後才會有。升級後在 backend 容器執行一次 `python -m app.deployment.backfill_relations`（可重複執行）。送審中的文件不能刪除；送審已不能取消，需由審核人先退回。從 0.4.0 升級時，V068 只新增審核路徑欄位、「Owner 備援」設定（預設關閉），以及內建 system-admin 角色的「審核管理」權限；既有送審保留原本的審核人。問答相關功能（引用路由、引用擴展、子問題）改在系統設定管理，不使用環境變數。
 6. 從 0.3.0 以前的版本升級時，另需依 0.3.0 API 更新整合程式（破壞性變更）：改用 `POST /api/public/v1/responses` 並以 `model: "nomosmart:project/<project_id>"` 指定專案，取代 `/projects/{id}/chat` 與 `/chat/stream`；回饋改送 `/responses/resp_<id>/feedback`；回應與錯誤改為 Open Responses 格式。`Idempotency-Key` 改為選填。移除 Helm 的 `ftpsCa` 與 `sftpKnownHosts`（values schema 已不接受）。可選的新設定（皆有預設值）：`CHAT_HISTORY_MAX_TURNS`（5）、`CHAT_HISTORY_MAX_CHARACTERS`（12000）、`VALIDATION_SCENARIO_MAX_TURNS`（20）。
 7. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
 8. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
@@ -182,7 +189,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-0.4.0 以本版原始碼與映像驗證：38 項必要情境（含四站萃取、引用與取代、子問題與審核中禁止刪除）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.4.0](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
+0.4.1 以本版原始碼與映像驗證：39 項必要情境（含四站萃取、引用與取代、子問題、審核中禁止刪除與審核路徑）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.4.1](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.1)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 
