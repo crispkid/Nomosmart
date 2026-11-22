@@ -178,9 +178,10 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
         token_usage: dict | None = None
         provider_started = perf_counter()
         events_out = ResponseEventStream(record_id)
-        for event in events_out.start(build_response(response_uuid=record_id, request=parsed, created_at=asked_at, status="in_progress", answer=None, annotations=None, token_usage=None, extensions=extensions(None))):
-            yield event
         try:
+            # The opening events are inside the try: a client can leave while they are sent (CHG-476).
+            for event in events_out.start(build_response(response_uuid=record_id, request=parsed, created_at=asked_at, status="in_progress", answer=None, annotations=None, token_usage=None, extensions=extensions(None))):
+                yield event
             async for chunk in provider_stream.chunks:
                 if await request.is_disconnected():
                     _record_stream_usage(chat_model_id, project_id, user_id, payload, requested_ids, token_usage, provider_started, "partial" if answer_parts else "cancelled", "chat_test_stream_cancelled")
@@ -225,7 +226,8 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
             for event in events_out.finish(resource):
                 yield event
             log_stream_finished(request, project_id=project_id, result="completed", started=started)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
+            # GeneratorExit: the client left while the stream waited to send an event (CHG-476).
             _record_stream_usage(chat_model_id, project_id, user_id, payload, requested_ids, token_usage, provider_started, "partial" if answer_parts else "cancelled", "chat_test_stream_cancelled")
             log_stream_finished(request, project_id=project_id, result="cancelled", error_code="chat_test_stream_cancelled", started=started)
             raise

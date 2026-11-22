@@ -202,9 +202,10 @@ def create_public_response(
         stream_compactor = CitationStreamCompactor(len(prepared[3]))
         token_usage: dict | None = None
         events_out = ResponseEventStream(log.id)
-        for event in events_out.start(build_response(response_uuid=log.id, request=parsed, created_at=created_at, status="in_progress", answer=None, annotations=None, token_usage=None, extensions=extensions(None))):
-            yield event
         try:
+            # The opening events are inside the try: a client can leave while they are sent (CHG-476).
+            for event in events_out.start(build_response(response_uuid=log.id, request=parsed, created_at=created_at, status="in_progress", answer=None, annotations=None, token_usage=None, extensions=extensions(None))):
+                yield event
             async for chunk in provider_stream.chunks:
                 if await request.is_disconnected():
                     await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "cancelled", started)
@@ -248,7 +249,9 @@ def create_public_response(
             for event in events_out.finish(resource):
                 yield event
             log_stream_finished(request, project_id=project_id, result="completed", started=started)
-        except asyncio.CancelledError:
+        except (asyncio.CancelledError, GeneratorExit):
+            # GeneratorExit: the client left while the stream waited to send an event; the generator is then closed
+            # at its `yield` instead of being cancelled. Either way the request is recorded as cancelled (CHG-476).
             await _persist_stream_terminal(log.id, operation.id, client.id, settings, answer_parts, prepared[3], token_usage, "cancelled", started)
             log_stream_finished(request, project_id=project_id, result="cancelled", error_code="public_stream_cancelled", started=started)
             raise
