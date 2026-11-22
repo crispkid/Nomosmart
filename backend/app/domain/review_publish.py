@@ -813,7 +813,7 @@ def _embedding_build(session: Session, version: DocumentVersion, index_result: P
 @dataclass(frozen=True)
 class ReviewRoute:
     """CHG-467 REVROUTE467-002: how the manager stage of one submission is handled."""
-    mode: str  # manager | delegate | project_owner_fallback | unavailable
+    mode: str  # manager | project_owner_fallback | unavailable (CHG-480: no delegate mode)
     reviewer_id: UUID | None
     original_manager_id: UUID | None
     reason: str | None
@@ -837,16 +837,12 @@ def resolve_review_route(session: Session, submitter_id: UUID, project_id: UUID)
     elif not _user_active(manager):
         reason = "manager_inactive"
     else:
-        now = datetime.now(UTC)
-        delegate_id = manager.manager_delegate_user_id
-        within_period = (manager.manager_delegate_start_at is None or manager.manager_delegate_start_at <= now) and (
-            manager.manager_delegate_end_at is None or manager.manager_delegate_end_at >= now)
-        candidate_id = delegate_id if delegate_id and within_period else manager.id
-        if candidate_id != submitter_id and eligible_manager_reviewer(session, candidate_id, project_id):
+        # CHG-480 DELEG480-003: only the manager reviews the manager stage; a delegate the manager once set is never used.
+        if manager.id != submitter_id and eligible_manager_reviewer(session, manager.id, project_id):
             # SELFREV471-003: the Owner stage needs a Project Owner other than the submitter, or nobody could finish it.
             if not other_owner_ids(session, submitter_id, project_id):
                 return ReviewRoute("unavailable", None, manager.id, "no_other_project_owner")
-            return ReviewRoute("delegate" if candidate_id != manager.id else "manager", candidate_id, manager.id, None)
+            return ReviewRoute("manager", manager.id, manager.id, None)
         reason = "manager_not_eligible"
     original = manager.id if manager is not None else None
     if not approval_owner_fallback_enabled(session):

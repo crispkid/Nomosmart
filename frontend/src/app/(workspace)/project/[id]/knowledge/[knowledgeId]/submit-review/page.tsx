@@ -176,7 +176,7 @@ export default function SubmitReviewPage() {
       : reviewRoute?.mode === "unavailable"
         ? { label: t("submitReviewStepManager"), person: t("submitReviewRouteUnavailable"), detail: reviewRouteReason(reviewRoute.reason), icon: ShieldCheck, state: "next" }
         : { label: t("submitReviewStepManager"), person: reviewRoute?.reviewer?.display_name ?? t("submitReviewManagerFromDirectory"),
-            detail: reviewRoute?.mode === "delegate" && reviewRoute.original_manager ? format("submitReviewRouteDelegateDetail", { manager: reviewRoute.original_manager.display_name }) : t("submitReviewFirstStage"),
+            detail: t("submitReviewFirstStage"),
             icon: ShieldCheck, state: "next" },
     { label: t("submitReviewStepOwner"), person: t("submitReviewAnyOwner"), detail: t("submitReviewSecondStage"), icon: UsersRound, state: "pending" },
     { label: t("publish"), person: t("submitReviewAuthorizedRole"), detail: t("submitReviewPublishDetail"), icon: CheckCircle2, state: "pending" }
