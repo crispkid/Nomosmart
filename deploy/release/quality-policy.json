@@ -265,7 +265,7 @@
       "id": "review_routing",
       "group": "governance",
       "requirement": "REVROUTE467-002..011; SELFREV471-001..003",
-      "behavior": "送審前路徑預覽（主管／代理人／Owner備援）、無人可審拒絕送審、後台改派與退回不核准、送審者不得審自己",
+      "behavior": "送審前路徑預覽（主管／Owner備援；代理人已移除）、無人可審拒絕送審、後台改派與退回不核准、送審者不得審自己",
       "mandatory": true,
       "verification_level": "live"
     },

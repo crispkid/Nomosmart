@@ -8,7 +8,7 @@ Version: **0.4.1**. Deploy with Docker Compose or Kubernetes/Helm. The applicati
 
 ## What's new in 0.4.1
 
-- **Review routing**: before a submission is sent you see who will review it (the submitter's manager, the manager's delegate, or the Project Owners when the optional Owner fallback setting is on). If nobody can review, the submission is refused instead of waiting forever. A new Approval administration page lets authorized administrators reassign a manager-stage review or return a submission at any stage; it never approves. A submitter can never decide their own submission, even as Project Owner.
+- **Review routing**: before a submission is sent you see who will review it (the submitter's manager, or the Project Owners when the optional Owner fallback setting is on). Manager delegates are removed: the user editor no longer sets a delegate and the user API no longer accepts or returns delegate fields (it returns 422 when they are sent). If nobody can review, the submission is refused instead of waiting forever. A new Approval administration page lets authorized administrators reassign a manager-stage review or return a submission at any stage; it never approves. A submitter can never decide their own submission, even as Project Owner.
 - **Fixes**: an answer stream that the client leaves while it is starting is now recorded as cancelled (and its Idempotency-Key replays the cancellation); the soft-deleted residue maintenance tool works on the 0.4.0 schema again and stops when the residue still has references; application key rotation also covers follow-up question rewrites and replayed public responses; Next.js 16.4.5.
 
 0.4.1 adds database migration V068; see [Upgrading](#upgrading-from-an-older-version).
