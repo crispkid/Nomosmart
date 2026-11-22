@@ -130,8 +130,9 @@ def authorize(session, scope, context):
 
 def check_chunk_fks(session):
     """A new CASCADE or unknown referencing table must stop retirement."""
+    # chunk_references (V064) is known: its rows stop retirement in reference_inventory (CHG-477 SOFTRES477-001).
     allowed = {("chunks", "parent_chunk_id"), ("chunks", "superseded_by_id"),
-        ("chunk_tags", "chunk_id"), ("embedding_build_vectors", "chunk_id")}
+        ("chunk_tags", "chunk_id"), ("embedding_build_vectors", "chunk_id"), ("chunk_references", "chunk_id")}
     actual = session.execute(text("""
         SELECT src.relname, a.attname, cardinality(c.conkey) AS width,
                src.relnamespace=dst.relnamespace AS same_namespace, da.attname AS dest
@@ -171,6 +172,10 @@ def reference_inventory(session, scope, identities):
             reject("soft_residue_history_reference")
     if session.scalar(select(m.DocumentVersion.id).where(m.DocumentVersion.source_version_id == scope.version_id,
             m.DocumentVersion.id != scope.version_id).limit(1)):
+        reject("soft_residue_history_reference")
+    # CHG-477 SOFTRES477-001 (Peter 2026-11-22「1B」): textual references recorded for the residue document are kept;
+    # their presence stops retirement instead of being deleted with the chunks.
+    if session.scalar(select(m.ChunkReference.id).where(m.ChunkReference.document_id == scope.document_id).limit(1)):
         reject("soft_residue_history_reference")
     if session.scalar(select(m.DocumentReference.id).where(m.DocumentReference.source_document_id == scope.document_id).limit(1)):
         reject("soft_residue_history_reference")
