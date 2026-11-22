@@ -9,9 +9,23 @@ import tempfile
 import tomllib
 from uuid import UUID
 
-from .core import ActionRequired, PreconditionError, Redactor, Runner
+from .core import ActionRequired, InstallerError, PreconditionError, Redactor, Runner
 from .chart_digest import chart_digest
 from .protocol_inputs import regular_bytes, target_digest
+
+
+def select_backend_pod(pods):
+    """CHG-481 INSTEXEC481-001: the newest Running and Ready backend pod that is not being deleted, or None.
+
+    During a rollout the old pod stays Running and Ready until it is killed; it carries metadata.deletionTimestamp.
+    """
+    live = [pod for pod in pods
+            if not pod.get("metadata", {}).get("deletionTimestamp")
+            and pod.get("status", {}).get("phase") == "Running"
+            and any(c.get("type") == "Ready" and c.get("status") == "True" for c in pod.get("status", {}).get("conditions", []))]
+    if not live:
+        return None
+    return max(live, key=lambda pod: (pod["metadata"].get("creationTimestamp", ""), pod["metadata"]["name"]))["metadata"]["name"]
 
 
 @dataclass(frozen=True)
@@ -248,10 +262,15 @@ class ProtocolInstaller:
     resume = install
 
     def _backend_exec(self, script):
-        pods = json.loads(self._kubectl("-n", self.target.namespace, "get", "pods", "-l", f"app.kubernetes.io/instance={self.target.release},app.kubernetes.io/component=backend", "-o", "json").stdout)["items"]
-        ready = [pod for pod in pods if pod.get("status", {}).get("phase") == "Running" and any(c.get("type") == "Ready" and c.get("status") == "True" for c in pod.get("status", {}).get("conditions", []))]
-        if not ready: raise ActionRequired("A ready application backend is required")
-        return self._kubectl("-n", self.target.namespace, "exec", ready[0]["metadata"]["name"], "-c", "backend", "--", "python", "-c", script)
+        # CHG-481 INSTEXEC481-002: a pod killed mid-command (137, e.g. scaled down by a rollout) is retried once on a fresh pick.
+        for attempt in range(2):
+            pods = json.loads(self._kubectl("-n", self.target.namespace, "get", "pods", "-l", f"app.kubernetes.io/instance={self.target.release},app.kubernetes.io/component=backend", "-o", "json").stdout)["items"]
+            name = select_backend_pod(pods)
+            if name is None: raise ActionRequired("A ready application backend is required")
+            result = self._kubectl("-n", self.target.namespace, "exec", name, "-c", "backend", "--", "python", "-c", script, accepted=frozenset({0, 137}))
+            if result.returncode == 0:
+                return result
+        raise InstallerError("kubectl failed: the backend pod was terminated during the command (exit 137) twice")
 
     def finalize(self):
         self._namespace()
