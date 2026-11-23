@@ -104,6 +104,9 @@ export function ChatResponseEvidence({
               ? format("chatCitationScore", { score: citation.score.toFixed(4) })
               : null,
           ].filter(Boolean).join(" · ");
+          // CHG-483 CITESEC483-001: full section path; CSS truncates, title shows it all.
+          const sectionPath = (citation.heading_path ?? []).map((part) => part.trim()).filter(Boolean).join(" > ");
+          const sectionLabel = sectionPath ? format("chatCitationSection", { path: sectionPath }) : null;
           return (
             <button
               aria-label={format("chatCitationOpenSourceAria", { ordinal, title: titles[index] })}
@@ -115,7 +118,11 @@ export function ChatResponseEvidence({
             >
               <span aria-hidden="true" className="chat-citation-ordinal">[{ordinal}]</span>
               <FileText aria-hidden="true" size={14} />
-              <span className="chat-citation-copy"><strong>{titles[index]}</strong><small>{metadata}</small></span>
+              <span className="chat-citation-copy">
+                <strong>{titles[index]}</strong>
+                {sectionLabel ? <small className="chat-citation-section" title={sectionLabel}>{sectionLabel}</small> : null}
+                <small>{metadata}</small>
+              </span>
             </button>
           );
         })}
