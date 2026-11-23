@@ -2579,6 +2579,7 @@
   "evidenceReferenceCount": "引用數",
   "evidenceUnresolvedReferenceCount": "未對應引用數",
   "evidenceOverlapGroupCount": "重疊切片組數",
+  "chatCitationSection": "章節：{path}",
   "chatCitationViaReference": "經由引用帶入",
   "stationNotReadyError": "這一站還不能確認，請重新整理後再試。",
   "stationReopenUnavailableError": "這個版本已無法回到前面的站。",

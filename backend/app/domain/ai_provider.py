@@ -428,8 +428,15 @@ def _build_citation_bound_prompt(question: str, citations: list[ProjectChatCitat
     return [{"role": "system", "content": system}, *earlier, {"role": "user", "content": user}]
 
 
+def _judge_citation_line(citation: ProjectChatCitation) -> str:
+    # CHG-483 JUDGESEC483-001: Judge sees the same section heading the answer was generated with.
+    heading = " > ".join(part.strip() for part in citation.heading_path if part and part.strip())
+    section = f" [section: {heading}]" if heading else ""
+    return f"- {citation.title or citation.chunk_id}{section}: {(citation.excerpt or '').strip()}"
+
+
 def _build_judge_prompt(*, question: str, answer: str | None, expected_answer: str | None, expected_keywords: list | None, citations: list[ProjectChatCitation], system_prompt: str, history: list[tuple[str, str]] | None = None) -> list[dict[str, str]]:
-    citation_text = "\n".join(f"- {citation.title or citation.chunk_id}: {(citation.excerpt or '').strip()}" for citation in citations if citation.excerpt)
+    citation_text = "\n".join(_judge_citation_line(citation) for citation in citations if citation.excerpt)
     keywords = ", ".join(str(item) for item in expected_keywords or [])
     user = (
         f"Question: {question}\n"

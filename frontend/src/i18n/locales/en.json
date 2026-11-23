@@ -2579,6 +2579,7 @@
   "evidenceReferenceCount": "References",
   "evidenceUnresolvedReferenceCount": "Unresolved references",
   "evidenceOverlapGroupCount": "Overlapping chunk groups",
+  "chatCitationSection": "Section: {path}",
   "chatCitationViaReference": "Added through a reference",
   "stationNotReadyError": "This station cannot be confirmed yet. Refresh and try again.",
   "stationReopenUnavailableError": "This version can no longer return to an earlier station.",

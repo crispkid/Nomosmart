@@ -47,6 +47,8 @@ export type ProjectChatQueryResponse = {
     markdown_content?: string | null;
     excerpt?: string | null;
     content_type?: string | null;
+    /** Section headings above the chunk (already returned by the API; shown by CHG-483). */
+    heading_path?: string[];
     page?: number | null;
     source_mapping?: unknown[];
     index_name?: string | null;

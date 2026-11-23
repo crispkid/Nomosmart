@@ -4692,6 +4692,14 @@ small {
   overflow-wrap: anywhere;
 }
 
+.chat-citations .chat-citation-section,
+.submission-chat-citations .chat-citation-section {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .submission-chat-citations .chat-citation-card {
   display: inline-flex;
   align-items: flex-start;
