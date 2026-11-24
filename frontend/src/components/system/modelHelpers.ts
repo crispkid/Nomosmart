@@ -19,6 +19,9 @@ export const aiProviders = [
   { id: "Custom", label: "Custom / Generic HTTP" }
 ];
 
+/** CHG-486 RERANK486-001: rerank models are served by vLLM or a compatible /rerank service. */
+export const RERANK_PROVIDERS = ["vLLM", "Custom"];
+
 export function normalizedProvider(provider?: string | null) {
   const found = aiProviders.find((item) => item.id.toLowerCase() === (provider ?? "").toLowerCase());
   if (found) return found.id;

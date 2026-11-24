@@ -16,6 +16,7 @@ from app.db.session import get_db
 from app.domain.connection_evidence import ai_model_connection_fingerprint, invalidate_model_connection_evidence
 from app.domain.connection_probes import probe_ai_model
 from app.domain.model_usage import record_model_usage, validate_pricing_config
+from app.domain.reranking import RERANK_PROTOCOLS, RERANK_PROVIDERS
 from app.security.context import IdentityContext, get_identity_context
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, MENU_SYSTEM_MANAGEMENT, PermissionAction, has_menu_permission, require_menu_permission
 from app.services.audit import add_audit
@@ -23,7 +24,7 @@ from app.security.secrets import validate_runtime_secret_reference
 
 
 router = APIRouter(prefix="/models", tags=["models"])
-SUPPORTED_MODEL_TYPES = {"OCR", "Embedding", "Chat", "Judge"}
+SUPPORTED_MODEL_TYPES = {"OCR", "Embedding", "Chat", "Judge", "Reranker"}  # Reranker: CHG-486 RERANK486-001
 SECRET_CONFIG_KEYS = {"api_key", "apikey", "secret", "password", "credential", "authorization", "access_token", "refresh_token", "bearer_token", "auth_token"}
 PROVIDER_ALIASES = {
     "openai": "OpenAI",
@@ -88,6 +89,7 @@ def create_model(
     provider = _normalize_provider(payload.provider)
     if payload.model_type == "OCR" and provider.lower() != "openai":
         raise AppError("ocr_provider_unsupported", "New document recognition requires a native PDF provider", status_code=422)
+    _require_rerank_provider(payload.model_type, provider)
     _validate_credential_input(request.app.state.settings, payload.api_key, payload.api_key_secret_ref)
     config = _normalized_config(
         provider=provider,
@@ -266,6 +268,7 @@ def update_model(
             "Disable the model and remove its default status before clearing its credential",
             status_code=409,
         )
+    _require_rerank_provider(model.model_type, next_provider)
     if next_active or next_default or "provider" in changes or "config" in changes or "endpoint" in changes or replacement_api_key or replacement_secret_ref or clear_credential:
         changes["provider"] = next_provider
         changes["config"] = _normalized_config(
@@ -429,7 +432,19 @@ def _normalized_config(
         if endpoint:
             normalized.setdefault("endpoint", endpoint)
     normalized["provider"] = provider
+    if model_type == "Reranker":
+        # RERANK486-001: request shape of the provider's /rerank endpoint.
+        protocol = str(normalized.get("rerank_protocol") or "cohere").strip().lower()
+        if protocol not in RERANK_PROTOCOLS:
+            raise AppError("rerank_protocol_invalid", "Rerank protocol must be cohere or tei", status_code=422)
+        normalized["rerank_protocol"] = protocol
     return validate_pricing_config(normalized)
+
+
+def _require_rerank_provider(model_type: str, provider: str) -> None:
+    """RERANK486-001: rerank models are self-hosted or compatible /rerank services (vLLM or Custom provider)."""
+    if model_type == "Reranker" and provider.lower() not in RERANK_PROVIDERS:
+        raise AppError("rerank_provider_unsupported", "Rerank models use the vLLM or Custom provider", status_code=422)
 
 
 def _validate_model_endpoint(value: str) -> None:

@@ -8,7 +8,8 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberCandidate, ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectUpdate
+from app.api.schemas import ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberCandidate, ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectRetrievalSettingsResponse, ProjectRetrievalSettingsUpdate, ProjectUpdate
+from app.domain.retrieval_tuning import system_rerank_available
 from app.core.errors import AppError
 from app.db.models import Document, DocumentVersion, Project, ProjectArchiveRun, ProjectMember, ProjectOwner, User
 from app.db.session import get_db
@@ -321,6 +322,40 @@ def update_project(project_id: UUID, payload: ProjectUpdate, request: Request, c
     session.commit()
     session.refresh(project)
     return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), grants=context.grants)
+
+
+@router.get("/{project_id}/retrieval-settings", response_model=ProjectRetrievalSettingsResponse)
+def get_project_retrieval_settings(project_id: UUID, context: IdentityContext = Depends(get_identity_context),
+                                   session: Session = Depends(get_db)) -> ProjectRetrievalSettingsResponse:
+    """CHG-486 RERANK486-004: every project member sees the switch; only Project Owners change it here."""
+    project = _get_scoped_project(session, project_id, context)
+    return _retrieval_settings(session, project, can_edit=session.get(ProjectOwner, (project.id, context.user_id)) is not None)
+
+
+def _retrieval_settings(session: Session, project: Project, *, can_edit: bool) -> ProjectRetrievalSettingsResponse:
+    from app.domain.system_parameter_store import question_answering_settings
+    qa = question_answering_settings(session)
+    return ProjectRetrievalSettingsResponse(rerank_enabled=project.rerank_enabled, rerank_available=system_rerank_available(session, qa),
+                                            can_edit=can_edit, retrieval_top_k=qa["retrieval_top_k"], retrieval_top_p=qa["retrieval_top_p"])
+
+
+@router.patch("/{project_id}/retrieval-settings", response_model=ProjectRetrievalSettingsResponse)
+def update_project_retrieval_settings(project_id: UUID, payload: ProjectRetrievalSettingsUpdate, request: Request,
+                                      context: IdentityContext = Depends(get_identity_context),
+                                      session: Session = Depends(get_db)) -> ProjectRetrievalSettingsResponse:
+    """CHG-486 RERANK486-004 / PSET486-007: Project Owners only; administrators use System Management."""
+    _get_scoped_project(session, project_id, context)
+    _require_project_owner(session, project_id, context.user_id)
+    project = session.scalar(select(Project).where(Project.id == project_id).with_for_update())
+    available = system_rerank_available(session)
+    if payload.rerank_enabled and not available:
+        raise AppError("rerank_disabled_by_system", "Reranking is not enabled in the system settings", status_code=409)
+    if project.rerank_enabled != payload.rerank_enabled:
+        project.rerank_enabled = payload.rerank_enabled
+        add_audit(session, actor_user_id=context.user_id, action="project.rerank.update", resource_type="project", resource_id=project.id,
+                  result="success", request_id=request.state.request_id, summary={"rerank_enabled": payload.rerank_enabled, "source": "project_settings"})
+    session.commit()
+    return _retrieval_settings(session, project, can_edit=True)
 
 
 @router.get("/{project_id}/archive-impact", response_model=ProjectArchiveImpactResponse)

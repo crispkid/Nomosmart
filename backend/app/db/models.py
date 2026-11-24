@@ -188,6 +188,8 @@ class Project(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     work_generation: Mapped[int] = mapped_column(BigInteger, nullable=False, default=1, server_default=text("1"))
     archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     archived_by: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"))
+    # CHG-486 RERANK486-004 (V069): project rerank switch; effective only while the system switch is on.
+    rerank_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default=text("false"))
 
 
 class ProjectArchiveRun(UUIDPrimaryKeyMixin, Base):
@@ -1207,6 +1209,7 @@ class ChatRecord(UUIDPrimaryKeyMixin, Base):
     system_prompt_layers: Mapped[list | None] = mapped_column(JSONB)
     token_usage: Mapped[dict | None] = mapped_column(JSONB)
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    retrieval_trace: Mapped[dict | None] = mapped_column(JSONB)  # CHG-486 RTRACE486-001 (V069)
     created_by: Mapped[UUID] = mapped_column(PGUUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     asked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     answered_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
@@ -1392,6 +1395,7 @@ class ValidationRunItem(UUIDPrimaryKeyMixin, Base):
     error_message: Mapped[str | None] = mapped_column(Text)
     error_code: Mapped[str | None] = mapped_column(String(100))
     latency_ms: Mapped[int | None] = mapped_column(Integer)
+    retrieval_trace: Mapped[dict | None] = mapped_column(JSONB)  # CHG-486 RTRACE486-001 (V069)
     token_usage: Mapped[dict | None] = mapped_column(JSONB)
     system_prompt_source: Mapped[str | None] = mapped_column(String(32))
     system_prompt_version_id: Mapped[UUID | None] = mapped_column(PGUUID(as_uuid=True), ForeignKey("system_prompt_versions.id"))

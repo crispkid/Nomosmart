@@ -13,7 +13,7 @@ import { formatDateTime } from "@/lib/dateFormat";
 import { UiValidationError } from "@/lib/transportError";
 import { SettingsCard } from "../SettingsCard";
 import { EmptyInlineState, SectionHeader, StateBadge } from "./SystemUi";
-import { aiProviders, containsSecretConfigKey, modelConfigValue, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfLimitLabels, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, providerHelpKey, providerNeedsCredential, type ModelDeleteDependency } from "./modelHelpers";
+import { RERANK_PROVIDERS, aiProviders, containsSecretConfigKey, modelConfigValue, modelRow, nativePdfConfigFromForm, nativePdfLimitFields, nativePdfLimitLabels, nativePdfProfile, normalizedProvider, pairedEmbeddingModelIds, providerHelpKey, providerNeedsCredential, type ModelDeleteDependency } from "./modelHelpers";
 import type { FeedbackMessage as FeedbackNotice } from "@/lib/feedback";
 import type { TranslationKey } from "@/lib/i18nClient";
 import type { ModalState, ModelRow } from "./modalState";
@@ -177,6 +177,9 @@ export function createModelActions(state: ModelState, deps: ModelDeps) {
       }
       if (modelType === "Chat") config.paired_embedding_model_ids = pairedIds;
       else delete config.paired_embedding_model_ids;
+      // CHG-486 RERANK486-001: the request shape of the rerank service.
+      if (modelType === "Reranker") config.rerank_protocol = String(formData.get("rerank_protocol") || "cohere");
+      else delete config.rerank_protocol;
       const pricingKeys = ["input_cost_per_million_tokens", "output_cost_per_million_tokens", "embedding_cost_per_million_tokens"];
       pricingKeys.forEach((key) => delete config[key]);
       let hasPricing = false;
@@ -247,7 +250,7 @@ export function createModelView(state: ModelState, actions: ModelActions, deps: 
       <SettingsCard panel="models">
       <SectionHeader action={<button className="action-button" disabled={!canCreateModels || !sectionReady("models")} onClick={() => openModelModal()} type="button"><Bot size={16} />{t("systemAddModel")}</button>} description={t("systemModelsDescription")} title={t("systemModels")} />
       <div className="model-list-toolbar">
-        <label><span>{t("systemModelTypeFilter")}</span><DropdownSelect aria-label={t("systemModelTypeFilter")} onChange={(event) => { setModelTableType(event.target.value); setModelTablePage(1); }} value={modelTableType}><option value="all">{t("systemAllModelTypes")}</option><option value="Chat">{t("labelChat")}</option><option value="Embedding">Embedding</option><option value="OCR">OCR</option><option value="Judge">Judge</option></DropdownSelect></label>
+        <label><span>{t("systemModelTypeFilter")}</span><DropdownSelect aria-label={t("systemModelTypeFilter")} onChange={(event) => { setModelTableType(event.target.value); setModelTablePage(1); }} value={modelTableType}><option value="all">{t("systemAllModelTypes")}</option><option value="Chat">{t("labelChat")}</option><option value="Embedding">Embedding</option><option value="OCR">OCR</option><option value="Judge">Judge</option><option value="Reranker">{t("labelReranker")}</option></DropdownSelect></label>
         <span aria-live="polite">{format("systemModelResultRange", { first: modelTableReceived ? modelTableFirst : t("systemReadCountUnknown"), last: modelTableReceived ? modelTableLast : t("systemReadCountUnknown"), total: modelTableReceived ? modelTableTotal : t("systemReadCountUnknown") })}</span>
       </div>
       {modelTableError ? <FeedbackMessage tone="error"><strong>{localize(modelTableError)}</strong><button className="icon-text-button" onClick={() => { void refreshModelTable(); }} type="button"><RefreshCw size={14} />{t("retry")}</button></FeedbackMessage> : null}
@@ -278,8 +281,8 @@ export function createModelView(state: ModelState, actions: ModelActions, deps: 
       <div className="system-security-note"><Settings2 size={17} /><div><strong>{format("labelProviderProfile", { provider: modelProviderDraft })}</strong><p>{t(providerHelpKey(modelProviderDraft))} {providerNeedsCredential(modelProviderDraft) ? t("systemProviderRequiresCredential") : t("systemProviderCredentialOptional")}</p></div></div>
       <div className="identity-form-grid">
         <label><span>{t("systemName")}</span><input defaultValue={modal.model?.name ?? ""} name="name" required /></label>
-        <label><span>{t("systemModelType")}</span><DropdownSelect disabled={Boolean(modal.model)} name="model_type" onChange={(event) => { setModelTypeDraft(event.target.value); if (event.target.value === "OCR" && !modal.model) setModelProviderDraft("OpenAI"); }} value={modelTypeDraft}><option value="Chat">{t("labelChat")}</option><option>Embedding</option><option value="OCR">{t("labelPdfRecognition")}</option><option>Judge</option></DropdownSelect>{modal.model ? <input name="model_type" type="hidden" value={modal.model.type} /> : null}</label>
-        <label><span>{t("labelProvider")}</span><DropdownSelect name="provider" onChange={(event) => setModelProviderDraft(event.target.value)} value={modelProviderDraft}>{aiProviders.filter((provider) => modelTypeDraft !== "OCR" || provider.id === "OpenAI" || provider.id === modal.model?.provider).map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</DropdownSelect></label>
+        <label><span>{t("systemModelType")}</span><DropdownSelect disabled={Boolean(modal.model)} name="model_type" onChange={(event) => { setModelTypeDraft(event.target.value); if (event.target.value === "OCR" && !modal.model) setModelProviderDraft("OpenAI"); if (event.target.value === "Reranker" && !modal.model && !RERANK_PROVIDERS.includes(modelProviderDraft)) setModelProviderDraft("vLLM"); }} value={modelTypeDraft}><option value="Chat">{t("labelChat")}</option><option>Embedding</option><option value="OCR">{t("labelPdfRecognition")}</option><option>Judge</option><option value="Reranker">{t("labelReranker")}</option></DropdownSelect>{modal.model ? <input name="model_type" type="hidden" value={modal.model.type} /> : null}</label>
+        <label><span>{t("labelProvider")}</span><DropdownSelect name="provider" onChange={(event) => setModelProviderDraft(event.target.value)} value={modelProviderDraft}>{aiProviders.filter((provider) => (modelTypeDraft !== "OCR" || provider.id === "OpenAI" || provider.id === modal.model?.provider) && (modelTypeDraft !== "Reranker" || RERANK_PROVIDERS.includes(provider.id) || provider.id === modal.model?.provider)).map((provider) => <option key={provider.id} value={provider.id}>{provider.label}</option>)}</DropdownSelect></label>
         <label><span>{t("labelModelName")}</span><input defaultValue={modelConfigValue(modal.model, "model_name")} name="model_name" placeholder={modelProviderDraft === "Ollama" ? "llama3.1" : modelProviderDraft === "Gemini" ? "gemini-1.5-pro" : modelProviderDraft === "Claude" ? "claude-3-5-sonnet-latest" : t("systemModelNamePlaceholder")} required={modelProviderDraft !== "Custom"} /></label>
       </div>
       {modelProviderDraft === "OpenAI" ? <div className="identity-form-grid settings-child-fields">
@@ -306,6 +309,9 @@ export function createModelView(state: ModelState, actions: ModelActions, deps: 
         <div className="identity-form-grid"><label><span>{t("labelTimeoutSeconds")}</span><input defaultValue={modelConfigValue(modal.model, "timeout_seconds", "120")} min={1} name="timeout_seconds" type="number" /></label></div>
         <label><span>{t("systemHeadersJsonNoSecretLabel")}</span><textarea defaultValue={JSON.stringify(modal.model?.raw?.config?.headers ?? {}, null, 2)} name="headers_json" rows={3} /></label>
       </> : null}
+      {modelTypeDraft === "Reranker" ? <div className="identity-form-grid settings-child-fields">
+        <label><span>{t("rerankProtocolLabel")}</span><DropdownSelect defaultValue={modelConfigValue(modal.model, "rerank_protocol", "cohere")} name="rerank_protocol"><option value="cohere">{t("rerankProtocolCohere")}</option><option value="tei">{t("rerankProtocolTei")}</option></DropdownSelect><small>{t("rerankProtocolHelp")}</small></label>
+      </div> : null}
       {modelTypeDraft === "Chat" ? <div className="system-model-pairing">
         <div className="system-model-pairing-header"><strong>{t("systemChatEmbeddingPairs")}</strong><p>{t("systemChatEmbeddingPairsHelp")}</p></div>
         {activeEmbeddingModels.length ? <details className="system-model-pair-dropdown"><summary><span className="system-model-pair-summary-main"><strong>{modelPairDraft.length ? format("systemChatEmbeddingPairsSelected", { count: modelPairDraft.length }) : t("systemChatEmbeddingPairsPlaceholder")}</strong><small>{format("systemChatEmbeddingPairsAvailable", { count: activeEmbeddingModels.length })}</small></span><ChevronDown size={16} /></summary><div className="system-model-pair-list">{activeEmbeddingModels.map((model) => {

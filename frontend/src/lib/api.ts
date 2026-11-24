@@ -36,7 +36,7 @@ export type {
   AIModelPayload, AIModelUpdatePayload, SystemPromptPayload, SystemPromptVersionPayload
 } from "./apiClient/servingTypes";
 export {
-  restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject,
+  restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject, getProjectRetrievalSettings, updateProjectRetrievalSettings,
   createProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
   listIntegrationClientsPage, getIntegrationClient, getDataSourceConnectionOptions, createIntegrationClient,
   updateIntegrationClient, replaceIntegrationClientProjectScopes, rotateIntegrationClientKey,
@@ -76,6 +76,7 @@ export {
   listExternalGroupMappings, setRoleExternalGroupMapping, getSystemParameters, getUploadConfig,
   getSystemStatus, getBreakGlassStatus, queueIdentitySync, listIdentitySyncRuns,
   getIdentitySyncRun, patchSystemParameters, listApprovalAdministrationTasks, listApprovalReviewerCandidates,
-  reassignApprovalTask, returnApprovalTask
+  reassignApprovalTask, returnApprovalTask, listProjectSettings, getProjectSettings, batchProjectSettings, countRerankProjects
 } from "./apiClient/systemRequests";
-export type { ApprovalAdministrationTask, ApprovalAdministrationPerson } from "./apiClient/systemRequests";
+export type { ProjectRetrievalSettings } from "./apiClient/projectRequests";
+export type { ApprovalAdministrationTask, ApprovalAdministrationPerson, ProjectSettingsItem, ProjectSettingsPage, ProjectSettingsBatch, ProjectSettingsResult, ProjectSettingsPerson } from "./apiClient/systemRequests";

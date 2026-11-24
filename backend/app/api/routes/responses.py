@@ -31,6 +31,7 @@ from app.domain.chat_citations import CitationStreamCompactor, citation_persiste
 from app.domain.chat_conversations import require_conversation_identity
 from app.domain.conversation_history import ConversationContext, chat_test_context, chat_test_mode
 from app.domain.model_usage import record_model_usage
+from app.domain.retrieval_tuning import resolve_retrieval_tuning
 from app.domain.project_access import get_scoped_project
 from app.domain.project_retrieval import (
     _resolve_document_staging_scope,
@@ -76,6 +77,7 @@ def _chat_payload(parsed: CreateRequest) -> ProjectChatQueryPayload:
         document_version_ids=parsed.document_version_ids,
         scope_mode=parsed.scope_mode,
         top_k=parsed.top_k,
+        top_p=parsed.top_p,
         conversation_id=parsed.conversation_id,
         conversation_title=parsed.conversation_title,
         previous_id=parsed.previous_id,
@@ -141,10 +143,11 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
     started = perf_counter()
     asked_at = datetime.now(UTC)
     conversation_mode, turn = chat_test_context(session, settings, project, payload, user_id=context.user_id, conversation_id=conversation_id)
+    tuning = resolve_retrieval_tuning(session, project.id, top_k=payload.top_k, top_p=payload.top_p)  # CHG-486
     citations = (
-        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="chat_test", actor_user_id=context.user_id)
         if payload.scope_mode == "document_staging"
-        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="chat_test", actor_user_id=context.user_id)
     )
     answer_status = "answered" if citations else "no_answer"
     chat_model = _select_chat_model(session, project) if citations else None
@@ -210,7 +213,7 @@ def _stream_chat_test(request: Request, parsed: CreateRequest, payload: ProjectC
                 title=title, requested_ids=requested_ids, citations=citations, answer=raw_answer, chat_model_id=chat_model_id,
                 provider_stream=provider_stream, token_usage=token_usage, latency_ms=latency_ms, asked_at=asked_at,
                 provider_latency_ms=max(0, int((perf_counter() - provider_started) * 1000)),
-                conversation_mode=conversation_mode, turn=turn,
+                conversation_mode=conversation_mode, turn=turn, retrieval_trace=tuning.trace,
             )
             resource = build_response(
                 response_uuid=record_id,
@@ -260,8 +263,11 @@ def _persist_chat_record(
     provider_latency_ms: int,
     conversation_mode: str,
     turn: ConversationContext,
+    retrieval_trace: dict | None = None,
 ) -> None:
     """Write the chat record after the stream, re-checking the conversation under its lock."""
+    if retrieval_trace is not None:
+        retrieval_trace.setdefault("stages_ms", {})["generation"] = provider_latency_ms  # RTRACE486-001
 
     with get_session_factory()() as session:
         require_conversation_identity(session, project_id=project_id, conversation_id=conversation_id,
@@ -291,6 +297,7 @@ def _persist_chat_record(
             system_prompt_layers=provider_stream.system_prompt_layers,
             token_usage=token_usage,
             latency_ms=latency_ms,
+            retrieval_trace=retrieval_trace,
             created_by=user_id,
             asked_at=asked_at,
             answered_at=answered_at,

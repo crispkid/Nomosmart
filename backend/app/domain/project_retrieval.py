@@ -22,6 +22,7 @@ from app.domain.chat_retrieval import fuse_ranked_hits, is_markdown_heading_only
 from app.domain.chunk_artifacts import require_ready_chunk_artifacts
 from app.domain.embeddings import embed_query
 from app.domain.extraction_pipeline import staging_index_name
+from app.domain.retrieval_tuning import RetrievalTuning, as_tuning, rerank_select
 from app.domain.review_publish import published_index_name
 from app.domain.staging_retention import require_unexpired
 from app.domain.system_prompts import resolve_system_prompt
@@ -31,7 +32,7 @@ from sqlalchemy.orm import Session
 from uuid import UUID
 
 logger = logging.getLogger("nomosmart.retrieval")
-SUBQUESTION_CHUNKS = 2  # CHG-450 D450-03: new chunks per sub-question
+# CHG-486 TOPKP486-004 replaces the fixed 2 chunks per sub-question (CHG-450 D450-03): sub-questions inherit K and P.
 
 
 def _resolve_retrieval_scope(session: Session, project_id: UUID, document_version_ids: list[UUID] | None) -> tuple[list[ActiveVersionManifest], set[UUID], set[UUID]]:
@@ -109,7 +110,7 @@ def _generate_citation_bound_answer(session: Session, question: str, citations: 
     return generate_rag_answer(question=question, citations=citations, model=model, system_prompt=system_prompt, history=history)
 
 
-def _search_document_staging_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:
+def _search_document_staging_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: "RetrievalTuning | int", *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:
     for version_id in version_ids:
         require_unexpired(session, version_id)
     return _search_hybrid_chunks(session, project_id, version_ids, question, top_k, scope="staging", source_channel=source_channel, actor_user_id=actor_user_id)
@@ -128,13 +129,15 @@ def _query_terms(question: str) -> list[str]:
     return terms
 
 
-def _search_published_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:
+def _search_published_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: "RetrievalTuning | int", *, source_channel: str = "chat_test", actor_user_id: UUID | None = None) -> list[ProjectChatCitation]:
     return _search_hybrid_chunks(session, project_id, version_ids, question, top_k, scope="published", source_channel=source_channel, actor_user_id=actor_user_id)
 
 
-def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: int, *, scope: str, source_channel: str, actor_user_id: UUID | None) -> list[ProjectChatCitation]:
+def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[UUID], question: str, top_k: "RetrievalTuning | int", *, scope: str, source_channel: str, actor_user_id: UUID | None) -> list[ProjectChatCitation]:
     from app.core.config import get_settings
 
+    tuning = as_tuning(top_k)
+    top_k = tuning.top_k
     versions = list(session.scalars(select(DocumentVersion).where(DocumentVersion.id.in_(version_ids))))
     if {version.id for version in versions} != version_ids or any(version.project_id != project_id for version in versions):
         raise AppError("retrieval_scope_inconsistent", "Retrieval versions are inconsistent with project scope", status_code=409)
@@ -155,6 +158,9 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
         profile_versions.setdefault(version.embedding_profile_id, []).append(version)
     citations: list[ProjectChatCitation] = []
     query_targets: dict[UUID, tuple[str, list[float], int]] = {}
+    # TOPKP486-002: with reranking, the whole candidate pool of every index is collected first and reranked once.
+    pool: list[tuple[dict, Chunk, str]] = []
+    pool_ids: set[UUID] = set()
     full = False
     for profile_id, scoped_versions in profile_versions.items():
         if full:
@@ -163,22 +169,31 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
         if profile is None:
             raise AppError("embedding_profile_required", "Embedding Profile is required before hybrid retrieval", status_code=409)
         index_scopes = _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, scope)
-        _model, query_vector = embed_query(session, profile=profile, question=question, settings=settings, project_id=project_id, actor_user_id=actor_user_id, source_channel=source_channel)
+        with tuning.stage("query_embedding"):
+            _model, query_vector = embed_query(session, profile=profile, question=question, settings=settings, project_id=project_id, actor_user_id=actor_user_id, source_channel=source_channel)
         for index_name, scoped_version_ids in index_scopes:
             for scoped_id in scoped_version_ids:
                 query_targets[scoped_id] = (index_name, query_vector, profile.mapping_version)
             if full:
                 continue
-            hits = _opensearch_hybrid_search(
-                index_name,
-                project_id,
-                question,
-                query_vector,
-                [str(item) for item in scoped_version_ids],
-                top_k,
-                scope=scope,
-                mapping_version=profile.mapping_version,
-            )
+            with tuning.stage("search"):
+                hits = _opensearch_hybrid_search(
+                    index_name,
+                    project_id,
+                    question,
+                    query_vector,
+                    [str(item) for item in scoped_version_ids],
+                    top_k,
+                    scope=scope,
+                    mapping_version=profile.mapping_version,
+                )
+            if tuning.reranking:
+                for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                        project_id=project_id, scoped_version_ids=scoped_version_ids, limit=len(hits)):
+                    if chunk.id not in pool_ids:
+                        pool.append((hit, chunk, index_name))
+                        pool_ids.add(chunk.id)
+                continue
             remaining = top_k - len(citations)
             selected_hits = _select_prompt_chunks(
                 hits,
@@ -193,25 +208,46 @@ def _search_hybrid_chunks(session: Session, project_id: UUID, version_ids: set[U
                 if len(citations) >= top_k:
                     full = True
                     break
+    if pool:
+        chosen = rerank_select(tuning, question, pool, lambda item: _rerank_text(item[1]), step="main")
+        if chosen is None:  # RERANK486-005: rerank failed; keep the RRF order of the pool
+            chosen = pool[:top_k]
+        citations = [_hybrid_citation(chunk, hit, index_name) for hit, chunk, index_name in chosen]
+        tuning.record_step("main", candidates=len(pool), selected=len(citations))
+    else:
+        tuning.record_step("main", candidates=len(citations), selected=len(citations))
     if scope == "published":
         from app.domain.system_parameter_store import question_answering_settings
         qa = question_answering_settings(session)  # CHG-445 ROUTE445-004: database-owned, read per question
         if qa["reference_routing_enabled"]:
             max_sub = qa["subquestion_max"] if qa["subquestion_enabled"] else 0  # CHG-450 SUBQ450-004
-            decision = _classify_published_question(session, project_id, versions, question, settings=settings, source_channel=source_channel,
-                                                    actor_user_id=actor_user_id, max_sub_questions=max_sub)
+            with tuning.stage("classification"):
+                decision = _classify_published_question(session, project_id, versions, question, settings=settings, source_channel=source_channel,
+                                                        actor_user_id=actor_user_id, max_sub_questions=max_sub)
             if decision is not None:
-                citations.extend(_route_reference_question(session, project_id, versions, citations, question, query_targets, decision,
-                                                           chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
-                                                           limit=qa["reference_routing_max_documents"]))
-                citations.extend(_search_sub_questions(session, project_id, profile_versions, citations, decision.sub_questions,
-                                                       chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
-                                                       source_channel=source_channel, actor_user_id=actor_user_id))
-        citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
-                                                  chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
-                                                  enabled=qa["reference_expansion_enabled"], limit=qa["reference_expansion_max_chunks"]))
+                with tuning.stage("reference_routing"):
+                    citations.extend(_route_reference_question(session, project_id, versions, citations, question, query_targets, decision,
+                                                               chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
+                                                               limit=qa["reference_routing_max_documents"]))
+                with tuning.stage("subquestions"):
+                    citations.extend(_search_sub_questions(session, project_id, profile_versions, citations, decision.sub_questions,
+                                                           chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
+                                                           source_channel=source_channel, actor_user_id=actor_user_id, tuning=tuning))
+        with tuning.stage("reference_expansion"):
+            citations.extend(_expand_along_references(session, project_id, versions, citations, question, query_targets,
+                                                      chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position, settings=settings,
+                                                      enabled=qa["reference_expansion_enabled"], limit=qa["reference_expansion_max_chunks"],
+                                                      tuning=tuning))
         _mark_superseded(session, project_id, citations)
+    tuning.trace["citations"] = len(citations)
     return citations
+
+
+def _rerank_text(chunk: Chunk) -> str:
+    """Text a rerank model scores: the section path (when any) and the chunk content."""
+    heading = " > ".join(str(item).strip() for item in (chunk.heading_path or []) if str(item).strip())
+    content = chunk.content or ""
+    return f"{heading}\n{content}" if heading else content
 
 
 def _classify_published_question(session: Session, project_id: UUID, versions: list[DocumentVersion], question: str, *, settings,
@@ -232,16 +268,18 @@ def _classify_published_question(session: Session, project_id: UUID, versions: l
 
 def _search_sub_questions(session: Session, project_id: UUID, profile_versions: dict[UUID, list[DocumentVersion]],
                           citations: list[ProjectChatCitation], sub_questions: list[str], *, chunks_by_id: dict, chunks_by_position: dict,
-                          settings, source_channel: str, actor_user_id: UUID | None) -> list[ProjectChatCitation]:
-    """CHG-450 SUBQ450-002/003: each sub-question gets its own query vector and hybrid search over the same authorized
-    published scope, and adds up to SUBQUESTION_CHUNKS chunks not cited yet. A failing sub-question is skipped."""
+                          settings, source_channel: str, actor_user_id: UUID | None, tuning: RetrievalTuning) -> list[ProjectChatCitation]:
+    """CHG-450 SUBQ450-002/003, CHG-486 TOPKP486-004: each sub-question gets its own query vector and hybrid search over
+    the same authorized published scope and inherits K and P: up to K chunks not cited yet (RRF order), or with
+    reranking the chunks its own rerank keeps. A failing sub-question is skipped."""
+    limit = tuning.top_k
     taken = {citation.chunk_id for citation in citations}
     added: list[ProjectChatCitation] = []
-    for sub_question in sub_questions:
-        count = 0
+    for number, sub_question in enumerate(sub_questions, start=1):
+        pool: list[tuple[dict, Chunk, str]] = []
         try:
             for profile_id, scoped_versions in profile_versions.items():
-                if count >= SUBQUESTION_CHUNKS:
+                if len(pool) >= limit and not tuning.reranking:
                     break
                 profile = session.get(EmbeddingProfile, profile_id)
                 if profile is None:
@@ -249,20 +287,25 @@ def _search_sub_questions(session: Session, project_id: UUID, profile_versions: 
                 _model, vector = embed_query(session, profile=profile, question=sub_question, settings=settings, project_id=project_id,
                                              actor_user_id=actor_user_id, source_channel=source_channel)
                 for index_name, scoped_version_ids in _hybrid_index_scopes(settings.opensearch_index_prefix, project_id, scoped_versions, "published"):
-                    if count >= SUBQUESTION_CHUNKS:
+                    if len(pool) >= limit and not tuning.reranking:
                         break
                     hits = _opensearch_hybrid_search(index_name, project_id, sub_question, vector, [str(item) for item in scoped_version_ids],
-                                                     SUBQUESTION_CHUNKS + len(taken), scope="published", mapping_version=profile.mapping_version)
+                                                     limit + len(taken), scope="published", mapping_version=profile.mapping_version)
                     for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
                                                             project_id=project_id, scoped_version_ids=scoped_version_ids,
-                                                            limit=SUBQUESTION_CHUNKS + len(taken)):
-                        if chunk.id in taken:
+                                                            limit=len(hits) if tuning.reranking else limit + len(taken)):
+                        if chunk.id in taken or any(chunk.id == item[1].id for item in pool):
                             continue
-                        added.append(_hybrid_citation(chunk, hit, index_name, via_subquestion=True))
-                        taken.add(chunk.id)
-                        count += 1
-                        if count >= SUBQUESTION_CHUNKS:
+                        pool.append((hit, chunk, index_name))
+                        if len(pool) >= limit and not tuning.reranking:
                             break
+            chosen = rerank_select(tuning, sub_question, pool, lambda item: _rerank_text(item[1]), step=f"subquestion_{number}")
+            if chosen is None:
+                chosen = pool[:limit]
+            for hit, chunk, index_name in chosen:
+                added.append(_hybrid_citation(chunk, hit, index_name, via_subquestion=True))
+                taken.add(chunk.id)
+            tuning.record_step(f"subquestion_{number}", candidates=len(pool), selected=len(chosen))
         except Exception as exc:  # noqa: BLE001 - SUBQ450-003: one sub-question never fails the answer
             logger.warning("subquestion_search_failed", extra={"project_id": str(project_id), "error_code": getattr(exc, "code", type(exc).__name__)})
     return added
@@ -417,14 +460,19 @@ def _mark_superseded(session: Session, project_id: UUID, citations: list[Project
 
 def _expand_along_references(session: Session, project_id: UUID, versions: list[DocumentVersion], citations: list[ProjectChatCitation],
                              question: str, query_targets: dict[UUID, tuple[str, list[float], int]], *, chunks_by_id: dict,
-                             chunks_by_position: dict, settings, enabled: bool, limit: int) -> list[ProjectChatCitation]:
+                             chunks_by_position: dict, settings, enabled: bool, limit: int,
+                             tuning: RetrievalTuning | None = None) -> list[ProjectChatCitation]:
     """CHG-442 REF442-006: one best chunk from each document linked to a retrieved one by a resolved reference.
 
     Depth 1, both directions, only documents already inside this authorized published scope, ordered by
     the number of references, at most `limit` extra chunks (system setting `reference_expansion_max_chunks`, CHG-445).
+    CHG-486 TOPKP486-005: with reranking, the best chunks of up to 2 x `limit` linked documents are reranked against
+    the question and kept by the same minimum score and P rule, still at most `limit`.
     """
     if not enabled or limit <= 0 or not citations:
         return []
+    reranking = tuning is not None and tuning.reranking
+    breadth = limit * 2 if reranking else limit
     version_by_document = {version.document_id: version for version in versions}
     found = {citation.document_id for citation in citations}
     linked: Counter[UUID] = Counter()
@@ -438,9 +486,9 @@ def _expand_along_references(session: Session, project_id: UUID, versions: list[
         other = target if source in found else source
         if other in version_by_document and other not in found:
             linked[other] += 1
-    added: list[ProjectChatCitation] = []
+    pool: list[tuple[dict, Chunk, str]] = []
     for document_id, _count in sorted(linked.items(), key=lambda item: (-item[1], str(item[0]))):
-        if len(added) >= limit:
+        if len(pool) >= breadth:
             break
         version = version_by_document[document_id]
         target = query_targets.get(version.id)
@@ -451,8 +499,13 @@ def _expand_along_references(session: Session, project_id: UUID, versions: list[
                                          scope="published", mapping_version=mapping_version)
         for hit, chunk in _select_prompt_chunks(hits, chunks_by_id=chunks_by_id, chunks_by_position=chunks_by_position,
                                                 project_id=project_id, scoped_version_ids={version.id}, limit=1):
-            added.append(_hybrid_citation(chunk, hit, index_name, via_reference=True))
-    return added
+            pool.append((hit, chunk, index_name))
+    chosen = rerank_select(tuning, question, pool, lambda item: _rerank_text(item[1]), limit=limit, step="expansion") if reranking else None
+    if chosen is None:
+        chosen = pool[:limit]
+    if tuning is not None:
+        tuning.record_step("expansion", candidates=len(pool), selected=len(chosen))
+    return [_hybrid_citation(chunk, hit, index_name, via_reference=True) for hit, chunk, index_name in chosen]
 
 
 def _ensure_document_staging_indices(session: Session, project_id: UUID, versions: list[DocumentVersion], chunks_by_id: dict[UUID, Chunk], settings) -> None:

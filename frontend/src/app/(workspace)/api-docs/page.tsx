@@ -70,7 +70,8 @@ Content-Type: application/json
   "nomosmart:scope": {
     "document_ids": ["<document_id>"]
   },
-  "nomosmart:top_k": 5
+  "nomosmart:top_k": 5,
+  "nomosmart:top_p": 0.8
 }`;
 
 const jsonAnswerExample = `{
@@ -350,6 +351,7 @@ X-NomoSmart-API-Key: <api_key>`
     bullets: [
       "apiDocsLimitsInput",
       "apiDocsLimitsTopK",
+      "apiDocsLimitsTopP",
       "apiDocsLimitsMetadata",
       "apiDocsLimitsEndUser",
       "apiDocsLimitsIdempotency",

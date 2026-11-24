@@ -36,6 +36,10 @@ export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListO
   if (!Array.isArray(items) || header === null || !/^\d+$/.test(header) || !Number.isSafeInteger(total)) throw new Error("pagination_metadata_invalid");
   return { items, total };
 }
+/** CHG-486 RERANK486-004: the project rerank switch (Project Owners change it; members see it). */
+export type ProjectRetrievalSettings = { rerank_enabled: boolean; rerank_available: boolean; can_edit: boolean; retrieval_top_k: number; retrieval_top_p: number };
+export async function getProjectRetrievalSettings(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectRetrievalSettings>(apiFetch, `/projects/${projectId}/retrieval-settings`, { signal }); }
+export async function updateProjectRetrievalSettings(apiFetch: ApiFetch, projectId: string, rerankEnabled: boolean) { return apiJson<ProjectRetrievalSettings>(apiFetch, `/projects/${projectId}/retrieval-settings`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ rerank_enabled: rerankEnabled }) }); }
 export async function getProject(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`, { signal }); }
 export async function createProject(apiFetch: ApiFetch, payload: ProjectCreatePayload) { return apiJson<ProjectResponse>(apiFetch, "/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getProjectArchiveImpact(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectArchiveImpactResponse>(apiFetch, `/projects/${projectId}/archive-impact`); }

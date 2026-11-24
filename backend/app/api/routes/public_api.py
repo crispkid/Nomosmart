@@ -19,6 +19,7 @@ from app.api.routes.serving import (
     _search_published_chunks,
     _select_chat_model,
 )
+from app.domain.retrieval_tuning import resolve_retrieval_tuning
 from app.api.schemas import (
     ProjectChatCitation,
     PublicApiChatPayload,
@@ -117,6 +118,7 @@ def create_public_response(
         end_user=parsed.end_user,
         scope=PublicApiChatScope(document_ids=parsed.document_ids) if parsed.document_ids is not None else None,
         top_k=parsed.top_k,
+        top_p=parsed.top_p,
     )
     response_mode = "sse" if parsed.stream else "json"
     replay, operation = begin_idempotent_operation(
@@ -507,7 +509,8 @@ def _prepare_public_chat(session: Session, request: Request, client: Integration
     turn, turns = _public_history(session, request, client, project, payload, parsed)
     manifests, manifest_ids, selected_version_ids = _resolve_public_scope(session, project.id, selected_document_ids)
     _public_rewrite(session, request, client, project, payload, parsed, turn, turns)
-    citations = _search_published_chunks(session, project.id, selected_version_ids, turn.search_question, payload.top_k, source_channel="public_api")
+    tuning = resolve_retrieval_tuning(session, project.id, top_k=payload.top_k, top_p=payload.top_p)  # CHG-486 TOPKP486-003
+    citations = _search_published_chunks(session, project.id, selected_version_ids, turn.search_question, tuning, source_channel="public_api")
     chat_model = _select_chat_model(session, project) if citations else None
     request.state.public_turn = turn
     return manifests, manifest_ids, selected_version_ids, citations, chat_model

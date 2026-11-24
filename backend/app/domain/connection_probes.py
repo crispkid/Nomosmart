@@ -35,6 +35,16 @@ def probe_ai_model(settings: Settings, model: AIModel) -> ConnectionProbeResult:
         from app.domain.ocr_capabilities import require_native_capabilities
         require_native_capabilities(model)
     api_key = _resolve_model_credential(settings, model)
+    if model.model_type == "Reranker":
+        # RERANK486-001: a rerank model is proven by one real /rerank call returning a score per text.
+        from app.domain.reranking import rerank_scores
+        try:
+            scores = rerank_scores(model, PROBE_RERANK_QUERY, list(PROBE_RERANK_TEXTS), settings)
+        except AppError as exc:
+            raise _invocation_error(exc) from exc
+        if len(scores) != len(PROBE_RERANK_TEXTS):
+            raise AppError("model_response_invalid", "Rerank model returned an invalid response", status_code=503)
+        return ConnectionProbeResult(ai_model_connection_fingerprint(model), _latency_ms(started), "provider_invocation_ready")
     _probe_http_model(model, api_key, settings)
     # CHG-425 FIX425-001..004: the model exists; now prove one real request is accepted.
     usage, dimension = _probe_model_invocation(model, api_key, settings)
@@ -43,6 +53,8 @@ def probe_ai_model(settings: Settings, model: AIModel) -> ConnectionProbeResult:
 
 
 PROBE_EMBEDDING_TEXT = "NomoSmart connection test"
+PROBE_RERANK_QUERY = "What does the connection test check?"
+PROBE_RERANK_TEXTS = ("The connection test checks that the rerank model answers.", "Unrelated text about the weather.")
 
 
 def _probe_model_invocation(model: AIModel, api_key: str | None, settings: Settings) -> tuple[dict | None, int | None]:
