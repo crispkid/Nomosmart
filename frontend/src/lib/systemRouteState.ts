@@ -40,7 +40,9 @@ export const settingsSections = [
   { id: "identity", labelKey: "settingsIdentity", panels: ["login", "directory", "credentials", "sync", "sync-history", "emergency"] },
   { id: "ai", labelKey: "settingsAI", panels: ["models", "prompts"] },
   { id: "documents", labelKey: "settingsDocuments", panels: ["upload", "retention", "ocr"] },
-  { id: "question_answering", labelKey: "settingsQuestionAnswering", panels: ["routing", "expansion", "subquestions"] },
+  { id: "question_answering", labelKey: "settingsQuestionAnswering", panels: ["routing", "expansion", "subquestions", "retrieval", "rerank"] },
+  // CHG-486 PSET486-001
+  { id: "projects", labelKey: "settingsProjectSettings", panels: ["project-settings"] },
   // CHG-467 REVROUTE467-005/009
   { id: "approvals", labelKey: "settingsApprovals", panels: ["fallback", "administration"] },
   { id: "apiKeys", labelKey: "settingsApiKeys", panels: ["clients"] },

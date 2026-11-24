@@ -7,13 +7,14 @@ import { RotateCcw, Save, RefreshCw } from "lucide-react";
 import { useAuth } from "./AuthProvider";
 import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { getSystemParameters, patchSystemParameters, type ApiError, type SystemParameterApiValues, type SystemParametersPayload } from "@/lib/api";
+import { countRerankProjects, getSystemParameters, listModels, patchSystemParameters, type ApiError, type SystemParameterApiValues, type SystemParametersPayload } from "@/lib/api";
 import { useOperationGuard } from "./useOperationGuard";
 import { FeedbackMessage } from "./FeedbackMessage";
 import { SettingsCard, SettingsFieldRow } from "./SettingsCard";
 
 type Key = keyof SystemParameterApiValues;
-type Field = { key: Key; label: TranslationKey; help: TranslationKey; max?: number; min?: number; zero?: boolean; kind?: "boolean" };
+// CHG-486: "decimal" settings (Top P, minimum score) and the rerank "model" selector.
+type Field = { key: Key; label: TranslationKey; help: TranslationKey; max?: number; min?: number; zero?: boolean; kind?: "boolean" | "decimal" | "model"; step?: number };
 type Section = "general" | "documents" | "question_answering" | "approvals";
 const fields: Record<Section, { panel: string; title: TranslationKey; fields: Field[] }[]> = {
   general: [
@@ -42,6 +43,16 @@ const fields: Record<Section, { panel: string; title: TranslationKey; fields: Fi
     { panel: "subquestions", title: "settingsSubquestions", fields: [
       { key: "subquestion_enabled", label: "subquestionEnabledLabel", help: "subquestionEnabledHelp", kind: "boolean" },
       { key: "subquestion_max", label: "subquestionMaxLabel", help: "subquestionMaxHelp", min: 1, max: 5 }
+    ] },
+    // CHG-486 TOPKP486-001 / RERANK486-002
+    { panel: "retrieval", title: "settingsRetrievalDepth", fields: [
+      { key: "retrieval_top_k", label: "retrievalTopKLabel", help: "retrievalTopKHelp", min: 1, max: 20 },
+      { key: "retrieval_top_p", label: "retrievalTopPLabel", help: "retrievalTopPHelp", min: 0.1, max: 1, kind: "decimal", step: 0.05 }
+    ] },
+    { panel: "rerank", title: "settingsRerank", fields: [
+      { key: "retrieval_rerank_enabled", label: "rerankEnabledLabel", help: "rerankEnabledHelp", kind: "boolean" },
+      { key: "retrieval_rerank_model_id", label: "rerankModelLabel", help: "rerankModelHelp", kind: "model" },
+      { key: "retrieval_rerank_min_score", label: "rerankMinScoreLabel", help: "rerankMinScoreHelp", min: 0, max: 1, kind: "decimal", step: 0.05 }
     ] }
   ],
   // CHG-467 REVROUTE467-005
@@ -51,7 +62,9 @@ const fields: Record<Section, { panel: string; title: TranslationKey; fields: Fi
     ] }
   ]
 };
-const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks", subquestion_enabled: "subquestionEnabled", subquestion_max: "subquestionMax", approval_owner_fallback_enabled: "approvalOwnerFallbackEnabled" };
+const ALIASES: Record<Key, string> = { max_upload_size_mb: "uploadLimitMb", default_timezone: "timezone", staging_index_ttl_days: "stagingTtlDays", session_expired_form_draft_ttl_minutes: "sessionDraftTtlMinutes", ocr_request_max_output_tokens: "ocrRequestOutputTokens", ocr_document_max_tokens: "ocrDocumentOutputTokens", reference_routing_enabled: "referenceRoutingEnabled", reference_routing_max_documents: "referenceRoutingMaxDocuments", reference_expansion_enabled: "referenceExpansionEnabled", reference_expansion_max_chunks: "referenceExpansionMaxChunks", subquestion_enabled: "subquestionEnabled", subquestion_max: "subquestionMax", retrieval_top_k: "retrievalTopK", retrieval_top_p: "retrievalTopP", retrieval_rerank_min_score: "rerankMinScore", retrieval_rerank_enabled: "rerankEnabled", retrieval_rerank_model_id: "rerankModelId", approval_owner_fallback_enabled: "approvalOwnerFallbackEnabled" };
+// A null model id is shown and edited as an empty selection.
+const asText = (value: unknown) => value === null || value === undefined ? "" : String(value);
 
 export default function SystemParameterSettings({ section, onDirtyChange }: {
   section: Section; onDirtyChange: (dirty: boolean) => void;
@@ -75,10 +88,17 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
   // OPT424-035: the editor is keyed by section; it reloads only on an explicit reload. Earlier values
   // stay visible while reloading or after a failed reload.
   const readParameters = useCallback((signal: AbortSignal) => getSystemParameters(apiFetch, signal), [apiFetch]);
+  const [rerankModels, setRerankModels] = useState<{ id: string; name: string; is_active: boolean }[]>([]);
+  useEffect(() => {
+    if (section !== "question_answering") return;
+    const controller = new AbortController();
+    listModels(apiFetch, "Reranker", controller.signal).then(models => setRerankModels(models.map(model => ({ id: model.id, name: model.name, is_active: model.is_active })))).catch(() => setRerankModels([]));
+    return () => controller.abort();
+  }, [apiFetch, section]);
   const parametersRead = useReadResource<SystemParametersPayload>(readParameters, section, true, {
     keepData: true,
     onData: value => {
-      const values = Object.fromEntries(keys.map(key => [key, String(value[key])]));
+      const values = Object.fromEntries(keys.map(key => [key, asText(value[key])]));
       setDraft({ ...values, ...restoredDraft.current }); restoredDraft.current = null; setBaseline(values); setError(null);
     },
   });
@@ -106,6 +126,12 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
       const value = draft[field.key] ?? "";
       if (field.kind === "boolean") {
         values[field.key] = value === "true";
+      } else if (field.kind === "model") {
+        values[field.key] = value || null as unknown as string;
+      } else if (field.kind === "decimal") {
+        const number = Number(value);
+        if (value.trim() === "" || !Number.isFinite(number) || number < field.min! || number > field.max!) problems[field.key] = "settingsInvalidDecimal";
+        values[field.key] = number;
       } else if (field.key === "default_timezone") {
         try { if (!value) throw new Error(); new Intl.DateTimeFormat("en", { timeZone: value }); }
         catch { problems[field.key] = "settingsInvalidTimezone"; }
@@ -118,8 +144,14 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
       }
     }
     if (section === "documents" && Number(values.ocr_document_max_tokens) < Number(values.ocr_request_max_output_tokens)) problems.ocr_document_max_tokens = "ocrTokenDocumentTooSmall";
+    if (section === "question_answering" && values.retrieval_rerank_enabled === true && !values.retrieval_rerank_model_id) problems.retrieval_rerank_model_id = "rerankModelRequired";
     setErrors(problems);
     if (Object.keys(problems).length) return;
+    // RERANK486-003: turning the system switch off turns every project's switch off; say so before saving.
+    if (section === "question_answering" && baseline.retrieval_rerank_enabled === "true" && values.retrieval_rerank_enabled === false) {
+      const count = await countRerankProjects(apiFetch).catch(() => null);
+      if (!window.confirm(count === null ? t("rerankDisableConfirmUnknown") : format("rerankDisableConfirm", { count }))) return;
+    }
     const changes = Object.fromEntries(keys.filter(key => draft[key] !== baseline[key]).map(key => [key, values[key]]));
     if (!Object.keys(changes).length) return;
     const token = guard.begin();
@@ -129,7 +161,7 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
       const response = await patchSystemParameters(apiFetch, section, data.section_revisions[section], changes);
       if (!guard.current(token)) return;
       guard.accepted(token);
-      const saved = Object.fromEntries(keys.map(key => [key, String(response.values[key])]));
+      const saved = Object.fromEntries(keys.map(key => [key, asText(response.values[key])]));
       parametersRead.update(previous => ({ ...previous, ...response.values, parameter_metadata: { ...previous.parameter_metadata, ...response.parameter_metadata }, section_revisions: { ...previous.section_revisions, [section]: response.revision } }));
       setDraft(saved); setBaseline(saved); setNotice("systemParametersSaved"); guard.complete(token);
     } catch (caught) {
@@ -137,7 +169,7 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
       const details = (caught as ApiError).details;
       if (details && typeof details === "object") {
         const reasons = details as Record<string, unknown>;
-        setErrors(Object.fromEntries(keys.filter(key => key in reasons).map(key => [key, reasons[key] === "deployment_capacity_exceeded" ? "settingsCapacityError" : key === "default_timezone" ? "settingsInvalidTimezone" : reasons[key] === "document_budget_below_request" ? "ocrTokenDocumentTooSmall" : "settingsInvalidInteger"])));
+        setErrors(Object.fromEntries(keys.filter(key => key in reasons).map(key => [key, reasons[key] === "deployment_capacity_exceeded" ? "settingsCapacityError" : key === "default_timezone" ? "settingsInvalidTimezone" : reasons[key] === "document_budget_below_request" ? "ocrTokenDocumentTooSmall" : reasons[key] === "rerank_model_required" || reasons[key] === "rerank_model_unavailable" ? "rerankModelRequired" : reasons[key] === "number_out_of_range" ? "settingsInvalidDecimal" : "settingsInvalidInteger"])));
       }
     }
   }
@@ -155,14 +187,16 @@ export default function SystemParameterSettings({ section, onDirtyChange }: {
     {comparison ? <DataTable rows={groups.flatMap(group => group.fields)} rowKey={field => field.key} columns={[
       { key: "parameter", header: t("systemParameters"), rowHeader: true, cell: field => t(field.label) },
       { key: "draft", header: t("systemUnsavedChanges"), cell: field => draft[field.key] },
-      { key: "current", header: t("settingsCurrentValue"), cell: field => String(comparison[field.key]) },
-    ]}><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, String(comparison[key])])); parametersRead.update(() => comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></DataTable> : null}
+      { key: "current", header: t("settingsCurrentValue"), cell: field => asText(comparison[field.key]) },
+    ]}><button className="action-button secondary" disabled={unknown} type="button" onClick={() => { const values = Object.fromEntries(keys.map(key => [key, asText(comparison[key])])); parametersRead.update(() => comparison); setDraft(values); setBaseline(values); setComparison(null); setErrors({}); setError(null); }}>{t("settingsUseCurrent")}</button></DataTable> : null}
     {groups.map(group => <SettingsCard key={group.panel} panel={group.panel} title={t(group.title)}>
       {group.fields.map(field => {
         const id = `setting-${field.key}`, metadata = data?.parameter_metadata[field.key];
         const aliases = ALIASES;
+        const meta = <small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{` · ${settingsUpdaterLabel(metadata, t)}`}</small>;
+        if (field.kind === "model") return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)}><select id={id} disabled={!editable || !data || blocked} aria-invalid={Boolean(errors[field.key])} aria-describedby={`${id}-help${errors[field.key] ? ` ${id}-error` : ""}`} value={draft[field.key] ?? ""} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setErrors(previous => ({ ...previous, [field.key]: undefined })); setNotice(null); }}><option value="">{t("rerankModelNone")}</option>{rerankModels.filter(model => model.is_active || model.id === draft[field.key]).map(model => <option key={model.id} value={model.id}>{model.is_active ? model.name : format("rerankModelInactive", { name: model.name })}</option>)}</select>{errors[field.key] ? <small className="settings-field-error" id={`${id}-error`}>{t(errors[field.key]!)}</small> : null}{meta}</SettingsFieldRow>;
         if (field.kind === "boolean") return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)}><label className="settings-toggle"><input id={id} type="checkbox" disabled={!editable || !data || blocked} aria-describedby={`${id}-help`} checked={draft[field.key] === "true"} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: String(event.target.checked) })); setNotice(null); }} /><span>{t(draft[field.key] === "true" ? "settingsEnabled" : "settingsDisabled")}</span></label><small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{` · ${settingsUpdaterLabel(metadata, t)}`}</small></SettingsFieldRow>;
-        return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)} extra={field.key === "max_upload_size_mb" && data ? <small>{format("settingsPlatformLimit", { limit: data.deployment_max_upload_size_mb })}</small> : undefined}><input id={id} disabled={!editable || !data || blocked} aria-invalid={Boolean(errors[field.key])} aria-describedby={`${id}-help${errors[field.key] ? ` ${id}-error` : ""}`} type={field.max ? "number" : "text"} min={field.zero ? 0 : field.min} max={field.key === "max_upload_size_mb" && data ? Math.min(field.max!, data.deployment_max_upload_size_mb) : field.max} value={draft[field.key] ?? ""} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setErrors(previous => ({ ...previous, [field.key]: undefined })); setNotice(null); }} />{errors[field.key] ? <small className="settings-field-error" id={`${id}-error`}>{t(errors[field.key]!)}</small> : null}<small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{` · ${settingsUpdaterLabel(metadata, t)}`}</small></SettingsFieldRow>;
+        return <SettingsFieldRow key={field.key} htmlFor={id} label={t(field.label)} help={t(field.help)} extra={field.key === "max_upload_size_mb" && data ? <small>{format("settingsPlatformLimit", { limit: data.deployment_max_upload_size_mb })}</small> : undefined}><input id={id} disabled={!editable || !data || blocked} aria-invalid={Boolean(errors[field.key])} aria-describedby={`${id}-help${errors[field.key] ? ` ${id}-error` : ""}`} type={field.max ? "number" : "text"} step={field.step} min={field.zero ? 0 : field.min} max={field.key === "max_upload_size_mb" && data ? Math.min(field.max!, data.deployment_max_upload_size_mb) : field.max} value={draft[field.key] ?? ""} data-session-draft-raw data-session-draft-field={aliases[field.key]} onChange={event => { setDraft(previous => ({ ...previous, [field.key]: event.target.value })); setErrors(previous => ({ ...previous, [field.key]: undefined })); setNotice(null); }} />{errors[field.key] ? <small className="settings-field-error" id={`${id}-error`}>{t(errors[field.key]!)}</small> : null}<small className="settings-field-meta">{metadata?.updated_at ? new Date(metadata.updated_at).toLocaleString(locale) : t("systemReadCountUnknown")}{` · ${settingsUpdaterLabel(metadata, t)}`}</small></SettingsFieldRow>;
       })}
     </SettingsCard>)}
     <footer className="settings-save-bar"><span aria-live="polite">{t(notice || (dirty ? "systemUnsavedChanges" : "systemSaved"))}</span><div><button className="action-button secondary" type="button" disabled={!editable || !data || blocked} onClick={() => { setDraft(Object.fromEntries(keys.map(key => [key, String(data!.parameter_defaults[key])]))); setErrors({}); setNotice("systemParametersDefaultsRestored"); }}><RotateCcw size={16} />{t("systemRestoreDefaults")}</button><button className="action-button secondary" disabled={!dirty || blocked} type="button" onClick={() => { setDraft(baseline); setErrors({}); setError(null); setNotice(null); }}>{t("cancel")}</button><button className="action-button" type="button" disabled={!editable || !data || !dirty || blocked} onClick={() => void save()}><Save size={16} />{t(state.phase === "submitting" ? "loadingData" : "systemSaveParameters")}</button></div></footer>

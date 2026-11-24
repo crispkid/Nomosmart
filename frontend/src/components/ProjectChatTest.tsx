@@ -25,6 +25,7 @@ import { ProjectChatDocumentScope } from "./projectChat/ProjectChatDocumentScope
 import { ProjectChatEntryPair } from "./projectChat/ProjectChatEntryPair";
 import { ProjectChatHistoryList } from "./projectChat/ProjectChatHistoryList";
 import { ProjectChatServingStatus } from "./projectChat/ProjectChatServingStatus";
+import { ChatRetrievalSettings, EMPTY_RETRIEVAL_OVERRIDE, parseRetrievalOverride, type RetrievalOverride } from "./projectChat/ChatRetrievalSettings";
 
 export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string }) {
   const params = useParams<{ id?: string }>();
@@ -41,6 +42,9 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
   const [conversations, setConversations] = useState<ProjectConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [draftMode, setDraftMode] = useState<ConversationMode>("single");
+  // CHG-486 TOPKP486-003: per-question K / P (empty = system defaults).
+  const [retrievalOverride, setRetrievalOverride] = useState<RetrievalOverride>(EMPTY_RETRIEVAL_OVERRIDE);
+  const retrievalValues = parseRetrievalOverride(retrievalOverride);
   const [historyStatus, setHistoryStatus] = useState<"loading" | "ready" | "error">("loading");
   const [historyError, setHistoryError] = useState("");
   const [historyCursor, setHistoryCursor] = useState<string | null>(null);
@@ -396,7 +400,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
       return;
     }
     try {
-      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text, conversation_mode: localMode, previous_record_id: previousRecordId }, (partial) => {
+      const result = await queryProjectChat(apiFetch, params.id!, { question: text, scope_mode: "published", document_version_ids: fixedVersionId !== undefined ? [fixedVersionId] : allScopeIdsFormal ? localScopeIds : undefined, conversation_id: isUuid(localConversationId) ? localConversationId : undefined, conversation_title: localEntries[0]?.question || text, conversation_mode: localMode, previous_record_id: previousRecordId, top_k: retrievalValues.top_k, top_p: retrievalValues.top_p }, (partial) => {
         if (!scopeEpoch.current.isCurrent(scope)) return;
         setConversations((current) => current.map((conversation) => conversation.id === localConversationId ? { ...conversation, entries: conversation.entries.map((entry) => entry.id === now ? { ...entry, answer: partial } : entry) } : conversation));
       });
@@ -483,7 +487,7 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
     const localScopeIds = [...scopeIds];
     if (params?.id && localScopeIds.length && allScopeIdsFormal && allScopeIdsEligible) {
       try {
-        const run = await createProjectChatValidationRun(apiFetch, params.id, { uploaded_file_name: uploadFileName || null, scope_mode: "published", selected_document_version_ids: localScopeIds, questions: uploadQuestions });
+        const run = await createProjectChatValidationRun(apiFetch, params.id, { uploaded_file_name: uploadFileName || null, scope_mode: "published", selected_document_version_ids: localScopeIds, questions: uploadQuestions, retrieval_top_k: retrievalValues.top_k, retrieval_top_p: retrievalValues.top_p });
         if (!scopeEpoch.current.isCurrent(scope)) return;
         setActiveValidationRun(run);
         setValidationConversationId(localConversationId);
@@ -596,7 +600,8 @@ export function ProjectChatTest({ fixedVersionId }: { fixedVersionId?: string })
           setDraftMode(mode);
           if (activeConversation && !activeConversation.entries.length && !activeConversation.persisted) setConversations((current) => current.map((conversation) => conversation.id === activeConversation.id ? { ...conversation, mode } : conversation));
         }} />
-        <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea disabled={!canContinue || queryBusy} id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!canContinue || !question.trim() || !scopeIds.length || scopeDirty || queryBusy} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <FeedbackMessage tone="warning">{t("projectChatScopeChangedWarning")}</FeedbackMessage> : null}</form>
+        {params?.id ? <ChatRetrievalSettings apiFetch={apiFetch} projectId={params.id} value={retrievalOverride} onChange={setRetrievalOverride} disabled={queryBusy} t={t} format={format} /> : null}
+        <form aria-busy={queryBusy} className="chat-composer" onSubmit={submit}><label htmlFor="project-chat-question">{t("askQuestion")}</label><div><textarea disabled={!canContinue || queryBusy} id="project-chat-question" onChange={(event) => setQuestion(event.target.value)} onKeyDown={submitOnEnter} placeholder={t("projectChatQuestionPlaceholder")} rows={2} value={question} /><button aria-label={queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")} className="action-button" disabled={!canContinue || !question.trim() || !scopeIds.length || scopeDirty || queryBusy || retrievalValues.invalid} type="submit"><Send size={16} /> {queryBusy ? t("chatWaitingForAnswer") : t("sendQuestion")}</button></div>{scopeDirty ? <FeedbackMessage tone="warning">{t("projectChatScopeChangedWarning")}</FeedbackMessage> : null}</form>
       </div>
     </section>
     {uploadOpen ? <ProjectChatBatchUploadDialog activeValidationRun={activeValidationRun} batchCompletedCount={batchCompletedCount} canRetryFailedValidation={canRetryFailedValidation} confirmBatchUpload={confirmBatchUpload} downloadQuestionTemplate={downloadQuestionTemplate} dropUploadFile={dropUploadFile} retryFailedValidationItems={retryFailedValidationItems} scopeIds={scopeIds} selectUploadFile={selectUploadFile} setUploadDragging={setUploadDragging} setUploadOpen={setUploadOpen} uploadDragging={uploadDragging} uploadError={uploadError} uploadFileName={uploadFileName} uploadQuestions={uploadQuestions} validationFinished={validationFinished} /> : null}

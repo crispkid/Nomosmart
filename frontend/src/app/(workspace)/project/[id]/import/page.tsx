@@ -35,6 +35,7 @@ import { createDataSourceSyncActions, useDataSourceSyncState } from "@/component
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
 import { KnowledgeSourceDropZone } from "@/components/projectImport/KnowledgeSourceDropZone";
 import { ProjectFeatureDialog } from "@/components/projectImport/ProjectFeatureDialog";
+import { ProjectRerankSwitch } from "@/components/projectImport/ProjectRerankSwitch";
 import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
@@ -467,6 +468,7 @@ function ProjectImportPage() {
           <button className="action-button secondary" onClick={() => setActiveModal("graph")} type="button"><Network size={16} /> {t("knowledgeGraph")}</button>
           <button className="action-button secondary" onClick={() => { setFixedChatVersion(undefined); setActiveModal("chat"); }} type="button"><MessageSquareText size={16} /> {t("chatTest")}</button>
           {canManageProjectPermissions ? <button className="action-button secondary" onClick={openPermissionModal} type="button"><ShieldCheck size={16} /> {t("projectImportPermissionManagement")}</button> : null}
+          {projectReady ? <ProjectRerankSwitch apiFetch={apiFetch} projectId={params.id} t={t} /> : null}
         </div>
       </div>
 

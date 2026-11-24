@@ -190,6 +190,21 @@ class ProjectResponse(ORMModel):
     published_version_count: int = 0
     last_activity_at: datetime | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
+    rerank_enabled: bool = False  # CHG-486 RERANK486-004
+
+
+class ProjectRetrievalSettingsResponse(BaseModel):
+    """CHG-486 RERANK486-004: the project rerank switch as the project settings page shows it."""
+    rerank_enabled: bool
+    rerank_available: bool
+    can_edit: bool
+    # TOPKP486-003: the system defaults the chat screen shows next to its advanced settings.
+    retrieval_top_k: int = 5
+    retrieval_top_p: float = 1.0
+
+
+class ProjectRetrievalSettingsUpdate(BaseModel):
+    rerank_enabled: bool
 
 
 class ProjectArchiveImpactResponse(BaseModel):
@@ -1281,7 +1296,9 @@ class ProjectChatQueryPayload(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     document_version_ids: list[UUID] | None = None
     scope_mode: Literal["published", "document_staging"]
-    top_k: int = Field(default=5, ge=1, le=20)
+    # CHG-486 TOPKP486-003: None = system settings retrieval_top_k / retrieval_top_p.
+    top_k: int | None = Field(default=None, ge=1, le=20)
+    top_p: float | None = Field(default=None, ge=0.1, le=1.0)
     conversation_id: UUID | None = None
     conversation_title: str | None = Field(default=None, max_length=500)
     # CHG-435 MTURN435-001/009: multi-turn continuation (internal Open Responses entry only).
@@ -1506,7 +1523,8 @@ class PublicApiChatPayload(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     end_user: PublicApiEndUser
     scope: PublicApiChatScope | None = None
-    top_k: int = Field(default=5, ge=1, le=20)
+    top_k: int | None = Field(default=None, ge=1, le=20)  # CHG-486 TOPKP486-003
+    top_p: float | None = Field(default=None, ge=0.1, le=1.0)
 
 
 class PublicApiFeedbackPayload(BaseModel):
@@ -1541,6 +1559,9 @@ class ValidationRunCreatePayload(BaseModel):
     scope_mode: Literal["published", "document_staging"]
     selected_document_version_ids: list[UUID] | None = None
     questions: list[ValidationRunQuestionPayload] = Field(min_length=1)
+    # CHG-486 TOPKP486-003: frozen into the run manifest; None = system settings at creation.
+    retrieval_top_k: int | None = Field(default=None, ge=1, le=20)
+    retrieval_top_p: float | None = Field(default=None, ge=0.1, le=1.0)
 
 
 class ValidationRunItemResponse(BaseModel):
@@ -1567,6 +1588,7 @@ class ValidationRunItemResponse(BaseModel):
     error_code: str | None = None
     latency_ms: int | None = None
     token_usage: dict[str, Any] | None = None
+    retrieval_trace: dict[str, Any] | None = None  # CHG-486 RTRACE486-001
     system_prompt_source: str | None = None
     system_prompt_version_id: UUID | None = None
     system_prompt_content_hash: str | None = None
@@ -1726,6 +1748,12 @@ class SystemParametersPayload(SystemParametersCorePayload):
     # CHG-450 SUBQ450-004
     subquestion_enabled: bool
     subquestion_max: int
+    # CHG-486 TOPKP486-001 / RERANK486-002
+    retrieval_top_k: int
+    retrieval_top_p: float
+    retrieval_rerank_min_score: float
+    retrieval_rerank_enabled: bool
+    retrieval_rerank_model_id: str | None = None
     # CHG-467 REVROUTE467-005
     approval_owner_fallback_enabled: bool
     ocr_page_max_output_tokens: int
@@ -1753,6 +1781,12 @@ class SystemParametersUpdatePayload(SystemParametersCorePayload):
     reference_expansion_max_chunks: int | None = Field(default=None, strict=True, ge=0, le=10)
     subquestion_enabled: bool | None = Field(default=None, strict=True)
     subquestion_max: int | None = Field(default=None, strict=True, ge=1, le=5)
+    # CHG-486 TOPKP486-001 / RERANK486-002 (also accepted by the section PATCH).
+    retrieval_top_k: int | None = Field(default=None, strict=True, ge=1, le=20)
+    retrieval_top_p: float | None = Field(default=None, ge=0.1, le=1.0)
+    retrieval_rerank_min_score: float | None = Field(default=None, ge=0.0, le=1.0)
+    retrieval_rerank_enabled: bool | None = Field(default=None, strict=True)
+    retrieval_rerank_model_id: str | None = None
     approval_owner_fallback_enabled: bool | None = Field(default=None, strict=True)
 
     @model_validator(mode="before")

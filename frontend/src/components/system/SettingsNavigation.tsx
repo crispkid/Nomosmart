@@ -1,15 +1,15 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Activity, Bot, ChevronRight, ClipboardCheck, KeyRound, Layers3, MessagesSquare, Search, ShieldCheck, SlidersHorizontal, UsersRound, X, type LucideIcon } from "lucide-react";
+import { Activity, Bot, ChevronRight, ClipboardCheck, FolderCog, KeyRound, Layers3, MessagesSquare, Search, ShieldCheck, SlidersHorizontal, UsersRound, X, type LucideIcon } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18nClient";
 import { settingsSections, type SettingsPosition } from "@/lib/systemRouteState";
 
 const settingsPanelLabels: Record<string, TranslationKey> = {
-  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", routing: "settingsReferenceRouting", expansion: "settingsReferenceExpansion", subquestions: "settingsSubquestions", fallback: "settingsApprovalFallback", administration: "settingsApprovalAdministration", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
+  users: "systemUsers", roles: "systemRoles", permissions: "systemPermissions", login: "protocolSignInMethod", directory: "protocolDirectoryTitle", credentials: "protocolCredentials", sync: "protocolScheduleTitle", "sync-history": "protocolSyncHistory", emergency: "identityEmergencyAccess", models: "systemModels", prompts: "systemPrompts", upload: "settingsUpload", retention: "settingsRetention", ocr: "settingsOCR", clients: "settingsApiKeys", time: "settingsTime", drafts: "settingsDrafts", runtime: "settingsRuntime", routing: "settingsReferenceRouting", expansion: "settingsReferenceExpansion", subquestions: "settingsSubquestions", retrieval: "settingsRetrievalDepth", rerank: "settingsRerank", "project-settings": "settingsProjectSettings", fallback: "settingsApprovalFallback", administration: "settingsApprovalAdministration", dependencies: "systemDependencies", providers: "systemAiProviders", errors: "systemRecentErrors"
 };
 const settingsPanelHelp: Record<string, TranslationKey> = {
-  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription", routing: "referenceRoutingEnabledHelp", expansion: "referenceExpansionEnabledHelp", subquestions: "subquestionEnabledHelp", fallback: "approvalOwnerFallbackHelp", administration: "approvalAdministrationHelp"
+  users: "systemUserManagementDescription", roles: "systemRolesDescription", permissions: "systemPermissionsDescription", login: "protocolSettingsHelp", directory: "protocolDirectoryHelp", credentials: "protocolCredentialsHelp", sync: "protocolDailyDelayHelp", models: "systemModelsDescription", prompts: "systemPromptsDescription", upload: "settingsUploadHelp", retention: "settingsRetentionHelp", ocr: "ocrRequestTokenSettingHelp", clients: "systemApiKeysDescription", time: "settingsTimezoneHelp", drafts: "systemSessionDraftTtlHelp", runtime: "systemStatusDescription", routing: "referenceRoutingEnabledHelp", expansion: "referenceExpansionEnabledHelp", subquestions: "subquestionEnabledHelp", retrieval: "retrievalTopKHelp", rerank: "rerankEnabledHelp", "project-settings": "projectSettingsHelp", fallback: "approvalOwnerFallbackHelp", administration: "approvalAdministrationHelp"
 };
 
 const settingsSearchFields: Record<string, TranslationKey[]> = {
@@ -24,13 +24,16 @@ const settingsSearchFields: Record<string, TranslationKey[]> = {
   routing: ["referenceRoutingEnabledLabel", "referenceRoutingMaxDocumentsLabel"],
   expansion: ["referenceExpansionEnabledLabel", "referenceExpansionMaxChunksLabel"],
   subquestions: ["subquestionEnabledLabel", "subquestionMaxLabel"],
+  retrieval: ["retrievalTopKLabel", "retrievalTopPLabel"],
+  rerank: ["rerankEnabledLabel", "rerankModelLabel", "rerankMinScoreLabel"],
+  "project-settings": ["projectSettingsSetModels", "projectSettingsPutMember", "projectSettingsRemoveMember", "projectSettingsRerank"],
   fallback: ["approvalOwnerFallbackLabel"],
   administration: ["approvalAdministrationUnattended", "approvalAdministrationReassign", "approvalAdministrationReturn"]
 };
 
 // Icons are keyed by section id so adding a section cannot shift or drop them (CHG-445).
 const sectionIcons: Record<SettingsPosition["section"], LucideIcon> = {
-  people: UsersRound, identity: ShieldCheck, ai: Bot, documents: Layers3, question_answering: MessagesSquare, approvals: ClipboardCheck, apiKeys: KeyRound, general: SlidersHorizontal, status: Activity
+  people: UsersRound, identity: ShieldCheck, ai: Bot, documents: Layers3, question_answering: MessagesSquare, projects: FolderCog, approvals: ClipboardCheck, apiKeys: KeyRound, general: SlidersHorizontal, status: Activity
 };
 
 type SettingsNavigationProps = {

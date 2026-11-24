@@ -58,6 +58,7 @@ from app.domain.project_retrieval import (
 )
 from app.domain.chat_citations import citation_persistence_payload, compact_citation_view, hydrate_citation_groups, validate_citation_markers
 from app.domain.model_usage import record_model_usage
+from app.domain.retrieval_tuning import resolve_retrieval_tuning
 from app.domain.conversation_history import chat_test_context
 from app.domain.validation_scenarios import normalized_key, scenario_summary, validate_scenarios
 from app.domain.chunk_artifacts import chunk_artifact_state
@@ -292,10 +293,11 @@ def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, cont
     # CHG-435 MTURN435-001..009: mode rule, earlier turns and the (rewritten) search question.
     conversation_mode, turn = chat_test_context(session, get_settings(), project, payload, user_id=context.user_id, conversation_id=conversation_id)
     asked_at = datetime.now(UTC)
+    tuning = resolve_retrieval_tuning(session, project.id, top_k=payload.top_k, top_p=payload.top_p)  # CHG-486
     citations = (
-        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="chat_test", actor_user_id=context.user_id)
         if payload.scope_mode == "document_staging"
-        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, payload.top_k, source_channel="chat_test", actor_user_id=context.user_id)
+        else _search_published_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="chat_test", actor_user_id=context.user_id)
     )
     status = "answered" if citations else "no_answer"
     chat_model = _select_chat_model(session, project) if citations else None
@@ -347,6 +349,8 @@ def run_chat_test_query(project_id: UUID, payload: ProjectChatQueryPayload, cont
         system_prompt_layers=provider_result.system_prompt_layers,
         token_usage=token_usage,
         latency_ms=latency_ms,
+        retrieval_trace={**tuning.trace, "stages_ms": {**tuning.trace.get("stages_ms", {}),
+                         "generation": max(0, int((perf_counter() - provider_started) * 1000))}},  # RTRACE486-001
         created_by=context.user_id,
         asked_at=asked_at,
         answered_at=answered_at,
@@ -694,6 +698,8 @@ def create_project_chat_validation_run(project_id: UUID, payload: ValidationRunC
         scope_mode=payload.scope_mode,
         selected_ids=selected_ids,
         max_attempts=max_attempts,
+        retrieval_top_k=payload.retrieval_top_k,
+        retrieval_top_p=payload.retrieval_top_p,
     )
     execution_manifest_hash = _canonical_json_hash(execution_manifest)
     run = ValidationRun(
@@ -1685,6 +1691,8 @@ def _validation_execution_manifest(
     scope_mode: str,
     selected_ids: set[UUID],
     max_attempts: int,
+    retrieval_top_k: int | None = None,
+    retrieval_top_p: float | None = None,
 ) -> dict:
     chat_model = _select_chat_model(session, project)
     embedding_model = (
@@ -1743,9 +1751,19 @@ def _validation_execution_manifest(
         "chat_prompt": _prompt_manifest(chat_prompt),
         "judge_prompt": _prompt_manifest(judge_prompt) if judge_prompt else None,
         "retrieval_strategy": "hybrid",
-        "retrieval_top_k": 5,
+        # CHG-486 TOPKP486-003: K, P and the minimum score are frozen at creation; reranking is decided per item.
+        **_validation_retrieval_values(session, retrieval_top_k, retrieval_top_p),
         "max_attempts": max_attempts,
     }
+
+
+def _validation_retrieval_values(session: Session, top_k: int | None, top_p: float | None) -> dict:
+    from app.domain.system_parameter_store import question_answering_settings
+
+    qa = question_answering_settings(session)
+    return {"retrieval_top_k": int(top_k if top_k is not None else qa["retrieval_top_k"]),
+            "retrieval_top_p": float(top_p if top_p is not None else qa["retrieval_top_p"]),
+            "retrieval_rerank_min_score": float(qa["retrieval_rerank_min_score"])}
 
 
 def _public_validation_manifest(manifest: dict | None) -> dict:
@@ -1856,6 +1874,7 @@ def _validation_item_response(item: ValidationRunItem, *, citations: list | None
         error_code=item.error_code,
         latency_ms=item.latency_ms,
         token_usage=item.token_usage,
+        retrieval_trace=item.retrieval_trace,
         system_prompt_source=item.system_prompt_source,
         system_prompt_version_id=item.system_prompt_version_id,
         system_prompt_content_hash=item.system_prompt_content_hash,

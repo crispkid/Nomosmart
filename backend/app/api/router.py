@@ -1,7 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.routes import approval_administration, approvals, auth, chunk_references, compatibility, data_sources, documents, health, identity, integration_clients, models, projects, public_api, references, reports, responses, roles, serving, system, system_prompts, users
-from app.api.routes import protocol_auth, protocol_identity
+from app.api.routes import protocol_auth, protocol_identity, system_project_settings
 
 
 api_router = APIRouter(prefix="/api/v1")
@@ -24,6 +24,7 @@ api_router.include_router(serving.router)
 api_router.include_router(responses.router)
 api_router.include_router(reports.router)
 api_router.include_router(system.router)
+api_router.include_router(system_project_settings.router)  # CHG-486 PSET486
 api_router.include_router(integration_clients.router)
 api_router.include_router(system_prompts.router)
 api_router.include_router(system_prompts.model_prompt_router)

@@ -132,6 +132,37 @@ export async function patchSystemParameters(apiFetch: ApiFetch, section: SystemP
   return apiJson<SystemParameterSectionResponse>(apiFetch, "/system/parameters", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ section, expected_revision, values }) });
 }
 
+// CHG-486 PSET486-001..006: System Management project settings (every project; System Management permission).
+export type ProjectSettingsPerson = { user_id: string; display_name: string; email: string | null; role: string };
+export type ProjectSettingsItem = {
+  id: string; name: string; status: string;
+  llm_model: { id: string; name: string } | null; embedding_model: { id: string; name: string } | null; ocr_model: { id: string; name: string } | null;
+  owners: ProjectSettingsPerson[]; member_count: number; rerank_enabled: boolean; members: ProjectSettingsPerson[] | null;
+};
+export type ProjectSettingsPage = { items: ProjectSettingsItem[]; total: number; offset: number; limit: number; rerank_available: boolean; rerank_enabled_count: number };
+export type ProjectSettingsBatch =
+  | { action: "set_models"; project_ids: string[]; llm_model_id?: string; embedding_model_id?: string; ocr_model_id?: string }
+  | { action: "put_member"; project_ids: string[]; user_id: string; role: string }
+  | { action: "remove_member"; project_ids: string[]; user_id: string }
+  | { action: "set_rerank"; project_ids: string[]; rerank_enabled: boolean };
+export type ProjectSettingsResult = { project_id: string; status: "updated" | "unchanged" | "failed"; error_code: string | null };
+export async function listProjectSettings(apiFetch: ApiFetch, options: { q?: string; status?: "active" | "archived"; offset?: number; limit?: number; signal?: AbortSignal } = {}) {
+  const query = new URLSearchParams();
+  if (options.q?.trim()) query.set("q", options.q.trim());
+  query.set("status", options.status ?? "active"); query.set("offset", String(options.offset ?? 0)); query.set("limit", String(options.limit ?? 50));
+  return apiJson<ProjectSettingsPage>(apiFetch, `/system/project-settings?${query}`, { signal: options.signal });
+}
+export async function getProjectSettings(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
+  return apiJson<ProjectSettingsItem>(apiFetch, `/system/project-settings/${projectId}`, { signal });
+}
+export async function batchProjectSettings(apiFetch: ApiFetch, payload: ProjectSettingsBatch) {
+  return (await apiJson<{ results: ProjectSettingsResult[] }>(apiFetch, "/system/project-settings/batch", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) })).results;
+}
+/** RERANK486-003: how many projects have their rerank switch on (shown before the system switch is turned off). */
+export async function countRerankProjects(apiFetch: ApiFetch) {
+  return (await listProjectSettings(apiFetch, { limit: 1 })).rerank_enabled_count;
+}
+
 // CHG-467 REVROUTE467-009..011: approval administration (requires Approval.ApprovalAdministration).
 export type ApprovalAdministrationPerson = { id: string; display_name: string };
 export type ApprovalAdministrationTask = {

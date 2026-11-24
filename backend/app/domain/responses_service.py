@@ -57,7 +57,7 @@ _BEHAVIOR_FIELDS = (
     "temperature", "top_p", "presence_penalty", "frequency_penalty", "top_logprobs",
     "max_output_tokens", "max_tool_calls", "reasoning", "text",
 )
-_COMMON_FIELDS = {"model", "input", "stream", "metadata", "store", "instructions", "previous_response_id", "nomosmart:scope", "nomosmart:top_k"}
+_COMMON_FIELDS = {"model", "input", "stream", "metadata", "store", "instructions", "previous_response_id", "nomosmart:scope", "nomosmart:top_k", "nomosmart:top_p"}
 _CHANNEL_FIELDS = {"public": {"nomosmart:end_user"}, "internal": {"nomosmart:conversation"}}
 
 
@@ -70,7 +70,8 @@ class CreateRequest:
     project_id: UUID
     question: str
     stream: bool
-    top_k: int
+    top_k: int | None
+    top_p: float | None = None  # CHG-486 TOPKP486-003; None = system default
     metadata: dict[str, str] = field(default_factory=dict)
     end_user: PublicApiEndUser | None = None
     document_ids: list[UUID] | None = None
@@ -123,7 +124,8 @@ def parse_create_request(body: Any, *, channel: Channel) -> CreateRequest:
     question = _parse_input(body.get("input"))
     metadata = _parse_metadata(body.get("metadata"))
     top_k = _parse_top_k(body.get("nomosmart:top_k"))
-    request = dict(channel=channel, model=model, project_id=project_id, question=question, stream=bool(stream), top_k=top_k, metadata=metadata,
+    top_p = _parse_top_p(body.get("nomosmart:top_p"))
+    request = dict(channel=channel, model=model, project_id=project_id, question=question, stream=bool(stream), top_k=top_k, top_p=top_p, metadata=metadata,
                    previous_response_id=previous_response_id if previous_id else None, previous_id=previous_id, truncation=body.get("truncation"))
     scope = body.get("nomosmart:scope")
     if scope is not None and not isinstance(scope, dict):
@@ -441,12 +443,21 @@ def _parse_metadata(value: Any) -> dict[str, str]:
     return dict(value)
 
 
-def _parse_top_k(value: Any) -> int:
+def _parse_top_k(value: Any) -> int | None:
     if value is None:
-        return 5
+        return None  # CHG-486 TOPKP486-001: the system setting retrieval_top_k decides
     if not isinstance(value, int) or isinstance(value, bool) or not 1 <= value <= 20:
         raise invalid("invalid_top_k", "nomosmart:top_k must be an integer from 1 to 20", "nomosmart:top_k")
     return value
+
+
+def _parse_top_p(value: Any) -> float | None:
+    """CHG-486 TOPKP486-003: retrieval Top P (cumulative rerank score share), not the sampling `top_p`."""
+    if value is None:
+        return None
+    if type(value) not in (int, float) or not 0.1 <= value <= 1.0:
+        raise invalid("invalid_top_p", "nomosmart:top_p must be a number from 0.1 to 1.0", "nomosmart:top_p")
+    return float(value)
 
 
 def _uuid_list(value: Any, param: str) -> list[UUID] | None:

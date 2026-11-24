@@ -89,7 +89,7 @@ export async function getDocumentVersionGraph(apiFetch: ApiFetch, projectId: str
 export async function getProjectServingStatus(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) {
   return apiJson<ProjectServingStatusResponse>(apiFetch, `/projects/${projectId}/serving-status`, { signal });
 }
-type ChatQueryPayload = { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; conversation_id?: string | null; conversation_title?: string | null; conversation_mode?: ConversationMode; previous_record_id?: string | null };
+type ChatQueryPayload = { question: string; document_version_ids?: string[] | null; scope_mode: "published" | "document_staging"; top_k?: number; top_p?: number; conversation_id?: string | null; conversation_title?: string | null; conversation_mode?: ConversationMode; previous_record_id?: string | null };
 type OpenResponsesCitation = ProjectChatQueryResponse["citations"][number];
 type OpenResponsesResource = {
   id: string;
@@ -116,6 +116,7 @@ export async function queryProjectChat(apiFetch: ApiFetch, projectId: string, pa
   if (payload.conversation_mode) conversation.mode = payload.conversation_mode;
   const body: Record<string, unknown> = { model: `nomosmart:project/${projectId}`, input: payload.question, stream: true, "nomosmart:scope": scope };
   if (payload.top_k) body["nomosmart:top_k"] = payload.top_k;
+  if (payload.top_p) body["nomosmart:top_p"] = payload.top_p;  // CHG-486 TOPKP486-003
   if (Object.keys(conversation).length) body["nomosmart:conversation"] = conversation;
   if (payload.previous_record_id) body.previous_response_id = `resp_${payload.previous_record_id}`;
   let response: Response;
@@ -234,7 +235,7 @@ export async function deleteProjectChatConversation(apiFetch: ApiFetch, projectI
 export async function updateProjectChatFeedback(apiFetch: ApiFetch, projectId: string, recordId: string, payload: { evaluation: "correct" | "needs_revision" | "not_evaluated"; revision_suggestion?: string | null }) {
   return apiJson<ProjectChatRecordResponse>(apiFetch, `/projects/${projectId}/chat/records/${recordId}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
-export async function createProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, payload: { uploaded_file_name?: string | null; scope_mode: "published" | "document_staging"; selected_document_version_ids?: string[] | null; questions: { input_item_id?: string | null; question: string; expected_answer?: string | null; expected_keywords?: string[]; selected_document_ids?: string[] | null; category?: string | null; priority?: string | null; conversation_key?: string | null; turn?: number | null }[] }) {
+export async function createProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, payload: { uploaded_file_name?: string | null; scope_mode: "published" | "document_staging"; selected_document_version_ids?: string[] | null; questions: { input_item_id?: string | null; question: string; expected_answer?: string | null; expected_keywords?: string[]; selected_document_ids?: string[] | null; category?: string | null; priority?: string | null; conversation_key?: string | null; turn?: number | null }[]; retrieval_top_k?: number; retrieval_top_p?: number }) {
   return apiJson<ValidationRunResponse>(apiFetch, `/projects/${projectId}/chat/validation-runs`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
 }
 export async function getProjectChatValidationRun(apiFetch: ApiFetch, projectId: string, runId: string, signal?: AbortSignal) {

@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.4.1",
-  "required_version": "068",
+  "required_version": "069",
   "targets": {
     "SQL": {
-      "file": "V068__approval_review_routing.sql",
-      "checksum": -1307752697,
-      "sha256": "954ae994922ea3ed8c31731d8d3221178a7fe2ce695ffe5a559c81eb8ddb81f7"
+      "file": "V069__retrieval_top_k_top_p.sql",
+      "checksum": -1562058873,
+      "sha256": "ed9f048ee6810921bed1e677e2577bde3944c0b60cc0c47bc5adf60e866ec412"
     }
   }
 }

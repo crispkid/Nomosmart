@@ -19,6 +19,7 @@ from app.domain.conversation_history import ConversationContext, bound_history, 
 from app.domain.validation_scenarios import execution_order
 from app.core.config import get_settings
 from app.domain.model_usage import record_model_usage, QUERY_USAGE_STOP_CODES
+from app.domain.retrieval_tuning import RetrievalTuning, rerank_model_for_project
 from app.domain.project_retrieval import _resolve_document_staging_scope, _resolve_retrieval_scope, _search_document_staging_chunks, _search_published_chunks
 from app.domain.system_prompts import (
     SystemPromptLayer,
@@ -138,9 +139,11 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
     provider_result = None
     try:
         _validate_input_item(item)
-        retrieval_top_k = int(
-            (run.execution_manifest or {})["retrieval_top_k"]
-        )
+        manifest = run.execution_manifest or {}
+        # CHG-486 TOPKP486-003: K, P and the minimum score come from the run manifest; reranking from the switches now.
+        tuning = RetrievalTuning(top_k=int(manifest["retrieval_top_k"]), top_p=float(manifest.get("retrieval_top_p", 1.0)),
+                                 min_score=float(manifest.get("retrieval_rerank_min_score", 0.0)),
+                                 rerank_model=rerank_model_for_project(session, project.id))
         selected_ids = _uuid_set(item.selected_document_ids) or _uuid_set(run.selected_document_ids)
         chat_scope_mode = "document_staging" if run.run_scope == "document_staging" else "published"
         previous_record = session.get(ChatRecord, previous.chat_record_id) if previous is not None and previous.chat_record_id else None
@@ -162,11 +165,11 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
                              source_channel="validation", project_id=project.id, actor_user_id=run.created_by)
         if run.run_scope == "document_staging":
             requested_ids = _resolve_document_staging_scope(session, project.id, list(selected_ids))
-            citations = _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            citations = _search_document_staging_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "document_staging"
         else:
             _manifests, _manifest_ids, requested_ids = _resolve_retrieval_scope(session, project.id, list(selected_ids))
-            citations = _search_published_chunks(session, project.id, requested_ids, turn.search_question, retrieval_top_k, source_channel="validation", actor_user_id=run.created_by)
+            citations = _search_published_chunks(session, project.id, requested_ids, turn.search_question, tuning, source_channel="validation", actor_user_id=run.created_by)
             chat_scope_mode = "published"
         chat_model = _manifest_model(session, run, "chat_model_id", "Chat") if citations else None
         chat_prompt = _manifest_prompt(run, "chat_prompt") if chat_model is not None else None
@@ -181,6 +184,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             return
         answered_at = datetime.now(UTC)
         latency_ms = max(0, int((perf_counter() - started) * 1000))
+        tuning.trace.setdefault("stages_ms", {})["generation"] = max(0, int((perf_counter() - provider_started) * 1000))  # RTRACE486-001
         record = ChatRecord(
             id=uuid4(),
             project_id=project.id,
@@ -202,6 +206,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
             system_prompt_layers=provider_result.system_prompt_layers,
             token_usage=provider_result.token_usage,
             latency_ms=latency_ms,
+            retrieval_trace=tuning.trace,
             created_by=run.created_by,
             asked_at=asked_at,
             answered_at=answered_at,
@@ -235,6 +240,7 @@ def _execute_item(session: Session, run: ValidationRun, project: Project, item: 
         item.answer = provider_result.answer
         item.reference_docs = [citation_persistence_payload(citation) for citation in citations]
         item.chat_record_id = record.id
+        item.retrieval_trace = tuning.trace
         score, reason, prompt_source, prompt_version_id, prompt_hash, prompt_layers = _score_answer(session, run, item, citations, provider_result.answer, history=turn.history)
         item.score = score
         item.evaluation_reason = reason
@@ -372,6 +378,10 @@ def _validate_execution_manifest(
         or not isinstance(retrieval_top_k, int)
         or isinstance(retrieval_top_k, bool)
         or not 1 <= retrieval_top_k <= 100
+        # CHG-486: runs created before V069 have no Top P / minimum score (= 1.0 / 0.0).
+        or ("retrieval_top_p" in manifest and (type(manifest["retrieval_top_p"]) not in (int, float) or not 0.1 <= manifest["retrieval_top_p"] <= 1.0))
+        or ("retrieval_rerank_min_score" in manifest and (type(manifest["retrieval_rerank_min_score"]) not in (int, float)
+                                                          or not 0.0 <= manifest["retrieval_rerank_min_score"] <= 1.0))
     ):
         raise AppError(
             "validation_retrieval_manifest_invalid",
