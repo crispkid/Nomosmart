@@ -101,8 +101,9 @@ function normalizeUploadStepStatus(status: string): UploadProgressStatus {
   return "waiting";
 }
 
+/** UPNAV488-001: extraction finished, or paused at a station waiting for the editor's confirmation. */
 function uploadExtractionReady(document: CreatedKnowledgeDocument | undefined) {
-  return document?.pipeline.status === "submission_ready";
+  return document?.pipeline.status === "submission_ready" || Boolean(document?.pipeline.waitingStation);
 }
 
 function uploadFailedStep(document: CreatedKnowledgeDocument | undefined) {

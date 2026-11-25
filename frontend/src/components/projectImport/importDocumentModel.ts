@@ -182,6 +182,7 @@ export function applyPipelineDetail(document: CreatedKnowledgeDocument, detail: 
       error: detail.error_message ? t(ocrFailureKey(detail.steps.find(step => step.status === "failed"), detail.error_message)) : "",
       observationInterrupted: false,
       cleanupObservationStopped: false,
+      waitingStation: pipelineWaitingStation(detail),
       steps: pipelineSteps(detail, t)
     }
   };
@@ -192,6 +193,12 @@ export const UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS = 2500;
 
 export function pipelineReachedExtractionGate(detail: PipelineRunDetail | null | undefined) {
   return detail?.status === "submission_ready";
+}
+
+/** UPNAV488-001: the station a run paused at for confirmation; null while it runs, failed or waits for review. */
+export function pipelineWaitingStation(detail: PipelineRunDetail | null | undefined): number | null {
+  if (!detail || detail.status !== "waiting_action" || detail.steps.some((step) => step.status === "failed")) return null;
+  return stationOfStep(detail.current_step_name);
 }
 
 export function pipelineFailedBeforeExtractionGate(detail: PipelineRunDetail | null | undefined) {

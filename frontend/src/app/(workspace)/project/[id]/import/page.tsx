@@ -29,7 +29,7 @@ import { useDocumentList } from "@/lib/useDocumentList";
 import { useDocumentPipelinePolling } from "@/lib/useDocumentPipelinePolling";
 import { useTerminalChunkCounts } from "@/lib/useTerminalChunkCounts";
 import { extractionRunKey, FILE_EXTRACTION_OBSERVATION_LIMIT, ManualExtractionStarts, observationDelay, PipelineObservationOwnership } from "@/lib/manualExtraction";
-import { applyPipelineDetail, type Translate, isReviewLockedVersionStatus, mapPipelineStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState, type DocumentItem } from "@/components/projectImport/importDocumentModel";
+import { applyPipelineDetail, type Translate, isReviewLockedVersionStatus, mapPipelineStatus, pipelineSteps, UPLOAD_EXTRACTION_GATE_INITIAL_DELAY_MS, UPLOAD_EXTRACTION_GATE_POLL_INTERVAL_MS, pipelineReachedExtractionGate, pipelineFailedBeforeExtractionGate, pipelineWaitingStation, liveDocumentFromSummary, serviceDocumentFromResponse, filterAndSortDocuments, getSourceState, type DocumentItem } from "@/components/projectImport/importDocumentModel";
 import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelineCard";
 import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
@@ -220,7 +220,7 @@ function ProjectImportPage() {
       updateUploadedDocumentSnapshots([latestDocument]);
     }
     for (let attempt = 0; attempt < FILE_EXTRACTION_OBSERVATION_LIMIT; attempt += 1) {
-      if (pipelineReachedExtractionGate(latestDetail) || pipelineFailedBeforeExtractionGate(latestDetail)) return latestDocument;
+      if (pipelineReachedExtractionGate(latestDetail) || pipelineWaitingStation(latestDetail) !== null || pipelineFailedBeforeExtractionGate(latestDetail)) return latestDocument;
       if (!document.latestVersionId || !document.pipeline.id) return latestDocument;
       if (!observing()) return latestDocument;
       await observationDelay(fileProcessingPollDelay(latestDetail?.execution, globalThis.document.visibilityState === "hidden",
@@ -246,7 +246,10 @@ function ProjectImportPage() {
 
   function addUploadedDocuments(documents: CreatedKnowledgeDocument[], autoExtractionId?: string) {
     updateUploadedDocumentSnapshots(documents);
-    if (autoExtractionId) router.push(`/project/${params.id}/knowledge/${autoExtractionId}`);
+    if (!autoExtractionId) return;
+    // UPNAV488-001: a run paused at a station opens that station, like the progress card link.
+    const station = documents.find((document) => document.id === autoExtractionId)?.pipeline.waitingStation;
+    router.push(`/project/${params.id}/knowledge/${autoExtractionId}${station ? `?station=${station}` : ""}`);
   }
 
   function openUploadModal(files: File[] = []) {
