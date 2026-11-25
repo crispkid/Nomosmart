@@ -11,7 +11,7 @@ Version: **0.4.2**. Deploy with Docker Compose or Kubernetes/Helm. The applicati
 - **Retrieval depth and breadth (Top K / Top P)**: System settings → Question answering sets how many chunks a question retrieves (Top K, default 5) and, when reranking is on, how much of the reranked score to keep (Top P, default 1.0) with a minimum score (default 0). Sub-questions inherit K and P. Chat, batch validation and the public API (`nomosmart:top_k`, new `nomosmart:top_p`) can set them per question. Chat records and validation items keep a retrieval trace with the timing of each stage.
 - **Optional reranking**: register a reranker model (a service with a `/rerank` endpoint, such as TEI with bge-reranker-v2-m3; it is not part of the installer) and turn reranking on in System settings and per project. Project Owners switch it in project settings. Reranking is off by default, so retrieval stays as in 0.4.1 until you enable it; if the reranker fails, answers fall back to the normal ranking.
 - **Project settings administration**: a new System management page lets administrators view all projects and set, one by one or in batches, the chat, embedding and OCR models, members and roles (including handing over the Owner role) and the reranking switch.
-- **Fixes**: the answer judge and citation cards now show each chunk's section heading; review-route help no longer mentions the removed manager delegates.
+- **Fixes**: after a single-file upload, the upload dialog now opens the document at the station waiting for confirmation (before, it stayed open until you chose Back to project documents); the answer judge and citation cards now show each chunk's section heading; review-route help no longer mentions the removed manager delegates.
 
 0.4.2 adds database migration V069; see [Upgrading](#upgrading-from-an-older-version).
 
@@ -39,8 +39,9 @@ Version: **0.4.2**. Deploy with Docker Compose or Kubernetes/Helm. The applicati
 - Extract in four confirmed stations: knowledge chunks, tags, references between documents and embeddings, while preserving original documents, versions and citations.
 - Submit, reject and publish content under project permissions, retaining completed work and review history.
 - Use keyword, vector and hybrid search, knowledge graphs and answers with source citations.
+- Tune retrieval with Top K / Top P and an optional reranker model, system-wide and per question; each answer keeps a retrieval trace.
 - Test answers in single- or multi-turn conversations, and run CSV validation with multi-turn scenarios, Judge scoring and a scenario pass rate.
-- Manage directories, roles, models, usage, API clients, reports and audit records.
+- Manage directories, roles, models, usage, API clients, reports and audit records; administer every project's models, members, Project Owners and reranking from one page.
 
 ## Architecture
 
@@ -205,7 +206,7 @@ Monitor the last successful directory sync, failed work, queues, audit records a
 ```text
 frontend/                 Next.js UI, same-origin proxy and localization
 backend/                  FastAPI, model/directory integrations and background work
-sql/migrations/           B054 baseline and forward migration history (currently 063)
+sql/migrations/           B054 baseline and forward migration history (currently 069)
 deploy/docker/            Compose configuration examples, entry point and Secret tools
 deploy/helm/nomosmart/     Helm chart, ConfigMap/Secret references and probes
 deploy/installer/          Protocol installation and onboarding tools
