@@ -4,14 +4,23 @@
 
 NomoSmart 是企業知識管理平台，將文件與外部資料整理為可審核、搜尋、引用與問答的知識內容。
 
-版本：**0.4.1**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+版本：**0.4.2**。支援 Docker Compose 與 Kubernetes／Helm；前後端提供繁體中文與英文介面。
+
+## 0.4.2 更新重點
+
+- **檢索深度與廣度（Top K／Top P）**：在「系統設定 → 問答」設定每題取回的切片數（Top K，預設 5），以及開啟重排時保留的重排分數累計佔比（Top P，預設 1.0）與最低分數（預設 0）。子問題繼承 K 與 P。對話、批次驗證與公開 API（`nomosmart:top_k`、新增的 `nomosmart:top_p`）可以逐題指定。對話紀錄與驗證項目會保存檢索追蹤，含各階段耗時。
+- **可選的重排模型**：登錄重排模型（提供 `/rerank` 端點的服務，例如載入 bge-reranker-v2-m3 的 TEI；不包含在安裝程式內），在系統設定與各專案開啟重排。專案 Owner 在專案設定切換。重排預設關閉，未開啟前檢索與 0.4.1 相同；重排服務失敗時改用一般排序回答。
+- **專案設定管理**：系統管理新增頁面，管理者可以檢視所有專案，單一或批次設定問答、向量與 OCR 模型、成員與角色（含 Owner 交接）以及重排開關。
+- **修正**：回答評分（Judge）與引用卡片會顯示切片所屬章節；審核路徑說明不再提到已移除的主管代理人。
+
+0.4.2 新增資料庫遷移 V069，請見[從舊版升級](#從舊版升級)。
 
 ## 0.4.1 更新重點
 
 - **審核路徑**：送審前就會顯示由誰審核（送審者的主管，或在開啟「Owner 備援」設定時由專案 Owner 審核）；主管代理人功能已移除：使用者編輯畫面不再設定代理人，使用者 API 也不再接受或回傳代理人欄位（送出時回 422）；沒有人能審核時直接拒絕送審，不會一直卡住。新增「審核管理」頁面，有權限的管理者可以改派主管階段的審核，或在任何階段退回送審；這個頁面不能核准。送審者即使是專案 Owner，也不能審核自己的送審。
 - **修正**：用戶端在回答串流剛開始時離開，現在會記錄為取消（同一個 Idempotency-Key 重送會重播取消結果）；軟刪除殘留清理工具在 0.4.0 的資料結構下恢復可用，殘留資料還有引用時會停止；應用程式金鑰輪替也涵蓋追問改寫與公開回答的重播紀錄；Next.js 升級到 16.4.5。
 
-0.4.1 新增資料庫遷移 V068，請見[從舊版升級](#從舊版升級)。
+0.4.1 新增了資料庫遷移 V068，請見[從舊版升級](#從舊版升級)。
 
 ## 0.4.0 更新重點
 
@@ -61,7 +70,7 @@ Backend 處理認證、授權、設定與工作派送；Worker 執行匯入及�
 | 權威資料 | PostgreSQL 18.4；Flyway 管理只能向前套用的移轉 |
 | 檔案儲存 | S3 相容服務；內建部署使用 RustFS |
 | 搜尋／圖譜 | OpenSearch 2.19、Neo4j 5.26 Community |
-| 部署 | Docker Compose v2、Helm Chart 0.4.1 |
+| 部署 | Docker Compose v2、Helm Chart 0.4.2 |
 
 ## PDF 與模型設定
 
@@ -169,8 +178,8 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 1. 驗證版本包與映像摘要，保留可回復的既有資料、設定、加密金鑰與 TLS／CA；檢視目標部署差異。
 2. 暫停舊匯入／同步 producer，停止舊 Worker／Beat，協調更新 Frontend、Backend、Worker 與 Beat，避免新舊寫入者混用。
 3. 使用完整的新認證設定：選定 LDAP／AD 或 OIDC，保留內部 UUID、使用者／角色關係及歷史。移除舊 `keycloak.*` 等部署欄位；Helm 使用已檢視的完整 values 與 `--reset-values`，不要以 `--reuse-values` 帶回舊設定。
-4. 讓正常 migration 流程將既有資料庫依序升到 **068**；全新資料庫使用 B054 基線後套 V055–V068。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.4.1 前請改為 `MIGRATION_REQUIRED_VERSION=068`、`MIGRATION_REQUIRED_CHECKSUM=-1307752697`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
-5. 從 0.3.0 帶既有文件升級：V064 要求所有專案中未刪除的文件名稱不重複（不分大小寫、忽略前後空白；從其他專案引用的文件不計），升級前請先把同名文件改名（否則遷移會停止，資料不變）。0.4.0 之前萃取的文件仍可問答，但沒有站別與引用資料，重新萃取後才會有。升級後在 backend 容器執行一次 `python -m app.deployment.backfill_relations`（可重複執行）。送審中的文件不能刪除；送審已不能取消，需由審核人先退回。從 0.4.0 升級時，V068 只新增審核路徑欄位、「Owner 備援」設定（預設關閉），以及內建 system-admin 角色的「審核管理」權限；既有送審保留原本的審核人。問答相關功能（引用路由、引用擴展、子問題）改在系統設定管理，不使用環境變數。
+4. 讓正常 migration 流程將既有資料庫依序升到 **069**；全新資料庫使用 B054 基線後套 V055–V069。舊版建立的 Compose 安裝在 `deploy/docker/nomosmart.env` 固定了舊目標：啟動 0.4.2 前請改為 `MIGRATION_REQUIRED_VERSION=069`、`MIGRATION_REQUIRED_CHECKSUM=-1562058873`，否則 bootstrap 會以 `database_migration_version_unexpected` 停止（資料不受影響）。不可重寫舊 SQL 或手動刪除歷史欄位。[Migration 契約](deploy/migrations/release-contract.json)提供目標與 checksum。
+5. 從 0.3.0 帶既有文件升級：V064 要求所有專案中未刪除的文件名稱不重複（不分大小寫、忽略前後空白；從其他專案引用的文件不計），升級前請先把同名文件改名（否則遷移會停止，資料不變）。0.4.0 之前萃取的文件仍可問答，但沒有站別與引用資料，重新萃取後才會有。升級後在 backend 容器執行一次 `python -m app.deployment.backfill_relations`（可重複執行）。送審中的文件不能刪除；送審已不能取消，需由審核人先退回。從 0.4.0 升級時，V068 只新增審核路徑欄位、「Owner 備援」設定（預設關閉），以及內建 system-admin 角色的「審核管理」權限；既有送審保留原本的審核人。從 0.4.1 升級時，V069 只新增檢索設定（Top K 5、Top P 1.0、最低分數 0、重排關閉、未指定重排模型）、專案重排開關（關閉）與檢索追蹤欄位；子問題改為取回 K 段（5 段），原本固定 2 段。問答相關功能（引用路由、引用擴展、子問題）改在系統設定管理，不使用環境變數。
 6. 從 0.3.0 以前的版本升級時，另需依 0.3.0 API 更新整合程式（破壞性變更）：改用 `POST /api/public/v1/responses` 並以 `model: "nomosmart:project/<project_id>"` 指定專案，取代 `/projects/{id}/chat` 與 `/chat/stream`；回饋改送 `/responses/resp_<id>/feedback`；回應與錯誤改為 Open Responses 格式。`Idempotency-Key` 改為選填。移除 Helm 的 `ftpsCa` 與 `sftpKnownHosts`（values schema 已不接受）。可選的新設定（皆有預設值）：`CHAT_HISTORY_MAX_TURNS`（5）、`CHAT_HISTORY_MAX_CHARACTERS`（12000）、`VALIDATION_SCENARIO_MAX_TURNS`（20）。
 7. 為新的 PDF 工作選定相容的原生文件模型，填入能力、價格及輸出預算。舊 OCR 模型、頁面結果、收據與用量保留歷史；舊未完成工作需明確檢視，不會自動改成新請求。
 8. 完成 bootstrap／一般管理員登入／finalize，再確認服務就緒、登入及既有資料可讀。舊瀏覽器工作階段需重新登入。
@@ -189,7 +198,7 @@ Chart 支援內建或外部資料服務；協定安裝工具目前使用 `deploy
 
 日常檢查最後成功同步、失敗工作、佇列、稽核日誌及 readiness。目錄同步失敗保留最後成功快照；付費請求結果不明時先核對收據。工作程式中途消失、新文件停止處理時，以 `app.deployment.document_execution_recovery` 救援卡住的處理紀錄（步驟見 [deploy/README.md](deploy/README.md#recovering-a-stuck-document-execution-025)）。日誌不應包含密碼、token、cookie 或文件正文。
 
-0.4.1 以本版原始碼與映像驗證：39 項必要情境（含四站萃取、引用與取代、子問題、審核中禁止刪除與審核路徑）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.4.1](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.1)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
+0.4.2 以本版原始碼與映像驗證：40 項必要情境（含四站萃取、引用與取代、子問題、審核中禁止刪除、審核路徑與檢索調整）與 19 項發佈關卡全部實跑，安裝包完成簽署與驗包（含竄改、錯誤指紋負向測試及實際 `init`）。證據與完整分母覆蓋率附在 [GitHub Release v0.4.2](https://github.com/crispkid/Nomosmart/releases/tag/v0.4.2)；80% 覆蓋率為改善目標，不決定是否就緒。FTP 程式已移除，不再需要 FTP 風險接受。正式多主機容量、高可用、正式網路隔離與正式備份未取得資格（`production_ready=false`），不能由本機驗收推論通過。
 
 ## 專案結構與開發
 
