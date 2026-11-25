@@ -153,7 +153,7 @@ Multi-turn questions (CHG-435) send `previous_response_id`; `CHAT_HISTORY_MAX_TU
 (default 5) and `CHAT_HISTORY_MAX_CHARACTERS` (default 12000) bound the earlier turns sent
 to the model. Migration `V062` only adds columns. CSV validation (CHG-436) can group rows into
 multi-turn scenarios with `conversation_key` and `turn`; `VALIDATION_SCENARIO_MAX_TURNS`
-(default 20) caps a scenario, and `V063` only adds columns (contract 063). `V064` (CHG-442) adds station and chunk reference tables and a unique normalized document name; `V065` (CHG-445, contract 065) adds the database-owned question answering settings (reference routing and expansion; the former `REFERENCE_EXPANSION_*` variables are no longer read); `V066` (CHG-446, contract 066) adds the relation kind (references or supersedes) to chunk references; `V067` (CHG-450, contract 067) adds the question answering settings `subquestion_enabled` and `subquestion_max` (sub-question splitting, default on, 3); existing deployments may run `python -m app.deployment.backfill_relations` once to add supersede relations to already extracted chunks and, since CHG-447, to release references that still point at deleted documents (safe to repeat); it supports fresh deployments only and fails if live documents share a name (contract 064).
+(default 20) caps a scenario, and `V063` only adds columns (contract 063). `V064` (CHG-442) adds station and chunk reference tables and a unique normalized document name; `V065` (CHG-445, contract 065) adds the database-owned question answering settings (reference routing and expansion; the former `REFERENCE_EXPANSION_*` variables are no longer read); `V066` (CHG-446, contract 066) adds the relation kind (references or supersedes) to chunk references; `V067` (CHG-450, contract 067) adds the question answering settings `subquestion_enabled` and `subquestion_max` (sub-question splitting, default on, 3); existing deployments may run `python -m app.deployment.backfill_relations` once to add supersede relations to already extracted chunks and, since CHG-447, to release references that still point at deleted documents (safe to repeat); it supports fresh deployments only and fails if live documents share a name (contract 064). `V068` (CHG-467, contract 068) adds review routing: the submitter's manager reviews first, with an optional Project Owner fallback setting. `V069` (CHG-486, contract 069) adds the retrieval settings `retrieval_top_k` (default 5), `retrieval_top_p` (1.0), `retrieval_min_score` (0), `rerank_enabled` (off) and `rerank_model_id` (none), a per-project `rerank_enabled` switch (off for existing projects), two nullable retrieval trace columns, and the Reranker model type; it adds no tables. Reranking needs a separate `/rerank` service (Cohere or TEI format, for example TEI with `BAAI/bge-reranker-v2-m3`) that you run and register as a Reranker model; Compose, Helm and the installer do not include one, and an answer falls back to normal ranking if the service fails.
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP
@@ -387,25 +387,25 @@ incur a small provider charge. OpenAI Chat and Judge requests without their own
 
 ### Migration contract
 
-Current source targets [V061](../sql/migrations/V061__openai_responses_only.sql).
+Current source targets [V069](../sql/migrations/V069__retrieval_top_k_top_p.sql).
 For an empty database, official Flyway applies the unchanged
 [B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 through V061. Existing databases retain their published migration chain and
-continue through V061. V058 only adds indexes; writes to the indexed tables wait while
+then V055 through V069. Existing databases retain their published migration chain and
+continue through V069. V058 only adds indexes; writes to the indexed tables wait while
 each index is built, so run it in the normal upgrade window. V059 only drops the
 retired Keycloak column defaults. V060 writes the recorded creator into document
 versions that have none, marked `version_created_by_source = "V060"`. V061 switches
-OpenAI Chat and Judge models to the Responses API (see below); each migration
-file lists its rollback SQL. No B061 or rewritten
+OpenAI Chat and Judge models to the Responses API (see below); V062 through V069 are
+described above. Each migration file lists its rollback SQL. No new baseline or rewritten
 historical SQL is introduced. The source-bound
 [migration contract](migrations/release-contract.json) defines the current SQL
 target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
 contracts remain readable for their original releases.
 
 The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=067`, `MIGRATION_REQUIRED_CHECKSUM=1913543487`, and
+`MIGRATION_REQUIRED_VERSION=069`, `MIGRATION_REQUIRED_CHECKSUM=-1562058873`, and
 an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
-`migration.requiredChecksum`, and `migration.baselineChecksum`. The current060
+`migration.requiredChecksum`, and `migration.baselineChecksum`. The current
 contract validates the additive SQL target, rather than inventing a same-version
 baseline. Flyway still validates the installed migration history. Keep the version
 as a string. Flyway's signed32-bit checksum and the SQL file's SHA256 hash serve
