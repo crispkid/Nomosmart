@@ -105,7 +105,12 @@
 
 ### 升級到 0.2.5（從 0.2.4）
 
-- V061 把既有的 OpenAI Chat 與 Judge 模型改用 Responses API。
+- V061 把既有的 OpenAI Chat 與 Judge 模型改用 Responses API，在 `config.api_mode_migrated_from`
+  記下原本的模式、清除已存的連線測試結果，並為每個模型寫一筆 `ai_model.api_mode_migrated` 稽核紀錄。
+  它的 NOTICE 輸出會標出 base URL 不是 `api.openai.com` 的模型：若該模型指向只支援 Chat Completions
+  的代理，請把供應商改為 vLLM 或 Custom。升級後請重新測試每個被遷移的模型。
+- V059 只移除已退役的 Keycloak 欄位預設值。V060 為沒有建立者的文件版本寫入已記錄的建立者，並標記
+  `version_created_by_source = "V060"`。
 - 每個專案都需要一個具備原生 PDF 能力、啟用中的 OCR 模型。沒有的話，建立專案或修改專案的
   Chat、Embedding、OCR 模型會被拒絕（`project_model_configuration_required`）。
 - V058 只新增索引；建立索引時，寫入相關資料表會等待，請在正常的升級時段執行。
