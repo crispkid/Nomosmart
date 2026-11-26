@@ -40,7 +40,7 @@ https://YOUR_APP_ORIGIN/api/backend/auth/oidc/callback
 ## Docker Compose 安裝順序
 
 1. 依 deploy/docker/nomosmart.env.example 建立未提交的配置，準備基礎設施 Secret、HTTPS、auth bootstrap JSON 與 CA 目錄。AUTH_ENDPOINT_ALLOWED_HOSTS／CIDRS 只放真正核准的主機或網段。
-2. 執行既有 migration 服務，目標為 054；全新資料庫可用 B054，既有資料庫套 V054。先停止舊版登入／同步 producer 和 worker，再協調升級前後端與 worker。
+2. 執行既有 migration 服務，升到該版的移轉目標（見 [UPGRADING.zh-TW.md](../UPGRADING.zh-TW.md)）。先停止舊版登入／同步 producer 和 worker，再協調升級前後端與 worker。
 3. 執行 deployment-bootstrap（ensure）。它會真讀目錄、同步並綁首位管理群組；onboarding 入口必須限制管理員來源 IP。
 4. 讓同步後的一般管理員從網頁登入。OIDC 管理員另須完成「驗證身分並編輯」。
 5. 執行 deployment-finalize，再把部署階段改為 operational，驗證 readiness。Emergency 不能代替一般管理員登入驗收。

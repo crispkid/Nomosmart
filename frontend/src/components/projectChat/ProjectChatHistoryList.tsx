@@ -5,6 +5,7 @@ import { useAuth } from "@/components/AuthProvider";
 import { ChatHistoryAuthor } from "@/components/ChatHistoryAuthor";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { chatConversationAccess } from "@/lib/chatConversationAccess";
+import { formatTime } from "@/lib/dateFormat";
 import { useI18n } from "@/lib/i18nClient";
 import type { ProjectConversation } from "./projectChatModel";
 
@@ -25,7 +26,7 @@ type ProjectChatHistoryListProps = {
 
 /** Conversation history list with load-more and delete entry points (OPT424-038). */
 export function ProjectChatHistoryList({ activateConversation, activeConversationId, currentUser, historyBusy, historyCursor, historyError, historyStatus, loadMoreHistory, orderedConversations, persistedConversationCount, setDeleteError, setDeleteTargetId }: ProjectChatHistoryListProps) {
-  const { t, format, localize } = useI18n();
+  const { t, format, localize, locale } = useI18n();
   return (
     <div className="project-conversation-history">
       <div className="project-history-title"><strong>{t("conversationHistory")}</strong><small>{format("projectChatConversationCount", { count: persistedConversationCount })}</small></div>
@@ -41,7 +42,7 @@ export function ProjectChatHistoryList({ activateConversation, activeConversatio
             <div className={`project-history-row${conversation.id === activeConversationId ? " active" : ""}${draft ? " draft" : ""}`} key={conversation.id}>
               <button aria-pressed={conversation.id === activeConversationId} className="project-history-select" onClick={() => activateConversation(conversation)} type="button">
                 <MessageSquarePlus size={15} />
-                <span><strong>{title.length > 22 ? `${title.slice(0, 22)}…` : title}{draft ? <em>{t("projectChatDraftBadge")}</em> : null}{conversation.mode === "multi" ? <em>{t("chatMultiTurnBadge")}</em> : null}</strong><ChatHistoryAuthor name={draft ? currentUser?.display_name : conversation.history?.created_by_display_name} isMine={draft || itemAccess.isMine} readOnly={!draft && !itemAccess.canContinue} /><small>{draft ? format("projectChatDraftSummary", { documents: conversation.scopeIds.length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) }) : format(conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length === 1 ? "projectChatHistorySummaryOne" : "projectChatHistorySummaryMany", { documents: conversation.scopeIds.length, count: conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length, time: new Date(conversation.updatedAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" }) })}</small></span>
+                <span><strong>{title.length > 22 ? `${title.slice(0, 22)}…` : title}{draft ? <em>{t("projectChatDraftBadge")}</em> : null}{conversation.mode === "multi" ? <em>{t("chatMultiTurnBadge")}</em> : null}</strong><ChatHistoryAuthor name={draft ? currentUser?.display_name : conversation.history?.created_by_display_name} isMine={draft || itemAccess.isMine} readOnly={!draft && !itemAccess.canContinue} /><small>{draft ? format("projectChatDraftSummary", { documents: conversation.scopeIds.length, time: formatTime(conversation.updatedAt, locale) }) : format(conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length === 1 ? "projectChatHistorySummaryOne" : "projectChatHistorySummaryMany", { documents: conversation.scopeIds.length, count: conversation.entries.filter((entry) => entry.recordId && !entry.loading && !entry.error).length, time: formatTime(conversation.updatedAt, locale) })}</small></span>
               </button>
               {draft || itemAccess.canDelete ? <button aria-label={format("projectChatDeleteConversationAria", { title })} className="project-history-delete" onClick={() => { setDeleteTargetId(conversation.id); setDeleteError(""); }} type="button"><Trash2 size={14} /></button> : null}
             </div>

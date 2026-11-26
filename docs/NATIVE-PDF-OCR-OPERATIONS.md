@@ -32,7 +32,7 @@ output budget left in the document (`ocr_document_max_tokens` minus what earlier
 requests used), and the model's declared `max_output_tokens`. A model that
 declares, for example, 32000 therefore works with the default system parameter.
 Recognition fails with `ocr_native_output_limit_invalid` only when that smallest
-value is below the model's `min_output_tokens` (0.2.5, REL426-020). Changing a
+value is below the model's `min_output_tokens`. Changing a
 model's capabilities does not affect a document whose recognition already
 started: its run keeps the earlier snapshot, so upload the document again.
 
@@ -105,7 +105,7 @@ not passing evidence for the new model path.
 
 ## Versioned document policy and project status
 
-V056 preserves all old13-field policy revisions and their hashes, adds version2,
+V056 preserves all old 13-field policy revisions and their hashes, adds version 2,
 and imports existing effective values without increasing time/concurrency limits:
 `document_processing_max_concurrent`, `document_processing_timeout_seconds`,
 `document_dispatch_yield_delay_seconds`, `file_processing_progress_interval_seconds`,
@@ -132,12 +132,11 @@ version, run and step UUIDs, fingerprints and accounting remain immutable. The
 four live content relationships can then be detached with cleanup audit. A removed
 content marker is not a successful download or evidence that no fee occurred.
 
-Upgrade requires coordinated API/Worker code and additive V056 after V055. Stop
-old writers, retain an encrypted pre-upgrade snapshot and verify migration on an
-owned clone first. Do not run old Workers against version2 policy or downgrade by
-dropping receipt columns/tables. Recovery tests restore the055 snapshot to an
-isolated database with old API read-only and Workers stopped; this is not proof
-of full operational rollback or authorization to modify8443.
+Upgrades update API and Worker code together. Stop old writers, retain an
+encrypted pre-upgrade snapshot and verify the migration on an owned clone first.
+Do not run old Workers against the version 2 policy or downgrade by dropping
+receipt columns or tables. Version-specific steps, including the move to native
+PDF recognition, are in [UPGRADING.md](../UPGRADING.md).
 
 ## Verification boundary
 
