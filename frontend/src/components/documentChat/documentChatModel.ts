@@ -31,7 +31,7 @@ export function validationEntries(run: ValidationRunResponse, t: Translate, form
     recordId: item.chat_record_id ?? undefined,
     validationStatus: item.status,
     question: item.conversation_key ? `${format("validationScenarioTurnLabel", { key: item.conversation_key, turn: item.turn ?? 0 })}｜${item.question}` : item.question,
-    answer: item.answer ?? (item.status === "blocked" ? t("validationBlockedPreviousTurn") : undefined),
+    answer: item.answer ?? (item.status === "blocked" ? t("validationBlockedPreviousTurn") : item.status === "cancelled" ? t("statusCancelled") : undefined),
     context: recordTurnContext(item),
     askedAt: new Date(Date.parse(run.created_at) + index).toISOString(),
     answeredAt: item.answer ? run.completed_at : null,

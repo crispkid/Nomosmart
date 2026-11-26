@@ -62,14 +62,18 @@ export default function ProtocolIdentityPanel({ canEdit, onDirtyChange }: { canE
   // OPT424-035: settings and sync history are read resources. A load after a save may reset the
   // editor; an automatic first read merges into a clean editor only. Failures show the panel error.
   const resetNext = useRef(false);
+  // The first read always fills the editor: a candidate restored on an OIDC return marks the
+  // panel dirty before that read arrives, and the editor would otherwise never load.
+  const loaded = useRef(false);
   const readSnapshot = useCallback((signal: AbortSignal) => apiJson<Snapshot>(apiFetch, "/system/identity-settings", { signal }), [apiFetch]);
   const snapshotRead = useReadResource<Snapshot>(readSnapshot, "identity-settings", true, {
     keepData: true,
     onError: error => failureRef.current(error),
     onData: data => {
-      const reset = resetNext.current;
-      resetNext.current = false;
-      if (reset || !dirtyRef.current) { setCfg(data.configuration); setSecretsDirty(false); setSecretOperations({}); dirtyRef.current = false; if (reset) { setCandidate(null); sessionStorage.removeItem(pendingKey); } }
+      const reset = resetNext.current || !loaded.current;
+      const clearCandidate = resetNext.current;
+      resetNext.current = false; loaded.current = true;
+      if (reset || !dirtyRef.current) { setCfg(data.configuration); setSecretsDirty(false); setSecretOperations({}); dirtyRef.current = false; if (clearCandidate) { setCandidate(null); sessionStorage.removeItem(pendingKey); } }
       if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLInputElement>('input[type="password"]').forEach(input => { input.value = ""; });
       if (reset || !dirtyRef.current) configurationForm.current?.querySelectorAll<HTMLSelectElement>("select[data-secret-operation]").forEach(select => { select.value = "keep"; });
     },
