@@ -12,6 +12,13 @@ export function formatShortDateTime(value: string | null | undefined, locale: Ap
   return date.toLocaleString(localeTag(locale), { month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit" });
 }
 
+export function formatTime(value: string | number | null | undefined, locale: AppLocale, empty = ""): string {
+  if (value === null || value === undefined || value === "") return empty;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return date.toLocaleTimeString(localeTag(locale), { hour: "2-digit", minute: "2-digit" });
+}
+
 export function formatDateTime(value: string | null | undefined, locale: AppLocale, empty = ""): string {
   if (!value) return empty;
   const date = new Date(value);
