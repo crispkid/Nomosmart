@@ -141,6 +141,7 @@ export function conversationFromHistory(item: ProjectChatConversationResponse): 
 export function validationItemMessage(status: string, answer: string | null | undefined, t: Translate) {
   if (answer) return answer;
   if (status === "blocked") return t("validationBlockedPreviousTurn");
+  if (status === "cancelled") return t("statusCancelled");
   if (status === "running") return t("projectChatValidationRunning");
   if (status === "error") return t("projectChatValidationFailed");
   if (status === "failed") return t("projectChatValidationFailedScore");

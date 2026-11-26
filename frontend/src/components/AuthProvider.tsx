@@ -57,6 +57,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const closing = useRef(false);
   const generation = useRef(0);
   const channel = useRef<BroadcastChannel | null>(null);
+  // Another tab announced a logout: its server call revokes this shared session before the
+  // confirmation broadcast arrives, so an expiry seen meanwhile waits for that outcome.
+  const peerLogout = useRef<number | null>(null);
+  const deferredExpiry = useRef(false);
   const hasDeadline = Boolean(deadline);
   const isProtected = isProtectedApplicationPage(pathname);
   const identity = JSON.stringify([currentUser?.user_id, currentUser?.permissions, applicationAccess]);
@@ -75,6 +79,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     window.location.replace(target.pathname + target.search);
   }, []);
 
+  const expire = useCallback(() => {
+    if (peerLogout.current !== null) { deferredExpiry.current = true; return; }
+    login("session_expired");
+  }, [login]);
+
   const apiFetch = useCallback(async (input: string, init: RequestInit = {}) => {
     if (closing.current) throw new DOMException("Session closed", "AbortError");
     const epoch = generation.current;
@@ -88,7 +97,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (closing.current || epoch !== generation.current) throw new DOMException("Session changed", "AbortError");
     if (response.status === 401) {
       const body = await response.clone().json().catch(() => ({}));
-      if (["authentication_required", "session_expired", "session_revoked"].includes(body.code)) login("session_expired");
+      if (["authentication_required", "session_expired", "session_revoked"].includes(body.code)) expire();
     }
     if (response.status === 403) {
       const body = await response.clone().json().catch(() => ({}));
@@ -96,7 +105,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       else if (["user_disabled", "user_not_synchronized"].includes(body.code)) login("account_unavailable");
     }
     return response;
-  }, [login]);
+  }, [expire, login]);
 
   const probe = useCallback(async () => {
     if (closing.current) return;
@@ -110,7 +119,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setDeadline(state.authenticated ? state.idle_expires_at : null);
       if (!state.authenticated) {
         setCurrentUser(null); setApplicationAccess("checking"); setAuthReady(true); setConnectionFailed(false);
-        if (isProtectedApplicationPage(window.location.pathname)) login("session_expired");
+        if (isProtectedApplicationPage(window.location.pathname)) expire();
         return;
       }
       const response = await apiFetch(`${apiBaseUrl()}/auth/me`);
@@ -126,7 +135,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch {
       if (!closing.current) { setConnectionFailed(true); setRecheckResult("failed"); setAuthError(t("authLoadFailed")); }
     } finally { setChecking(false); }
-  }, [apiFetch, login, t]);
+  }, [apiFetch, expire, t]);
 
   useEffect(() => {
     (window as Window & { __NOMOSMART_AUTH_HYDRATED__?: boolean }).__NOMOSMART_AUTH_HYDRATED__ = true;
@@ -136,11 +145,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const broadcast = new BroadcastChannel("nomosmart-session-v2");
     channel.current = broadcast;
+    const settlePeerLogout = () => {
+      if (peerLogout.current !== null) window.clearTimeout(peerLogout.current);
+      peerLogout.current = null;
+      if (deferredExpiry.current) { deferredExpiry.current = false; login("session_expired"); }
+    };
     broadcast.onmessage = event => {
-      if (event.data?.type === "logout") login("logged_out");
+      if (event.data?.type === "logout_started") {
+        if (peerLogout.current !== null) window.clearTimeout(peerLogout.current);
+        peerLogout.current = window.setTimeout(settlePeerLogout, 10000);
+      } else if (event.data?.type === "logout") { deferredExpiry.current = false; login("logged_out"); }
+      else if (event.data?.type === "logout_failed") settlePeerLogout();
       else if (event.data?.type === "activity" && typeof event.data.deadline === "string" && Number.isFinite(Date.parse(event.data.deadline))) setDeadline(event.data.deadline);
     };
-    return () => { channel.current = null; broadcast.close(); };
+    return () => {
+      if (peerLogout.current !== null) window.clearTimeout(peerLogout.current);
+      peerLogout.current = null; channel.current = null; broadcast.close();
+    };
   }, [login]);
 
   useEffect(() => {
@@ -207,10 +228,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     generation.current += 1;
     operationGuards.clear(); clearGraphLayoutSession();
     setCurrentUser(null); setApplicationAccess("checking"); setAuthReady(false);
+    channel.current?.postMessage({ type: "logout_started" });
     try {
       const response = await transportFetch(`${apiBaseUrl()}/auth/logout`, { method: "POST", headers: { "X-CSRF-Token": csrf.current || "" }, credentials: "same-origin", cache: "no-store", signal: AbortSignal.timeout(8000) });
       if (!response.ok) throw new Error("logout_failed");
     } catch {
+      channel.current?.postMessage({ type: "logout_failed" });
       window.location.replace("/login?notice=logout_incomplete");
       return;
     }
