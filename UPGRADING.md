@@ -130,7 +130,13 @@ and the migration path; use the contract shipped in that version's package.
 
 ### Upgrading to 0.2.5 (from 0.2.4)
 
-- V061 switches existing OpenAI chat and judge models to the Responses API.
+- V061 switches existing OpenAI chat and judge models to the Responses API, records the previous
+  mode in `config.api_mode_migrated_from`, clears their saved connection-test result and writes one
+  `ai_model.api_mode_migrated` audit row per model. Its NOTICE output flags models whose base URL is
+  not `api.openai.com`: if such a model points to a proxy that only supports Chat Completions, change
+  its provider to vLLM or Custom. Test every migrated model again after the upgrade.
+- V059 only drops the retired Keycloak column defaults. V060 writes the recorded creator into
+  document versions that have none, marked `version_created_by_source = "V060"`.
 - Every project needs an active OCR model with native PDF capability. Creating a project,
   or changing its chat, embedding or OCR model, is refused without one
   (`project_model_configuration_required`).

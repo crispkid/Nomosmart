@@ -147,13 +147,22 @@ annotation. Pin images by digest with `tag: "<version>@sha256:<digest>"`.
 
 The external contract is the Open Responses compatible `POST /api/public/v1/responses`
 (JSON, or SSE with `stream: true`) and `POST /api/public/v1/responses/{response_id}/feedback`.
-The previous `/projects/{project_id}/chat`, `/chat/stream` and `/chat/responses/{id}/feedback`
-routes were removed in 0.3.0 (CHG-434); the edge path prefix below is unchanged.
-Multi-turn questions (CHG-435) send `previous_response_id`; `CHAT_HISTORY_MAX_TURNS`
+Multi-turn questions send `previous_response_id`; `CHAT_HISTORY_MAX_TURNS`
 (default 5) and `CHAT_HISTORY_MAX_CHARACTERS` (default 12000) bound the earlier turns sent
-to the model. Migration `V062` only adds columns. CSV validation (CHG-436) can group rows into
-multi-turn scenarios with `conversation_key` and `turn`; `VALIDATION_SCENARIO_MAX_TURNS`
-(default 20) caps a scenario, and `V063` only adds columns (contract 063). `V064` (CHG-442) adds station and chunk reference tables and a unique normalized document name; `V065` (CHG-445, contract 065) adds the database-owned question answering settings (reference routing and expansion; the former `REFERENCE_EXPANSION_*` variables are no longer read); `V066` (CHG-446, contract 066) adds the relation kind (references or supersedes) to chunk references; `V067` (CHG-450, contract 067) adds the question answering settings `subquestion_enabled` and `subquestion_max` (sub-question splitting, default on, 3); existing deployments may run `python -m app.deployment.backfill_relations` once to add supersede relations to already extracted chunks and, since CHG-447, to release references that still point at deleted documents (safe to repeat); it supports fresh deployments only and fails if live documents share a name (contract 064). `V068` (CHG-467, contract 068) adds review routing: the submitter's manager reviews first, with an optional Project Owner fallback setting. `V069` (CHG-486, contract 069) adds the retrieval settings `retrieval_top_k` (default 5), `retrieval_top_p` (1.0), `retrieval_min_score` (0), `rerank_enabled` (off) and `rerank_model_id` (none), a per-project `rerank_enabled` switch (off for existing projects), two nullable retrieval trace columns, and the Reranker model type; it adds no tables. Reranking needs a separate `/rerank` service (Cohere or TEI format, for example TEI with `BAAI/bge-reranker-v2-m3`) that you run and register as a Reranker model; Compose, Helm and the installer do not include one, and an answer falls back to normal ranking if the service fails.
+to the model. CSV validation can group rows into multi-turn scenarios with `conversation_key`
+and `turn`; `VALIDATION_SCENARIO_MAX_TURNS` (default 20) caps a scenario.
+
+Question answering settings live in the database and are managed in System settings →
+Question answering: reference routing and expansion, sub-question splitting
+(`subquestion_enabled`, `subquestion_max`) and retrieval (`retrieval_top_k`,
+`retrieval_top_p`, `retrieval_min_score`, `rerank_enabled`, `rerank_model_id`), plus a
+per-project reranking switch. Reranking needs a separate `/rerank` service (Cohere or TEI
+format, for example TEI with `BAAI/bge-reranker-v2-m3`) that you run and register as a
+Reranker model; Compose, Helm and the installer do not include one, and an answer falls
+back to normal ranking if the service fails. `python -m app.deployment.backfill_relations`
+adds supersede relations to already extracted chunks and releases references that still
+point at deleted documents (safe to repeat). Which migration introduced each setting, and
+what to do when upgrading, is in [UPGRADING.md](../UPGRADING.md).
 These are API-key endpoints, not the web UI's `/api/backend` OIDC proxy.
 
 Compose's existing TLS edge forwards only `/api/public/v1/` to the internal HTTP
@@ -331,7 +340,7 @@ System management > Status: `file_processing_policy` turns healthy and shows the
 revision. An existing installation keeps its policy across upgrades; do not run
 `initialize` again there.
 
-### Recovering a stuck document execution (0.2.5)
+### Recovering a stuck document execution
 
 If a worker process disappears in the middle of a document (killed, out of
 memory, container stopped), its execution stays `recovery_required` after the
@@ -365,17 +374,15 @@ admitted again; users reprocess it with the normal retry. Every commit is audite
 Rejections such as a recent heartbeat, a different `worker_identity` or rows that
 changed after the preview leave all data unchanged; preview again and retry.
 
-### OpenAI models in 0.2.5
+### OpenAI models
 
 OpenAI Chat and Judge models only use the Responses API. The model API rejects
 `api_mode=chat_completions` and OpenAI endpoints ending in `/chat/completions`
-with `openai_chat_completions_unsupported`. V061 switches existing OpenAI Chat
-and Judge models to Responses, records the previous mode in
-`config.api_mode_migrated_from`, clears their saved connection-test result and
-writes one `ai_model.api_mode_migrated` audit row per model. Its NOTICE output
-flags models whose base URL is not `api.openai.com`: if such a model points to a
-proxy that only supports Chat Completions, change its provider to vLLM or Custom.
-Test every migrated model again after the upgrade.
+with `openai_chat_completions_unsupported`. A model whose base URL points to a proxy
+that only supports Chat Completions needs the vLLM or Custom provider. Models
+migrated from Chat Completions record the previous mode in
+`config.api_mode_migrated_from`; see [UPGRADING.md](../UPGRADING.md) for the
+upgrade that switched them.
 
 The connection test now sends one small real request after confirming that the
 model exists: a 16-token Chat/Judge request, one short embedding, or an OCR
@@ -387,24 +394,19 @@ incur a small provider charge. OpenAI Chat and Judge requests without their own
 
 ### Migration contract
 
-Current source targets [V069](../sql/migrations/V069__retrieval_top_k_top_p.sql).
-For an empty database, official Flyway applies the unchanged
-[B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline,
-then V055 through V069. Existing databases retain their published migration chain and
-continue through V069. V058 only adds indexes; writes to the indexed tables wait while
-each index is built, so run it in the normal upgrade window. V059 only drops the
-retired Keycloak column defaults. V060 writes the recorded creator into document
-versions that have none, marked `version_created_by_source = "V060"`. V061 switches
-OpenAI Chat and Judge models to the Responses API (see below); V062 through V069 are
-described above. Each migration file lists its rollback SQL. No new baseline or rewritten
-historical SQL is introduced. The source-bound
-[migration contract](migrations/release-contract.json) defines the current SQL
-target's version, file hash and Flyway checksum. Historical054 SQL/SQL_BASELINE
-contracts remain readable for their original releases.
+The source-bound [migration contract](migrations/release-contract.json) defines the
+current SQL target: its version, file hash and Flyway checksum. For an empty database,
+official Flyway applies the unchanged
+[B054](../sql/migrations/B054__protocol_authentication_and_sessions.sql) baseline, then
+every later `V0NN` migration up to that target. Existing databases retain their published
+migration chain and continue forward to the target. Each migration file lists its rollback
+SQL. No new baseline or rewritten historical SQL is introduced. Contracts of earlier SQL
+targets remain readable for their original releases. What each migration changes, and
+the target and checksum of every release, are in [UPGRADING.md](../UPGRADING.md).
 
-The generated Compose and Helm configuration supplies
-`MIGRATION_REQUIRED_VERSION=069`, `MIGRATION_REQUIRED_CHECKSUM=-1562058873`, and
-an empty `MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
+The generated Compose and Helm configuration supplies `MIGRATION_REQUIRED_VERSION` and
+`MIGRATION_REQUIRED_CHECKSUM` from the migration contract, and an empty
+`MIGRATION_BASELINE_CHECKSUM`. Helm uses `migration.requiredVersion`,
 `migration.requiredChecksum`, and `migration.baselineChecksum`. The current
 contract validates the additive SQL target, rather than inventing a same-version
 baseline. Flyway still validates the installed migration history. Keep the version
@@ -557,9 +559,9 @@ The existing `nodeSelector` value applies to Backend, Frontend, Worker, both Bea
 
 既有 `nodeSelector` 現在一致套用到後端、前端、Worker、兩種 Beat，以及 migration／bootstrap／finalize 工作。預設 `{}` 由排程器安排；需要指定節點時在環境 values 填入節點標籤。外部服務仍由操作人員管理其節點位置；單節點驗證不代表跨節點網路或 HA 已通過。
 
-## Release package contract (v5, 0.4.2)
+## Release package contract (v5)
 
-0.4.2 is published as a signed **v5** package (`schema_version` 5, package type
+Each release is published as a signed **v5** package (`schema_version` 5, package type
 `nomosmart-local-risk-reviewed-release`, purpose `local-risk-reviewed-release`). It is
 assembled with `deploy/release/nomosmart-release assemble-reviewed-local` from a clean
 detached source and evidence for all 19 required gates, the quality policy readiness
@@ -572,7 +574,7 @@ Verify a downloaded package with a signer fingerprint obtained through an indepe
 trusted channel; the public key inside the package does not establish trust:
 
 ```sh
-python3 deploy/release/nomosmart-release verify-package --package /operator/path/nomosmart-0.4.2 \
+python3 deploy/release/nomosmart-release verify-package --package /operator/path/nomosmart-<version> \
   --purpose local-risk-reviewed-release --trusted-fingerprint "$NOMOSMART_TRUSTED_FINGERPRINT"
 ```
 
@@ -583,7 +585,7 @@ are a separate package type; see [TEST-CANDIDATE.md](release/TEST-CANDIDATE.md).
 
 既有部署相容性：Compose 啟動準備仍可為已掛載的舊版 IdP 憑證參照建立私有 tmpfs 檔案，供尚未升級的容器安全讀取。此相容處理不建立 Keycloak 服務，也不變更登入協定。既有容器更換憑證時應沿用其已核對的映像與掛載，先確認啟動腳本相容，再依維護計畫重啟；認證架構切換與資料庫升級仍走各自的升級程序。
 
-## Current installer and package cleanup (CHG-375)
+## Current installer and package cleanup
 
 Use `installer/nomosmart-one-click --protocol-config /operator/private/target.toml --init-config` to create new owner-only target and values files in an existing mode700 directory. It never overwrites files or changes directory permissions. Edit actual service/CA/Secret/directory references, then use `--plan-only`; apply only with the returned `--confirm-digest` or explicit `--yes`. The wrapper invokes the real protocol installer, stops at the administrator sign-in checkpoint (exit10), and does not finalize on the operator's behalf. Legacy `--config` and bundled-wrapper input fail before operations; direct Helm retains bundled support.
 
@@ -591,4 +593,4 @@ The protocol payload contains only the current installer import closure and exam
 
 Legacy `nomosmart-release create` and `assemble-validation` reject the current protocol chart before reading keys, building or creating output. Historical `verify-package` remains available. `assemble-local` retains its actual full-suite, 80% coverage, security and signing requirements; this cleanup does not produce a signed package or qualify production publication.
 
-V056 keeps historical policy/receipt evidence. Stop old application writers first; retain an encrypted055 recovery snapshot. New policy v2 exposes only document settings. See [native PDF operations](../docs/NATIVE-PDF-OCR-OPERATIONS.md); no local PDF companion chart is required.
+The file-processing policy keeps historical policy and receipt evidence; policy version 2 exposes only document settings. Upgrade steps for it are in [UPGRADING.md](../UPGRADING.md). See [native PDF operations](../docs/NATIVE-PDF-OCR-OPERATIONS.md); no local PDF companion chart is required.
