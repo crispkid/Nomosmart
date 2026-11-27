@@ -564,8 +564,6 @@
   "approvalProjectLabel": "所屬專案",
   "approvalSubmitter": "送審者",
   "approvalSubmitterManagerLabel": "送審者／直屬主管",
-  "approvalSubmissionReason": "送審原因",
-  "approvalSubmissionReasonContent": "內容更新與模型治理規範校正",
   "approvalDocumentStatus": "文件狀態",
   "approvalCreator": "建立者",
   "approvalSubmittedAt": "送審時間",

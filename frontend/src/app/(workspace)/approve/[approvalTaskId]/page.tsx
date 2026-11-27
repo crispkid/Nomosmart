@@ -378,7 +378,6 @@ export default function ApprovalDetailPage() {
           <div><small>{t("approvalProjectLabel")}</small><strong>{approval.project}</strong></div>
           <div><small>{t("approvalSubmitterManagerLabel")}</small><strong>{approval.editor} / {approval.manager}</strong></div>
           <div><small>{t("approvalProjectOwners")}</small><strong>{approval.owners.join(" / ")}</strong></div>
-          <div><small>{t("approvalSubmissionReason")}</small><strong>{t("approvalSubmissionReasonContent")}</strong></div>
         </section>
 
         <div className="submission-summary-grid">

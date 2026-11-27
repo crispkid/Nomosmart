@@ -564,8 +564,6 @@
   "approvalProjectLabel": "Project",
   "approvalSubmitter": "Submitter",
   "approvalSubmitterManagerLabel": "Submitter / direct manager",
-  "approvalSubmissionReason": "Submission reason",
-  "approvalSubmissionReasonContent": "Content update and model governance policy correction",
   "approvalDocumentStatus": "Document status",
   "approvalCreator": "Creator",
   "approvalSubmittedAt": "Submitted at",
