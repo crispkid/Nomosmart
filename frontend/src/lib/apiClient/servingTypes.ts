@@ -6,6 +6,11 @@ export type ProjectGraphResponse = {
   edges: { id: string; source: string; target: string; type: string; metadata?: Record<string, unknown> }[];
   truncated: boolean;
   node_limit: number;
+  /** CHG-495 UIRD-API-005 (project graph only): totals of the whole published graph before node_limit applies. */
+  total_node_count?: number | null;
+  total_edge_count?: number | null;
+  node_type_counts?: Record<string, number>;
+  updated_at?: string | null;
 };
 
 export type ProjectServingStatusResponse = {

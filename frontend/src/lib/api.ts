@@ -57,7 +57,7 @@ export {
   getDocumentVersionGraph, getProjectServingStatus, queryProjectChat, listProjectChatConversationPage,
   getProjectChatConversation, downloadProjectChatConversationCsv, deleteProjectChatConversation,
   updateProjectChatFeedback, createProjectChatValidationRun, getProjectChatValidationRun,
-  retryFailedProjectChatValidationItems, getReportFilterOptions, getReportSummary, downloadReportCsv,
+  retryFailedProjectChatValidationItems, getReportFilterOptions, getReportSummary, getReportApprovalStats, downloadReportCsv,
   listNotificationPage, getNotificationUnreadCount, markNotificationRead, markAllNotificationsRead,
   resolveNotification
 } from "./apiClient/reviewRequests";
@@ -66,7 +66,7 @@ export {
   updateChunkReference, deleteChunkReference
 } from "./apiClient/stationRequests";
 export type {
-  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters
+  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters, ReportApprovalStatsResponse
 } from "./apiClient/reviewRequests";
 export {
   listUsersPage, listRolesPage, getUser, getRole, updateUser, updateUserStatus, listRoles, createRole,

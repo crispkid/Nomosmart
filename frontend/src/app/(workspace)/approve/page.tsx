@@ -1,5 +1,6 @@
 "use client";
 
+import { formatWaitDuration } from "@/lib/durationFormat";
 import { ApprovalFilters } from "@/components/ApprovalFilters";
 import { approvalListFilters, emptyApprovalFilters, type ApprovalFilterValues } from "@/lib/approvalFilters";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
@@ -23,7 +24,6 @@ import { formatPersonName } from "@/lib/personName";
 import { projectColorClass } from "@/lib/projectColor";
 
 type Translate = (key: TranslationKey) => string;
-type Format = (key: TranslationKey, params: Record<string, string | number>) => string;
 type WorkbenchTab = "pending" | "publish" | "mine" | "rejected" | "history";
 
 function stageLabel(stage: string, t: Translate) {
@@ -56,13 +56,6 @@ function displaySubmitterDetail(item: SubmitterDisplay, t: Translate) {
   return `${t("approvalSubmitter")} ${shortId(item.submitter_id)}`;
 }
 
-/** CHG-495: average wait in minutes, hours or days (one decimal); null when nothing was completed. */
-function formatWait(seconds: number | null | undefined, format: Format) {
-  if (seconds === null || seconds === undefined) return "—";
-  if (seconds < 3600) return format("approvalDurationMinutes", { value: Math.max(1, Math.round(seconds / 60)) });
-  if (seconds < 86400) return format("approvalDurationHours", { value: Math.round(seconds / 360) / 10 });
-  return format("approvalDurationDays", { value: Math.round(seconds / 8640) / 10 });
-}
 
 // CHG-495 M21: list and summary side by side above 1280px; narrower screens open the detail page.
 const wideQuery = "(min-width: 1281px)";
@@ -166,7 +159,7 @@ export default function ApprovalPage() {
           <StatCard label={t("approvalMySubmissions")} value={summaryValue(summary?.my_submissions)} helper={t("approvalMySubmissionsHelp")} tone="neutral" />
           <StatCard label={t("approvalPublishControl")} value={publishRead.loading ? "…" : publishRead.total !== null ? String(publishRead.total) : "—"} helper={t(publishRead.stale ? "approvalPendingPublishStale" : "approvalPublishControlHelp")} tone="gold" />
           <StatCard label={t("approvalCompletedRecent")} value={summaryValue(summary?.completed_last_7_days)} helper={t("approvalCompletedRecentHelper")} tone="green" />
-          <StatCard label={t("approvalAverageWait")} value={summaryRead.status === "ready" ? formatWait(summary?.average_wait_seconds, format) : summaryValue()} helper={summaryRead.status === "ready" && summary?.average_wait_seconds == null ? t("approvalAverageWaitNone") : t("approvalAverageWaitHelper")} tone="violet" />
+          <StatCard label={t("approvalAverageWait")} value={summaryRead.status === "ready" ? formatWaitDuration(summary?.average_wait_seconds, format) : summaryValue()} helper={summaryRead.status === "ready" && summary?.average_wait_seconds == null ? t("approvalAverageWaitNone") : t("approvalAverageWaitHelper")} tone="violet" />
         </div>
         <p className="form-helper approval-summary-scope">{t("approvalFilterSummaryScope")}</p>
 

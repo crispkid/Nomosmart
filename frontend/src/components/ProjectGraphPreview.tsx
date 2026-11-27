@@ -369,8 +369,19 @@ function mergeProjectGraphs(current: ProjectGraphResponse, incoming: ProjectGrap
     nodes: Array.from(nodes.values()),
     edges: Array.from(edges.values()),
     truncated: current.truncated || incoming.truncated,
-    node_limit: Math.max(current.node_limit, incoming.node_limit)
+    node_limit: Math.max(current.node_limit, incoming.node_limit),
+    // CHG-495: neighbour reads do not carry project totals; keep the first read's totals.
+    total_node_count: current.total_node_count,
+    total_edge_count: current.total_edge_count,
+    node_type_counts: current.node_type_counts,
+    updated_at: current.updated_at
   };
+}
+
+/** CHG-495: the explorer does not draw document versions, so the "of M nodes" total leaves them out too. */
+function graphNodeTotal(graph: ProjectGraphResponse) {
+  if (typeof graph.total_node_count !== "number") return null;
+  return Math.max(0, graph.total_node_count - (graph.node_type_counts?.DocumentVersion ?? 0));
 }
 
 export function ProjectGraphPreview() {
@@ -454,11 +465,13 @@ export function ProjectGraphPreview() {
       layoutBinding={binding}
       edges={graph.edges}
       emptyMessage={statusLabel}
+      filterable
       nodes={graph.nodes}
       onNodeSelect={expandNeighborGraph}
       scopeLabel={t("graphExplorerProjectScope")}
       statusLabel={statusLabel}
       title={t("graphExplorerTitle")}
+      totals={authorizedGraph ? { edgeCount: authorizedGraph.total_edge_count, nodeCount: graphNodeTotal(authorizedGraph), typeCounts: authorizedGraph.node_type_counts, updatedAt: authorizedGraph.updated_at } : undefined}
     />
   );
 }

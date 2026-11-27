@@ -263,6 +263,28 @@ export async function downloadReportCsv(apiFetch: ApiFetch, params: ReportQueryP
   }
   return await response.blob();
 }
+function localDateTime(date: string, time: string) {
+  const offset = -new Date(`${date}T${time}`).getTimezoneOffset();
+  const sign = offset >= 0 ? "+" : "-";
+  const hours = String(Math.floor(Math.abs(offset) / 60)).padStart(2, "0");
+  const minutes = String(Math.abs(offset) % 60).padStart(2, "0");
+  return `${date}T${time}${sign}${hours}:${minutes}`;
+}
+/** CHG-495 UIRD-API-003: approved and returned decisions in the report scope, with weekly buckets (Monday, UTC). */
+export type ReportApprovalStatsResponse = {
+  scope: string; project_id: string | null; date_from: string; date_to: string;
+  completed_count: number; approved_count: number; rejected_count: number; average_wait_seconds: number | null;
+  weekly: Array<{ week_start: string; approved: number; rejected: number }>;
+};
+export async function getReportApprovalStats(apiFetch: ApiFetch, params: Pick<ReportQueryParams, "dateFrom" | "dateTo" | "projectId" | "scope">, signal?: AbortSignal) {
+  const query = new URLSearchParams();
+  // The endpoint compares with timezone-aware times, so the local dates carry the browser's UTC offset.
+  if (params.dateFrom) query.set("date_from", localDateTime(params.dateFrom, "00:00:00"));
+  if (params.dateTo) query.set("date_to", localDateTime(params.dateTo, "23:59:59"));
+  if (params.projectId && params.projectId !== "all") query.set("project_id", params.projectId);
+  if (params.scope) query.set("scope", params.scope);
+  return apiJson<ReportApprovalStatsResponse>(apiFetch, `/reports/approval-stats?${query.toString()}`, { signal });
+}
 function reportQuery(params: ReportQueryParams & { locale?: string }) {
   const query = new URLSearchParams({ topic: params.topic });
   if (params.dateFrom) query.set("date_from", `${params.dateFrom}T00:00:00`);

@@ -1,20 +1,27 @@
 "use client";
 
 import { boundedGraphZoom, stepGraphZoom } from "@/lib/graphZoom";
-import { type PointerEvent, useEffect, useMemo, useRef, useState } from "react";
+import { type PointerEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { GRAPH_HEIGHT, GRAPH_WIDTH } from "@/lib/graphLayoutProtocol";
 import { useGraphLayout } from "@/lib/useGraphLayout";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { Info, Link2, Network, RotateCcw, ZoomIn, ZoomOut } from "lucide-react";
+import { Info, Link2, Network, RotateCcw, SlidersHorizontal, ZoomIn, ZoomOut } from "lucide-react";
 import { ChunkMarkdownView } from "@/components/ChunkMarkdownView";
 import { useI18n } from "@/lib/i18nClient";
-import { type GraphExplorerNode, type GraphExplorerEdge, MIN_ZOOM, MAX_ZOOM, type VisibleGraphExplorerNode, type GraphPanExtent, contentTypeLabelKeys, clamp, semanticZoomBand, visualScaleForZoom, constrainGraphPan, nodeVisibilityAtZoom, nodeDimensions, edgePath, edgeLabelPosition, nodeTypeKey, GraphNodeIcon, useRelationMap } from "./graphExplorer/graphExplorerModel";
+import { formatShortDate } from "@/lib/dateFormat";
+import { GraphExplorerFilters } from "./graphExplorer/GraphExplorerFilters";
+import { type GraphExplorerNode, type GraphExplorerEdge, MIN_ZOOM, MAX_ZOOM, type VisibleGraphExplorerNode, type GraphPanExtent, contentTypeLabelKeys, clamp, semanticZoomBand, visualScaleForZoom, constrainGraphPan, nodeVisibilityAtZoom, nodeDimensions, edgePath, edgeLabelPosition, nodeTypeKey, GraphNodeIcon, useRelationMap, applyGraphFilters, defaultGraphFilters, graphFiltersActive, type GraphFilters } from "./graphExplorer/graphExplorerModel";
 
 export type { GraphExplorerNode, GraphExplorerEdge } from "./graphExplorer/graphExplorerModel";
+
+/** CHG-495 UIRD-API-005: totals of the whole published graph, before the node limit applies. */
+export type GraphExplorerTotals = { edgeCount?: number | null; nodeCount?: number | null; typeCounts?: Record<string, number>; updatedAt?: string | null };
 
 type GraphExplorerProps = {
   edges: GraphExplorerEdge[];
   emptyMessage?: string;
+  /** CHG-495 M23: show the left filter panel (project graph). */
+  filterable?: boolean;
   layout?: "umbrella";
   layoutScope?: string;
   layoutBinding?: string | null;
@@ -23,10 +30,17 @@ type GraphExplorerProps = {
   scopeLabel: string;
   statusLabel?: string;
   title: string;
+  totals?: GraphExplorerTotals;
 };
 
-export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title, layoutScope, layoutBinding }: GraphExplorerProps) {
-  const { format, t } = useI18n();
+// CHG-495 K140: level buttons jump to the zoom where that level of detail starts; wheel and +/- zoom still work.
+const zoomLevels = [{ band: "structure", key: "graphLayerStructure", zoom: 1 }, { band: "chunk", key: "graphLayerFocus", zoom: 1.5 }, { band: "detail", key: "graphLayerDetail", zoom: 2 }] as const;
+
+export function GraphExplorer({ edges, emptyMessage, filterable = false, layout = "umbrella", nodes, onNodeSelect, scopeLabel, statusLabel, title, totals, layoutScope, layoutBinding }: GraphExplorerProps) {
+  const { format, locale, t } = useI18n();
+  const filterPanelId = useId();
+  const [filters, setFilters] = useState<GraphFilters>(defaultGraphFilters);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const canvasRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<HTMLDivElement>(null);
   const panRef = useRef({ x: 0, y: 0 });
@@ -52,13 +66,15 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
   );
   const zoomBand = semanticZoomBand(zoom);
   const visualScale = visualScaleForZoom(zoom);
+  const selectedNodeId = selected?.type === "node" ? selected.id : null;
+  const filtered = useMemo(() => applyGraphFilters(positionedNodes, edges, filters, selectedNodeId), [edges, filters, positionedNodes, selectedNodeId]);
+  const shownEdges = filtered.edges;
   const visibleNodes = useMemo<VisibleGraphExplorerNode[]>(() => {
-    const selectedNodeId = selected?.type === "node" ? selected.id : null;
-    return positionedNodes.flatMap((node) => {
+    return filtered.nodes.flatMap((node) => {
       const visibility = nodeVisibilityAtZoom(node, zoom, selectedNodeId);
       return visibility.visible ? [{ ...node, isHint: visibility.hint }] : [];
     });
-  }, [positionedNodes, selected, zoom]);
+  }, [filtered.nodes, selectedNodeId, zoom]);
   const panExtent = useMemo<GraphPanExtent | null>(() => {
     if (!visibleNodes.length) return null;
     const extent = { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity, nodeWidth: 0, nodeHeight: 0 };
@@ -73,12 +89,18 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
     }
     return extent;
   }, [visibleNodes]);
-  const { edgeById, nodeById, relatedEdgeIds, relatedNodeIds } = useRelationMap(visibleNodes, edges, selected);
+  const { edgeById, nodeById, relatedEdgeIds, relatedNodeIds } = useRelationMap(visibleNodes, shownEdges, selected);
   const selectedNode = selected?.type === "node" ? nodeById.get(selected.id) ?? null : null;
   const selectedEdge = selected?.type === "edge" ? edgeById.get(selected.id) ?? null : null;
   const selectedSource = selectedEdge ? nodeById.get(selectedEdge.source) : null;
   const selectedTarget = selectedEdge ? nodeById.get(selectedEdge.target) : null;
-  const detailLevel = zoomBand === "structure" ? t("graphLayerStructure") : zoomBand === "chunk" ? t("graphLayerFocus") : t("graphLayerDetail");
+  const activeLevel = zoomBand === "structure" || zoomBand === "chunk" ? zoomBand : "detail";
+  const totalNodes = Math.max(totals?.nodeCount ?? 0, nodes.length);
+  const summaryParts = [
+    format("graphShownOfTotal", { shown: visibleNodes.length, total: totalNodes }),
+    typeof totals?.edgeCount === "number" ? format("graphTotalEdges", { count: totals.edgeCount }) : null,
+    totals?.updatedAt ? format("graphUpdatedOn", { date: formatShortDate(totals.updatedAt, locale) }) : null
+  ].filter(Boolean).join(" · ");
 
   useEffect(() => { panExtentRef.current = panExtent; }, [panExtent]);
 
@@ -224,28 +246,32 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
   }
 
   function directNeighbors(nodeId: string) {
-    return edges
+    return shownEdges
       .flatMap((edge) => edge.source === nodeId ? [edge.target] : edge.target === nodeId ? [edge.source] : [])
       .map((id) => nodeById.get(id))
       .filter((node): node is GraphExplorerNode => Boolean(node));
   }
 
   return (
-    <section data-graph-layout-state={graphLayout.state} className={`graph-explorer graph-explorer-layout-${layout}`} data-graph-explorer="true" data-graph-layout={layout}>
+    <section data-graph-layout-state={graphLayout.state} className={`graph-explorer graph-explorer-layout-${layout}${filterable ? " has-filters" : ""}`} data-graph-explorer="true" data-graph-layout={layout}>
+      {filterable ? <GraphExplorerFilters edges={edges} filters={filters} id={filterPanelId} nodes={nodes} onChange={setFilters} open={filtersOpen} typeTotals={totals?.typeCounts} /> : null}
       <div className="graph-explorer-left">
         <header className="graph-explorer-toolbar">
           <div className="graph-explorer-heading">
-            <Network size={18} />
+            <Network aria-hidden="true" size={18} />
             <div>
               <strong>{title}</strong>
               <span>{scopeLabel}</span>
             </div>
           </div>
-          <div className="graph-explorer-layer" aria-label={t("graphDetailMetadata")}>
-            <span>{detailLevel}</span>
+          <div className="graph-explorer-layer">
+            <div aria-label={t("graphLevelLabel")} className="ws-segmented graph-level-switch" role="group">
+              {zoomLevels.map((level) => <button aria-pressed={activeLevel === level.band} key={level.band} onClick={() => changeZoom(level.zoom)} type="button">{t(level.key)}</button>)}
+            </div>
             {statusLabel ? <em>{statusLabel}</em> : null}
           </div>
           <div className="graph-explorer-zoom" aria-label={t("graphExplorerZoomControls")}>
+            {filterable ? <button aria-controls={filterPanelId} aria-expanded={filtersOpen} aria-label={t("graphFiltersTitle")} className={`graph-explorer-filter-toggle${graphFiltersActive(filters) ? " is-active" : ""}`} onClick={() => setFiltersOpen((open) => !open)} type="button"><SlidersHorizontal size={16} /></button> : null}
             <button aria-label={t("graphZoomOut")} disabled={zoom <= MIN_ZOOM} onClick={() => changeZoom(stepGraphZoom(zoom, -1))} type="button"><ZoomOut size={16} /></button>
             <output aria-label={format("graphZoomPercent", { percent: Math.round(zoom * 100) })} aria-live="polite">{Math.round(zoom * 100)}%</output>
             <button aria-label={t("graphZoomIn")} disabled={zoom >= MAX_ZOOM} onClick={() => changeZoom(stepGraphZoom(zoom, 1))} type="button"><ZoomIn size={16} /></button>
@@ -254,6 +280,12 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
         </header>
 
         {graphLayout.state === "pending" ? <div className="graph-layout-feedback"><FeedbackMessage title={t("graphLayoutPending")} tone="info" /></div> : graphLayout.state === "error" ? <div className="graph-layout-feedback"><FeedbackMessage title={t("graphLayoutFailed")} tone="error" actions={<button className="action-button secondary" onClick={graphLayout.retry} type="button"><RotateCcw size={14} />{t("graphLayoutRetry")}</button>} /></div> : null}
+
+        <div aria-label={t("graphLegendLabel")} className="graph-explorer-legend" role="list">
+          {(["project", "document", "chunk", "tag", "group"] as const).map((kind) => <span className="graph-legend-item" key={kind} role="listitem"><span aria-hidden="true" className={`graph-filter-swatch swatch-${kind}`}><GraphNodeIcon kind={kind} /></span>{t(nodeTypeKey(kind))}</span>)}
+          <span className="graph-legend-item" role="listitem"><span aria-hidden="true" className="graph-filter-line line-contains" />{t("graphLegendContains")}</span>
+          <span className="graph-legend-item" role="listitem"><span aria-hidden="true" className="graph-filter-line line-tagged_as" />{t("graphRelationTaggedAs")}</span>
+        </div>
 
         <div
           aria-label={t("graphCanvasAria")}
@@ -276,30 +308,14 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
             <div ref={sceneRef} className="graph-explorer-scene" data-zoom-band={zoomBand} style={{ width: GRAPH_WIDTH, height: GRAPH_HEIGHT, left: "50%", top: "50%", right: "auto", bottom: "auto", marginLeft: -GRAPH_WIDTH / 2, marginTop: -GRAPH_HEIGHT / 2, transform: `translate(${pan.x}px, ${pan.y}px) scale(${visualScale})` }}>
               <svg aria-label={t("graphEdgesAria")} className="graph-explorer-edges" role="group" style={{ overflow: "visible" }}>
                 <defs>
-                  <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="var(--cool-gray)" />
-                  </marker>
-                  <marker id="arrowhead-selected" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="var(--deep-green)" />
-                  </marker>
-                  <marker id="arrowhead-tagged_as" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="#475569" />
-                  </marker>
-                  <marker id="arrowhead-semantic" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="var(--gold)" />
-                  </marker>
-                  <marker id="arrowhead-source" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="rgba(46, 58, 66, 0.4)" />
-                  </marker>
-                  <marker id="arrowhead-contains" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                    <polygon points="0 0, 6 2, 0 4" fill="var(--calm-green)" />
-                  </marker>
-                  <filter x="-0.1" y="-0.2" width="1.2" height="1.4" id="solidBg">
-                    <feFlood floodColor="rgba(252, 253, 251, 0.85)" result="bg" />
-                    <feComposite in="SourceGraphic" in2="bg" operator="over" />
-                  </filter>
+                  {/* CHG-495 UIRD-001: arrowheads take theme colours from CSS (graph follows dark mode). */}
+                  {["default", "selected", "tagged_as", "semantic", "source", "contains", "references", "supersedes"].map((name) => (
+                    <marker className={`graph-arrowhead arrowhead-${name}`} id={name === "default" ? "arrowhead" : `arrowhead-${name}`} key={name} markerHeight="4" markerWidth="6" orient="auto" refX="5" refY="2">
+                      <polygon points="0 0, 6 2, 0 4" />
+                    </marker>
+                  ))}
                 </defs>
-                {edges.map((edge) => {
+                {shownEdges.map((edge) => {
                   const source = nodeById.get(edge.source);
                   const target = nodeById.get(edge.target);
                   if (!source || !target) return null;
@@ -312,7 +328,7 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
                       className={`${active ? "is-selected" : ""}${related ? " is-related" : " is-muted"}${hintEdge ? " is-hint-edge" : ""} relation-${edge.relation}`}
                       d={edgePath(source, target)}
                       key={edge.id}
-                      markerEnd={edge.relation === "tagged_as" ? "url(#arrowhead-tagged_as)" : (active ? "url(#arrowhead-selected)" : (["semantic", "source", "contains"].includes(edge.relation) ? `url(#arrowhead-${edge.relation})` : "url(#arrowhead)"))}
+                      markerEnd={active ? "url(#arrowhead-selected)" : `url(#arrowhead-${edge.relation})`}
                       onClick={(event) => {
                         event.stopPropagation();
                         setSelected({ id: edge.id, type: "edge" });
@@ -327,7 +343,7 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
                     />
                   );
                 })}
-                {edges.map((edge) => {
+                {shownEdges.map((edge) => {
                   if (edge.showLabel === false) return null;
                   const source = nodeById.get(edge.source);
                   const target = nodeById.get(edge.target);
@@ -344,8 +360,6 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
                         width={edge.label.length * 7 + 8}
                         height="16"
                         rx="4"
-                        fill="rgba(252, 253, 251, 0.95)"
-                        stroke="rgba(214, 224, 229, 0.5)"
                       />
                       <text
                         aria-hidden="true"
@@ -396,63 +410,71 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
           ) : (
             <div className="graph-explorer-empty">
               <Info size={20} />
-              <strong>{emptyMessage ?? t("graphExplorerEmpty")}</strong>
+              <strong>{nodes.length && graphFiltersActive(filters) ? t("graphFiltersEmpty") : emptyMessage ?? t("graphExplorerEmpty")}</strong>
             </div>
           )}
         </div>
+        <p className="graph-explorer-summary" aria-live="polite">{summaryParts}</p>
       </div>
 
       <aside className="graph-explorer-inspector" aria-live="polite" data-graph-inspector="true">
           <div className="graph-explorer-inspector-title">
-            <Info size={17} />
+            <Info aria-hidden="true" size={16} />
             <strong>{t("graphDetailPanelTitle")}</strong>
           </div>
           {selectedNode ? (
             <div className="graph-explorer-inspector-content">
-              <div className="graph-explorer-inspector-subject">
+              <div className={`graph-explorer-inspector-subject subject-${selectedNode.kind}`}>
                 <span className={`node-kind-dot dot-${selectedNode.kind}`}><GraphNodeIcon contentType={selectedNode.contentType} kind={selectedNode.kind} /></span>
                 <div>
+                  <small className="graph-explorer-inspector-kind">{t(nodeTypeKey(selectedNode.kind))}</small>
                   <strong>{selectedNode.title}</strong>
-                  <small>{t(nodeTypeKey(selectedNode.kind))}{selectedNode.subtitle ? ` · ${selectedNode.subtitle}` : ""}</small>
+                  {selectedNode.subtitle ? <small>{selectedNode.subtitle}</small> : null}
                 </div>
               </div>
               <dl>
                 {selectedNode.kind === "chunk" ? <div><dt>{t("graphDetailChunkNumber")}</dt><dd data-graph-chunk-number="true">{typeof selectedNode.chunkIndex === "number" ? `#${selectedNode.chunkIndex}` : t("graphDetailUnavailable")}</dd></div> : null}
-                {selectedNode.kind === "chunk" ? (
-                  <div>
-                    <dt>{t("graphDetailChunkFullContent")}</dt>
-                    <dd aria-label={t("graphDetailChunkFullContent")} className="graph-explorer-chunk-content" data-graph-chunk-content="true" role="region" tabIndex={0}>
-                      {selectedNode.chunkContent !== undefined || selectedNode.chunkDisplayMarkdown || selectedNode.chunkMarkdownContent ? (
-                        <ChunkMarkdownView
-                          chunk={{
-                            content: selectedNode.chunkContent,
-                            display_markdown: selectedNode.chunkDisplayMarkdown,
-                            markdown_content: selectedNode.chunkMarkdownContent,
-                          }}
-                          className="graph-chunk-markdown"
-                        />
-                      ) : t("graphDetailChunkContentUnavailable")}
-                    </dd>
-                  </div>
-                ) : null}
-                {selectedNode.technicalId ? <div><dt>{t("graphDetailTechnicalId")}</dt><dd>{selectedNode.technicalId}</dd></div> : null}
                 {selectedNode.contentType ? <div><dt>{t("graphExplorerContentType")}</dt><dd>{t(contentTypeLabelKeys[selectedNode.contentType])}</dd></div> : null}
                 {selectedNode.meta?.map((item) => <div key={`${item.label}-${item.value}`}><dt>{item.label}</dt><dd>{item.value}</dd></div>)}
               </dl>
-              <section>
+              {selectedNode.kind === "chunk" ? (
+                <section className="graph-explorer-inspector-section">
+                  <h3>{t("graphDetailChunkFullContent")}</h3>
+                  <div aria-label={t("graphDetailChunkFullContent")} className="graph-explorer-chunk-content" data-graph-chunk-content="true" role="region" tabIndex={0}>
+                    {selectedNode.chunkContent !== undefined || selectedNode.chunkDisplayMarkdown || selectedNode.chunkMarkdownContent ? (
+                      <ChunkMarkdownView
+                        chunk={{
+                          content: selectedNode.chunkContent,
+                          display_markdown: selectedNode.chunkDisplayMarkdown,
+                          markdown_content: selectedNode.chunkMarkdownContent,
+                        }}
+                        className="graph-chunk-markdown"
+                      />
+                    ) : t("graphDetailChunkContentUnavailable")}
+                  </div>
+                </section>
+              ) : null}
+              <section className="graph-explorer-inspector-section">
                 <h3>{t("graphDetailNeighbors")}</h3>
                 <div className="graph-explorer-chip-list">
                   {directNeighbors(selectedNode.id).length ? directNeighbors(selectedNode.id).map((node) => (
-                    <button key={node.id} onClick={() => { setSelected({ id: node.id, type: "node" }); onNodeSelect?.(node.id); }} type="button">{node.title}</button>
+                    <button key={node.id} onClick={() => { setSelected({ id: node.id, type: "node" }); onNodeSelect?.(node.id); }} type="button"><span aria-hidden="true" className={`graph-chip-icon chip-${node.kind}`}><GraphNodeIcon contentType={node.contentType} kind={node.kind} /></span><span>{node.title}</span></button>
                   )) : <span>{t("graphExplorerNoNeighbors")}</span>}
                 </div>
               </section>
+              {selectedNode.technicalId ? (
+                <details className="graph-explorer-technical">
+                  <summary>{t("graphDetailTechnicalId")}</summary>
+                  <code>{selectedNode.technicalId}</code>
+                </details>
+              ) : null}
             </div>
           ) : selectedEdge && selectedSource && selectedTarget ? (
             <div className="graph-explorer-inspector-content">
-              <div className="graph-explorer-inspector-subject">
+              <div className="graph-explorer-inspector-subject subject-edge">
                 <span className="node-kind-dot dot-edge"><Link2 size={16} /></span>
                 <div>
+                  <small className="graph-explorer-inspector-kind">{t("graphDetailRelationship")}</small>
                   <strong>{selectedEdge.label}</strong>
                   <small>{selectedSource.title}{" -> "}{selectedTarget.title}</small>
                 </div>
@@ -466,7 +488,7 @@ export function GraphExplorer({ edges, emptyMessage, layout = "umbrella", nodes,
             </div>
           ) : (
             <div className="graph-explorer-inspector-empty">
-              <Network size={22} />
+              <Network aria-hidden="true" size={22} />
               <strong>{t("graphExplorerInspectorEmptyTitle")}</strong>
               <p>{t("graphDetailEmpty")}</p>
               <dl>
