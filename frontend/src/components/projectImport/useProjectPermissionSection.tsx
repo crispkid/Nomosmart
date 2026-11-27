@@ -1,7 +1,6 @@
 "use client";
 
 import { FeedbackMessage } from "@/components/FeedbackMessage";
-import { Modal } from "@/components/Modal";
 import { useCallback, useState } from "react";
 import { AlertTriangle, Clock3, ShieldCheck, Trash2, UserPlus, UserRoundCog, X } from "lucide-react";
 import { ProjectMemberAutocomplete } from "@/components/ProjectMemberAutocomplete";
@@ -22,7 +21,7 @@ type ProjectPermissionState = ReturnType<typeof useProjectPermissionState>;
 /** Project member permission state (split from the project import page, OPT424-038). */
 export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
   const { apiFetch, canManageProjectPermissions, params, t } = deps;
-  const [permissionModalOpen, setPermissionModalOpen] = useState(false);
+  const [permissionPanelOpen, setPermissionPanelOpen] = useState(false);
   const [projectMembers, setProjectMembers] = useState<ProjectMemberResponse[]>([]);
   const [permissionQuery, setPermissionQuery] = useState("");
   const [pendingPermissionUsers, setPendingPermissionUsers] = useState<ProjectMemberCandidate[]>([]);
@@ -38,7 +37,7 @@ export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
     [apiFetch, params.id],
   );
   const permissionCandidateSearch = useDebouncedProjectMemberCandidateSearch({
-    enabled: permissionModalOpen && canManageProjectPermissions,
+    enabled: permissionPanelOpen && canManageProjectPermissions,
     query: permissionQuery,
     search: searchPermissionCandidates,
   });
@@ -59,12 +58,12 @@ export function useProjectPermissionState(deps: ProjectPermissionStateDeps) {
             ? t("projectImportPermissionSearchMissingAccess")
             : t("projectImportPermissionSearchNoResults")
         : "";
-  return { permissionModalOpen, setPermissionModalOpen, projectMembers, setProjectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, setPermissionLoading, permissionError, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId, permissionRoleLabel, membersForActiveRole, searchPermissionCandidates, permissionCandidateSearch, permissionUsers, filteredPermissionUsers, permissionSearchMessage };
+  return { permissionPanelOpen, setPermissionPanelOpen, projectMembers, setProjectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, setPermissionLoading, permissionError, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId, permissionRoleLabel, membersForActiveRole, searchPermissionCandidates, permissionCandidateSearch, permissionUsers, filteredPermissionUsers, permissionSearchMessage };
 }
 
 /** Project member permission actions, created each render once workspace dependencies exist. */
 export function createProjectPermissionActions(state: ProjectPermissionState, deps: ProjectPermissionDeps) {
-  const { setPermissionModalOpen, projectMembers, setProjectMembers, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, setPermissionLoading, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId } = state;
+  const { setPermissionPanelOpen, projectMembers, setProjectMembers, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, setPermissionLoading, setPermissionError, permissionSavingUserId, setPermissionSavingUserId, permissionRemovingUserId, setPermissionRemovingUserId } = state;
 
   async function loadProjectPermissions() {
     const { apiFetch, params, setProject, setProjectAccess } = deps;
@@ -83,10 +82,10 @@ export function createProjectPermissionActions(state: ProjectPermissionState, de
     }
   }
 
-  function openPermissionModal() {
+  function openPermissionPanel() {
     const { canManageProjectPermissions } = deps;
     if (!canManageProjectPermissions) return;
-    setPermissionModalOpen(true);
+    setPermissionPanelOpen(true);
     setPermissionQuery("");
     setPendingPermissionUsers([]);
     setActivePermissionRole("owner");
@@ -160,32 +159,26 @@ export function createProjectPermissionActions(state: ProjectPermissionState, de
     }
   }
 
-  return { loadProjectPermissions, openPermissionModal, saveProjectMemberRole, stagePermissionCandidate, commitPendingPermissionCandidates, removeProjectPermissionMember };
+  return { loadProjectPermissions, openPermissionPanel, saveProjectMemberRole, stagePermissionCandidate, commitPendingPermissionCandidates, removeProjectPermissionMember };
 }
 
 type ProjectPermissionActions = ReturnType<typeof createProjectPermissionActions>;
 
-/** Project member permission view: JSX moved verbatim from the project import page (OPT424-038). */
+/** Project member permission view (OPT424-038); CHG-495 M13 shows it as the project page members tab instead of a dialog. */
 export function createProjectPermissionView(state: ProjectPermissionState, actions: ProjectPermissionActions, deps: Pick<ImportPageDeps, "canManageProjectPermissions" | "currentUser" | "format" | "locale" | "project" | "t">) {
-  const { setPermissionModalOpen, projectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, permissionError, permissionSavingUserId, permissionRemovingUserId, permissionRoleLabel, membersForActiveRole, filteredPermissionUsers, permissionSearchMessage } = state;
+  const { projectMembers, permissionQuery, setPermissionQuery, pendingPermissionUsers, setPendingPermissionUsers, activePermissionRole, setActivePermissionRole, permissionLoading, permissionError, permissionSavingUserId, permissionRemovingUserId, permissionRoleLabel, membersForActiveRole, filteredPermissionUsers, permissionSearchMessage } = state;
   const { loadProjectPermissions, saveProjectMemberRole, stagePermissionCandidate, commitPendingPermissionCandidates, removeProjectPermissionMember } = actions;
 
-  function renderProjectPermissionModal() {
+  function renderProjectPermissionPanel() {
     const { canManageProjectPermissions, currentUser, format, locale, project, t } = deps;
     return (
       (
-      <Modal onEscape={() => setPermissionModalOpen(false)} aria-labelledby="project-permissions-title" className="modal-panel project-permission-modal">
-          <div className="modal-header">
-            <div className="modal-title-row">
-              <span className="modal-title-icon"><UserRoundCog size={20} /></span>
-              <div>
-                <p className="eyebrow">{project?.name ?? t("projectImportFallbackProjectTitle")}</p>
-                <h2 id="project-permissions-title">{t("projectImportPermissionManagement")}</h2>
-              </div>
+      <section aria-labelledby="project-permissions-title" className="panel project-members-panel">
+          <div className="panel-header project-members-header">
+            <div>
+              <h2 id="project-permissions-title">{t("projectImportPermissionManagement")}</h2>
+              <p>{format("projectMembersSummary", { count: projectMembers.length, project: project?.name ?? t("projectImportFallbackProjectTitle") })}</p>
             </div>
-            <button className="icon-button" onClick={() => setPermissionModalOpen(false)} type="button" aria-label={t("projectImportClosePermissionModal")}>
-              <X size={18} />
-            </button>
           </div>
           {permissionError ? <FeedbackMessage tone="error"><strong>{projectImportErrorMessage(permissionError, t, format)}</strong><button className="text-link" onClick={loadProjectPermissions} type="button">{t("retry")}</button></FeedbackMessage> : null}
           {permissionLoading ? <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("loadingData")}</p></div> : (
@@ -254,11 +247,10 @@ export function createProjectPermissionView(state: ProjectPermissionState, actio
               </section>
             </div>
           )}
-          <div className="modal-actions"><button className="action-button secondary" onClick={() => setPermissionModalOpen(false)} type="button">{t("close")}</button></div>
-        </Modal>
+        </section>
     )
     );
   }
 
-  return { renderProjectPermissionModal };
+  return { renderProjectPermissionPanel };
 }

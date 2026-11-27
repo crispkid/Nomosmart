@@ -9,7 +9,7 @@ import type { DataSourceConnectionOptions } from "./identityTypes";
 import type {
   IntegrationClientCreateResponse, IntegrationClientPage, IntegrationClientPayload, IntegrationClientResponse,
   ProjectArchiveImpactResponse, ProjectCreatePayload, ProjectListOptions, ProjectListPage,
-  ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdatePayload, ProjectResponse
+  ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdatePayload, ProjectResponse, ProjectStatusCounts, ProjectUpdatePayload
 } from "./projectTypes";
 import type { ApprovalRequestResponse, ApprovalSummary, KnowledgeDetailResponse, SubmissionEvidenceResponse } from "./reviewTypes";
 import type { SessionDraftRestoreResponse } from "./servingTypes";
@@ -26,6 +26,7 @@ export async function listProjectsPage(apiFetch: ApiFetch, options: ProjectListO
   for (const role of options.roles ?? []) params.append("role", role);
   if (options.modelState) params.set("model_state", options.modelState);
   if (options.pdfModelState) params.set("pdf_model_state", options.pdfModelState);
+  for (const status of options.derivedStatus ?? []) params.append("derived_status", status);
   const response = await apiFetch(`${apiBaseUrl()}/projects?${params.toString()}`, { cache: "no-store", signal: options.signal });
   if (!response.ok) {
     throw await apiResponseError(response);
@@ -41,6 +42,10 @@ export type ProjectRetrievalSettings = { rerank_enabled: boolean; rerank_availab
 export async function getProjectRetrievalSettings(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectRetrievalSettings>(apiFetch, `/projects/${projectId}/retrieval-settings`, { signal }); }
 export async function updateProjectRetrievalSettings(apiFetch: ApiFetch, projectId: string, rerankEnabled: boolean) { return apiJson<ProjectRetrievalSettings>(apiFetch, `/projects/${projectId}/retrieval-settings`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ rerank_enabled: rerankEnabled }) }); }
 export async function getProject(apiFetch: ApiFetch, projectId: string, signal?: AbortSignal) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`, { signal }); }
+/** CHG-495 UIRD-API-002: visible projects per derived status, for the project list chips and header. */
+export async function getProjectStatusCounts(apiFetch: ApiFetch, signal?: AbortSignal) { return apiJson<ProjectStatusCounts>(apiFetch, "/projects/status-counts", { signal }); }
+/** Project Owners update the project's name and description (CHG-495 M14 settings tab). */
+export async function updateProject(apiFetch: ApiFetch, projectId: string, payload: ProjectUpdatePayload) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}`, { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function createProject(apiFetch: ApiFetch, payload: ProjectCreatePayload) { return apiJson<ProjectResponse>(apiFetch, "/projects", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }
 export async function getProjectArchiveImpact(apiFetch: ApiFetch, projectId: string) { return apiJson<ProjectArchiveImpactResponse>(apiFetch, `/projects/${projectId}/archive-impact`); }
 export async function archiveProject(apiFetch: ApiFetch, projectId: string, payload: { lock_version: number; confirmation_name: string }) { return apiJson<ProjectResponse>(apiFetch, `/projects/${projectId}/archive`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) }); }

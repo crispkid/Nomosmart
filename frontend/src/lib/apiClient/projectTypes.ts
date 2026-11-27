@@ -20,7 +20,19 @@ export type ProjectResponse = {
   published_version_count: number;
   last_activity_at: string | null;
   capabilities: ProjectCapabilities;
+  /** CHG-495 UIRD-API-002: Project Owners, published counts and the derived project status. */
+  owners?: ProjectOwnerSummary[];
+  published_document_count?: number;
+  chunk_count?: number;
+  derived_status?: ProjectDerivedStatus | null;
 };
+
+export type ProjectDerivedStatus = "processing" | "published" | "draft" | "deactivated";
+export type ProjectOwnerSummary = { user_id: string; display_name: string };
+/** CHG-495 UIRD-API-002: `GET /projects/status-counts`. */
+export type ProjectStatusCounts = Record<"total" | ProjectDerivedStatus | "published_document_total", number>;
+/** `PUT /projects/{id}` (Project Owners): only the fields the settings tab edits. */
+export type ProjectUpdatePayload = { name?: string; description?: string | null; lock_version: number };
 
 export type ProjectCapabilities = {
   can_publish?: boolean;
@@ -44,6 +56,7 @@ export type ProjectListOptions = {
   roles?: ("owner" | "editor" | "viewer")[];
   modelState?: "complete" | "incomplete";
   pdfModelState?: "configured" | "not_configured" | "invalid";
+  derivedStatus?: ProjectDerivedStatus[];
   sort?: "updated_desc" | "updated_asc" | "name_asc" | "name_desc";
   offset?: number;
   limit?: number;

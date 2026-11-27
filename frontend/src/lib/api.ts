@@ -13,7 +13,7 @@ export type {
   ProjectResponse, ProjectCapabilities, ProjectListOptions, ProjectListPage, ProjectArchiveImpactResponse,
   IntegrationClientResponse, IntegrationClientCreateResponse, IntegrationClientPage, IntegrationClientPayload,
   ProjectCreatePayload, ProjectMemberResponse, ProjectMemberCandidate, ProjectMemberCandidatePage,
-  ProjectMemberUpdatePayload
+  ProjectMemberUpdatePayload, ProjectDerivedStatus, ProjectOwnerSummary, ProjectStatusCounts, ProjectUpdatePayload
 } from "./apiClient/projectTypes";
 export type {
   PipelineExecution, PipelineSummary, ChunkingIssue, PipelineStepSummary, PipelineRunDetail,
@@ -37,7 +37,7 @@ export type {
 } from "./apiClient/servingTypes";
 export {
   restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject, getProjectRetrievalSettings, updateProjectRetrievalSettings,
-  createProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
+  createProject, getProjectStatusCounts, updateProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
   listIntegrationClientsPage, getIntegrationClient, getDataSourceConnectionOptions, createIntegrationClient,
   updateIntegrationClient, replaceIntegrationClientProjectScopes, rotateIntegrationClientKey,
   activateIntegrationClient, deactivateIntegrationClient, revokeIntegrationClient, listProjectMembers,

@@ -34,15 +34,25 @@ const WorkspaceChromeContext = createContext(false);
  * (workspace) route-group layout the navigation chrome is already mounted and persists across
  * navigation; rendered anywhere else, the page brings its own chrome as before.
  */
-export function AppShell({ children, title, browserTitle }: { children: React.ReactNode; title: string; browserTitle?: string }) {
+export function AppShell({ children, title, browserTitle, breadcrumb, titleAdornment, subtitle, actions }: {
+  children: React.ReactNode; title: string; browserTitle?: string;
+  /** CHG-495 M15 (DESIGN.md §6): breadcrumb above the heading; the last item is the current page. */
+  breadcrumb?: { label: string; href?: string }[];
+  titleAdornment?: React.ReactNode; subtitle?: React.ReactNode; actions?: React.ReactNode;
+}) {
   const insideChrome = useContext(WorkspaceChromeContext);
   const { authReady } = useAuth();
   const { t } = useI18n();
   const page = <><BrowserTitle label={authReady ? browserTitle ?? title : t("brandKnowledgeOps")} />
-    <header className="topbar">
-      <div>
-        <h1>{title}</h1>
+    <header className={actions ? "topbar has-actions" : "topbar"}>
+      <div className="topbar-heading">
+        {breadcrumb?.length ? <nav aria-label={t("breadcrumbLabel")} className="ws-breadcrumb"><ol>
+          {breadcrumb.map((item, index) => <li key={`${index}:${item.label}`}>{item.href ? <Link href={item.href}>{item.label}</Link> : <span aria-current={index === breadcrumb.length - 1 ? "page" : undefined}>{item.label}</span>}</li>)}
+        </ol></nav> : null}
+        <h1>{titleAdornment}{title}</h1>
+        {subtitle ? <p className="topbar-subtitle">{subtitle}</p> : null}
       </div>
+      {actions ? <div className="topbar-actions">{actions}</div> : null}
     </header>
     {children}</>;
   return insideChrome ? page : <WorkspaceChrome>{page}</WorkspaceChrome>;
@@ -282,6 +292,13 @@ export function StatusBadge({ status }: { status: string }) {
   const tone = ["failed", "review_rejected", "deleted"].includes(status) ? "error" : ["completed", "approved", "published_active", "active", "submission_ready", "publish_ready", "skipped"].includes(status) ? "success" : status === "inactive" || !statusLabelKeys[status] ? "warning" : "info";
   const Icon = feedbackIcons[tone];
   return <span className={`status-badge feedback-status-badge feedback-${tone}`}><Icon size={14} aria-hidden="true" />{statusLabel(status, t)}</span>;
+}
+
+export type BadgeTone = "accent" | "info" | "amber" | "danger" | "violet" | "neutral";
+
+/** CHG-495 UIRD-004 badge: soft background, ink text and a dot; the text always carries the meaning. */
+export function ToneBadge({ tone, children, className }: { tone: BadgeTone; children: React.ReactNode; className?: string }) {
+  return <span className={`ws-badge tone-${tone}${className ? ` ${className}` : ""}`}><i aria-hidden="true" />{children}</span>;
 }
 
 export function PageGrid({ children }: { children: React.ReactNode }) {

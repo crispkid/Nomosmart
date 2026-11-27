@@ -166,6 +166,7 @@ export function DocumentPipelineCard(props: DocumentPipelineCardProps) {
               {pipelineDetailLoading[document.id] ? <Loader2 className="spin" size={16} /> : <RotateCcw size={16} />} {pipelineDetailLoading[document.id] ? t("knowledgeDetailRetryingStep") : retryLimitReached ? t("projectImportRetryLimitReached") : retryBlockedReason ? t("ocrRetryDisabled") : t("pipelineRetryFailedStep")}
             </button>
           ) : null}
+          {pipeline.status === "failed" && failedStep ? <small className="document-retry-count">{format("projectImportRetryAttempts", { count: formatCount(failedStep.retryCount, locale) })}</small> : null}
           {reviewLocked ? <span className="ready-summary"><ShieldCheck size={15} /> {t("projectImportReviewExtractionLocked")}</span> : null}
           {pipeline.waitingStation ? (
             <Link className="action-button" href={`/project/${projectId}/knowledge/${document.id}?station=${pipeline.waitingStation}`}>

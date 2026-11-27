@@ -7,10 +7,12 @@ import { FeedbackField, FeedbackMessage } from "@/components/FeedbackMessage";
 import Link from "next/link";
 import { Modal } from "@/components/Modal";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, CheckCircle2, FileCheck2, Files, FileText, FolderKanban, LoaderCircle, Plus, RefreshCw, Search, Settings, SlidersHorizontal, Workflow, X } from "lucide-react";
-import { AppShell, ForbiddenState, Panel, StatusBadge } from "@/components/AppShell";
+import { AlertTriangle, Archive, ArrowRight, ArrowUpDown, BrainCircuit, ExternalLink, FileCheck2, Files, FileText, FolderKanban, Layers, LoaderCircle, MoreHorizontal, Plus, RefreshCw, Search, Settings, SlidersHorizontal, UserRound, Workflow, X } from "lucide-react";
+import { AppShell, ForbiddenState, ToneBadge, type BadgeTone } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { archiveProject, createProject, getProjectArchiveImpact, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectListPage, type ProjectResponse } from "@/lib/api";
+import { archiveProject, createProject, getProjectArchiveImpact, getProjectStatusCounts, listModels, listProjectsPage, retryProjectArchiveCleanup, type AIModelResponse, type ApiError, type ProjectArchiveImpactResponse, type ProjectListPage, type ProjectResponse, type ProjectStatusCounts } from "@/lib/api";
+import { formatCount } from "@/lib/numberFormat";
+import { projectColorClass } from "@/lib/projectColor";
 import { formatDateTime } from "@/lib/dateFormat";
 import { Pagination } from "@/components/Pagination";
 import { useReadResource } from "@/lib/useReadResource";
@@ -26,6 +28,12 @@ const PROJECT_PAGE_SIZE = 12;
 type ProjectRoleFilter = "owner" | "editor" | "viewer";
 type ProjectModelFilter = "all" | "complete" | "incomplete";
 type ProjectSort = "updated_desc" | "updated_asc" | "name_asc" | "name_desc";
+// CHG-495 M09: status chips beside the tabs. "Deactivated" is the derived status of archived projects (D495-08),
+// so its chip opens the archived tab; the other chips filter the project list with `derived_status=`.
+type ProjectStatusFilter = "all" | "processing" | "published" | "draft";
+const statusFilters: ProjectStatusFilter[] = ["all", "processing", "published", "draft"];
+const derivedStatusTone: Record<string, BadgeTone> = { processing: "info", published: "accent", draft: "neutral", deactivated: "neutral" };
+const archiveCleanupTone: Record<string, BadgeTone> = { queued: "neutral", running: "info", completed: "accent", failed: "danger" };
 
 const modelGroupKeys = ["model_group", "modelGroup", "model_family", "modelFamily", "deployment_group", "deploymentGroup", "project_group", "projectGroup"];
 
@@ -72,13 +80,17 @@ export default function ProjectsPage() {
   const [pdfFilter, setPdfFilter] = useState<"all" | ProjectResponse["pdf_model_state"]>("all");
   const [draftPdfFilter, setDraftPdfFilter] = useState<"all" | ProjectResponse["pdf_model_state"]>("all");
   const [projectSort, setProjectSort] = useState<ProjectSort>("updated_desc");
+  const [statusFilter, setStatusFilter] = useState<ProjectStatusFilter>("all");
+  const [menuProjectId, setMenuProjectId] = useState<string | null>(null);
+  const [countsVersion, setCountsVersion] = useState(0);
   const [page, setPage] = useState(1);
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
   // OPT424-035: the project page and the model list are read resources. The project read is bound to
   // the tab, search, filters, sort and page; a page beyond the last one moves to the last page.
   const projectQuery = useMemo(() => ({ status: activeTab, q: query, roles: roleFilters, modelState: modelFilter === "all" ? undefined : modelFilter,
-    pdfModelState: pdfFilter === "all" ? undefined : pdfFilter, sort: projectSort, offset: (page - 1) * PROJECT_PAGE_SIZE, limit: PROJECT_PAGE_SIZE }), [activeTab, query, roleFilters, modelFilter, pdfFilter, projectSort, page]);
+    pdfModelState: pdfFilter === "all" ? undefined : pdfFilter, derivedStatus: activeTab === "active" && statusFilter !== "all" ? [statusFilter] : undefined,
+    sort: projectSort, offset: (page - 1) * PROJECT_PAGE_SIZE, limit: PROJECT_PAGE_SIZE }), [activeTab, query, roleFilters, modelFilter, pdfFilter, statusFilter, projectSort, page]);
   const readProjects = useCallback((signal: AbortSignal) => listProjectsPage(apiFetch, { ...projectQuery, signal }), [apiFetch, projectQuery]);
   const projectsRead = useReadResource<ProjectListPage>(readProjects, projectQuery, canView, {
     onData: (result) => {
@@ -91,6 +103,10 @@ export default function ProjectsPage() {
   const loading = canView && projectsRead.status === "loading";
   const error = actionError ?? (projectsRead.status === "error" ? projectsRead.error as ApiError | Error : null);
   const refreshProjects = () => { setError(null); void projectsRead.reload(); };
+  // CHG-495 UIRD-API-002: chip counts and the header summary; reread after create, archive and cleanup retry.
+  const readCounts = useCallback((signal: AbortSignal) => getProjectStatusCounts(apiFetch, signal), [apiFetch]);
+  const countsRead = useReadResource<ProjectStatusCounts>(readCounts, countsVersion, canView, { keepData: true });
+  const counts = countsRead.data;
   const readModels = useCallback((signal: AbortSignal) => listModels(apiFetch, undefined, signal), [apiFetch]);
   const modelsRead = useReadResource<AIModelResponse[]>(readModels, "project-create-models", canCreate, {
     keepData: true,
@@ -211,6 +227,7 @@ export default function ProjectsPage() {
       setActiveTab("active");
       setPage(1);
       void projectsRead.reload();
+      setCountsVersion((current) => current + 1);
     } catch (caught) {
       setCreateError(caught as ApiError | Error);
     } finally {
@@ -253,6 +270,7 @@ export default function ProjectsPage() {
       setArchiveConfirmation("");
       setActiveTab("archived");
       setPage(1);
+      setCountsVersion((current) => current + 1);
     } catch (caught) {
       setArchiveError(caught as ApiError | Error);
     } finally {
@@ -267,6 +285,7 @@ export default function ProjectsPage() {
     try {
       await retryProjectArchiveCleanup(apiFetch, project.id);
       void projectsRead.reload();
+      setCountsVersion((current) => current + 1);
     } catch (caught) {
       setError(caught as ApiError | Error);
     } finally {
@@ -278,6 +297,31 @@ export default function ProjectsPage() {
     setActiveTab(tab);
     setPage(1);
   }
+
+  function changeStatusFilter(status: ProjectStatusFilter) {
+    setStatusFilter(status);
+    setActiveTab("active");
+    setPage(1);
+  }
+
+  useEffect(() => {
+    if (!menuProjectId) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (event.target instanceof Element && !event.target.closest(`[data-project-menu="${menuProjectId}"]`)) setMenuProjectId(null);
+    }
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key !== "Escape") return;
+      const trigger = document.querySelector<HTMLButtonElement>(`[data-project-menu="${menuProjectId}"] > button`);
+      setMenuProjectId(null);
+      window.requestAnimationFrame(() => trigger?.focus());
+    }
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuProjectId]);
 
   function openFilters() {
     setDraftRoleFilters(roleFilters);
@@ -315,7 +359,8 @@ export default function ProjectsPage() {
   const totalPages = Math.max(1, Math.ceil(totalProjects / PROJECT_PAGE_SIZE));
   const resultFirst = totalProjects ? (page - 1) * PROJECT_PAGE_SIZE + 1 : 0;
   const resultLast = Math.min(page * PROJECT_PAGE_SIZE, totalProjects);
-  const hasDiscoveryCriteria = Boolean(query || activeFilterCount);
+  const hasDiscoveryCriteria = Boolean(query || activeFilterCount || (activeTab === "active" && statusFilter !== "all"));
+  const statusCount = (status: ProjectStatusFilter) => counts ? status === "all" ? counts.total - counts.deactivated : counts[status] : null;
 
   function projectAuthorityLabel(project: ProjectResponse) {
     if (project.is_owner) return t("projectsAuthorityOwner");
@@ -330,64 +375,126 @@ export default function ProjectsPage() {
     return formatDateTime(value, locale, "—");
   }
 
+  function openCreate() {
+    setCreateError(null);
+    setNameInvalid(false);
+    setIsCreateOpen(true);
+  }
+
+  function clearDiscovery() {
+    setSearchInput("");
+    setQuery("");
+    setStatusFilter("all");
+    clearFilters();
+  }
+
+  const createButton = <button className="action-button project-create-trigger" aria-describedby={!canCreate ? "project-create-unavailable" : undefined} disabled={!canCreate} onClick={openCreate} type="button">
+    <Plus size={16} /> {t("projectsCreateProject")}
+  </button>;
+  const headerSummary = counts ? format("projectsHeaderSummary", { projects: formatCount(counts.total, locale), documents: formatCount(counts.published_document_total, locale) }) : undefined;
+
   return (
-    <AppShell title={t("dashboard")}>
+    <AppShell title={t("dashboard")} subtitle={canView ? headerSummary : undefined} actions={canView ? <div className="project-create-action">
+      {createButton}
+      {!canCreate ? <small className="project-create-reason" id="project-create-unavailable">{t("apiForbidden")}</small> : null}
+    </div> : undefined}>
       {!canView ? <ForbiddenState /> : <>
-        <div className="tab-row">
-          {tabs.map((tab) => <button className={activeTab === tab.id ? "tab active" : "tab"} key={tab.id} onClick={() => changeTab(tab.id)} type="button">{t(tab.labelKey)}</button>)}
-          {activeTab === "active" ? <button className="action-button project-create-trigger" aria-describedby={!canCreate ? "project-create-unavailable" : undefined} disabled={!canCreate} onClick={() => { setCreateError(null); setNameInvalid(false); setIsCreateOpen(true); }} type="button">
-            <Plus size={16} /> {t("projectsCreateProject")}
-          </button> : null}
-          {activeTab === "active" && !canCreate ? <small className="project-create-reason" id="project-create-unavailable">{t("apiForbidden")}</small> : null}
+        <div className="project-list-bar">
+          <div aria-label={t("projectsTabsLabel")} className="ws-tabs" role="tablist">
+            {tabs.map((tab) => <button aria-selected={activeTab === tab.id} className="ws-tab" key={tab.id} onClick={() => changeTab(tab.id)} role="tab" type="button">
+              {t(tab.labelKey)}{tab.id === "archived" && counts ? <span className="ws-tab-count">{formatCount(counts.deactivated, locale)}</span> : null}
+            </button>)}
+          </div>
+          <div aria-label={t("projectsStatusFilterLabel")} className="ws-segmented project-status-filter" role="group">
+            {statusFilters.map((status) => <button aria-pressed={activeTab === "active" && statusFilter === status} key={status} onClick={() => changeStatusFilter(status)} type="button">
+              {t(status === "all" ? "projectsStatusAll" : `projectsDerivedStatus_${status}`)}{statusCount(status) !== null ? <span>{formatCount(statusCount(status) ?? 0, locale)}</span> : null}
+            </button>)}
+            <button aria-pressed={activeTab === "archived"} onClick={() => changeTab("archived")} type="button">
+              {t("projectsDerivedStatus_deactivated")}{counts ? <span>{formatCount(counts.deactivated, locale)}</span> : null}
+            </button>
+          </div>
         </div>
 
-        <Panel title={t("projectsListTitle")} action={<span aria-live="polite" className="project-result-summary">{format("projectsResultSummary", { first: resultFirst, last: resultLast, total: totalProjects })}</span>}>
-          <section aria-label={t("projectsDiscoveryTools")} className="project-discovery-toolbar">
-            <label className="project-search-field">
-              <Search aria-hidden="true" size={17} />
-              <input aria-label={t("projectsSearchLabel")} onChange={(event) => setSearchInput(event.target.value)} placeholder={t("projectsSearchPlaceholder")} type="search" value={searchInput} />
-              {searchInput ? <button aria-label={t("projectsClearSearch")} className="project-search-clear" onClick={() => setSearchInput("")} type="button"><X size={15} /></button> : null}
-            </label>
-            <div className="project-discovery-actions">
-              <div className="project-filter-control" ref={filterControlRef}>
-                <button aria-expanded={filterOpen} className={activeFilterCount ? "project-tool-button active" : "project-tool-button"} onClick={() => filterOpen ? setFilterOpen(false) : openFilters()} ref={filterButtonRef} type="button"><SlidersHorizontal size={16} />{t("projectsFilter")}{activeFilterCount ? <span>{activeFilterCount}</span> : null}</button>
-                {filterOpen ? <section aria-label={t("projectsFilter")} className="project-filter-popover">
-                  <fieldset><legend>{t("projectsRoleFilter")}</legend>{(["owner", "editor", "viewer"] as ProjectRoleFilter[]).map((role) => <label key={role}><input checked={draftRoleFilters.includes(role)} onChange={() => toggleDraftRole(role)} type="checkbox" /><span>{t(`projectsRole_${role}`)}</span></label>)}</fieldset>
-                  <fieldset><legend>{t("projectsModelFilter")}</legend>{(["all", "complete", "incomplete"] as ProjectModelFilter[]).map((state) => <label key={state}><input checked={draftModelFilter === state} name="project-model-filter" onChange={() => setDraftModelFilter(state)} type="radio" /><span>{t(`projectsModelFilter_${state}`)}</span></label>)}</fieldset>
-                  <label><span>{t("projectsPdfFilter")}</span><DropdownSelect onChange={(event) => setDraftPdfFilter(event.target.value as typeof draftPdfFilter)} value={draftPdfFilter}><option value="all">{t("projectsModelFilter_all")}</option>{(["configured", "not_configured", "invalid"] as const).map((state) => <option key={state} value={state}>{t(`projectsPdfModel_${state}`)}</option>)}</DropdownSelect></label>
-                  <footer><button className="text-link" onClick={clearFilters} type="button">{t("projectsClearFilters")}</button><button className="action-button" onClick={applyFilters} type="button">{t("projectsApplyFilters")}</button></footer>
-                </section> : null}
-              </div>
-              <label className="project-sort-control"><ArrowUpDown aria-hidden="true" size={16} /><span className="sr-only">{t("projectsSortLabel")}</span><DropdownSelect aria-label={t("projectsSortLabel")} onChange={(event) => { setProjectSort(event.target.value as ProjectSort); setPage(1); }} value={projectSort}><option value="updated_desc">{t("projectsSortUpdatedDesc")}</option><option value="updated_asc">{t("projectsSortUpdatedAsc")}</option><option value="name_asc">{t("projectsSortNameAsc")}</option><option value="name_desc">{t("projectsSortNameDesc")}</option></DropdownSelect></label>
-            </div>
-          </section>
+        <section aria-label={t("projectsDiscoveryTools")} className="project-discovery-toolbar">
+          <label className="project-search-field">
+            <Search aria-hidden="true" size={16} />
+            <input aria-label={t("projectsSearchLabel")} onChange={(event) => setSearchInput(event.target.value)} placeholder={t("projectsSearchPlaceholder")} type="search" value={searchInput} />
+            {searchInput ? <button aria-label={t("projectsClearSearch")} className="project-search-clear" onClick={() => setSearchInput("")} type="button"><X size={15} /></button> : null}
+          </label>
+          <div className="project-filter-control" ref={filterControlRef}>
+            <button aria-expanded={filterOpen} className={activeFilterCount ? "action-button secondary project-tool-button active" : "action-button secondary project-tool-button"} onClick={() => filterOpen ? setFilterOpen(false) : openFilters()} ref={filterButtonRef} type="button"><SlidersHorizontal size={16} />{t("projectsFilter")}{activeFilterCount ? <span>{activeFilterCount}</span> : null}</button>
+            {filterOpen ? <section aria-label={t("projectsFilter")} className="project-filter-popover">
+              <fieldset><legend>{t("projectsRoleFilter")}</legend>{(["owner", "editor", "viewer"] as ProjectRoleFilter[]).map((role) => <label key={role}><input checked={draftRoleFilters.includes(role)} onChange={() => toggleDraftRole(role)} type="checkbox" /><span>{t(`projectsRole_${role}`)}</span></label>)}</fieldset>
+              <fieldset><legend>{t("projectsModelFilter")}</legend>{(["all", "complete", "incomplete"] as ProjectModelFilter[]).map((state) => <label key={state}><input checked={draftModelFilter === state} name="project-model-filter" onChange={() => setDraftModelFilter(state)} type="radio" /><span>{t(`projectsModelFilter_${state}`)}</span></label>)}</fieldset>
+              <label><span>{t("projectsPdfFilter")}</span><DropdownSelect onChange={(event) => setDraftPdfFilter(event.target.value as typeof draftPdfFilter)} value={draftPdfFilter}><option value="all">{t("projectsModelFilter_all")}</option>{(["configured", "not_configured", "invalid"] as const).map((state) => <option key={state} value={state}>{t(`projectsPdfModel_${state}`)}</option>)}</DropdownSelect></label>
+              <footer><button className="text-link" onClick={clearFilters} type="button">{t("projectsClearFilters")}</button><button className="action-button" onClick={applyFilters} type="button">{t("projectsApplyFilters")}</button></footer>
+            </section> : null}
+          </div>
+          <label className="project-sort-control"><ArrowUpDown aria-hidden="true" size={16} /><span className="sr-only">{t("projectsSortLabel")}</span><DropdownSelect aria-label={t("projectsSortLabel")} onChange={(event) => { setProjectSort(event.target.value as ProjectSort); setPage(1); }} value={projectSort}><option value="updated_desc">{t("projectsSortUpdatedDesc")}</option><option value="updated_asc">{t("projectsSortUpdatedAsc")}</option><option value="name_asc">{t("projectsSortNameAsc")}</option><option value="name_desc">{t("projectsSortNameDesc")}</option></DropdownSelect></label>
+        </section>
 
-          {loading ? <div className="project-list-loading" role="status"><LoaderCircle className="spin" size={20} />{t("loadingData")}</div> : null}
-          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="text-link" onClick={refreshProjects} type="button">{t("retry")}</button></FeedbackMessage> : null}
-          {!loading && !error && projects.length === 0 ? <div className="empty-state">{hasDiscoveryCriteria ? t("projectsNoMatchingProjects") : t("projectsNoVisibleProjects")}{hasDiscoveryCriteria ? <button className="text-link" onClick={() => { setSearchInput(""); setQuery(""); clearFilters(); }} type="button">{t("projectsClearDiscovery")}</button> : null}</div> : null}
-          <div className="project-grid">
-            {projects.map((project) => (
-              <article className={`project-card project-card-large${project.status === "archived" ? " archived" : ""}`} key={project.id}>
-<header className="project-card-header"><span className="project-icon"><FolderKanban size={21} /></span><div><h3>{project.name}</h3><small>{format("projectsLastActivity", { time: projectActivity(project) })}</small></div><span className={`project-authority-badge${project.is_owner ? " owner" : (project.capabilities.can_archive_project || project.capabilities.can_retry_archive_cleanup) ? " execute" : ""}`}>{projectAuthorityLabel(project)}</span></header>
+        {activeTab === "archived" ? <p className="project-archived-note" role="note"><Archive aria-hidden="true" size={16} />{t("projectsArchivedNote")}</p> : null}
+
+        <section aria-labelledby="project-list-title" className="panel project-list-panel">
+          <div className="panel-header">
+            <h2 id="project-list-title">{t("projectsListTitle")}</h2>
+            <span aria-live="polite" className="project-result-summary">{loading ? t("loadingData") : format("projectsResultSummary", { first: resultFirst, last: resultLast, total: totalProjects })}</span>
+          </div>
+          {loading ? <div className="project-list-loading" role="status" aria-label={t("loadingData")}>{[0, 1].map((index) => <span className="project-skeleton" key={index}><i /><i /><i /></span>)}</div> : null}
+          {error ? <FeedbackMessage tone="error"><strong>{errorMessage(error)}</strong><button className="action-button secondary" onClick={refreshProjects} type="button"><RefreshCw size={15} />{t("retry")}</button></FeedbackMessage> : null}
+          {!loading && !error && projects.length === 0 ? <div className="empty-state project-empty-state">
+            <span className="project-empty-icon">{hasDiscoveryCriteria ? <Search aria-hidden="true" size={20} /> : <FolderKanban aria-hidden="true" size={20} />}</span>
+            <strong>{hasDiscoveryCriteria ? t("projectsNoMatchingProjects") : t("projectsNoVisibleProjects")}</strong>
+            {!hasDiscoveryCriteria && activeTab === "active" ? <p>{t("projectsEmptyHelp")}</p> : null}
+            {hasDiscoveryCriteria ? <button className="action-button secondary" onClick={clearDiscovery} type="button"><X size={15} />{t("projectsClearDiscovery")}</button>
+              : activeTab === "active" && canCreate ? <button className="action-button" onClick={openCreate} type="button"><Plus size={16} />{t("projectsCreateProject")}</button> : null}
+          </div> : null}
+          {projects.length ? <div className="project-grid">
+            {projects.map((project) => {
+              const archived = project.status === "archived";
+              const owners = (project.owners ?? []).map((owner) => owner.display_name).filter(Boolean);
+              return (
+              <article className={`project-card${archived ? " archived" : ""}`} key={project.id}>
+                <header className="project-card-header">
+                  <span className="project-icon">{archived ? <Archive aria-hidden="true" size={18} /> : <FolderKanban aria-hidden="true" size={18} />}</span>
+                  <div className="project-card-title">
+                    <h3><span aria-hidden="true" className={`project-color-dot ${projectColorClass(project.id)}`} />{project.name}</h3>
+                    <small>{archived ? format("projectsArchivedAt", { time: projectActivity(project) }) : format("projectsLastActivity", { time: projectActivity(project) })}</small>
+                  </div>
+                  {archived ? <span className="archived-project-lock">{t("projectsArchivedUnavailable")}</span>
+                    : <span className={`project-authority-badge${project.is_owner ? " owner" : (project.capabilities.can_archive_project || project.capabilities.can_retry_archive_cleanup) ? " execute" : ""}`}>{projectAuthorityLabel(project)}</span>}
+                </header>
                 <p className="project-card-description">{project.description || t("projectsNoDescription")}</p>
-                <dl className="project-card-metrics">
-                  <div><dt><Files size={16} />{t("projectsDocumentCount")}</dt><dd>{project.document_count}</dd></div>
-                  <div><dt><FileCheck2 size={16} />{t("projectsPublishedVersionCount")}</dt><dd>{project.published_version_count}</dd></div>
-                  <div><dt><BrainCircuit size={16} />{t("projectsModelCompleteness")}</dt><dd className="project-model-state"><span>{t(project.model_configuration_state === "ready" ? "projectsBasicReady" : "projectsBasicIncomplete")}</span><small>{t(`projectsPdfModel_${project.pdf_model_state}`)}</small></dd></div>
-                </dl>
+                {owners.length ? <p className="project-card-owners"><UserRound aria-hidden="true" size={14} />{format("projectsOwnersLine", { names: owners.join("、") })}</p> : null}
+                {!archived ? <dl className="project-card-metrics">
+                  <div><dt><Files aria-hidden="true" size={14} />{t("projectsDocumentCount")}</dt><dd>{formatCount(project.document_count, locale)}</dd></div>
+                  <div><dt><FileCheck2 aria-hidden="true" size={14} />{t("projectsPublishedVersionCount")}</dt><dd>{formatCount(project.published_version_count, locale)}</dd></div>
+                  <div><dt><Layers aria-hidden="true" size={14} />{t("projectsChunkCount")}</dt><dd>{formatCount(project.chunk_count ?? 0, locale)}</dd></div>
+                  <div><dt><BrainCircuit aria-hidden="true" size={14} />{t("projectsModelCompleteness")}</dt><dd className={`project-model-state${project.model_configuration_state === "ready" && project.pdf_model_state !== "invalid" ? "" : " needs-attention"}`}><span>{t(project.model_configuration_state === "ready" ? "projectsBasicReady" : "projectsBasicIncomplete")}</span><small>{t(`projectsPdfModel_${project.pdf_model_state}`)}</small></dd></div>
+                </dl> : null}
                 <footer className="project-card-footer">
-                  <div className="project-card-status"><StatusBadge status={project.status} />{project.status === "archived" ? <small>{t(`projectsArchiveCleanup_${project.archive_cleanup_status || "queued"}`)}</small> : project.model_configuration_state === "ready" ? <small><CheckCircle2 size={14} />{t("projectsModelsReady")}</small> : <small>{t("projectsModelsIncomplete")}</small>}</div>
+                  <div className="project-card-status">
+                    {archived ? <ToneBadge tone={archiveCleanupTone[project.archive_cleanup_status || "queued"]}>{t(`projectsArchiveCleanup_${project.archive_cleanup_status || "queued"}`)}</ToneBadge>
+                      : project.derived_status ? <ToneBadge tone={derivedStatusTone[project.derived_status]}>{t(`projectsDerivedStatus_${project.derived_status}`)}</ToneBadge> : null}
+                  </div>
                   <div className="project-card-actions">
-                    {project.status === "active" && project.capabilities.can_archive_project ? <button className="project-archive-action" onClick={() => void openArchive(project)} type="button"><Archive size={15} />{t("projectsArchiveAction")}</button> : null}
-                    {project.status === "active" ? <Link className="project-enter-action" href={`/project/${project.id}/import`}>{t("projectsOpenProject")}<ArrowRight size={16} /></Link> : <span className="archived-project-lock"><Archive size={15} />{t("projectsArchivedUnavailable")}</span>}
-                    {project.status === "archived" && project.capabilities.can_retry_archive_cleanup && project.archive_cleanup_status === "failed" ? <button className="project-retry-action" disabled={retryingArchiveId === project.id} onClick={() => void retryArchiveCleanup(project)} type="button">{retryingArchiveId === project.id ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}{t("projectsArchiveCleanupRetry")}</button> : null}
+                    {!archived && project.capabilities.can_archive_project ? <div className="project-card-menu" data-project-menu={project.id}>
+                      <button aria-expanded={menuProjectId === project.id} aria-haspopup="menu" aria-label={format("projectsMoreActions", { name: project.name })} className="ws-icon-button" onClick={() => setMenuProjectId((current) => current === project.id ? null : project.id)} type="button"><MoreHorizontal aria-hidden="true" size={16} /></button>
+                      {menuProjectId === project.id ? <div className="project-card-menu-list" role="menu">
+                        <Link href={`/project/${project.id}/import`} role="menuitem"><ExternalLink aria-hidden="true" size={15} />{t("projectsOpenProject")}</Link>
+                        <button className="project-archive-action" onClick={() => { setMenuProjectId(null); void openArchive(project); }} role="menuitem" type="button"><Archive aria-hidden="true" size={15} />{t("projectsArchiveMenuItem")}</button>
+                      </div> : null}
+                    </div> : null}
+                    {!archived ? <Link className="action-button secondary project-enter-action" href={`/project/${project.id}/import`}>{t("projectsOpenProject")}<ArrowRight aria-hidden="true" size={16} /></Link> : null}
+                    {archived && project.capabilities.can_retry_archive_cleanup && project.archive_cleanup_status === "failed" ? <button className="action-button secondary project-retry-action" disabled={retryingArchiveId === project.id} onClick={() => void retryArchiveCleanup(project)} type="button">{retryingArchiveId === project.id ? <LoaderCircle className="spin" size={16} /> : <RefreshCw size={16} />}{t("projectsArchiveCleanupRetry")}</button> : null}
                   </div>
                 </footer>
               </article>
-            ))}
-          </div>
-          {totalPages > 1 ? <Pagination buttonClassName="icon-button" canNext={!loading && page < totalPages} canPrevious={!loading && page > 1} className="project-pagination" iconSize={17} label={t("projectsPagination")} nextLabel={t("systemNextPage")} onNext={() => setPage((current) => Math.min(totalPages, current + 1))} onPrevious={() => setPage((current) => Math.max(1, current - 1))} previousLabel={t("systemPreviousPage")} summary={format("projectsPageSummary", { page, total: totalPages })} /> : null}
-        </Panel>
+              );
+            })}
+          </div> : null}
+        </section>
+        {totalPages > 1 ? <Pagination buttonClassName="action-button secondary" canNext={!loading && page < totalPages} canPrevious={!loading && page > 1} className="project-pagination" iconSize={16} label={t("projectsPagination")} nextLabel={t("systemNextPage")} onNext={() => setPage((current) => Math.min(totalPages, current + 1))} onPrevious={() => setPage((current) => Math.max(1, current - 1))} previousLabel={t("systemPreviousPage")} summary={format("projectsPageSummary", { page, total: totalPages })} variant="text" /> : null}
 
         {isCreateOpen ? (
           <Modal onEscape={() => setIsCreateOpen(false)} aria-labelledby="create-project-title" className="modal-panel create-project-modal">
