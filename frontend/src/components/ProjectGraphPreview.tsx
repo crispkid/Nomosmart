@@ -384,6 +384,16 @@ function graphNodeTotal(graph: ProjectGraphResponse) {
   return Math.max(0, graph.total_node_count - (graph.node_type_counts?.DocumentVersion ?? 0));
 }
 
+/**
+ * Edges to document versions are counted by the API but never drawn (versions are not drawn either).
+ * When the whole graph is loaded, the drawn edge count is the true total; otherwise show the API total.
+ */
+function graphEdgeTotal(graph: ProjectGraphResponse) {
+  if (typeof graph.total_edge_count !== "number") return null;
+  const nodeTotal = graphNodeTotal(graph);
+  return nodeTotal !== null && nodeTotal <= graph.nodes.length ? graph.edges.length : graph.total_edge_count;
+}
+
 export function ProjectGraphPreview() {
   const params = useParams<{ id?: string }>();
   const { apiFetch, authReady } = useAuth();
@@ -471,7 +481,7 @@ export function ProjectGraphPreview() {
       scopeLabel={t("graphExplorerProjectScope")}
       statusLabel={statusLabel}
       title={t("graphExplorerTitle")}
-      totals={authorizedGraph ? { edgeCount: authorizedGraph.total_edge_count, nodeCount: graphNodeTotal(authorizedGraph), typeCounts: authorizedGraph.node_type_counts, updatedAt: authorizedGraph.updated_at } : undefined}
+      totals={authorizedGraph ? { edgeCount: graphEdgeTotal(authorizedGraph), nodeCount: graphNodeTotal(authorizedGraph), typeCounts: authorizedGraph.node_type_counts, updatedAt: authorizedGraph.updated_at } : undefined}
     />
   );
 }

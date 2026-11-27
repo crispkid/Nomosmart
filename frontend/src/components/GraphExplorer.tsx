@@ -1,6 +1,6 @@
 "use client";
 
-import { boundedGraphZoom, stepGraphZoom } from "@/lib/graphZoom";
+import { boundedGraphZoom, graphSceneFitScale, stepGraphZoom } from "@/lib/graphZoom";
 import { type PointerEvent, useEffect, useId, useMemo, useRef, useState } from "react";
 import { GRAPH_HEIGHT, GRAPH_WIDTH } from "@/lib/graphLayoutProtocol";
 import { useGraphLayout } from "@/lib/useGraphLayout";
@@ -48,6 +48,11 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
   
   const [zoom, setZoom] = useState(1);
   const zoomRef = useRef(1);
+  // LF495-01: the fixed scene shrinks to fit a narrow canvas (sidebar + filter column), so every node
+  // stays visible and clickable at the default view; zoom bands still follow the semantic zoom.
+  const [fitScale, setFitScale] = useState(1);
+  const fitScaleRef = useRef(1);
+  const sceneScale = (value: number) => visualScaleForZoom(value) * fitScaleRef.current;
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [selected, setSelected] = useState<{ id: string; type: "edge" | "node" } | null>(null);
   const [draggingCanvas, setDraggingCanvas] = useState(false);
@@ -65,7 +70,7 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
     [nodePositions, nodes, graphLayout.positions, manualScope, positionScope]
   );
   const zoomBand = semanticZoomBand(zoom);
-  const visualScale = visualScaleForZoom(zoom);
+  const visualScale = visualScaleForZoom(zoom) * fitScale;
   const selectedNodeId = selected?.type === "node" ? selected.id : null;
   const filtered = useMemo(() => applyGraphFilters(positionedNodes, edges, filters, selectedNodeId), [edges, filters, positionedNodes, selectedNodeId]);
   const shownEdges = filtered.edges;
@@ -108,6 +113,8 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
     const canvas = canvasRef.current;
     if (!canvas) return;
     const observer = new ResizeObserver(() => {
+      const fit = graphSceneFitScale(canvas.clientWidth, canvas.clientHeight, GRAPH_WIDTH, GRAPH_HEIGHT);
+      if (fit !== fitScaleRef.current) { fitScaleRef.current = fit; setFitScale(fit); return; }
       const previous = panRef.current;
       const next = constrainGraphPan(previous, panExtentRef.current, canvas.clientWidth, canvas.clientHeight, visualScale);
       if (next.x === previous.x && next.y === previous.y) return;
@@ -147,7 +154,7 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
     setZoom(1);
     zoomRef.current = 1;
     if (sceneRef.current) {
-      sceneRef.current.style.transform = `translate(0px, 0px) scale(${visualScaleForZoom(1)})`;
+      sceneRef.current.style.transform = `translate(0px, 0px) scale(${sceneScale(1)})`;
     }
     setSelected(null);
     
@@ -187,11 +194,11 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
     if (Math.hypot(deltaX, deltaY) > 4) drag.moved = true;
     const { x: newX, y: newY } = constrainGraphPan(
       { x: drag.originX + deltaX, y: drag.originY + deltaY }, panExtent,
-      event.currentTarget.clientWidth, event.currentTarget.clientHeight, visualScaleForZoom(zoomRef.current)
+      event.currentTarget.clientWidth, event.currentTarget.clientHeight, sceneScale(zoomRef.current)
     );
     panRef.current = { x: newX, y: newY };
     if (sceneRef.current) {
-      sceneRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${visualScaleForZoom(zoomRef.current)})`;
+      sceneRef.current.style.transform = `translate(${newX}px, ${newY}px) scale(${sceneScale(zoomRef.current)})`;
     }
   }
 
@@ -219,8 +226,8 @@ export function GraphExplorer({ edges, emptyMessage, filterable = false, layout 
     event.stopPropagation();
     const drag = nodeDrag.current;
     if (!drag || drag.pointerId !== event.pointerId) return;
-    const deltaX = (event.clientX - drag.startX) / visualScaleForZoom(zoomRef.current);
-    const deltaY = (event.clientY - drag.startY) / visualScaleForZoom(zoomRef.current);
+    const deltaX = (event.clientX - drag.startX) / sceneScale(zoomRef.current);
+    const deltaY = (event.clientY - drag.startY) / sceneScale(zoomRef.current);
     if (Math.hypot(deltaX, deltaY) > 4) drag.moved = true;
     const newX = drag.originX + deltaX;
     const newY = drag.originY + deltaY;
