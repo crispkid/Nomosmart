@@ -4,7 +4,7 @@ import { MutationOutcomeUnknown, TransportError } from "@/lib/transportError";
 import { apiJson, apiResponseError, type ApiError, type ApiFetch } from "./core";
 import type { DocumentSummary, DocumentUpdateResponse } from "./documentTypes";
 import type {
-  ApprovalPendingPublishResponse, ApprovalRequestResponse, ApprovalTaskDetail, ApprovalTaskResponse,
+  ApprovalPendingPublishResponse, ApprovalRequestResponse, ApprovalTaskDetail, ApprovalTaskResponse, ApprovalVersionChanges,
   DocumentReferenceImportResponse, LifecycleImpactResponse, PublishResult, ReferenceSourceProjectResponse,
   SwitchActiveVersionPayload
 } from "./reviewTypes";
@@ -46,6 +46,8 @@ export function listPendingPublishApprovalsPage(apiFetch: ApiFetch, cursor?: str
   return apiJson<ApprovalPendingPublishPage>(apiFetch, `/approvals/pending-publish/page?${params}`, { signal });
 }
 export async function getApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, signal?: AbortSignal) { return apiJson<ApprovalTaskDetail>(apiFetch, `/approvals/${approvalTaskId}`, { signal }); }
+/** CHG-495 UIRD-API-004 (M22): what this version changes; 403 approval_read_denied when the reader may not see it. */
+export function getApprovalVersionChanges(apiFetch: ApiFetch, approvalTaskId: string, signal?: AbortSignal) { return apiJson<ApprovalVersionChanges>(apiFetch, `/approvals/${approvalTaskId}/changes`, { signal }); }
 export async function approveApprovalTask(apiFetch: ApiFetch, approvalTaskId: string, payload: { lock_version: number; comment?: string | null }) {
   return apiJson<ApprovalTaskResponse>(apiFetch, `/approvals/${approvalTaskId}/approve`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(payload) });
 }

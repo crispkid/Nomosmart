@@ -13,7 +13,6 @@ import {
   BarChart3,
   CheckCircle2,
   ChevronDown,
-  CircleUserRound,
   Clock3,
   Download,
   FileCode2,
@@ -26,24 +25,23 @@ import {
   ShieldCheck,
   Table2,
   Tags,
-  UsersRound,
   X,
   XCircle
 } from "lucide-react";
-import { AppShell, StatusBadge } from "@/components/AppShell";
+import { AppShell, StatusBadge, StatusToneBadge, ToneBadge } from "@/components/AppShell";
+import { ApprovalRoute, approvalPeople } from "@/components/approval/ApprovalRoute";
+import { ApprovalVersionChangesSection } from "@/components/approval/ApprovalVersionChanges";
 import { Modal } from "@/components/Modal";
 import { ApprovalEvidenceViewer } from "@/components/ApprovalEvidenceViewer";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { useAuth } from "@/components/AuthProvider";
 import { approveApprovalTask, getApprovalTask, publishDocumentVersion, rejectApprovalTask, type ApiError, type ApprovalTaskDetail, type ProjectChatCitation } from "@/lib/api";
 import { buildApprovalConversationCsv, canSubmitApprovalDecision } from "@/lib/approvalDetail";
-import { reviewWorkflow, type ReviewStepState } from "@/lib/reviewPresentation";
 import { t as translate } from "@/lib/i18n";
 import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { resolvedSourceMappings } from "@/lib/markdownSourceMapping";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
-import { formatPersonName } from "@/lib/personName";
 
 // OPT424-036: the graph engine loads only when a graph dialog opens.
 const DocumentGraphPreview = dynamic(() => import("@/components/DocumentGraphPreview").then(module => module.DocumentGraphPreview), { ssr: false });
@@ -129,7 +127,7 @@ function downloadTextFile(content: string, filename: string) {
 export default function ApprovalDetailPage() {
   const params = useParams<{ approvalTaskId: string }>();
   const router = useRouter();
-  const { apiFetch } = useAuth();
+  const { apiFetch, currentUser } = useAuth();
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   // OPT424-035: the task is a read resource bound to the task id and the current session's fetch.
@@ -165,20 +163,17 @@ export default function ApprovalDetailPage() {
     chunks?: Array<{ id: string; tags?: Array<{ tag_id: string; name: string; source?: string }> }>;
     models?: Record<string, { name?: string; type?: string; provider?: string }>;
     validation?: { runs?: Array<{ id: string; status: string; total: number; completed: number; failed: number }> };
-    actors?: {
-      manager?: { given_name?: string | null; family_name?: string | null; display_name?: string; email?: string } | null;
-      owners?: Array<{ given_name?: string | null; family_name?: string | null; display_name?: string; email?: string }>;
-    };
   } | null;
   const manifestModels = Object.values(evidenceManifest?.models ?? {});
-  const approval = liveDetail?.task.id === params.approvalTaskId ? {
+  const people = liveDetail ? approvalPeople(liveDetail, locale, t) : null;
+  const approval = liveDetail?.task.id === params.approvalTaskId && people ? {
     id: liveDetail.task.id,
     project: liveDetail.task.project_name ?? `Project ${liveDetail.task.project_id.slice(0, 8)}`,
     document: liveDetail.document.title,
     version: liveDetail.version.version_label,
-    editor: formatPersonName({ given_name: liveDetail.request.submitter_given_name, family_name: liveDetail.request.submitter_family_name, display_name: liveDetail.request.submitter_name }, locale) || liveDetail.request.submitter_email || liveDetail.request.submitter_id.slice(0, 8),
-    manager: evidenceManifest?.actors?.manager ? formatPersonName(evidenceManifest.actors.manager, locale) || evidenceManifest.actors.manager.email || liveDetail.task.assignee_user_id?.slice(0, 8) || t("approvalOwnerGroup") : liveDetail.task.assignee_user_id?.slice(0, 8) ?? t("approvalOwnerGroup"),
-    owners: evidenceManifest?.actors?.owners?.map((owner) => formatPersonName(owner, locale) || owner.email || t("approvalProjectOwners")) ?? [t("approvalProjectOwners")],
+    editor: people.submitter,
+    manager: people.manager,
+    owners: people.owners,
     stage: liveDetail.task.review_stage,
     submittedAt: new Date(liveDetail.task.submitted_at).toLocaleString(locale === "en" ? "en-US" : "zh-TW"),
     status: liveDetail.task.status,
@@ -257,34 +252,24 @@ export default function ApprovalDetailPage() {
     return <AppShell title={t("approvalDetail")}><section className="empty-state" role="status" aria-busy="true"><Loader2 size={20} className="loading-spinner" aria-hidden="true" /> {t("approvalLoadingTask")}</section></AppShell>;
   }
 
-  const isOwnerReview = approval.stage === "owner_review";
   const graphChunks = displayChunks.map((chunk) => ({
     ...chunk,
     chunkIndex: chunk.index,
     tagDetails: chunk.tagDetails.map(tag => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))
   }));
   const currentStageLabel = stageLabel(approval.stage, t);
-  const reviewRecords = liveDetail?.review_records ?? [];
   const readOnly = liveDetail?.read_only ?? true;
   const readOnlyReason = readOnlyReasonLabel(liveDetail?.read_only_reason, t);
+  // CHG-495: the UI disables decisions on one's own submission up front; the backend still refuses them (SELFREV471).
+  const ownSubmission = Boolean(currentUser?.user_id) && liveDetail?.request.submitter_id === currentUser?.user_id;
   const decisionUnknown = Boolean(decisionOutcome?.detail && localize(decisionOutcome.detail) === t("feedbackResultUnknown"));
   const publicationUnknown = Boolean(publishError && localize(publishError) === t("feedbackResultUnknown"));
-  const canDecide = !decisionUnknown && !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && liveDetail?.task.status === "pending";
+  const canDecide = !decisionUnknown && !submittingDecision && !publishingVersion && decisionOutcome?.kind !== "success" && !readOnly && !ownSubmission && liveDetail?.task.status === "pending";
   const allowedDecisions = liveDetail?.allowed_decisions ?? ["approve", "reject"];
   const ownerFallback = !readOnly && allowedDecisions.includes("reject") && !allowedDecisions.includes("approve");
   const canPublish = !publicationUnknown && !submittingDecision && !publishingVersion && liveDetail?.version.status === "approved" && liveDetail.document.capabilities?.can_publish === true;
   const contentCounts = displayChunks.reduce((counts, chunk) => ({ ...counts, [chunk.type]: counts[chunk.type] + 1 }), { text: 0, image: 0, table: 0, chart: 0 });
   const averageConfidence = displayChunks.length ? Math.round(displayChunks.reduce((sum, chunk) => sum + chunk.confidence, 0) / displayChunks.length * 100) : 0;
-  const workflow = liveDetail ? reviewWorkflow(liveDetail) : { manager: "pending", owner: "pending", publish: "pending" } as const;
-  const workflowDetail = (state: ReviewStepState) => state === "complete" ? t("approvalWorkflowApproved")
-    : state === "rejected" ? t("statusReviewRejected") : state === "cancelled" ? t("approvalWorkflowCancelled")
-    : state === "current" ? t("approvalWorkflowPendingReview") : t("approvalWorkflowNotStarted");
-  const workflowSteps = [
-    { label: t("submitReviewStepSubmitter"), person: approval.editor, detail: t("approvalWorkflowSubmitted"), icon: CircleUserRound, state: "complete" },
-    { label: t("submitReviewStepManager"), person: approval.manager, detail: workflowDetail(workflow.manager), icon: ShieldCheck, state: workflow.manager },
-    { label: t("submitReviewStepOwner"), person: t("submitReviewAnyOwner"), detail: workflowDetail(workflow.owner), icon: UsersRound, state: workflow.owner },
-    { label: t("publish"), person: t("submitReviewAuthorizedRole"), detail: workflow.publish === "complete" ? t("statusPublishedActive") : workflow.publish === "current" ? t("statusPublishing") : t("approvalWorkflowPublishAfterApproval"), icon: CheckCircle2, state: workflow.publish }
-  ];
 
   function toggleConversation(id: string) {
     setExpandedConversationIds((current) => {
@@ -343,16 +328,18 @@ export default function ApprovalDetailPage() {
   }
 
   return (
-    <AppShell title={t("approvalDetail")} browserTitle={resourcePageTitle(t("approvalDetail"), liveDetail !== null && !liveError && !loadPending ? liveDetail?.document.title : null, liveDetail !== null && !liveError && !loadPending ? liveDetail?.version.version_label : null)}>
-      <div className="project-context submission-page-context">
-        <Link className="text-link" href="/approve"><ArrowLeft size={16} /> {t("backToApprovalWorkspace")}</Link>
-        <StatusBadge status={approval.status} />
-        <span>{currentStageLabel}</span>
-        <span className="approval-priority">{priorityLabel(approval.priority, t)}</span>
-      </div>
-
-      <section className="submission-shell approval-detail-shell" aria-labelledby="approval-summary-title">
-        <div className="live-data-badge"><CheckCircle2 size={14} /> {t("approvalLivePublishPath")}</div>
+    <AppShell
+      title={approval.document}
+      browserTitle={resourcePageTitle(t("approvalDetail"), liveDetail !== null && !liveError && !loadPending ? liveDetail?.document.title : null, liveDetail !== null && !liveError && !loadPending ? liveDetail?.version.version_label : null)}
+      breadcrumb={[{ label: t("approval"), href: "/approve" }, { label: `${approval.document} ${approval.version}` }]}
+      subtitle={<span className="approval-badges approval-detail-meta">
+        <span className="approval-version-label">{approval.version}</span>
+        <StatusToneBadge status={approval.status} />
+        <ToneBadge tone="info">{currentStageLabel}</ToneBadge>
+        <ToneBadge className="approval-priority" tone={approval.priority === "High" ? "danger" : "neutral"}>{priorityLabel(approval.priority, t)}</ToneBadge>
+      </span>}
+    >
+      <div className="submission-page approval-detail-page">
         {readOnly ? (
           <FeedbackMessage tone="info">
             <ShieldCheck size={17} />
@@ -365,14 +352,6 @@ export default function ApprovalDetailPage() {
             <span><strong>{t("approvalOwnerFallbackTitle")}</strong><small>{t("approvalOwnerFallbackNotice")}</small></span>
           </FeedbackMessage>
         ) : null}
-        <header className="submission-heading">
-          <div>
-            <p className="eyebrow">{t("approvalEvidenceReviewEyebrow")}</p>
-            <h2 id="approval-summary-title">{t("approvalEvidenceSummary")}</h2>
-            <p>{t("approvalEvidenceHelper")}</p>
-          </div>
-          <div className="submission-readiness"><ShieldCheck size={18} /><span><strong>{currentStageLabel}</strong><small>{t("approvalStagingEvidenceLocked")}</small></span></div>
-        </header>
 
         <section className="approval-context-strip" aria-label={t("approvalSubmissionInfo")}>
           <div><small>{t("approvalProjectLabel")}</small><strong>{approval.project}</strong></div>
@@ -380,147 +359,144 @@ export default function ApprovalDetailPage() {
           <div><small>{t("approvalProjectOwners")}</small><strong>{approval.owners.join(" / ")}</strong></div>
         </section>
 
-        <div className="submission-summary-grid">
-          <section className="submission-section submission-document-section">
-            <div className="submission-section-title"><FileText size={18} /><h3>{t("documentSummary")}</h3></div>
-            <div className="submission-document-identity">
-              <span className="submission-file-icon"><FileText size={24} /></span>
-              <div><strong>{approval.document}</strong><small>{approval.sourceType} · {liveDetail?.version.canonical_extension || liveDetail?.version.mime_type || t("approvalArtifactUnknown")} · {liveDetail?.version.file_size ? format("approvalFileSizeBytes", { count: liveDetail.version.file_size }) : t("approvalFileSizeUnknown")}</small></div>
-              <StatusBadge status={approval.status} />
-            </div>
-            <dl className="submission-detail-list">
-              <div><dt>{t("projectImportCurrentVersion")}</dt><dd>{approval.version}</dd></div>
-              <div><dt>{t("approvalDocumentStatus")}</dt><dd>{approval.status}</dd></div>
-              <div><dt>{t("approvalCreator")}</dt><dd>{approval.editor}</dd></div>
-              <div><dt>{t("approvalSubmittedAt")}</dt><dd>{approval.submittedAt}</dd></div>
-              <div><dt>{t("pipelineStatus")}</dt><dd className="submission-positive"><CheckCircle2 size={14} /> {t("pipelineWaiting")} {currentStageLabel}</dd></div>
-              <div><dt>{t("approvalEvidenceFreshness")}</dt><dd className={liveDetail?.evidence_stale ? "field-error" : "submission-positive"}>{liveDetail?.evidence_stale ? t("approvalEvidenceStale") : t("approvalEvidenceCurrent")}</dd></div>
-            </dl>
-          </section>
+        <div className="submission-layout">
+          <section className="submission-shell approval-detail-shell" aria-labelledby="approval-summary-title">
+            <h2 className="sr-only" id="approval-summary-title">{t("approvalEvidenceSummary")}</h2>
+            <p className="approval-detail-intro">{t("approvalEvidenceHelper")} {t("approvalStagingEvidenceLocked")}</p>
+            <div className="submission-summary-grid">
+              <section className="submission-section submission-document-section">
+                <div className="submission-section-title"><FileText size={18} /><h3>{t("documentSummary")}</h3></div>
+                <div className="submission-document-identity">
+                  <span className="submission-file-icon"><FileText size={20} /></span>
+                  <div><strong>{approval.document}</strong><small>{approval.sourceType} · {liveDetail?.version.canonical_extension || liveDetail?.version.mime_type || t("approvalArtifactUnknown")} · {liveDetail?.version.file_size ? format("approvalFileSizeBytes", { count: liveDetail.version.file_size }) : t("approvalFileSizeUnknown")}</small></div>
+                  <StatusToneBadge status={approval.status} />
+                </div>
+                <dl className="submission-detail-list">
+                  <div><dt>{t("projectImportCurrentVersion")}</dt><dd>{approval.version}</dd></div>
+                  <div><dt>{t("approvalDocumentStatus")}</dt><dd>{approval.status}</dd></div>
+                  <div><dt>{t("approvalCreator")}</dt><dd>{approval.editor}</dd></div>
+                  <div><dt>{t("approvalSubmittedAt")}</dt><dd>{approval.submittedAt}</dd></div>
+                  <div><dt>{t("pipelineStatus")}</dt><dd className="submission-positive"><CheckCircle2 size={14} /> {t("pipelineWaiting")} {currentStageLabel}</dd></div>
+                  <div><dt>{t("approvalEvidenceFreshness")}</dt><dd className={liveDetail?.evidence_stale ? "field-error" : "submission-positive"}>{liveDetail?.evidence_stale ? t("approvalEvidenceStale") : t("approvalEvidenceCurrent")}</dd></div>
+                </dl>
+              </section>
 
-          <section className="submission-section submission-extraction-section">
-            <div className="submission-section-title"><Tags size={18} /><h3>{t("extractionSummary")}</h3></div>
-            <div className="submission-extraction-total"><strong>{displayChunks.length}</strong><span>{t("submitReviewTotalChunks")}<small><CheckCircle2 size={13} /> {t("approvalExtractionCompleted")}</small></span></div>
-            <div className="submission-metrics">
-              <span><FileText size={16} /><strong>{contentCounts.text}</strong><small>{t("submitReviewText")}</small></span>
-              <span><ImageIcon size={16} /><strong>{contentCounts.image}</strong><small>{t("submitReviewImage")}</small></span>
-              <span><Table2 size={16} /><strong>{contentCounts.table}</strong><small>{t("submitReviewTable")}</small></span>
-              <span><BarChart3 size={16} /><strong>{contentCounts.chart}</strong><small>{t("chunkChart")}</small></span>
-            </div>
-            {evidenceManifest?.extraction_summary ? <dl className="submission-model-list station-summary-list"><div><dt>{t("evidenceReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.reference_count ?? 0}</dd></div><div><dt>{t("evidenceUnresolvedReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.unresolved_reference_count ?? 0}</dd></div><div><dt>{t("evidenceOverlapGroupCount")}</dt><dd>{evidenceManifest.extraction_summary.overlap_group_count ?? 0}</dd></div></dl> : null}
-            <dl className="submission-model-list"><div><dt>LLM</dt><dd>{manifestModels.find((model) => model.type === "Chat")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>Embedding</dt><dd>{manifestModels.find((model) => model.type === "Embedding")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>{t("approvalAverageConfidence")}</dt><dd>{averageConfidence}%</dd></div></dl>
-          </section>
+              <section className="submission-section submission-extraction-section">
+                <div className="submission-section-title"><Tags size={18} /><h3>{t("extractionSummary")}</h3></div>
+                <div className="submission-metrics">
+                  <span className="submission-metric-total"><Tags size={16} /><strong>{displayChunks.length}</strong><small>{t("submitReviewTotalChunks")} · {t("approvalExtractionCompleted")}</small></span>
+                  <span><FileText size={16} /><strong>{contentCounts.text}</strong><small>{t("submitReviewText")}</small></span>
+                  <span><ImageIcon size={16} /><strong>{contentCounts.image}</strong><small>{t("submitReviewImage")}</small></span>
+                  <span><Table2 size={16} /><strong>{contentCounts.table}</strong><small>{t("submitReviewTable")}</small></span>
+                  <span><BarChart3 size={16} /><strong>{contentCounts.chart}</strong><small>{t("chunkChart")}</small></span>
+                </div>
+                {evidenceManifest?.extraction_summary ? <dl className="submission-model-list station-summary-list"><div><dt>{t("evidenceReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.reference_count ?? 0}</dd></div><div><dt>{t("evidenceUnresolvedReferenceCount")}</dt><dd>{evidenceManifest.extraction_summary.unresolved_reference_count ?? 0}</dd></div><div><dt>{t("evidenceOverlapGroupCount")}</dt><dd>{evidenceManifest.extraction_summary.overlap_group_count ?? 0}</dd></div></dl> : null}
+                <dl className="submission-model-list"><div><dt>LLM</dt><dd>{manifestModels.find((model) => model.type === "Chat")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>Embedding</dt><dd>{manifestModels.find((model) => model.type === "Embedding")?.name ?? t("approvalByVersionMetadata")}</dd></div><div><dt>{t("approvalAverageConfidence")}</dt><dd>{averageConfidence}%</dd></div></dl>
+              </section>
 
-          <section className="submission-section submission-graph-section">
-            <div className="submission-section-heading">
-              <div className="submission-section-title"><Network size={18} /><h3>{t("graphSummary")}</h3></div>
-              <button className="action-button secondary" onClick={() => setGraphOpen(true)} type="button"><Network size={16} /> {t("viewGraphPreview")}</button>
-            </div>
-            <div className="graph-summary-row">
-              <span><FileText size={17} /><small>{t("approvalGraphDocument")}</small><strong>1</strong><em>{t("submitReviewDocumentNode")}</em></span>
-              <span><MessageSquareText size={17} /><small>{t("approvalGraphChunk")}</small><strong>{evidenceManifest?.graph?.chunk_count ?? 0}</strong><em>{t("submitReviewChunkNode")}</em></span>
-              <span><Tags size={17} /><small>{t("approvalGraphTag")}</small><strong>{tags.length}</strong><em>{t("approvalTagNode")}</em></span>
-              <span><Network size={17} /><small>{t("approvalGraphEdges")}</small><strong>{evidenceManifest?.graph?.edge_count ?? 0}</strong><em>{t("approvalTraceableRelation")}</em></span>
-            </div>
-            <div className="submission-graph-detail">
-              <div><strong>{t("approvalContentTypeCoverage")}</strong><span><FileText size={15} /> {t("submitReviewText")}</span><span><ImageIcon size={15} /> {t("submitReviewImage")}</span><span><Table2 size={15} /> {t("submitReviewTable")}</span><span><BarChart3 size={15} /> {t("chunkChart")}</span></div>
-              <p><CheckCircle2 size={16} /><span><strong>{t("approvalSourceTraceabilityComplete")}</strong><small>{t("approvalStagingGraphHelp")}</small></span></p>
-            </div>
-          </section>
+              <section className="submission-section submission-graph-section">
+                <div className="submission-section-heading">
+                  <div className="submission-section-title"><Network size={18} /><h3>{t("graphSummary")}</h3></div>
+                  <button className="action-button secondary" onClick={() => setGraphOpen(true)} type="button"><Network size={16} /> {t("viewGraphPreview")}</button>
+                </div>
+                <div className="graph-summary-row">
+                  <span><FileText size={17} /><small>{t("approvalGraphDocument")}</small><strong>1</strong><em>{t("submitReviewDocumentNode")}</em></span>
+                  <span><MessageSquareText size={17} /><small>{t("approvalGraphChunk")}</small><strong>{evidenceManifest?.graph?.chunk_count ?? 0}</strong><em>{t("submitReviewChunkNode")}</em></span>
+                  <span><Tags size={17} /><small>{t("approvalGraphTag")}</small><strong>{tags.length}</strong><em>{t("approvalTagNode")}</em></span>
+                  <span><Network size={17} /><small>{t("approvalGraphEdges")}</small><strong>{evidenceManifest?.graph?.edge_count ?? 0}</strong><em>{t("approvalTraceableRelation")}</em></span>
+                </div>
+                <div className="submission-graph-detail">
+                  <div><strong>{t("approvalContentTypeCoverage")}</strong><span><FileText size={15} /> {t("submitReviewText")}</span><span><ImageIcon size={15} /> {t("submitReviewImage")}</span><span><Table2 size={15} /> {t("submitReviewTable")}</span><span><BarChart3 size={15} /> {t("chunkChart")}</span></div>
+                  <p><CheckCircle2 size={16} /><span><strong>{t("approvalSourceTraceabilityComplete")}</strong><small>{t("approvalStagingGraphHelp")}</small></span></p>
+                </div>
+              </section>
 
-          <section className="submission-section submission-chat-section">
-            <div className="submission-section-heading">
-              <div className="submission-section-title"><MessageSquareText size={18} /><h3>{t("chatTestSummary")}</h3><span className="submission-count-badge">{format("submitReviewConversationGroups", { count: displayConversations.length })}</span></div>
-              <button className="action-button secondary" onClick={downloadConversationRecords} type="button"><Download size={16} /> {t("downloadConversation")}</button>
-            </div>
-            <div className="submission-conversation-list">
-              {displayConversations.map((conversation) => {
-                const expanded = expandedConversationIds.has(conversation.id);
-                const counts = conversation.turns.reduce((total, turn) => ({ ...total, [turn.evaluation]: total[turn.evaluation] + 1 }), { correct: 0, needs_revision: 0, not_evaluated: 0 });
-                return (
-                  <article className={`submission-conversation-group${expanded ? " expanded" : ""}`} key={conversation.id}>
-                    <button aria-controls={`${conversation.id}-turns`} aria-expanded={expanded} className="submission-conversation-toggle" onClick={() => toggleConversation(conversation.id)} type="button">
-                      <span className="submission-conversation-main"><MessageSquareText size={17} /><span><strong>{conversation.title}</strong><small>{approval.document} · {approval.version}</small></span></span>
-                      <span className="submission-conversation-summary"><span>{format("submitReviewTurnCount", { count: conversation.turns.length })}</span><span>{t("submitReviewEvaluationCorrect")} {counts.correct}</span><span>{t("submitReviewEvaluationNeedsRevision")} {counts.needs_revision}</span><span>{t("submitReviewEvaluationNotEvaluated")} {counts.not_evaluated}</span><span><Clock3 size={12} /> {conversation.updatedAt}</span></span>
-                      <ChevronDown className="submission-conversation-chevron" size={19} />
-                    </button>
-                    {expanded ? <div className="submission-chat-list" id={`${conversation.id}-turns`}>{conversation.turns.map((turn, index) => (
-                      <article key={`${conversation.id}-${turn.time}`}>
-                        <div className="submission-chat-question"><span>Q{index + 1}</span><strong>{turn.question}</strong><span className={`review-evaluation ${turn.evaluation}`}>{evaluationLabel(turn.evaluation, t)}</span></div>
-                        <ChatResponseEvidence answer={turn.answer} answerContainerClassName="submission-chat-answer" answerFallback={t("approvalNoAnswerGenerated")} answerLabel={t("submitReviewAnswer")} citations={turn.citations} citationsContainerClassName="submission-chat-citations" citationsLabel={t("submitReviewCitations")} idPrefix={`approval-${conversation.id}-${index + 1}`} noCitationsLabel={t("projectChatNoBackendCitation")} />
-                        <footer><span><Clock3 size={13} /> {t("approvalQuestionAnswerTime")} {turn.time}</span><p>{turn.suggestion ? <><strong>{t("submitReviewRevisionSuggestion")}：</strong>{turn.suggestion}</> : turn.evaluation === "not_evaluated" ? t("submitReviewPendingManualEvaluation") : t("submitReviewManualEvaluationCompleted")}</p></footer>
+              <section className="submission-section submission-chat-section">
+                <div className="submission-section-heading">
+                  <div className="submission-section-title"><MessageSquareText size={18} /><h3>{t("chatTestSummary")}</h3><span className="ws-badge tone-neutral submission-count-badge">{format("submitReviewConversationGroups", { count: displayConversations.length })}</span></div>
+                  <button className="action-button secondary" onClick={downloadConversationRecords} type="button"><Download size={16} /> {t("downloadConversation")}</button>
+                </div>
+                <div className="submission-conversation-list">
+                  {displayConversations.map((conversation) => {
+                    const expanded = expandedConversationIds.has(conversation.id);
+                    const counts = conversation.turns.reduce((total, turn) => ({ ...total, [turn.evaluation]: total[turn.evaluation] + 1 }), { correct: 0, needs_revision: 0, not_evaluated: 0 });
+                    return (
+                      <article className={`submission-conversation-group${expanded ? " expanded" : ""}`} key={conversation.id}>
+                        <button aria-controls={`${conversation.id}-turns`} aria-expanded={expanded} className="submission-conversation-toggle" onClick={() => toggleConversation(conversation.id)} type="button">
+                          <span className="submission-conversation-main"><MessageSquareText size={17} /><span><strong>{conversation.title}</strong><small>{approval.document} · {approval.version}</small></span></span>
+                          <span className="submission-conversation-summary"><span>{format("submitReviewTurnCount", { count: conversation.turns.length })}</span><span>{t("submitReviewEvaluationCorrect")} {counts.correct}</span><span>{t("submitReviewEvaluationNeedsRevision")} {counts.needs_revision}</span><span>{t("submitReviewEvaluationNotEvaluated")} {counts.not_evaluated}</span><span><Clock3 size={12} /> {conversation.updatedAt}</span></span>
+                          <ChevronDown className="submission-conversation-chevron" size={19} />
+                        </button>
+                        {expanded ? <div className="submission-chat-list" id={`${conversation.id}-turns`}>{conversation.turns.map((turn, index) => (
+                          <article key={`${conversation.id}-${turn.time}`}>
+                            <div className="submission-chat-question"><span>Q{index + 1}</span><strong>{turn.question}</strong><span className={`review-evaluation ${turn.evaluation}`}>{evaluationLabel(turn.evaluation, t)}</span></div>
+                            <ChatResponseEvidence answer={turn.answer} answerContainerClassName="submission-chat-answer" answerFallback={t("approvalNoAnswerGenerated")} answerLabel={t("submitReviewAnswer")} citations={turn.citations} citationsContainerClassName="submission-chat-citations" citationsLabel={t("submitReviewCitations")} idPrefix={`approval-${conversation.id}-${index + 1}`} noCitationsLabel={t("projectChatNoBackendCitation")} />
+                            <footer><span><Clock3 size={13} /> {t("approvalQuestionAnswerTime")} {turn.time}</span><p>{turn.suggestion ? <><strong>{t("submitReviewRevisionSuggestion")}：</strong>{turn.suggestion}</> : turn.evaluation === "not_evaluated" ? t("submitReviewPendingManualEvaluation") : t("submitReviewManualEvaluationCompleted")}</p></footer>
+                          </article>
+                        ))}</div> : null}
                       </article>
-                    ))}</div> : null}
-                  </article>
-                );
-              })}
+                    );
+                  })}
+                </div>
+              </section>
             </div>
+
+            <section className="submission-section approval-evidence-section">
+              <div className="submission-section-title"><FileCode2 size={18} /><h3>{t("sourceEvidence")}</h3></div>
+              <ApprovalEvidenceViewer
+                chunks={displayChunks}
+                documentLayout={liveDetail?.document_layout ?? null}
+                documentTags={liveDetail?.document_tags ?? []}
+                documentTitle={approval.document}
+                markdownArtifactReasonCode={liveDetail?.markdown_artifact_reason_code ?? null}
+                markdownText={liveDetail?.markdown_text ?? null}
+                originalFile={liveDetail?.original_file ?? null}
+                sourceText={liveDetail?.source_text ?? null}
+                version={approval.version}
+              />
+            </section>
+
+            <section className="submission-section approval-validation-section">
+              <div className="submission-section-title"><Table2 size={18} /><h3>{t("batchValidation")}</h3></div>
+              {(evidenceManifest?.validation?.runs ?? []).length ? (evidenceManifest?.validation?.runs ?? []).map((run) => <div className="approval-validation-result" key={run.id}><CheckCircle2 size={20} /><div><strong>{run.status}</strong><p>{run.completed} / {run.total} · {t("statusFailed")} {run.failed}</p><small>{run.id}</small></div></div>) : <div className="approval-validation-result"><Clock3 size={20} /><div><strong>{t("approvalNoLiveValidationEvidence")}</strong><p>{t("approvalNoLiveValidationEvidenceHelp")}</p><small>{t("approvalScope")}：{approval.document} · {approval.version}</small></div></div>}
+            </section>
           </section>
+
+          <aside aria-label={t("approvalFlow")} className="submission-sidebar approval-detail-sidebar">
+            {liveDetail ? <ApprovalRoute detail={liveDetail} showRecords /> : null}
+            <ApprovalVersionChangesSection apiFetch={apiFetch} approvalTaskId={params.approvalTaskId} />
+            <footer aria-busy={publishingVersion} className="approval-side-card approval-decision-bar">
+              {decisionOutcome ? (
+                decisionOutcome.kind === "error" ? <FeedbackMessage title={decisionUnknown ? t("feedbackWarningTitle") : localize(decisionOutcome.title)} actions={decisionUnknown ? <button className="action-button secondary" type="button" onClick={() => {
+                  if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setDecisionOutcome(null); }).catch(() => undefined);
+                }}><RefreshCw size={16} /> {t("feedbackQueryOutcome")}</button> : undefined}>{localize(decisionOutcome.detail)}</FeedbackMessage> : null
+              ) : result ? (
+                <div className="approval-result approve" role="status"><CheckCircle2 size={17} /> {localize(result)}</div>
+              ) : (
+                <div className="approval-decision-stack">
+                  {publishError ? (
+                    <FeedbackMessage title={publicationUnknown ? t("feedbackWarningTitle") : t("approvalPublishFailed")} actions={publicationUnknown ? <button className="action-button secondary" type="button" onClick={() => {
+                      if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setPublishError(null); }).catch(() => undefined);
+                    }}><RefreshCw size={16} /> {t("feedbackQueryOutcome")}</button> : undefined}>{localize(publishError)}</FeedbackMessage>
+                  ) : null}
+                  <div aria-live="polite" className="approval-decision-actions" role={publishingVersion ? "status" : undefined}>
+                    <button className="action-button danger" disabled={!canDecide || !allowedDecisions.includes("reject")} onClick={() => { setDecisionOutcome(null); setDecision("reject"); }} type="button"><XCircle size={17} /> {t("reject")}</button>
+                    <button className="action-button" disabled={!canDecide || !allowedDecisions.includes("approve")} onClick={() => { setDecisionOutcome(null); setDecision("approve"); }} type="button"><ShieldCheck size={17} /> {t("approve")}</button>
+                    {liveDetail?.version.status === "approved" ? (
+                      <button className="action-button secondary approval-publish-action" disabled={!canPublish} onClick={() => { void publishLiveVersion(); }} type="button">
+                        {publishingVersion ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
+                        {publishingVersion ? t("approvalPublishing") : t("publish")}
+                      </button>
+                    ) : null}
+                  </div>
+                </div>
+              )}
+              {ownSubmission ? <p className="approval-decision-note" role="note">{t("approvalSelfReviewNote")}</p> : null}
+              <p className="approval-decision-note">{t("approvalOptimisticLockHelp")} {t("approvalLivePublishPath")}</p>
+            </footer>
+          </aside>
         </div>
-
-        <section className="approval-evidence-section">
-          <div className="submission-section-title"><FileCode2 size={18} /><h3>{t("sourceEvidence")}</h3></div>
-          <ApprovalEvidenceViewer
-            chunks={displayChunks}
-            documentLayout={liveDetail?.document_layout ?? null}
-            documentTags={liveDetail?.document_tags ?? []}
-            documentTitle={approval.document}
-            markdownArtifactReasonCode={liveDetail?.markdown_artifact_reason_code ?? null}
-            markdownText={liveDetail?.markdown_text ?? null}
-            originalFile={liveDetail?.original_file ?? null}
-            sourceText={liveDetail?.source_text ?? null}
-            version={approval.version}
-          />
-        </section>
-
-        <section className="approval-secondary-grid">
-          <article>
-            <div className="submission-section-title"><Table2 size={18} /><h3>{t("batchValidation")}</h3></div>
-            {(evidenceManifest?.validation?.runs ?? []).length ? (evidenceManifest?.validation?.runs ?? []).map((run) => <div className="approval-validation-result" key={run.id}><CheckCircle2 size={22} /><div><strong>{run.status}</strong><p>{run.completed} / {run.total} · {t("statusFailed")} {run.failed}</p><small>{run.id}</small></div></div>) : <div className="approval-validation-result"><Clock3 size={22} /><div><strong>{t("approvalNoLiveValidationEvidence")}</strong><p>{t("approvalNoLiveValidationEvidenceHelp")}</p><small>{t("approvalScope")}：{approval.document} · {approval.version}</small></div></div>}
-          </article>
-          <article>
-            <div className="submission-section-title"><Clock3 size={18} /><h3>{t("reviewHistory")}</h3></div>
-            <ol className="approval-history">
-              {reviewRecords.length ? reviewRecords.map((record) => <li key={record.id}><span><CheckCircle2 size={15} /></span><div><strong>{record.review_stage} · {record.status}</strong><p>{record.reviewer_id.slice(0, 8)} · {new Date(record.created_at).toLocaleString(locale === "en" ? "en-US" : "zh-TW")} · {record.comment || t("approvalNoComment")}</p></div></li>) : <li><span><Clock3 size={15} /></span><div><strong>{t("approvalNoLiveReviewHistory")}</strong><p>{t("approvalNoLiveReviewHistoryHelp")}</p></div></li>}
-              {liveDetail?.task.status === "pending" ? <li className="current"><span><Clock3 size={15} /></span><div><strong>{t("pipelineWaiting")}{currentStageLabel}</strong><p>{isOwnerReview ? approval.owners.join(" / ") : approval.manager}</p></div></li> : null}
-            </ol>
-          </article>
-        </section>
-
-        <section className="submission-workflow">
-          <div className="submission-section-title"><ShieldCheck size={18} /><h3>{t("approvalFlow")}</h3></div>
-          <ol>{workflowSteps.map((step, index) => { const Icon = step.icon; return <li className={`workflow-step ${step.state}`} key={step.label}><span className="workflow-step-icon">{step.state === "complete" ? <CheckCircle2 size={17} /> : <Icon size={17} />}</span><div><small>{step.label}</small><strong>{step.person}</strong><span>{step.detail}</span></div>{index < workflowSteps.length - 1 ? <i aria-hidden="true" /> : null}</li>; })}</ol>
-        </section>
-
-        <footer aria-busy={publishingVersion} className="submission-actions approval-decision-bar">
-          <p><ShieldCheck size={17} /><span>{t("approvalOptimisticLockHelp")}</span></p>
-          {decisionOutcome ? (
-            decisionOutcome.kind === "error" ? <FeedbackMessage title={decisionUnknown ? t("feedbackWarningTitle") : localize(decisionOutcome.title)} actions={decisionUnknown ? <button className="action-button secondary" type="button" onClick={() => {
-              if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setDecisionOutcome(null); }).catch(() => undefined);
-            }}>{t("feedbackQueryOutcome")}</button> : undefined}>{localize(decisionOutcome.detail)}</FeedbackMessage> : null
-          ) : result ? (
-            <div className="approval-result approve"><CheckCircle2 size={17} /> {localize(result)}</div>
-          ) : (
-            <div className="approval-decision-stack">
-              {publishError ? (
-                <FeedbackMessage title={publicationUnknown ? t("feedbackWarningTitle") : t("approvalPublishFailed")} actions={publicationUnknown ? <button className="action-button secondary" type="button" onClick={() => {
-                  if (liveDetail) getApprovalTask(apiFetch, liveDetail.task.id).then(value => { setLiveDetail(value); setPublishError(null); }).catch(() => undefined);
-                }}>{t("feedbackQueryOutcome")}</button> : undefined}>{localize(publishError)}</FeedbackMessage>
-              ) : null}
-              <div aria-live="polite" className="approval-decision-actions" role={publishingVersion ? "status" : undefined}>
-                <button className="action-button" disabled={!canDecide || !allowedDecisions.includes("approve")} onClick={() => { setDecisionOutcome(null); setDecision("approve"); }} type="button"><ShieldCheck size={17} /> {t("approve")}</button>
-                <button className="action-button danger" disabled={!canDecide || !allowedDecisions.includes("reject")} onClick={() => { setDecisionOutcome(null); setDecision("reject"); }} type="button"><XCircle size={17} /> {t("reject")}</button>
-                {liveDetail?.version.status === "approved" ? (
-                  <button className="action-button secondary" disabled={!canPublish} onClick={() => { void publishLiveVersion(); }} type="button">
-                    {publishingVersion ? <Loader2 className="spin" size={17} /> : <CheckCircle2 size={17} />}
-                    {publishingVersion ? t("approvalPublishing") : t("publish")}
-                  </button>
-                ) : null}
-              </div>
-            </div>
-          )}
-        </footer>
-      </section>
+      </div>
 
       {graphOpen ? <Modal onEscape={() => setGraphOpen(false)} aria-labelledby="approval-graph-title" className="modal-panel document-graph-modal"><div className="modal-header"><div><p className="eyebrow">{format("approvalStagingGraphVersion", { version: approval.version })}</p><h2 id="approval-graph-title">{t("approvalPreReviewGraphPreview")}</h2></div><button aria-label={t("closeDialog")} className="icon-button" onClick={() => setGraphOpen(false)} type="button"><X size={18} /></button></div><DocumentGraphPreview documentTags={(liveDetail?.document_tags ?? []).map(tag => ({ id: tag.tag_id, text: tag.tag_text, source: tag.source }))} documentTitle={approval.document} graphChunks={graphChunks} version={approval.version} /></Modal> : null}
 

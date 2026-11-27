@@ -24,7 +24,7 @@ export type {
   ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse, ExtractionStationState, StationReuseSummary, ChunkReferenceItem, ChunkReferenceSummary, ChunkReferenceListResponse,
   SubmissionEvidenceResponse, DocumentLayoutPage,
   OriginalFileViewerMetadata,
-  ApprovalSummary, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
+  ApprovalSummary, ApprovalVersionChanges, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
   ReferenceSourceProjectResponse, DocumentReferenceImportResponse
 } from "./apiClient/reviewTypes";
 export type {
@@ -50,7 +50,7 @@ export {
 } from "./apiClient/projectRequests";
 export {
   listApprovalFilterOptions, listPendingApprovalsPage, listApprovalHistoryPage, listRejectedApprovalsPage,
-  listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask,
+  listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask, getApprovalVersionChanges,
   approveApprovalTask, rejectApprovalTask, publishDocumentVersion, switchActiveDocumentVersion,
   getDocumentLifecycleImpact, updateDocumentLifecycle, renameDocument, listProjectReferenceSources,
   importProjectDocumentReferences, updateDocumentReferenceVersion, getProjectGraph, getProjectGraphNeighbors,
