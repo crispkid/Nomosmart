@@ -170,6 +170,12 @@ class ProjectMemberCandidatePage(BaseModel):
     ineligible_match_count: int
 
 
+class ProjectOwnerSummary(BaseModel):
+    """CHG-495 UIRD-API-002: a Project Owner as the project list and header show it."""
+    user_id: UUID
+    display_name: str
+
+
 class ProjectResponse(ORMModel):
     id: UUID
     name: str
@@ -191,6 +197,21 @@ class ProjectResponse(ORMModel):
     last_activity_at: datetime | None = None
     capabilities: dict[str, bool] = Field(default_factory=dict)
     rerank_enabled: bool = False  # CHG-486 RERANK486-004
+    # CHG-495 UIRD-API-002 (additive): filled by GET /projects and GET /projects/{id}; other endpoints keep the defaults.
+    owners: list[ProjectOwnerSummary] = Field(default_factory=list)
+    published_document_count: int = 0
+    chunk_count: int = 0
+    derived_status: Literal["processing", "published", "draft", "deactivated"] | None = None
+
+
+class ProjectStatusCounts(BaseModel):
+    """CHG-495 UIRD-API-002: visible projects per derived status, for the project list chips and header."""
+    total: int
+    processing: int
+    published: int
+    draft: int
+    deactivated: int
+    published_document_total: int
 
 
 class ProjectRetrievalSettingsResponse(BaseModel):
@@ -1234,6 +1255,37 @@ class ApprovalSummary(BaseModel):
     pending_manager_review: int
     pending_owner_review: int
     my_submissions: int
+    # CHG-495 UIRD-API-001/003 (additive): my queue older than the overdue threshold; my decisions of the last 7 days.
+    pending_overdue: int = 0
+    pending_overdue_hours: int = 48
+    completed_last_7_days: int = 0
+    average_wait_seconds: float | None = None
+
+
+class ApprovalTextChange(BaseModel):
+    op: Literal["added", "removed"]
+    text: str
+
+
+class ApprovalNameChanges(BaseModel):
+    added: list[str] = Field(default_factory=list)
+    removed: list[str] = Field(default_factory=list)
+
+
+class ApprovalVersionChanges(BaseModel):
+    """CHG-495 UIRD-API-004: what the submitted version changes against the document's previous published version."""
+    approval_task_id: UUID
+    document_version_id: UUID
+    first_submission: bool
+    previous_version_id: UUID | None = None
+    previous_version_label: str | None = None
+    text_status: Literal["available", "unavailable", "unchanged"] = "unavailable"
+    lines_added: int = 0
+    lines_removed: int = 0
+    text_changes: list[ApprovalTextChange] = Field(default_factory=list)
+    text_changes_truncated: bool = False
+    tags: ApprovalNameChanges = Field(default_factory=ApprovalNameChanges)
+    references: ApprovalNameChanges = Field(default_factory=ApprovalNameChanges)
 
 
 class PublishResult(BaseModel):
@@ -1266,6 +1318,11 @@ class ProjectGraphResponse(BaseModel):
     edges: list[ProjectGraphEdge]
     truncated: bool = False
     node_limit: int = 120
+    # CHG-495 UIRD-API-005 (additive, project graph only): the whole published graph before node_limit applies.
+    total_node_count: int | None = None
+    total_edge_count: int | None = None
+    node_type_counts: dict[str, int] = Field(default_factory=dict)
+    updated_at: datetime | None = None
 
 
 class ProjectServingDocumentStatus(BaseModel):
@@ -1659,6 +1716,25 @@ class ReportProjectRankingItem(BaseModel):
     chat_count: int = 0
     validation_run_count: int = 0
     citation_count: int = 0
+
+
+class ReportApprovalWeek(BaseModel):
+    week_start: datetime
+    approved: int = 0
+    rejected: int = 0
+
+
+class ReportApprovalStatsResponse(BaseModel):
+    """CHG-495 UIRD-API-003: decisions in the report scope (both review stages)."""
+    scope: str
+    project_id: UUID | None = None
+    date_from: datetime
+    date_to: datetime
+    completed_count: int
+    approved_count: int
+    rejected_count: int
+    average_wait_seconds: float | None = None
+    weekly: list[ReportApprovalWeek] = Field(default_factory=list)
 
 
 class ReportSummaryResponse(BaseModel):
