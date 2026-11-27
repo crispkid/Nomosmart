@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Noto_Sans_TC } from "next/font/google";
+import { Inter, JetBrains_Mono, Noto_Sans_TC } from "next/font/google";
 import { cookies } from "next/headers";
 import "./globals.css";
 import { AuthProvider } from "@/components/AuthProvider";
@@ -11,6 +11,7 @@ import type { RuntimeConfig } from "@/lib/runtimeConfig";
 import { authLogoutTimeout } from "@/lib/authSessionLifecycle";
 import { uploadWaitNoticeMs } from "@/lib/uploadProgress";
 import { protectedPageMatchers } from "@/lib/applicationRoutes";
+import { themeBootScript } from "@/lib/theme";
 import en from "@/i18n/locales/en.json";
 import zh from "@/i18n/locales/zh.json";
 
@@ -27,17 +28,29 @@ function hydrationWatchdog(locale: "zh" | "en"): string {
   return `window.__NOMOSMART_AUTH_HYDRATED__=false;window.setTimeout(function(){var c=${config};var p=window.location.pathname;if(p.length>1){p=p.replace(/\\/$/,"")}var guarded=c.staticPages.indexOf(p)>=0||new RegExp(c.projectPage).test(p)||new RegExp(c.approvalPage).test(p);if(!guarded||window.__NOMOSMART_AUTH_HYDRATED__||document.getElementById("nomosmart-hydration-stalled"))return;var box=document.createElement("div");box.id="nomosmart-hydration-stalled";box.className="hydration-stalled";box.setAttribute("role","alert");var msg=document.createElement("span");msg.textContent=c.message;var reload=document.createElement("button");reload.type="button";reload.textContent=c.reload;reload.onclick=function(){window.location.reload()};var login=document.createElement("a");login.href="/login";login.textContent=c.login;box.appendChild(msg);box.appendChild(reload);box.appendChild(login);document.body.appendChild(box)},5000);`;
 }
 
-// OPT424-030: self-hosted at build time by next/font; only regular/medium/bold.
+// OPT424-030 / CHG-495: self-hosted at build time by next/font; regular, medium and semibold only.
 const notoSansTC = Noto_Sans_TC({
-  weight: ["400", "500", "700"],
+  weight: ["400", "500", "600"],
   display: "swap",
   preload: false,
   variable: "--font-noto-sans-tc",
 });
 
+// CHG-495 UIRD-003: Latin text and figures in Inter, IDs and code in JetBrains Mono. next/font
+// downloads them at build time and serves them from the app, so offline installs need no CDN.
+const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600"], display: "swap", variable: "--font-inter" });
+const jetBrainsMono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"], display: "swap", preload: false, variable: "--font-mono" });
+
 export const metadata: Metadata = {
   description: "Enterprise knowledge management platform",
-  icons: { icon: { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16 32x32" } }
+  icons: {
+    icon: [
+      { url: "/favicon.svg", type: "image/svg+xml" },
+      { url: "/favicon.ico", type: "image/x-icon", sizes: "16x16 32x32 48x48" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180" },
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export const dynamic = "force-dynamic";
@@ -61,7 +74,10 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   };
   const serializedConfig = JSON.stringify(runtimeConfig).replace(/</g, "\\u003c");
   return (
-    <html lang={htmlLangForLocale(initialLocale)} className={notoSansTC.variable}>
+    <html lang={htmlLangForLocale(initialLocale)} className={`${notoSansTC.variable} ${inter.variable} ${jetBrainsMono.variable}`} suppressHydrationWarning>
+      <head>
+        <script id="nomosmart-theme-boot" dangerouslySetInnerHTML={{ __html: themeBootScript() }} />
+      </head>
       <body>
         <script
           id="nomosmart-runtime-config"
