@@ -8,7 +8,7 @@ import io
 import math
 from dataclasses import dataclass
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from time import monotonic
 from uuid import UUID, uuid4
@@ -534,12 +534,41 @@ def _summary_metrics(session: Session, project_ids: set[UUID] | None, date_from:
     validation_count = _count_validation_runs(session, project_ids, date_from, date_to)
     citation_count = _count_citations(session, project_ids, date_from, date_to)
     avg_latency = _avg_chat_latency(session, project_ids, date_from, date_to)
-    return [
+    cards = [
         ReportMetricCard(key="chat_count", label="Chat Queries", value=chat_count),
         ReportMetricCard(key="validation_run_count", label="Validation Runs", value=validation_count),
         ReportMetricCard(key="citation_count", label="Citations", value=citation_count),
         ReportMetricCard(key="avg_latency_ms", label="Average Latency", value=round(avg_latency or 0, 2), unit="ms"),
+        ReportMetricCard(key="pipeline_running_count", label="Processing", value=_count_processing_versions(session, project_ids)),
     ]
+    # FIX493-001: import success rate of finished extraction runs; without finished runs there is no rate (UI shows "—").
+    if date_from is None and date_to is None:
+        date_from = datetime.now(UTC) - HOME_SUCCESS_RATE_WINDOW
+    completed, failed = _count_finished_imports(session, project_ids, date_from, date_to)
+    if completed + failed:
+        cards.append(ReportMetricCard(key="success_rate", label="Success Rate", value=_rate(completed, completed + failed)))
+    return cards
+
+
+HOME_SUCCESS_RATE_WINDOW = timedelta(days=7)
+ACTIVE_PIPELINE_STATUSES = ("queued", "running", "waiting_action")
+
+
+def _count_processing_versions(session: Session, project_ids: set[UUID] | None) -> int:
+    """FIX493-001: document versions with an unfinished pipeline run (current state, not date-filtered)."""
+    query = select(func.count(func.distinct(PipelineRun.document_version_id))).where(
+        PipelineRun.status.in_(ACTIVE_PIPELINE_STATUSES), PipelineRun.document_version_id.is_not(None)
+    )
+    return int(session.scalar(_project_date_filters(query, PipelineRun, PipelineRun.created_at, project_ids, None, None)) or 0)
+
+
+def _count_finished_imports(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> tuple[int, int]:
+    query = select(
+        func.count().filter(PipelineRun.status == "completed"),
+        func.count().filter(PipelineRun.status == "failed"),
+    ).where(PipelineRun.run_type == "document_extraction")
+    completed, failed = session.execute(_project_date_filters(query, PipelineRun, PipelineRun.created_at, project_ids, date_from, date_to)).one()
+    return int(completed or 0), int(failed or 0)
 
 
 def _topic_rows(session: Session, topic: str, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:
