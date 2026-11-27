@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { AlertTriangle, ArrowRight, Check, CheckCircle2, FileText, Link2, Loader2, RotateCcw, Trash2, X } from "lucide-react";
+import { AlertTriangle, Check, CheckCircle2, FileText, Link2, Loader2, Lock, Plus, RotateCcw, Trash2, X } from "lucide-react";
 import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { Modal } from "@/components/Modal";
 import {
@@ -9,6 +9,8 @@ import {
   type ApiFetch, type ChunkReferenceItem, type DocumentSummary, type KnowledgeDetailResponse, type StationReuseSummary,
 } from "@/lib/api";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
+import { formatShortDate } from "@/lib/dateFormat";
+import { useI18n } from "@/lib/i18nClient";
 import type { TranslationKey } from "@/lib/i18n";
 import type { Format, Translate } from "./knowledgeDetailModel";
 
@@ -54,22 +56,26 @@ function stationPhase(detail: KnowledgeDetailResponse, station: StationNumber, a
 
 const PHASE_LABEL: Record<StationPhase, TranslationKey> = { done: "stationStatusDone", waiting: "stationStatusReady", running: "stationStatusRunning", pending: "stationStatusPending" };
 
-/** STAGE442-003: four-station progress bar; reached stations can be viewed, later ones stay closed. */
+/** STAGE442-003: four-station progress bar; reached stations can be viewed, later ones stay closed.
+ * CHG-495 M19: a confirmed station shows its confirmation date when the data has one (nothing otherwise). */
 export function StationStepper({ detail, viewStation, onView, t }: {
   detail: KnowledgeDetailResponse; viewStation: StationNumber; onView: (station: StationNumber) => void; t: Translate;
 }) {
+  const { locale, format } = useI18n();
   const active = activeStation(detail);
   return (
-    <ol aria-label={t("stationStepperLabel")} className="service-stepper station-stepper">
+    <ol aria-label={t("stationStepperLabel")} className="station-stepper">
       {STATIONS.map(station => {
         const phase = stationPhase(detail, station, active);
         const reachable = phase !== "pending";
+        const confirmedAt = detail.stations?.find(item => item.station === station && item.status === "confirmed")?.confirmed_at ?? null;
+        const confirmedDate = phase === "done" ? formatShortDate(confirmedAt, locale) : "";
         const className = [phase === "done" ? "complete" : "", station === viewStation ? "current" : "", reachable ? "" : "unreached"].filter(Boolean).join(" ");
         return (
           <li className={className} key={station}>
             <button aria-current={station === viewStation ? "step" : undefined} disabled={!reachable} onClick={() => onView(station)} type="button">
               <span>{phase === "done" ? <Check size={16} aria-hidden="true" /> : phase === "running" ? <Loader2 className="spin" size={16} aria-hidden="true" /> : station}</span>
-              <div><strong>{stationName(station, t)}</strong><small>{t(PHASE_LABEL[phase])}</small></div>
+              <div><strong>{stationName(station, t)}</strong><small>{confirmedDate ? format("stationConfirmedOn", { date: confirmedDate }) : t(PHASE_LABEL[phase])}</small></div>
             </button>
           </li>
         );
@@ -145,15 +151,22 @@ export function StationReopenDialog({ station, chunkCount, busy, error, onCancel
   );
 }
 
-/** STAGE442-010: a rejected (or published) version starts a revision at station 1. */
-export function StationRevisionBanner({ busy, error, onCreate, t }: { busy: boolean; error: string | null; onCreate: () => void; t: Translate }) {
+/** STAGE442-010: a rejected (or published) version starts a revision at station 1. CHG-495 M17: the
+ * start-revision button is in the page header; the station row keeps this note and any error. */
+export function StationRevisionNote({ error, t }: { error: string | null; t: Translate }) {
   return (
-    <div className="review-banner warning station-revision-banner" role="status">
-      <AlertTriangle size={20} />
-      <div><strong>{t("stationRevisionTitle")}</strong><p>{t("stationRevisionBody")}</p>{error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}</div>
-      <button className="action-button" disabled={busy} onClick={onCreate} type="button">{busy ? <Loader2 className="spin" size={16} /> : <ArrowRight size={16} />} {t("stationRevisionAction")}</button>
+    <div className="station-revision-note" role="status">
+      <Lock aria-hidden="true" size={16} />
+      <div><strong>{t("stationRevisionTitle")}</strong><p>{t("stationRevisionHeaderHint")}</p><small>{t("stationRevisionBody")}</small>{error ? <FeedbackMessage tone="error">{error}</FeedbackMessage> : null}</div>
     </div>
   );
+}
+
+/** CHG-495 M17: header action that starts a revision (STAGE442-010). */
+export function StationRevisionButton({ busy, onCreate, t }: { busy: boolean; onCreate: () => void; t: Translate }) {
+  return <button aria-label={t("stationRevisionAction")} className="action-button station-revision-action" disabled={busy} onClick={onCreate} type="button">
+    {busy ? <Loader2 className="spin" size={16} /> : <Plus size={16} />} {t("stationRevisionHeaderAction")}
+  </button>;
 }
 
 type ChecklistItem = { key: string; label: string; offset: number; excerpt: string };

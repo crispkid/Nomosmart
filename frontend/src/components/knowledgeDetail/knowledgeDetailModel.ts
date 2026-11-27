@@ -122,3 +122,8 @@ export function pipelineFailureKey(step: PipelineRunDetail["steps"][number] | nu
 export function imageOcrRetryBlocked(step: PipelineRunDetail["steps"][number] | null | undefined) {
   return ocrRetryBlocked(step);
 }
+
+/** CHG-495 M18: characters in a chunk, counted in the frontend from its text (whitespace excluded, like the station 1 check list). */
+export function chunkCharacterCount(text: string | null | undefined): number {
+  return Array.from((text ?? "").replace(/\s/g, "")).length;
+}

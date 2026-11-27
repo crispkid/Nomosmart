@@ -9,8 +9,9 @@ import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { type ChangeEvent, type FormEvent, type KeyboardEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, CheckCircle2, Database, Download, FileDown, FileText, MessageSquarePlus, Send, Upload, UserRound, X } from "lucide-react";
-import { AppShell, StatusBadge } from "@/components/AppShell";
+import { CheckCircle2, Download, FileDown, FileText, History, ListFilter, MessageSquarePlus, Send, Upload, X } from "lucide-react";
+import { AppShell, StatusBadge, StatusToneBadge, ToneBadge } from "@/components/AppShell";
+import { useProjectName } from "@/lib/useProjectName";
 import { Modal } from "@/components/Modal";
 import { useAuth } from "@/components/AuthProvider";
 import { createProjectChatValidationRun, downloadProjectChatConversationCsv, getKnowledgeDetail, getProjectChatValidationRun, getProjectChatConversation, listProjectChatConversationPage, queryProjectChat, updateProjectChatFeedback, type KnowledgeDetailResponse, type ProjectChatConversationResponse, type ValidationRunResponse } from "@/lib/api";
@@ -70,6 +71,7 @@ export default function ChatTestPage() {
     && (!activeConversationId || access.canContinue);
   const otherConversation = Boolean(activeConversationId && !access.isMine);
   const authorName = (activeConversationId ? activeHistory?.created_by_display_name : currentUser?.display_name)?.trim() || t("chatAuthorNameMissing");
+  const projectName = useProjectName(apiFetch, params.id, authReady);
 
   const selectConversation = useCallback((item: ProjectChatConversationResponse | null) => {
     setBatchDisplay(false);
@@ -377,21 +379,19 @@ export default function ChatTestPage() {
   }
 
   return (
-    <AppShell title={t("chatTest")} browserTitle={resourcePageTitle(t("chatTest"), authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.document.title : null, authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.version.version_label : null)}>
-      <div className="project-context chat-page-context">
-        <Link className="text-link" href={extractionHref}><ArrowLeft size={16} /> {t("backToExtraction")}</Link>
-        <span><Database size={14} /> {detail?.pipeline?.status === "submission_ready" ? t("stagingReady") : t("documentChatLiveVersionScope")}</span>
-        <span>{detail?.version.version_label ?? t("documentChatLoadingVersion")}</span>
-        <StatusBadge status={detail?.version.status ?? "processing"} />
-        <div className="project-context-actions">
-          <Link className="text-link next-stage-link" href={submitReviewHref}>{t("submitForReview")} <ArrowRight size={16} /></Link>
-        </div>
-      </div>
-
+    <AppShell title={t("chatTest")}
+      breadcrumb={[{ label: t("dashboard"), href: "/projects" }, { label: projectName ?? t("breadcrumbProjectFallback"), href: `/project/${params.id}/import` }, { label: detail?.document.title ?? t("knowledgeDetailTitle"), href: extractionHref }, { label: t("chatTest") }]}
+      subtitle={<span className="document-header-meta chat-page-context">
+        <ToneBadge tone="neutral">{detail?.version.version_label ?? t("documentChatLoadingVersion")}</ToneBadge>
+        <ToneBadge tone={detail?.pipeline?.status === "submission_ready" ? "accent" : "info"}>{detail?.pipeline?.status === "submission_ready" ? t("stagingReady") : t("documentChatLiveVersionScope")}</ToneBadge>
+        <StatusToneBadge status={detail?.version.status ?? "processing"} />
+      </span>}
+      actions={<div className="project-context-actions"><Link className="action-button next-stage-link" href={submitReviewHref}><Send size={16} /> {t("submitForReview")}</Link></div>}
+      browserTitle={resourcePageTitle(t("chatTest"), authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.document.title : null, authReady && !loadError && titleRead?.fetch === apiFetch && titleRead.route === JSON.stringify([params.id, params.knowledgeId]) ? detail?.version.version_label : null)}>
       <section className="chat-validation-shell">
         <aside className="chat-validation-sidebar">
           <div className="chat-sidebar-section chat-scope-settings">
-            <p className="eyebrow">{t("referenceScope")}</p>
+            <h2 className="chat-sidebar-title"><ListFilter aria-hidden="true" size={16} /> {t("referenceScope")}</h2>
             <dl className="chat-scope-list">
               <div><dt>{t("currentDocumentVersion")}</dt><dd>{detail?.document.title ?? t("notificationLoading")} · {detail?.version.version_label ?? ""}</dd></div>
               <div><dt>{t("labelIndex")}</dt><dd>{t("documentChatStagingScopedIndex")}</dd></div>
@@ -402,13 +402,12 @@ export default function ChatTestPage() {
             {detail && !canContinue && !activeConversationId && !loadError ? <p role="status">{t(detail.chat_access?.mode === "history_only" || detail.chat_access?.mode === "published" ? "knowledgeChatHistoryOnly" : "projectChatVectorIndexNotReady")}</p> : null}
           </div>
 
-          <div className="chat-sidebar-section">
-            <p className="eyebrow">{t("conversationHistory")}</p>
+          <div className="chat-sidebar-section chat-history-section">
+            <h2 className="chat-sidebar-title"><History aria-hidden="true" size={16} /> {t("conversationHistory")}</h2>
             <div aria-label={t("conversationHistory")} className="chat-document-history-list" role="region" tabIndex={0}>
             {histories.map((item) => {
               const itemAccess = chatConversationAccess(item, currentUser?.user_id);
               return <button aria-pressed={item.id === activeConversationId} className={`chat-history-item${item.id === activeConversationId ? " active" : ""}`} onClick={() => selectConversation(item)} key={item.id} type="button">
-                <MessageSquarePlus size={16} />
                 <span><strong>{item.title}</strong><ChatHistoryAuthor name={item.created_by_display_name} isMine={itemAccess.isMine} readOnly={!itemAccess.canContinue} />
                   <small>{format(item.message_count === 1 ? "documentChatTurnCountOne" : "documentChatTurnCountMany", { count: item.message_count })} · {formatDateTime(item.updated_at, locale)}</small></span>
               </button>;
@@ -433,7 +432,7 @@ export default function ChatTestPage() {
             {conversationEntries.length === 0 ? <div className="chat-empty-state"><MessageSquarePlus size={22} /><span>{t("emptyConversation")}</span></div> : null}
             {conversationEntries.map((entry) => (
               <div className="chat-response-pair" key={entry.id}>
-                <article className="chat-message user-message"><div className="message-avatar"><UserRound size={17} /></div><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
+                <article className="chat-message user-message"><div className="user-message-body"><small>{authorName}</small><p>{entry.question}</p></div></article>
                 {entry.validationStatus ? <StatusBadge status={entry.validationStatus} /> : null}
                 <AssistantMessage key={`${activeConversationId}-${entry.id}`} entry={entry} canEvaluate={access.canEvaluate} evaluation={evaluations[entry.id]} extractionHref={extractionHref} onEvaluate={recordEvaluation} />
               </div>

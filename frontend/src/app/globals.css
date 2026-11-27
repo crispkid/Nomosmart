@@ -2586,8 +2586,7 @@ small {
   margin-bottom: 0;
 }
 
-.submission-count-badge,
-.submission-ready-label {
+.submission-count-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
@@ -11534,24 +11533,6 @@ small {
 }
 
 /* CHG-442 four-station extraction (STAGE442-003..012, CHUNK442-001..003, REF442-003). */
-.station-header { display: grid; gap: 10px; margin-bottom: 14px; }
-.station-stepper { grid-template-columns: repeat(4, minmax(0, 1fr)); padding: 10px 16px; border: 1px solid var(--cool-gray); border-radius: var(--radius-control); }
-.station-stepper li > button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
-.station-stepper li > button:disabled { cursor: default; }
-.station-stepper li > button > span { position: relative; z-index: var(--z-local-raised); display: grid; place-items: center; width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--cloud-white); font-size: 12px; font-weight: 600; }
-.station-stepper li > button > div { position: relative; z-index: var(--z-local-raised); display: grid; padding-right: 10px; background: var(--surface-subtle); }
-.station-stepper li > button small { font-size: 10px; }
-.station-stepper li > button strong { font-size: 12px; }
-.station-stepper li.complete > button > span { border-color: var(--soft-sage); background: var(--fresh-mint); }
-.station-stepper li.current > button > span { border-color: var(--deep-green); background: var(--deep-green); color: var(--on-accent); }
-.station-stepper li.unreached { opacity: 0.6; }
-.station-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; border: 1px solid var(--cool-gray); border-radius: var(--radius-control); background: var(--surface-subtle); }
-.station-actions-text { display: grid; gap: 3px; min-width: 0; flex: 1 1 280px; }
-.station-actions-text small { color: var(--muted); }
-.station-reuse-note { color: var(--deep-green) !important; }
-.station-revision-banner { align-items: flex-start; }
-.station-revision-banner > div { display: grid; gap: 4px; flex: 1; }
-.station-revision-banner p { margin: 0; }
 .station-checklist { display: grid; gap: 8px; padding: 4px 2px; }
 .station-check-row { display: flex; justify-content: space-between; gap: 12px; padding: 6px 0; border-bottom: 1px solid var(--cool-gray); }
 .station-check-items { display: grid; gap: 4px; margin: 0; padding: 0 0 0 4px; list-style: none; font-size: 12px; }
@@ -11576,11 +11557,6 @@ small {
 .chunk-reference-add { display: flex; flex-wrap: wrap; gap: 6px; }
 .chunk-reference-add input { flex: 1 1 200px; min-width: 0; }
 
-@media (max-width: 768px) {
-  .station-stepper { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .station-stepper li:not(:last-child)::after { display: none; }
-  .station-actions > .action-button { width: 100%; justify-content: center; }
-}
 .action-button.compact { min-height: 30px; padding: 0 10px; font-size: 12px; }
 .station-waiting-note { color: var(--feedback-warning-text); font-weight: 600; }
 .graph-explorer-edges path.relation-references { stroke: var(--deep-green); stroke-dasharray: 2 4; }
@@ -11935,4 +11911,179 @@ small {
   .ws-stepper { gap: 6px; padding: 10px; }
   .ws-stepper > li { flex-direction: column; gap: 4px; text-align: center; font-size: 12px; }
   .ws-stepper > li + li::before { display: none; }
+}
+
+/* CHG-495 WP2 document page (S11/S12, M16–M19; keep K150–K174). */
+.topbar-title-row { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.topbar-title-row h1 { min-width: 0; }
+.document-rename-button.ws-icon-button { flex-shrink: 0; width: 32px; height: 32px; color: var(--text2); }
+.document-header-meta { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.document-version-label { color: var(--text2); font-family: var(--font-mono, "JetBrains Mono", monospace); font-size: 13px; font-variant-numeric: tabular-nums; }
+.document-header-actions .next-stage-link { min-height: 40px; padding: 0 14px; }
+.document-header-actions .next-stage-link:hover { color: var(--text); }
+.document-header-actions .next-stage-disabled { min-height: 40px; padding: 0 6px; color: var(--text3); font-size: 14px; }
+.document-header-notice { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; font-size: 13px; }
+.document-header-notice > span { flex: 1 1 280px; min-width: 0; }
+.document-header-notice.tone-amber { background: var(--amber-soft); color: var(--amber-ink); }
+.document-header-notice .text-link { min-height: 32px; color: var(--accent-ink); }
+.station-header { display: grid; margin-bottom: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.station-stepper { display: flex; align-items: center; gap: 8px; margin: 0; padding: 12px 16px; list-style: none; }
+.station-stepper > li { display: flex; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; }
+.station-stepper > li + li::before { content: ""; flex: 1 1 24px; min-width: 12px; height: 1px; background: var(--border-strong); }
+.station-stepper > li.complete + li::before { background: var(--accent); }
+.station-stepper li > button { display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 40px; padding: 4px 6px; border: 0; border-radius: 6px; background: none; color: var(--text2); font: inherit; text-align: left; cursor: pointer; }
+.station-stepper li > button:hover:not(:disabled) { background: var(--surface2); }
+.station-stepper li > button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.station-stepper li > button:disabled { cursor: default; }
+.station-stepper li > button > span { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border: 1px solid var(--border-strong); border-radius: 50%; background: var(--surface); color: var(--text2); font-size: 13px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.station-stepper li > button > div { display: grid; gap: 1px; min-width: 0; }
+.station-stepper li > button strong { color: var(--text); font-size: 14px; font-weight: 500; white-space: nowrap; }
+.station-stepper li > button small { color: var(--text3); font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.station-stepper li.complete > button > span { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.station-stepper li.current > button > span { border-width: 2px; border-color: var(--accent); color: var(--accent-ink); }
+.station-stepper li.complete.current > button > span { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--accent-soft); color: var(--on-accent); }
+.station-stepper li.current > button strong { font-weight: 600; }
+.station-stepper li.unreached > button strong, .station-stepper li.unreached > button small { color: var(--text3); }
+.station-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 16px; padding: 12px 16px; border-top: 1px solid var(--border); }
+.station-actions-text { display: grid; gap: 2px; flex: 1 1 280px; min-width: 0; }
+.station-actions-text strong { font-size: 14px; font-weight: 600; }
+.station-actions-text small { color: var(--text2); font-size: 13px; }
+.station-actions > .feedback-message { flex: 1 1 100%; margin: 0; }
+.station-reuse-note { color: var(--accent-ink); }
+.station-revision-note { display: flex; align-items: flex-start; gap: 10px; margin: 0 16px 12px; padding: 10px 14px; border-radius: 6px; background: var(--info-soft); color: var(--info-ink); font-size: 13px; }
+.station-revision-note > svg { flex-shrink: 0; margin-top: 2px; }
+.station-revision-note > div { display: grid; gap: 2px; min-width: 0; }
+.station-revision-note p { margin: 0; }
+.station-revision-note small { color: var(--text2); font-size: 12px; }
+.station-revision-note .feedback-message { margin: 6px 0 0; }
+.extraction-pane-tabs { display: none; }
+.extraction-workspace > .panel { border-color: var(--border); }
+.extraction-workspace .panel-header h2 { font-size: 16px; font-weight: 600; }
+.extraction-workspace .chunk-card { border-color: var(--border); border-radius: 8px; background: var(--surface); }
+.extraction-workspace .chunk-card:hover { border-color: var(--border-strong); }
+.extraction-workspace .chunk-card.selected { border-color: var(--accent); box-shadow: inset 3px 0 0 var(--accent); }
+.extraction-workspace .chunk-inline-meta { color: var(--text2); font-variant-numeric: tabular-nums; }
+.chunk-confidence { color: var(--accent-ink); }
+.chunk-confidence.low { color: var(--amber-ink); }
+.station-checklist .station-check-row { border-bottom-color: var(--border); }
+.station-checklist .station-check-row strong { font-variant-numeric: tabular-nums; }
+.knowledge-ready-bar { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-color: var(--border); border-radius: 8px; background: var(--surface); color: var(--accent-ink); font-size: 14px; }
+.knowledge-ready-bar.warning { color: var(--amber-ink); }
+@media (max-width: 1024px) {
+  .station-stepper li > button small { white-space: normal; }
+}
+@media (max-width: 768px) {
+  .topbar-title-row { align-items: flex-start; }
+  .document-rename-button.ws-icon-button { width: 44px; height: 44px; }
+  .document-header-actions > .action-button, .document-header-actions > .station-revision-action { flex: 1 1 auto; }
+  .station-stepper { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 8px; padding: 10px; }
+  .station-stepper > li + li::before { display: none; }
+  .station-stepper li > button { width: 100%; min-height: 44px; }
+  .station-stepper li > button strong, .station-stepper li > button small { white-space: normal; }
+  .station-actions { padding: 12px; }
+  .station-actions > .action-button { width: 100%; }
+  .station-revision-note { margin: 0 12px 12px; }
+  .extraction-pane-tabs { display: flex; margin-bottom: 12px; }
+  .extraction-pane-tabs .ws-tab { flex: 1 1 0; justify-content: center; min-height: 44px; }
+  .extraction-workspace.mobile-pane-source > :nth-child(2), .extraction-workspace.mobile-pane-chunks > :nth-child(1) { display: none; }
+}
+
+/* CHG-495 WP2 document chat test (S13, C6; keep K180). Scoped: the project chat tab shares the chat classes. */
+.chat-validation-shell { min-height: 0; border-color: var(--border); box-shadow: none; grid-template-columns: 300px minmax(0, 1fr); }
+.chat-validation-shell .chat-validation-sidebar { border-right-color: var(--border); background: var(--surface); }
+.chat-validation-shell .chat-sidebar-section { gap: 10px; border-bottom-color: var(--border); }
+.chat-sidebar-title { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--text); font-size: 14px; font-weight: 600; }
+.chat-sidebar-title > svg { color: var(--text2); }
+.chat-validation-shell .chat-scope-list div { border-top-color: var(--border); font-size: 12px; }
+.chat-validation-shell .chat-scope-list dt { color: var(--text2); }
+.chat-validation-shell .chat-scope-list dd { color: var(--text); font-size: 14px; font-weight: 500; }
+.chat-validation-shell .chat-history-item { min-height: 0; padding: 10px 12px; border-radius: 6px; color: var(--text); }
+.chat-validation-shell .chat-history-item:hover { border-color: transparent; background: var(--surface2); }
+.chat-validation-shell .chat-history-item.active { border-color: transparent; background: var(--accent-soft); box-shadow: none; }
+.chat-validation-shell .chat-history-item strong { font-size: 14px; font-weight: 500; }
+.chat-validation-shell .chat-history-item small { color: var(--text2); font-size: 12px; }
+.chat-validation-shell .chat-conversation-header { border-bottom-color: var(--border); padding: 12px 16px; }
+.chat-validation-shell .chat-conversation-header strong { font-size: 16px; font-weight: 600; }
+.chat-validation-shell .chat-conversation-header small { color: var(--text2); font-size: 12px; }
+.chat-validation-shell .chat-thread { background: var(--surface); }
+.chat-validation-shell .user-message { justify-content: flex-end; }
+.chat-validation-shell .user-message > .user-message-body { padding: 8px 14px; border: 0; border-radius: 8px; background: var(--surface2); color: var(--text); }
+.chat-validation-shell .user-message small { color: var(--text2); font-size: 12px; }
+.chat-validation-shell .message-avatar { width: 28px; height: 28px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); }
+.chat-validation-shell .answer-judgment { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+.answer-judgment-label { color: var(--text2); font-size: 12px; }
+.chat-validation-shell .answer-judgment button { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 1px solid var(--border-strong); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 13px; font-weight: 500; }
+.chat-validation-shell .answer-judgment button.selected.correct { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-ink); }
+.chat-validation-shell .answer-judgment button.selected.needs-revision { border-color: var(--amber); background: var(--amber-soft); color: var(--amber-ink); }
+.chat-validation-shell .answer-judgment-result { flex: 1 1 100%; color: var(--text2); font-size: 12px; text-align: right; }
+.chat-validation-shell .chat-composer { border-top: 1px solid var(--border); }
+@media (max-width: 1024px) {
+  .chat-validation-shell { grid-template-columns: minmax(0, 1fr); }
+  .chat-validation-shell .chat-validation-sidebar { border-right: 0; border-bottom: 1px solid var(--border); }
+}
+@media (max-width: 768px) {
+  .chat-validation-shell .answer-judgment { justify-content: flex-start; }
+  .chat-validation-shell .answer-judgment button { min-height: 44px; }
+  .chat-validation-shell .answer-judgment-result { text-align: left; }
+}
+
+/* CHG-495 WP2 submit for review (S13, C1/C4; keep K181–K183). Scoped: the approval detail page shares the submission classes. */
+.submission-page { display: grid; gap: 16px; }
+.submission-page .submission-readiness { display: flex; align-items: center; gap: 10px; min-width: 0; margin: 0; padding: 10px 14px; border: 0; border-radius: 8px; background: var(--amber-soft); color: var(--amber-ink); }
+.submission-page .submission-readiness.ready { background: var(--accent-soft); color: var(--accent-ink); }
+.submission-page .submission-readiness small { color: inherit; font-size: 12px; }
+.submission-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 16px; }
+.submission-page .submission-shell { overflow: visible; border: 0; background: none; box-shadow: none; }
+.submission-page .submission-summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; border: 0; }
+.submission-page .submission-section, .submission-page .submission-section:nth-child(odd), .submission-page .submission-workflow { padding: 16px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
+.submission-page .submission-graph-section { grid-column: auto; border-right: 1px solid var(--border) !important; }
+.submission-page .submission-section-title { color: var(--text2); }
+.submission-page .submission-section-title h3 { color: var(--text); font-size: 16px; font-weight: 600; }
+.submission-page .submission-document-identity { border-color: var(--border); border-radius: 6px; background: var(--surface2); }
+.submission-page .submission-file-icon { width: 36px; height: 36px; border-radius: 6px; background: var(--info-soft); color: var(--info-ink); }
+.submission-page .submission-document-identity small, .submission-page .submission-detail-list dt, .submission-page .submission-metrics small, .submission-page .submission-model-list dt { color: var(--text2); }
+.submission-page .submission-detail-list dd { font-weight: 500; }
+.submission-mono { font-family: var(--font-mono, "JetBrains Mono", monospace); }
+.submission-page .submission-positive { color: var(--accent-ink); }
+.submission-section-note { display: block; margin-top: 12px; color: var(--text2); font-size: 12px; }
+.submission-page .submission-metrics { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); }
+.submission-page .submission-metrics span { border-color: var(--border); background: var(--surface); color: var(--text2); }
+.submission-page .submission-metrics strong { color: var(--text); font-size: 20px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.submission-page .graph-summary-row em { grid-column: 1 / -1; color: var(--text3); font-size: 12px; font-style: normal; }
+.submission-page .submission-metric-total { grid-column: 1 / -1; }
+.submission-page .submission-model-list div { border-top-color: var(--border); }
+.submission-page .submission-model-list dt { font-size: 12px; }
+.submission-page .submission-model-list dd { font-size: 13px; font-weight: 500; }
+.submission-page .submission-graph-detail { grid-template-columns: minmax(0, 1fr); }
+.submission-page .submission-graph-detail > p { border-color: var(--border); background: var(--surface2); color: var(--accent-ink); font-size: 12px; }
+.submission-page .submission-graph-detail > p small { color: var(--text2); }
+.submission-page .submission-chat-section { grid-column: 1 / -1; }
+.submission-page .submission-conversation-group { border-color: var(--border); border-radius: 8px; }
+.submission-sidebar { position: sticky; top: 16px; display: grid; gap: 16px; min-width: 0; }
+.submission-page .submission-workflow ol { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0; list-style: none; }
+.submission-page .workflow-step { grid-template-columns: 28px minmax(0, 1fr); gap: 10px; padding: 0 0 16px; }
+.submission-page .workflow-step:not(:last-child)::after { content: ""; position: absolute; top: 30px; bottom: 2px; left: 13px; width: 1px; background: var(--border); }
+.submission-page .workflow-step-icon { width: 28px; height: 28px; border-color: var(--border-strong); background: var(--surface); color: var(--text3); }
+.submission-page .workflow-step.current .workflow-step-icon { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
+.submission-page .workflow-step.next .workflow-step-icon { border-color: var(--amber); background: var(--amber-soft); color: var(--amber-ink); }
+.submission-page .workflow-step.next.blocked .workflow-step-icon { border-color: var(--danger); background: var(--danger-soft); color: var(--danger-ink); }
+.submission-page .workflow-step.next.blocked strong { color: var(--danger-ink); }
+.submission-page .workflow-step small, .submission-page .workflow-step div span { color: var(--text2); }
+.submission-page .workflow-step strong { color: var(--text); font-weight: 600; }
+.submission-route-note { margin: 0 0 12px; color: var(--text2); font-size: 12px; }
+.submission-page .submission-actions { display: grid; gap: 10px; padding: 12px 0 0; border-top: 1px solid var(--border); background: none; }
+.submission-page .submission-actions p { align-items: flex-start; color: var(--text2); font-size: 12px; }
+.submission-page .submission-actions p svg { color: var(--text2); }
+.submission-page .submission-actions .action-button { width: 100%; }
+@media (max-width: 1280px) {
+  .submission-layout { grid-template-columns: minmax(0, 1fr) 300px; }
+  .submission-page .submission-summary-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1024px) {
+  .submission-layout { grid-template-columns: minmax(0, 1fr); }
+  .submission-sidebar { position: static; }
+}
+@media (max-width: 768px) {
+  .submission-page .submission-section, .submission-page .submission-section:nth-child(odd), .submission-page .submission-workflow { padding: 12px; }
+  .submission-page .submission-actions .action-button { min-height: 44px; }
 }
