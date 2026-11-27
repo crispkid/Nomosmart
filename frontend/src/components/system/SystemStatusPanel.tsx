@@ -6,7 +6,7 @@ import { FeedbackMessage } from "@/components/FeedbackMessage";
 import type { OperationsStatusResponse } from "@/lib/api";
 import { useI18n } from "@/lib/i18nClient";
 import { SettingsCard } from "../SettingsCard";
-import { EmptyInlineState, StateBadge, metricPairs, operationStatusLabel, statusTone } from "./SystemUi";
+import { EmptyInlineState, ServiceName, StateBadge, metricPairs, operationStatusLabel, serviceFriendlyName, statusTone } from "./SystemUi";
 
 /** Runtime, dependency, provider and recent-error status cards (OPT424-038). */
 export function SystemStatusPanel({ status, ready }: { status: OperationsStatusResponse | null; ready: boolean }) {
@@ -21,12 +21,12 @@ export function SystemStatusPanel({ status, ready }: { status: OperationsStatusR
         status.worker,
         status.queue,
         status.retrieval
-      ].map((component) => <article className="system-status-card" key={component.name}><header><div><small>{component.name}</small><h3>{component.detail_code}</h3></div><StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge></header><dl>{metricPairs(component.metrics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>)}</dl><small>{format("systemCheckedAt", { time: component.checked_at.slice(0, 16).replace("T", " ") })}</small></article>)}
+      ].map((component) => <article className="system-status-card" key={component.name}><header><div><h3>{serviceFriendlyName(component.name, t) ?? component.name}</h3><small>{component.name} · {component.detail_code}</small></div><StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge></header><dl>{metricPairs(component.metrics).map(([key, value]) => <div key={key}><dt>{key}</dt><dd>{String(value)}</dd></div>)}</dl><small>{format("systemCheckedAt", { time: component.checked_at.slice(0, 16).replace("T", " ") })}</small></article>)}
       </div>
       </SettingsCard><div className="system-status-columns">
       <SettingsCard panel="dependencies" title={t("systemDependencies")}>
         <DataTable rows={status.dependencies} rowKey={component => component.name} columns={[
-          { key: "component", header: t("systemComponent"), cell: component => <strong>{component.name}</strong> },
+          { key: "component", header: t("systemComponent"), cell: component => <ServiceName name={component.name} /> },
           { key: "status", header: t("systemStatusColumn"), cell: component => <StateBadge tone={statusTone(component.status)}>{operationStatusLabel(component.status, t)}</StateBadge> },
           { key: "detail", header: t("systemDetail"), cell: component => component.detail_code },
           { key: "checked", header: t("systemChecked"), cell: component => component.checked_at.slice(0, 16).replace("T", " ") },

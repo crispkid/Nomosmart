@@ -32,7 +32,8 @@ type DataTableProps<T> = {
  * Shared operational data table: renders the existing
  * `system-table-wrap` + `system-table` markup, so pages keep their look while
  * the header/body structure is defined once. Empty, loading and paging states
- * stay with the page that owns the data.
+ * stay with the page that owns the data. Body cells carry their text header as
+ * `data-label` so a narrow layout can show them as stacked rows (CHG-495 WP2).
  */
 export function DataTable<T>({ columns, rows, rowKey, rowClassName, onRowClick, rowAttributes, wrapClassName, children }: DataTableProps<T>) {
   return <div className={wrapClassName ? `system-table-wrap ${wrapClassName}` : "system-table-wrap"}>
@@ -40,8 +41,8 @@ export function DataTable<T>({ columns, rows, rowKey, rowClassName, onRowClick, 
       <thead><tr>{columns.map((column) => <th aria-label={column.headerLabel} className={column.className} key={column.key}>{column.header}</th>)}</tr></thead>
       <tbody>{rows.map((row, index) => <tr {...rowAttributes?.(row)} className={rowClassName?.(row) || undefined} key={rowKey(row, index)} onClick={onRowClick ? () => onRowClick(row) : undefined}>
         {columns.map((column) => column.rowHeader
-          ? <th className={column.className} key={column.key} scope="row">{column.cell(row, index)}</th>
-          : <td className={column.className} key={column.key}>{column.cell(row, index)}</td>)}
+          ? <th className={column.className} data-label={typeof column.header === "string" ? column.header : undefined} key={column.key} scope="row">{column.cell(row, index)}</th>
+          : <td className={column.className} data-label={typeof column.header === "string" ? column.header : undefined} key={column.key}>{column.cell(row, index)}</td>)}
       </tr>)}</tbody>
     </table>
     {children}

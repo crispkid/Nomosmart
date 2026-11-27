@@ -24,6 +24,7 @@ import { ApiKeyOneTimeDialog } from "./system/ApiKeyOneTimeDialog";
 import { useSystemDialogFocus } from "./system/useSystemDialogFocus";
 import { useGuardedLinkNavigation } from "./system/useGuardedLinkNavigation";
 import { apiBaseUrl } from "@/lib/oidc";
+import { useSystemHeading } from "./SystemManagementShell";
 
 import { useOperationGuard } from "./useOperationGuard";
 import { FeedbackConfirm } from "./FeedbackConfirm";
@@ -122,6 +123,8 @@ export default function SystemManagementWorkspace({
   const canCreateSystemManagement = can("Menu", "SystemManagement", "create");
   const canEditSystemManagement = can("Menu", "SystemManagement", "edit");
   const canDeleteSystemManagement = can("Menu", "SystemManagement", "delete");
+  // CHG-495 WP2 (A1Settings): the open section is the page heading (AppShell), under a System Management breadcrumb.
+  useSystemHeading(canViewSystemManagement ? t(settingsSections.find(section => section.id === activeSection)!.labelKey) : null);
   const canEditPermissions = canEditSystemManagement;
 
   const canEditUsers = canEditSystemManagement;
@@ -541,9 +544,8 @@ export default function SystemManagementWorkspace({
       <div className="system-settings-layout">
         <SettingsNavigation activeSection={activeSection} leaveOpen={Boolean(settingsLeave)} narrow={narrow} navOpen={navOpen} navigateSettings={navigateSettings} navigationRef={navigationRef} setNavOpen={setNavOpen} setSettingsSearch={setSettingsSearch} settingsSearch={settingsSearch} t={t} />
         <div className="settings-main" inert={Boolean(settingsLeave) || narrow && navOpen}>
-          <header className="settings-page-heading"><p>{t("labelSystemManagement")}</p><h1>{t(settingsSections.find(section => section.id === activeSection)!.labelKey)}</h1><span>{t("settingsWorkspaceHelp")}</span></header>
           {activeSection === "general" ? <button type="button" className="text-link" onClick={() => navigateSettings({ section: "documents", panel: "upload" })}>{t("settingsGoDocuments")}<ChevronRight size={16} /></button> : null}
-          {(activeSection === "people" ? ["users", "roles", "groups", "mappings"] : activeSection === "ai" ? ["models", "prompts"] : activeSection === "apiKeys" ? ["clients", "projects"] : activeSection === "status" ? ["status"] : []).map(section => <div key={section}>{renderSectionReadNotice(section)}</div>)}
+          {(activeSection === "people" ? ["users", "roles", "groups", "mappings"] : activeSection === "ai" ? ["models", "prompts"] : activeSection === "apiKeys" ? ["clients", "projects"] : activeSection === "status" ? ["status"] : []).map(section => { const notice = renderSectionReadNotice(section); return notice ? <div key={section}>{notice}</div> : null; })}
           {activeSection === "people" ? renderUserPanel() : null}
           {activeSection === "people" ? renderRolePanel() : null}
           {activeSection === "people" ? renderPermissionPanel() : null}
