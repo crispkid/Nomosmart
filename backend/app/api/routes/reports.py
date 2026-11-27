@@ -339,6 +339,8 @@ def get_report_approval_stats(
     policy = ReportScopePolicy(session, context)
     decision = policy.decide(scope=scope, project_id=project_id)
     _validate_date_range(date_from, date_to)
+    # A date without an offset (as /reports/summary accepts) is read as UTC, so week buckets stay comparable.
+    date_from, date_to = (value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value for value in (date_from, date_to))
     window_to = date_to or datetime.now(UTC)
     window_from = date_from or (window_to - APPROVAL_STATS_DEFAULT_WINDOW)
     stats = _insights.decision_stats(session, decision.project_ids, window_from, window_to)
