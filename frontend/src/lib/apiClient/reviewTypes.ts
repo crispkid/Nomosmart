@@ -350,6 +350,11 @@ export type ApprovalSummary = {
   pending_manager_review: number;
   pending_owner_review: number;
   my_submissions: number;
+  // CHG-495 UIRD-API-001/003 (additive; absent from older backends).
+  pending_overdue?: number;
+  pending_overdue_hours?: number;
+  completed_last_7_days?: number;
+  average_wait_seconds?: number | null;
 };
 
 export type PublishResult = {

@@ -2,20 +2,22 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { createContext, useCallback, useContext, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { createContext, useCallback, useContext, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import {
   BookOpenText,
   CheckSquare,
   ChevronsUpDown,
   Database,
   Gauge,
+  Home,
   LayoutDashboard,
+  Lock,
   LogOut,
   Settings,
 } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { NotificationCenter } from "./NotificationCenter";
-import { FeedbackMessage, feedbackIcons } from "./FeedbackMessage";
+import { feedbackIcons } from "./FeedbackMessage";
 import { BrandMark } from "./BrandMark";
 import { isSupportedLocale, supportedLocales, useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { visibleWorkspaceNav, workspaceArea } from "@/lib/workspaceNavigation";
@@ -86,8 +88,9 @@ function useMobileLayout(): boolean {
 
 /** Language, theme and sign-out controls shared by the sidebar account menu and the mobile "More" sheet. */
 function AccountControls({ onDone }: { onDone?: () => void }) {
-  const { logout, userDisplayName } = useAuth();
+  const { currentUser, logout, userDisplayName } = useAuth();
   const { locale, setLocale, t } = useI18n();
+  const department = currentUser?.department?.trim();
   const [theme, setTheme] = useThemePreference();
   const [loggingOut, setLoggingOut] = useState(false);
 
@@ -99,7 +102,7 @@ function AccountControls({ onDone }: { onDone?: () => void }) {
   }
 
   return <div className="ws-account-controls">
-    <div className="ws-account-identity">{userDisplayName}</div>
+    <div className="ws-account-identity"><strong>{userDisplayName}</strong>{department ? <span>{department}</span> : null}</div>
     <div className="ws-account-group" role="group" aria-label={t("languageSwitcher")}>
       <span className="ws-account-group-label">{t("languageSwitcher")}</span>
       <div className="ws-segmented">
@@ -129,7 +132,8 @@ function initialOf(name: string): string {
 
 /** CHG-495 UIRD-002: sidebar (desktop) or top bar and bottom tabs (mobile), plus the main landmark. */
 export function WorkspaceChrome({ children }: { children: React.ReactNode }) {
-  const { apiFetch, can, userDisplayName } = useAuth();
+  const { apiFetch, can, currentUser, userDisplayName } = useAuth();
+  const department = currentUser?.department?.trim();
   const pathname = usePathname();
   const activeArea = workspaceArea(pathname);
   const shellRef = useRef<HTMLDivElement>(null);
@@ -174,7 +178,7 @@ export function WorkspaceChrome({ children }: { children: React.ReactNode }) {
         <div className="ws-account" ref={accountRef}>
           <button className="ws-account-trigger" type="button" aria-expanded={accountOpen} aria-haspopup="true" aria-label={format("headerAccountMenu", { name: userDisplayName })} onClick={() => setAccountOpen(open => !open)}>
             <span className="ws-avatar" aria-hidden>{initialOf(userDisplayName)}</span>
-            <span className="ws-account-name">{userDisplayName}</span>
+            <span className="ws-account-name"><span>{userDisplayName}</span>{department ? <small>{department}</small> : null}</span>
             <ChevronsUpDown size={15} aria-hidden />
           </button>
           {accountOpen ? <div className="ws-account-panel"><AccountControls onDone={() => setAccountOpen(false)} /></div> : null}
@@ -199,10 +203,17 @@ export function WorkspaceChrome({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** K041 (CHG-495 S01): centred card in the main area; the navigation stays available. */
 export function ForbiddenState({ title, description }: { title?: string; description?: string }) {
   const { t } = useI18n();
+  const titleId = useId();
   return (
-    <FeedbackMessage tone="warning" title={title ?? t("forbiddenTitle")}>{description ?? t("forbiddenDescription")}</FeedbackMessage>
+    <section className="forbidden-state state-card" role="status" aria-labelledby={titleId}>
+      <span className="state-card-icon tone-danger"><Lock aria-hidden="true" size={24} /></span>
+      <h2 id={titleId}>{title ?? t("forbiddenTitle")}</h2>
+      <p className="state-card-description">{description ?? t("forbiddenDescription")}</p>
+      <div className="state-card-actions"><Link className="action-button" href="/"><Home aria-hidden="true" size={16} />{t("recoveryHome")}</Link></div>
+    </section>
   );
 }
 
@@ -210,18 +221,22 @@ export function StatCard({
   label,
   value,
   helper,
+  note,
   tone = "green"
 }: {
   label: string;
   value: string;
   helper: string;
-  tone?: "green" | "gold" | "coral" | "sage";
+  /** CHG-495 M07: an optional second line that needs attention (for example overdue reviews). */
+  note?: string;
+  tone?: "green" | "gold" | "coral" | "sage" | "violet" | "neutral";
 }) {
   return (
     <section className={`stat-card tone-${tone}`}>
       <span>{label}</span>
       <strong>{value}</strong>
       <small>{helper}</small>
+      {note ? <small className="stat-card-note">{note}</small> : null}
     </section>
   );
 }
