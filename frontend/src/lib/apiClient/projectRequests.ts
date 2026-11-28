@@ -3,7 +3,7 @@ import { apiBaseUrl } from "@/lib/oidc";
 import { apiJson, apiResponseError, type ApiFetch } from "./core";
 import type {
   DataSourceConnectionPayload, DataSourceConnectionTestResponse, DataSourceCreateResponse, DataSyncRunResponse,
-  DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, PipelineRunDetail, PipelineSummary
+  DocumentDuplicateMatch, DocumentSummary, DocumentUpdateResponse, DocumentUploadResponse, PipelineRunDetail, PipelineSummary
 } from "./documentTypes";
 import type { DataSourceConnectionOptions } from "./identityTypes";
 import type {
@@ -156,3 +156,8 @@ export async function submitDocumentVersionReview(apiFetch: ApiFetch, projectId:
   return apiJson<ApprovalRequestResponse>(apiFetch, `/projects/${projectId}/documents/${documentId}/versions/${versionId}/submit-review`, { method: "POST", headers: { "content-type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify(payload) });
 }
 export async function getApprovalSummary(apiFetch: ApiFetch) { return apiJson<ApprovalSummary>(apiFetch, "/approvals/summary"); }
+
+/** CHG-497 DUP497-001: same-content versions in this project for up to 50 content hashes. */
+export async function checkDocumentDuplicates(apiFetch: ApiFetch, projectId: string, sha256: string[], signal?: AbortSignal) {
+  return apiJson<{ matches: DocumentDuplicateMatch[] }>(apiFetch, `/projects/${projectId}/documents/duplicate-check`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ sha256 }), signal });
+}

@@ -5,6 +5,8 @@ export const UPLOAD_REASON_UNSUPPORTED = "不支援的格式";
 export const UPLOAD_REASON_TOO_LARGE = "超過 100 MB 上限";
 export const UPLOAD_REASON_EMPTY = "檔案內容為空";
 export const UPLOAD_REASON_READY = "可上傳";
+/** CHG-497 DUP497-002: the project already has this content and the user did not choose to upload it anyway. */
+export const UPLOAD_REASON_DUPLICATE_SKIPPED = "duplicate_skipped";
 
 type FileDescriptor = { name: string; size: number };
 type FileValidationResult = { name: string; ok: boolean; reason: string };

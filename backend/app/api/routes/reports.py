@@ -29,7 +29,7 @@ from app.api.schemas import (
 )
 from app.core.errors import AppError
 from app.core.config import get_settings
-from app.db.models import AIModel, AIModelUsageEvent, ApprovalRequest, ChatRecord, Document, DocumentVersionStation, DocumentReference, DocumentReferenceEvent, DocumentVersion, Notification, PipelineRun, PipelineRunStep, Project, ValidationRun, ValidationRunItem
+from app.db.models import AIModel, AIModelUsageEvent, ApprovalRequest, ChatFeedbackEvent, ChatRecord, Document, DocumentVersionStation, DocumentReference, DocumentReferenceEvent, DocumentVersion, Notification, PipelineRun, PipelineRunStep, Project, ValidationRun, ValidationRunItem
 from app.db.session import get_db
 from app.domain.report_policy import ReportScopePolicy
 from app.domain import approval_insights as _insights
@@ -602,7 +602,26 @@ def _redesign_cards(session: Session, project_ids: set[UUID] | None, date_from: 
         cards.append(ReportMetricCard(key="recent_cited_chat_rate", label="Cited Answer Rate (Period)", value=_rate(cited, chats)))
     for station, count in _station_document_counts(session, project_ids).items():
         cards.append(ReportMetricCard(key=f"station_{station}_document_count", label=f"Station {station} Documents", value=count))
+    # CHG-497 FEED497-001: Public API end-user feedback; without feedback in the period there is no rate (UI shows "—").
+    good, bad = _public_feedback_counts(session, project_ids, window_from, window_to)
+    if good + bad:
+        cards.append(ReportMetricCard(key="public_feedback_positive_rate", label="Positive Feedback Rate", value=_rate(good, good + bad)))
+        cards.append(ReportMetricCard(key="public_feedback_count", label="Feedback Responses", value=good + bad))
     return cards
+
+
+def _public_feedback_counts(session: Session, project_ids: set[UUID] | None, date_from: datetime, date_to: datetime) -> tuple[int, int]:
+    """Latest good/bad feedback per Public API response given in the period (D497-03)."""
+    ranked = select(
+        ChatFeedbackEvent.feedback_value.label("value"),
+        func.row_number().over(partition_by=ChatFeedbackEvent.public_response_id,
+                               order_by=(ChatFeedbackEvent.created_at.desc(), ChatFeedbackEvent.id.desc())).label("rank"),
+    ).where(ChatFeedbackEvent.source == "api", ChatFeedbackEvent.public_response_id.is_not(None),
+            ChatFeedbackEvent.feedback_value.in_(("good", "bad")))
+    ranked = _project_date_filters(ranked, ChatFeedbackEvent, ChatFeedbackEvent.created_at, project_ids, date_from, date_to).subquery()
+    good, bad = session.execute(select(func.count().filter(ranked.c.value == "good"), func.count().filter(ranked.c.value == "bad"))
+                                .where(ranked.c.rank == 1)).one()
+    return int(good or 0), int(bad or 0)
 
 
 def _live_document_filters(query, project_ids: set[UUID] | None):

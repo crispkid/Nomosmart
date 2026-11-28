@@ -348,6 +348,9 @@ function ReportKpiStrip({ loading, metrics, stats, statsFailed }: { loading: boo
   const previousDocuments = metricValue(metrics, "new_document_previous_count");
   const chats = metricValue(metrics, "recent_chat_count");
   const citedRate = metricValue(metrics, "recent_cited_chat_rate");
+  // CHG-497 FEED497-001: absent when the period has no Public API feedback.
+  const feedbackRate = metricValue(metrics, "public_feedback_positive_rate");
+  const feedbackCount = metricValue(metrics, "public_feedback_count");
   let documentTrend = "";
   if (newDocuments !== null && previousDocuments !== null) {
     if (previousDocuments === 0) documentTrend = format("reportKpiPreviousCount", { count: formatCount(previousDocuments, locale) });
@@ -361,7 +364,8 @@ function ReportKpiStrip({ loading, metrics, stats, statsFailed }: { loading: boo
     { label: t("reportKpiNewDocuments"), value: newDocuments === null ? pending : formatCount(newDocuments, locale), helper: documentTrend, tone: newDocuments !== null && previousDocuments !== null && previousDocuments > 0 && newDocuments !== previousDocuments ? newDocuments > previousDocuments ? "up" : "down" : undefined },
     { label: t("reportKpiApprovalsCompleted"), value: stats ? formatCount(stats.completed_count, locale) : statsFailed ? "—" : "…", helper: stats ? stats.average_wait_seconds === null ? t("reportKpiNoCompletedApprovals") : format("reportKpiAverageWait", { duration: formatWaitDuration(stats.average_wait_seconds, format) }) : statsFailed ? t("reportApprovalStatsFailed") : "" },
     { label: t("reportKpiChats"), value: chats === null ? pending : formatCount(chats, locale), helper: t("reportKpiInPeriod") },
-    { label: t("reportKpiCitedRate"), value: citedRate === null ? (chats === 0 ? "—" : pending) : `${Math.round(citedRate * 100)}%`, helper: citedRate === null && chats === 0 ? t("reportKpiNoChats") : t("reportKpiCitedRateHelper") }
+    { label: t("reportKpiCitedRate"), value: citedRate === null ? (chats === 0 ? "—" : pending) : `${Math.round(citedRate * 100)}%`, helper: citedRate === null && chats === 0 ? t("reportKpiNoChats") : t("reportKpiCitedRateHelper") },
+    { label: t("reportKpiFeedbackRate"), value: feedbackRate === null ? (metrics ? "—" : pending) : `${Math.round(feedbackRate * 100)}%`, helper: feedbackRate === null ? (metrics ? t("reportKpiNoFeedback") : "") : format("reportKpiFeedbackHelper", { count: formatCount(feedbackCount ?? 0, locale) }) }
   ];
   return <section aria-label={t("reportKpiLabel")} className="report-kpi-strip">
     {cells.map((cell) => <div className="report-kpi" key={cell.label}><span>{cell.label}</span><strong>{cell.value}</strong>{cell.helper ? <small className={cell.tone ? `is-${cell.tone}` : undefined}>{cell.helper}</small> : null}</div>)}

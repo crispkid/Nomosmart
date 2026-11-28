@@ -21,6 +21,11 @@ TEXT_CHANGE_LIMIT = 200
 DECIDED = ("approved", "rejected")
 
 
+def due_at(submitted_at: datetime) -> datetime:
+    """CHG-497 DUE497-001: a pending task is due PENDING_OVERDUE_HOURS after it was submitted."""
+    return submitted_at + timedelta(hours=PENDING_OVERDUE_HOURS)
+
+
 def overdue_count(tasks, now: datetime | None = None) -> int:
     limit = (now or datetime.now(UTC)) - timedelta(hours=PENDING_OVERDUE_HOURS)
     return sum(1 for task in tasks if task.submitted_at is not None and task.submitted_at <= limit)

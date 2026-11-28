@@ -102,6 +102,7 @@
     "deploy/helm/nomosmart/files/sql/V067__question_answering_subquestions.sql",
     "deploy/helm/nomosmart/files/sql/V068__approval_review_routing.sql",
     "deploy/helm/nomosmart/files/sql/V069__retrieval_top_k_top_p.sql",
+    "deploy/helm/nomosmart/files/sql/V070__user_last_login.sql",
     "deploy/helm/nomosmart/templates/_auth-keyring.tpl",
     "deploy/helm/nomosmart/templates/_bootstrap-init.tpl",
     "deploy/helm/nomosmart/templates/_helpers.tpl",
@@ -282,6 +283,7 @@
     "sql/migrations/V066__chunk_reference_relation_type.sql",
     "sql/migrations/V067__question_answering_subquestions.sql",
     "sql/migrations/V068__approval_review_routing.sql",
-    "sql/migrations/V069__retrieval_top_k_top_p.sql"
+    "sql/migrations/V069__retrieval_top_k_top_p.sql",
+    "sql/migrations/V070__user_last_login.sql"
   ]
 }

@@ -188,6 +188,7 @@ def pending_approvals(
     date_to: datetime | None = None,
     cursor: str | None = None,
     limit: int = Query(default=20, ge=1, le=100),
+    sort: Literal["submitted", "due"] = Query(default="submitted"),
     context: IdentityContext = Depends(get_identity_context),
     session: Session = Depends(get_db),
 ) -> ApprovalTaskPage:
@@ -197,6 +198,8 @@ def pending_approvals(
         context,
         namespace="approval-pending",
         statement=_pending_query(session, context),
+        sort=sort,
+        with_due=True,
         project_id=project_id,
         document_id=document_id,
         editor_id=editor_id,
@@ -851,6 +854,8 @@ def _task_page(
     date_to: datetime | None,
     cursor: str | None,
     limit: int,
+    sort: Literal["submitted", "due"] = "submitted",
+    with_due: bool = False,
 ) -> ApprovalTaskPage:
     q = _validated_filters(request, q=q, stage=stage, date_from=date_from, date_to=date_to)
     if editor_id is not None and submitter_id is not None and editor_id != submitter_id:
@@ -890,8 +895,11 @@ def _task_page(
             "result": result,
             "date_from": date_from,
             "date_to": date_to,
+            # CHG-497 DUE497-002: a cursor is bound to its order; the default order keeps its old hash.
+            **({"sort": sort} if sort != "submitted" else {}),
         }
     )
+    oldest_first = sort == "due"  # due = submitted_at + a fixed window, so earliest due is oldest submitted
     if cursor:
         payload = decode_cursor(request.app.state.settings, namespace=namespace, value=cursor)
         if payload.get("filter") != filter_hash:
@@ -901,13 +909,22 @@ def _task_page(
             cursor_id = UUID(str(payload["id"]))
         except (KeyError, ValueError) as exc:
             raise AppError("cursor_invalid", "Cursor is invalid or no longer applies", status_code=422) from exc
-        statement = statement.where(
-            or_(
-                ApprovalTask.submitted_at < cursor_time,
-                and_(ApprovalTask.submitted_at == cursor_time, ApprovalTask.id < cursor_id),
+        if oldest_first:
+            statement = statement.where(
+                or_(
+                    ApprovalTask.submitted_at > cursor_time,
+                    and_(ApprovalTask.submitted_at == cursor_time, ApprovalTask.id > cursor_id),
+                )
             )
-        )
-    rows = list(session.scalars(statement.order_by(ApprovalTask.submitted_at.desc(), ApprovalTask.id.desc()).limit(limit + 1)))
+        else:
+            statement = statement.where(
+                or_(
+                    ApprovalTask.submitted_at < cursor_time,
+                    and_(ApprovalTask.submitted_at == cursor_time, ApprovalTask.id < cursor_id),
+                )
+            )
+    ordering = (ApprovalTask.submitted_at.asc(), ApprovalTask.id.asc()) if oldest_first else (ApprovalTask.submitted_at.desc(), ApprovalTask.id.desc())
+    rows = list(session.scalars(statement.order_by(*ordering).limit(limit + 1)))
     has_more = len(rows) > limit
     rows = rows[:limit]
     next_cursor = None
@@ -918,7 +935,10 @@ def _task_page(
             namespace=namespace,
             payload={"filter": filter_hash, "submitted_at": last.submitted_at.isoformat(), "id": str(last.id)},
         )
-    return ApprovalTaskPage(items=[_approval_task_response(session, row) for row in rows], next_cursor=next_cursor, has_more=has_more)
+    items = [_approval_task_response(session, row) for row in rows]
+    if with_due:
+        items = [item.model_copy(update={"due_at": _insights.due_at(item.submitted_at)}) for item in items]
+    return ApprovalTaskPage(items=items, next_cursor=next_cursor, has_more=has_more)
 
 
 def _request_page(

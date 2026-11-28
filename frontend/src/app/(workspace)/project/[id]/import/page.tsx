@@ -1,5 +1,6 @@
 "use client";
 
+import { checkUploadDuplicates } from "@/lib/uploadDuplicates";
 import { duplicateTitleDetails, duplicateTitleMessage } from "@/lib/documentNames";
 import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
 import { DropdownSelect } from "@/components/DropdownSelect";
@@ -167,6 +168,8 @@ function ProjectImportPage() {
   const projectReady = projectAccess === "granted" && project?.id === params.id;
   const canEditLifecycle = projectReady && (project?.capabilities.can_manage_lifecycle ?? false);
   const canUpload = projectAccess === "granted" && project?.id === params.id && documentLoadState === "ready" && project?.capabilities?.can_upload === true;
+  // CHG-497 DUP497-002: same-content versions already in this project, checked before upload.
+  const checkDuplicates = useCallback((files: File[]) => checkUploadDuplicates(apiFetch, params.id, files), [apiFetch, params.id]);
   const canStartExtraction = projectAccess === "granted" && project?.id === params.id && documentLoadState === "ready" && project?.capabilities?.can_start_extraction === true;
   const terminalCounts = useTerminalChunkCounts({ projectId: params.id, documents: allDocuments, apiFetch,
     enabled: Boolean(currentUser && projectAccess === "granted" && project?.id === params.id && documentLoadState === "ready"),
@@ -605,7 +608,7 @@ function ProjectImportPage() {
       </div>
 
 
-      {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
+      {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} onCheckDuplicates={checkDuplicates} /> : null}
       {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
       {renderReferenceModal()}
 

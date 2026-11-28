@@ -115,6 +115,7 @@ def ldap_login(payload: LoginPayload, request: Request, response: Response, sess
         if user is None:
             raise AppError("user_not_synchronized", "User has not been synchronized", status_code=403)
         row = issue_session(request, response, session, user, method="ldap", expected_setting_id=setting.id)
+        user.last_login_at = datetime.now(UTC)  # CHG-497 LOGIN497-001
         add_audit(session, actor_user_id=user.id, action="auth.login.success", resource_type="auth_session", resource_id=row.id, result="success", request_id=request.state.request_id, summary={"method": "ldap"})
         session.commit()
         return {"authenticated": True, "idle_expires_at": session_expiration(row, request.app.state.settings.auth_session_idle_seconds).isoformat()}
@@ -155,6 +156,7 @@ def oidc_callback(request: Request, state: str = "", code: str = "", error: str 
                 raise AppError("session_revoked", "Authentication configuration has changed", status_code=401)
             response = RedirectResponse(origin + safe_return_path(flow.return_path), status_code=303)
             row = issue_session(request, response, session, user, method="oidc", expected_setting_id=setting.id)
+            user.last_login_at = datetime.now(UTC)  # CHG-497 LOGIN497-001
             add_audit(session, actor_user_id=user.id, action="auth.login.success", resource_type="auth_session", resource_id=row.id, result="success", request_id=request.state.request_id, summary={"method": "oidc"})
         session.commit()
     except AppError as exc:
@@ -216,6 +218,7 @@ def emergency_login(payload: LoginPayload, request: Request, response: Response,
         raise AppError("invalid_credentials", "Emergency sign-in could not be verified", status_code=401) from exc
     user = session.get(User, row.user_id)
     auth = issue_session(request, response, session, user, method="emergency", emergency_expires_at=row.active_until)
+    user.last_login_at = now  # CHG-497 LOGIN497-001
     emergency_alert(session, action="login", actor_user_id=user.id)
     add_audit(session, actor_user_id=user.id, action="auth.emergency.login", resource_type="auth_session", resource_id=auth.id, result="success", request_id=request.state.request_id, summary={"activation_expires_at": row.active_until.isoformat(), "alert_required": True})
     session.commit()

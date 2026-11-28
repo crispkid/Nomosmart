@@ -12,6 +12,7 @@ import { localCalendarDayKey, readHomeProjectMetrics } from "@/lib/homeMetrics";
 import { useI18n } from "@/lib/i18nClient";
 import { projectColorClass } from "@/lib/projectColor";
 import { readOpenReturnedSubmissions } from "@/lib/returnedSubmissions";
+import { ApprovalDueBadge } from "@/components/ApprovalDueBadge";
 
 function shortId(value: string) {
   return value.slice(0, 8);
@@ -155,6 +156,7 @@ export default function HomePage() {
                     <strong>{approval.document_title?.trim() || `${t("approvalDocument")} ${shortId(approval.document_id)}`}</strong>
                     <small>{approval.project_name?.trim() || `${t("approvalProjectLabel")} ${shortId(approval.project_id)}`} · {approval.version_label?.trim() || `${t("approvalVersion")} ${shortId(approval.document_version_id)}`} · {new Date(approval.submitted_at).toLocaleString(numberLocale)}</small>
                   </span>
+                  <ApprovalDueBadge dueAt={approval.due_at} />
                   <StatusBadge status={approval.status} />
                 </Link>
               </li>

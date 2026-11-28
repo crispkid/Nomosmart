@@ -26,6 +26,8 @@ export type ApprovalTaskResponse = {
   status: string;
   lock_version: number;
   submitted_at: string;
+  /** CHG-497 DUE497-001: pending list only. */
+  due_at?: string | null;
   completed_at: string | null;
   created_at: string;
 };

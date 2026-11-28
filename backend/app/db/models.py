@@ -36,6 +36,8 @@ class User(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     knowledge_owner: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     system_notes: Mapped[str | None] = mapped_column(Text)
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # CHG-497 LOGIN497-001 (V070): set on each successful LDAP, OIDC or emergency sign-in.
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
 
 class Role(UUIDPrimaryKeyMixin, TimestampMixin, Base):

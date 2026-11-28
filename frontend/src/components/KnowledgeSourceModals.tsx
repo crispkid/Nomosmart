@@ -8,13 +8,14 @@ import { Modal } from "@/components/Modal";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useUploadWaitState } from "@/lib/useUploadWaitState";
 import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronRight, FileText, LoaderCircle, RotateCcw, Route, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
-import type { AIModelResponse } from "@/lib/api";
+import type { AIModelResponse, DocumentDuplicateMatch } from "@/lib/api";
+import { skippedAsDuplicate } from "@/lib/uploadDuplicates";
 import { ocrRetryBlocked, ocrRetryBlockReasonKey, ocrFailureTone } from "@/lib/ocrPresentation";
 import { formatCount } from "@/lib/numberFormat";
 import { OCRBudgetStatus } from "@/components/OCRBudgetStatus";
 import { ChunkingIssueSummary } from "@/components/ChunkingIssueSummary";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
-import { DEFAULT_MAX_UPLOAD_BYTES, UPLOAD_REASON_EMPTY, UPLOAD_REASON_READY, UPLOAD_REASON_TOO_LARGE, UPLOAD_REASON_UNSUPPORTED, documentExtension, formatFileSize, validateFileDescriptor } from "@/lib/knowledgeImport";
+import { DEFAULT_MAX_UPLOAD_BYTES, UPLOAD_REASON_DUPLICATE_SKIPPED, UPLOAD_REASON_EMPTY, UPLOAD_REASON_READY, UPLOAD_REASON_TOO_LARGE, UPLOAD_REASON_UNSUPPORTED, documentExtension, formatFileSize, validateFileDescriptor } from "@/lib/knowledgeImport";
 import { operationalCodeMessage, operationalErrorMessage } from "@/lib/operationalMessages";
 import { runtimeConfig } from "@/lib/runtimeConfig";
 import { UploadProgressBar } from "@/components/UploadProgressBar";
@@ -55,6 +56,7 @@ function localizeUploadReason(reason: string, t: Translate, format: Format, maxU
   if (reason === UPLOAD_REASON_TOO_LARGE) return format("uploadReasonTooLargeDynamic", { size: formatCount(maxUploadMb) });
   if (reason === UPLOAD_REASON_EMPTY) return t("uploadReasonEmpty");
   if (reason === UPLOAD_REASON_READY) return t("uploadReady");
+  if (reason === UPLOAD_REASON_DUPLICATE_SKIPPED) return t("uploadDuplicateSkipped");
   if (reason.startsWith("server:")) return operationalCodeMessage(reason.slice(7), t, format, "apiGenericError");
   return reason;
 }
@@ -124,9 +126,11 @@ type UploadFilesModalProps = {
   onCreate: (documents: CreatedKnowledgeDocument[], autoExtractionId?: string) => void;
   onRetryPipeline?: (document: CreatedKnowledgeDocument, onProgressDocument?: (document: CreatedKnowledgeDocument) => void) => Promise<CreatedKnowledgeDocument>;
   onUploadFiles?: (files: File[], options: { ocrModelId: string | null; startExtraction: boolean }, onProgressDocuments?: (documents: CreatedKnowledgeDocument[]) => void) => Promise<UploadBatchResult<CreatedKnowledgeDocument>>;
+  /** CHG-497 DUP497-002: same-content versions already in the project, one entry per file. */
+  onCheckDuplicates?: (files: File[]) => Promise<(DocumentDuplicateMatch | null)[]>;
 };
 
-export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFiles = [], maxUploadBytes = DEFAULT_MAX_UPLOAD_BYTES, ocrModels = [], onClose, onCreate, onRetryPipeline, onUploadFiles }: UploadFilesModalProps) {
+export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFiles = [], maxUploadBytes = DEFAULT_MAX_UPLOAD_BYTES, ocrModels = [], onClose, onCreate, onRetryPipeline, onUploadFiles, onCheckDuplicates }: UploadFilesModalProps) {
   const { t, format, localize, locale } = useI18n();
   const [files, setFiles] = useState<File[]>(() => initialFiles);
   const [results, setResults] = useState<UploadResult[] | null>(null);
@@ -146,7 +150,23 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
   const [retryingPipeline, setRetryingPipeline] = useState(false);
   const maxUploadMb = Math.max(1, Math.round(maxUploadBytes / 1024 / 1024));
   const validation = useMemo(() => files.map((file) => validateUploadFile(file, maxUploadBytes)), [files, maxUploadBytes]);
-  const validCount = validation.filter((item) => item.ok).length;
+  // CHG-497 DUP497-002: results are kept with the file list they were computed for, so a new selection starts unchecked.
+  const [duplicateCheck, setDuplicateCheck] = useState<{ files: File[]; failed: boolean; matches: (DocumentDuplicateMatch | null)[] } | null>(null);
+  const [uploadAnywayState, setUploadAnywayState] = useState<{ files: File[]; indexes: number[] }>({ files: [], indexes: [] });
+  const duplicates = duplicateCheck?.files === files ? duplicateCheck : null;
+  const duplicateChecking = Boolean(onCheckDuplicates) && files.length > 0 && !results && !duplicates;
+  const uploadAnyway = uploadAnywayState.files === files ? uploadAnywayState.indexes : [];
+  useEffect(() => {
+    if (!onCheckDuplicates || !files.length || results) return;
+    let live = true;
+    onCheckDuplicates(files).then(
+      matches => { if (live) setDuplicateCheck({ files, failed: false, matches }); },
+      () => { if (live) setDuplicateCheck({ files, failed: true, matches: [] }); });
+    return () => { live = false; };
+  }, [files, onCheckDuplicates, results]);
+  const skipped = (index: number) => skippedAsDuplicate(index, duplicates?.matches ?? null, uploadAnyway);
+  const toggleUploadAnyway = (index: number) => setUploadAnywayState({ files, indexes: uploadAnyway.includes(index) ? uploadAnyway.filter(item => item !== index) : [...uploadAnyway, index] });
+  const validCount = validation.filter((item, index) => item.ok && !skipped(index)).length;
   const hasUnsavedSelection = files.length > 0 && !results;
   const resolvedOcrModelId = nativeOcrModels.some((model) => model.id === ocrModelId) ? ocrModelId : defaultOcr?.id ?? null;
   const autoExtractCandidate = files.length === 1 && validCount === 1;
@@ -196,13 +216,16 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
   }
 
   async function submit() {
-    if (!canSubmit || !files.length || submitting || outcomeUnknown || !onUploadFiles || attempts.current.isPending()) return;
+    if (!canSubmit || !files.length || submitting || outcomeUnknown || !onUploadFiles || duplicateChecking || attempts.current.isPending()) return;
     const attempt = attempts.current.begin();
     beginWait(attempt);
     setSubmitting(true);
     setLiveProgressDocuments([]);
     setSubmitError("");
-    const checked = files.map((file) => validateUploadFile(file, maxUploadBytes));
+    const checked = files.map((file, index) => {
+      const result = validateUploadFile(file, maxUploadBytes);
+      return result.ok && skipped(index) ? { ...result, ok: false, reason: UPLOAD_REASON_DUPLICATE_SKIPPED } : result;
+    });
     const validFiles = files.filter((_, index) => checked[index].ok);
     const autoExtract = files.length === 1 && validFiles.length === 1;
     try {
@@ -308,11 +331,11 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
         </label>
         <div className={`upload-behavior-callout ${files.length > 1 ? "batch" : "single"}`}><span>{files.length > 1 ? <FileText size={18} /> : <ArrowRight size={18} />}</span><div><strong>{files.length > 1 ? t("uploadBatchTitle") : t("uploadSingleTitle")}</strong><small>{files.length > 1 ? t("uploadBatchHelp") : t("uploadSingleHelp")}</small></div></div>
         {files.length ? <p className="upload-route-note"><Route aria-hidden="true" size={16} /><span><strong>{t("uploadRouteTitle")}</strong>{t("uploadRouteHelp")}</span></p> : null}
-        {files.length ? <section className="upload-files-section"><div className="upload-files-heading"><div><strong>{results ? t("uploadResults") : t("uploadSelectedFiles")}</strong><small>{format("uploadValidationSummary", { files: files.length, valid: validCount })}</small></div>{!results ? <button aria-label={format("uploadClearAllLabel", { count: files.length })} className="clear-all-files-button" disabled={modalLocked} onClick={() => selectFiles([])} type="button"><Trash2 size={16} /> {t("uploadClearAll")}</button> : null}</div><div className="upload-selection-list optimized-upload-list">{(results ?? validation).map((item, index) => { const file = files[index]; const extension = documentExtension(file.name).toUpperCase(); return <div className={item.ok ? "valid" : "invalid"} key={`${item.name}-${index}`}><span className="file-type-badge">{extension}</span><span className="upload-file-identity"><strong title={item.name}>{item.name}</strong><small>{formatFileSize(file.size)} · {localizeUploadReason(item.reason, t, format, maxUploadMb)}</small></span><span className="upload-file-status">{item.ok ? <><CheckCircle2 size={16} /> {results ? t("uploadAdded") : t("uploadReady")}</> : <><AlertTriangle size={16} /> {t("uploadFailed")}</>}</span></div>; })}</div></section> : null}
+        {files.length ? <section className="upload-files-section"><div className="upload-files-heading"><div><strong>{results ? t("uploadResults") : t("uploadSelectedFiles")}</strong><small>{format("uploadValidationSummary", { files: files.length, valid: validCount })}</small>{!results && duplicateChecking ? <small className="upload-duplicate-status" role="status"><LoaderCircle className="spin" size={14} /> {t("uploadDuplicateChecking")}</small> : !results && duplicates?.failed ? <small className="upload-duplicate-status" role="status">{t("uploadDuplicateUnavailable")}</small> : null}</div>{!results ? <button aria-label={format("uploadClearAllLabel", { count: files.length })} className="clear-all-files-button" disabled={modalLocked} onClick={() => selectFiles([])} type="button"><Trash2 size={16} /> {t("uploadClearAll")}</button> : null}</div><div className="upload-selection-list optimized-upload-list">{(results ?? validation).map((item, index) => { const file = files[index]; const extension = documentExtension(file.name).toUpperCase(); return <div className={item.ok ? "valid" : "invalid"} key={`${item.name}-${index}`}><span className="file-type-badge">{extension}</span><span className="upload-file-identity"><strong title={item.name}>{item.name}</strong><small>{formatFileSize(file.size)} · {localizeUploadReason(item.reason, t, format, maxUploadMb)}</small>{!results && item.ok && duplicates?.matches[index] ? <small className="upload-duplicate-note">{format("uploadDuplicateFound", { title: duplicates.matches[index]!.title, version: duplicates.matches[index]!.version_label ?? "" })}<button className="icon-text-button" disabled={modalLocked} onClick={() => toggleUploadAnyway(index)} type="button">{skipped(index) ? t("uploadDuplicateUploadAnyway") : t("uploadDuplicateSkip")}</button></small> : null}</span><span className="upload-file-status">{item.ok && !results && skipped(index) ? <>{t("uploadDuplicateSkippedStatus")}</> : item.ok ? <><CheckCircle2 size={16} /> {results ? t("uploadAdded") : t("uploadReady")}</> : item.reason === UPLOAD_REASON_DUPLICATE_SKIPPED ? <>{t("uploadDuplicateSkippedStatus")}</> : <><AlertTriangle size={16} /> {t("uploadFailed")}</>}</span></div>; })}</div></section> : null}
         {results ? <div aria-live="polite" className="upload-result-summary optimized-result-summary">{results.some((item) => !item.ok) ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}<div><strong>{t("uploadResultTitle")}</strong><span>{format("uploadResultCounts", { success: results.filter((item) => item.ok).length, failed: results.filter((item) => !item.ok).length })}</span><small>{t("uploadResultHelp")}</small></div></div> : null}
         {submitError ? <div className="upload-result-summary upload-error-summary" role="alert"><AlertTriangle size={20} /><div><strong>{t("uploadIncomplete")}</strong><small>{localize(submitError)}</small></div></div> : null}
       </div>
-<footer className="source-modal-footer"><small>{!results && files.length ? format("uploadWillProcess", { count: formatCount(validCount, locale) }) : results ? t("uploadResultsKept") : t("uploadNoFilesSelected")}</small><div><button className="action-button secondary" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button">{canLeaveWaiting ? t("uploadCloseToProject") : results ? t("complete") : t("cancel")}</button>{!results ? <button className="action-button" disabled={!canSubmit || !files.length || validCount === 0 || modalLocked || !onUploadFiles} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <UploadCloud size={16} />} {files.length > 1 ? format("uploadValidFiles", { count: formatCount(validCount, locale) }) : t("uploadAndExtract")}</button> : null}</div></footer>
+<footer className="source-modal-footer"><small>{!results && files.length ? format("uploadWillProcess", { count: formatCount(validCount, locale) }) : results ? t("uploadResultsKept") : t("uploadNoFilesSelected")}</small><div><button className="action-button secondary" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button">{canLeaveWaiting ? t("uploadCloseToProject") : results ? t("complete") : t("cancel")}</button>{!results ? <button className="action-button" disabled={!canSubmit || !files.length || validCount === 0 || modalLocked || duplicateChecking || !onUploadFiles} onClick={submit} type="button">{submitting ? <LoaderCircle className="spin" size={16} /> : <UploadCloud size={16} />} {files.length > 1 ? format("uploadValidFiles", { count: formatCount(validCount, locale) }) : t("uploadAndExtract")}</button> : null}</div></footer>
       {showSubmitOverlay ? <div aria-live="assertive" className={`upload-submit-overlay${overlayFailed ? " failed" : ""}`} role="status">
         <div className="upload-submit-card">
           <span className="upload-submit-icon">{overlayFailed ? <AlertTriangle size={26} /> : <LoaderCircle className="spin" size={26} />}</span>

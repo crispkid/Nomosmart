@@ -78,7 +78,11 @@ def list_users(
         statement = statement.where(User.is_active.is_(is_active))
     response.headers["X-Total-Count"] = str(session.scalar(select(func.count()).select_from(statement.subquery())) or 0)
     users = list(session.scalars(statement.order_by(User.display_name, User.id).offset(offset).limit(limit)))
-    return _user_summaries(session, users, context)
+    summaries = _user_summaries(session, users, context)
+    if scope == "project_members":
+        # CHG-497 LOGIN497-002: sign-in times are for System Management only.
+        summaries = [summary.model_copy(update={"last_login_at": None}) for summary in summaries]
+    return summaries
 
 
 @router.get("/{user_id}", response_model=UserSummary)

@@ -245,3 +245,6 @@ export type DataSourceCreateResponse = {
   document: DocumentSummary;
   sync_run: DataSyncRunResponse;
 };
+
+/** CHG-497 DUP497-001: a same-content version already in the project. */
+export type DocumentDuplicateMatch = { sha256: string; document_id: string; title: string; version_id: string; version_label: string | null };

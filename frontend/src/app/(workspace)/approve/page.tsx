@@ -11,12 +11,14 @@ import { useCursorList } from "@/lib/useCursorList";
 import { usePendingPublishList } from "@/lib/usePendingPublishList";
 import { useCallback, useId, useMemo, useRef, useState, useSyncExternalStore, type MouseEvent } from "react";
 import { tabIndexForKey } from "@/lib/workspaceNavigation";
-import { ArrowRight, CheckCircle2, ChevronRight, Loader2, RefreshCw } from "lucide-react";
+import { ArrowRight, ArrowUpDown, CheckCircle2, ChevronRight, Loader2, RefreshCw } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { AppShell, StatCard, StatusToneBadge, ToneBadge } from "@/components/AppShell";
 import { ApprovalPreview } from "@/components/approval/ApprovalPreview";
 import { getApprovalSummary, listApprovalHistoryPage, listMyApprovalSubmissionsPage, listPendingApprovalsPage, listPendingPublishApprovalsPage, listRejectedApprovalsPage, publishDocumentVersion, type ApprovalPendingPublishResponse, type ApprovalTaskResponse } from "@/lib/api";
 import { formatShortDateTime } from "@/lib/dateFormat";
+import { ApprovalDueBadge } from "@/components/ApprovalDueBadge";
+import { DropdownSelect } from "@/components/DropdownSelect";
 import { t as translate, type Locale } from "@/lib/i18n";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
 import { operationalErrorMessage } from "@/lib/operationalMessages";
@@ -80,7 +82,9 @@ export default function ApprovalPage() {
   const queries = useMemo(() => ({ pending: approvalListFilters(filters, "pending"), mine: approvalListFilters(filters, "mine"), history: approvalListFilters(filters, "history"), rejected: approvalListFilters(filters, "rejected") }), [filters]);
   const applyFilters = (values: ApprovalFilterValues) => setFilterState({ scope: operationGuards, values });
   const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
-  const readPending = useCallback((cursor?: string | null, signal?: AbortSignal) => listPendingApprovalsPage(apiFetch, cursor, queries.pending, signal), [apiFetch, queries.pending]);
+  // CHG-497 DUE497-002: newest submitted (default) or earliest due first.
+  const [pendingSort, setPendingSort] = useState<"submitted" | "due">("submitted");
+  const readPending = useCallback((cursor?: string | null, signal?: AbortSignal) => listPendingApprovalsPage(apiFetch, cursor, pendingSort === "due" ? { ...queries.pending, sort: "due" } : queries.pending, signal), [apiFetch, queries.pending, pendingSort]);
   const readMine = useCallback((cursor?: string | null, signal?: AbortSignal) => listMyApprovalSubmissionsPage(apiFetch, cursor, queries.mine, signal), [apiFetch, queries.mine]);
   const readHistory = useCallback((cursor?: string | null, signal?: AbortSignal) => listApprovalHistoryPage(apiFetch, cursor, queries.history, signal), [apiFetch, queries.history]);
   const readRejected = useCallback((cursor?: string | null, signal?: AbortSignal) => listRejectedApprovalsPage(apiFetch, cursor, queries.rejected, signal), [apiFetch, queries.rejected]);
@@ -222,6 +226,12 @@ export default function ApprovalPage() {
                 <header className="approval-list-header read-resource-toolbar" aria-live="polite">
                   <h2 id={`${tabGroupId}-list-title`}>{listTitle}</h2>
                   <span>{loadedLabel(activeRead.ready, activeRead.items.length)}</span>
+                  {activeTab === "pending" ? <label className="approval-sort"><ArrowUpDown aria-hidden="true" size={15} /><span className="sr-only">{t("approvalSortLabel")}</span>
+                    <DropdownSelect aria-label={t("approvalSortLabel")} onChange={event => setPendingSort(event.target.value === "due" ? "due" : "submitted")} value={pendingSort}>
+                      <option value="submitted">{t("approvalSortNewest")}</option>
+                      <option value="due">{t("approvalSortDue")}</option>
+                    </DropdownSelect>
+                  </label> : null}
                   <button className="action-button secondary" disabled={activeRead.loading} onClick={() => { void activeRead.reload(); }} type="button"><RefreshCw aria-hidden="true" size={15} />{t("uiReadRetry")}</button>
                 </header>
                 <ReadResourceStatus loading={activeRead.loading} error={activeRead.error} onRetry={activeRead.ready ? activeRead.loadMore : activeRead.reload} />
@@ -260,6 +270,7 @@ export default function ApprovalPage() {
                             </small>
                           </div>
                           <span className="approval-row-badges">
+                            {activeTab === "pending" ? <ApprovalDueBadge dueAt={approval.due_at} /> : null}
                             {ownSubmission && activeTab === "pending" ? <ToneBadge tone="violet">{t("approvalOwnSubmissionBadge")}</ToneBadge> : null}
                             <StatusToneBadge status={approval.status} />
                           </span>
