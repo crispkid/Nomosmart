@@ -20,6 +20,8 @@ export type UserSummary = {
   roles?: UserRoleSummary[];
   system_notes: string | null;
   last_synced_at: string | null;
+  /** CHG-497 LOGIN497-002: System Management reads only; null = never signed in. */
+  last_login_at?: string | null;
 };
 
 export type RoleResponse = {

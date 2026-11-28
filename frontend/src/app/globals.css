@@ -1135,6 +1135,10 @@
 }
 
 .upload-file-identity { min-width: 0; }
+/* CHG-497 DUP497-002: same-content notice and the skip / upload-anyway switch. */
+.upload-duplicate-note { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--amber-ink); }
+.upload-duplicate-note .icon-text-button { min-height: 24px; padding: 0 6px; }
+.upload-duplicate-status { display: inline-flex; align-items: center; gap: 6px; color: var(--text2); }
 .upload-file-identity strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .upload-file-status { display: inline-flex; align-items: center; gap: 5px; color: var(--accent); font-size: 12px; font-weight: 600; white-space: nowrap; }
 .invalid .upload-file-status { color: var(--danger-ink); }
@@ -7958,7 +7962,7 @@ small {
 
 .report-kpi-strip {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -8093,11 +8097,16 @@ small {
 @media (max-width: 1280px) {
   .report-filter-bar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .report-overview-grid { grid-template-columns: minmax(0, 1fr); }
+  /* CHG-497: five KPI cells wrap to three plus two below 1280px. */
+  .report-kpi-strip { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .report-kpi:nth-child(4) { border-left: 0; }
+  .report-kpi:nth-child(n + 4) { border-top: 1px solid var(--border); }
 }
 
 @media (max-width: 768px) {
   .report-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .report-kpi:nth-child(3) { border-left: 0; }
+  .report-kpi:nth-child(3), .report-kpi:nth-child(5) { border-left: 0; }
+  .report-kpi:nth-child(4) { border-left: 1px solid var(--border); }
   .report-kpi:nth-child(n + 3) { border-top: 1px solid var(--border); }
   .report-bar-column small { font-size: 11px; }
 }
@@ -11317,6 +11326,10 @@ small {
 .approval-list-header { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin: 0; padding: 10px 16px; border-bottom: 1px solid var(--border); background: var(--surface2); color: var(--text2); font-size: 13px; }
 .approval-list-header h2 { margin: 0 auto 0 0; color: var(--text); font-size: 14px; font-weight: 600; }
 .approval-list-header .action-button { min-height: 32px; padding: 0 10px; }
+/* CHG-497 DUE497-002: pending order selector; DUE497-001: plain due date next to the status badge. */
+.approval-sort { display: flex; align-items: center; gap: 6px; color: var(--text2); }
+.approval-sort .app-select-trigger { min-width: 132px; min-height: 32px; }
+.approval-due-date { color: var(--text3); font-size: 12px; white-space: nowrap; }
 .approval-list-card > .read-resource-status, .approval-list-card > .feedback-message, .approval-list-note { margin: 10px 16px; }
 .approval-list-card .table-list { gap: 0; min-width: 0; }
 .approval-list-card .table-list:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
@@ -11447,3 +11460,5 @@ small {
   .approval-decision-bar .approval-decision-actions .action-button { min-height: 44px; }
   .approval-side-card { padding: 12px; }
 }
+/* CHG-497 LOGIN497-002: "never signed in" in the user table. */
+.system-muted { color: var(--text3); }

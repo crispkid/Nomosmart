@@ -18,7 +18,7 @@ export type {
 export type {
   PipelineExecution, PipelineSummary, ChunkingIssue, PipelineStepSummary, PipelineRunDetail,
   DocumentVersionSummary, DocumentSummary, DocumentUploadResult, DocumentUploadResponse, DocumentUpdateResponse, DataSourceConnectionPayload,
-  DataSourceConnectionTestResponse, DataSyncRunResponse, DataSourceCreateResponse
+  DataSourceConnectionTestResponse, DataSyncRunResponse, DataSourceCreateResponse, DocumentDuplicateMatch
 } from "./apiClient/documentTypes";
 export type {
   ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse, ExtractionStationState, StationReuseSummary, ChunkReferenceItem, ChunkReferenceSummary, ChunkReferenceListResponse,
@@ -36,7 +36,7 @@ export type {
   AIModelPayload, AIModelUpdatePayload, SystemPromptPayload, SystemPromptVersionPayload
 } from "./apiClient/servingTypes";
 export {
-  restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject, getProjectRetrievalSettings, updateProjectRetrievalSettings,
+  restoreSessionDraft, discardSessionDraft, checkDocumentDuplicates, listProjectsPage, getProject, getProjectRetrievalSettings, updateProjectRetrievalSettings,
   createProject, getProjectStatusCounts, updateProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
   listIntegrationClientsPage, getIntegrationClient, getDataSourceConnectionOptions, createIntegrationClient,
   updateIntegrationClient, replaceIntegrationClientProjectScopes, rotateIntegrationClientKey,

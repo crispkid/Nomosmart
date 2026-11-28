@@ -8,6 +8,7 @@ import { FeedbackForm } from "@/components/FeedbackForm";
 import { SettingsCard } from "../SettingsCard";
 import { identitySourceLabel } from "@/lib/identitySource";
 import { formatCount } from "@/lib/numberFormat";
+import { formatDateTime, formatShortDateTime } from "@/lib/dateFormat";
 import { EmptyInlineState, SectionHeader, StateBadge } from "./SystemUi";
 import { updateUser, updateUserStatus, type ApiFetch, type UserSummary } from "@/lib/api";
 import type { TranslationKey } from "@/lib/i18nClient";
@@ -86,6 +87,8 @@ export function createUserView(state: UserState, actions: UserActions, deps: Pic
         { key: "department", header: t("systemDepartment"), cell: user => user.department },
         { key: "source", header: t("systemIdentitySourceColumn"), cell: user => identitySourceLabel(user.source, t) },
         { key: "roles", header: t("systemRoleColumn"), cell: user => user.roles },
+        // CHG-497 LOGIN497-002
+        { key: "lastLogin", header: t("systemUserLastLogin"), cell: user => user.raw?.last_login_at ? <span title={formatDateTime(user.raw.last_login_at, locale)}>{formatShortDateTime(user.raw.last_login_at, locale)}</span> : <span className="system-muted">{t("systemUserNeverLoggedIn")}</span> },
         { key: "status", header: t("systemStatusColumn"), cell: user => <StateBadge tone={user.status === "active" ? "green" : "gray"}>{localizedStatus(user.status)}</StateBadge> },
         { key: "actions", headerLabel: t("systemActionsColumn"), cell: user => <div className="system-row-actions"><button aria-label={format("systemViewUser", { name: userRowName(user) })} className="icon-text-button" onClick={() => setModal({ type: "user", user })} type="button">{t("systemView")} <ChevronRight size={15} /></button><button className="icon-text-button" disabled={!canEditUsers} onClick={() => setModal({ type: "confirm", title: `${user.status === "active" ? t("systemDisable") : t("systemEnable")}${t("systemUser")}`, message: format("systemConfirmToggleUser", { action: user.status === "active" ? t("systemDisable") : t("systemEnable"), name: userRowName(user) }), actionLabel: user.status === "active" ? t("systemDisable") : t("systemEnable"), target: { kind: "user", id: user.id, expected: { field: "is_active", value: user.status !== "active" } }, run: accepted => toggleUser(user, accepted) })} type="button">{user.status === "active" ? t("systemDisable") : t("systemEnable")}</button></div> },
       ]} /> : sectionReady("users") ? <EmptyInlineState /> : null}

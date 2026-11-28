@@ -19,8 +19,10 @@ export type CursorPage<T> = { items: T[]; has_more: boolean; next_cursor: string
 export type ApprovalPendingPublishPage = CursorPage<ApprovalPendingPublishResponse> & { total: number };
 export type ApprovalTab = "mine" | "pending" | "history" | "rejected";
 export type ApprovalListFilters = {
-  project_id?: string; submitter_id?: string; q?: string; stage?: string; result?: string;
+  project_id?: string; document_id?: string; submitter_id?: string; q?: string; stage?: string; result?: string;
   priority?: string; source_type?: string; date_from?: string; date_to?: string;
+  /** CHG-497 DUE497-002: pending list order; "due" = earliest due first. */
+  sort?: "due";
 };
 export function listApprovalFilterOptions(apiFetch: ApiFetch, filters: { kind: "project" | "submitter"; tab: ApprovalTab; project_id?: string; q?: string }, cursor?: string | null, signal?: AbortSignal) {
   const params = new URLSearchParams({ limit: "20" });

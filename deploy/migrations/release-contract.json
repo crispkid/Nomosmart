@@ -1,12 +1,12 @@
 {
   "schema_version": 1,
   "release_version": "0.4.2",
-  "required_version": "069",
+  "required_version": "070",
   "targets": {
     "SQL": {
-      "file": "V069__retrieval_top_k_top_p.sql",
-      "checksum": -1562058873,
-      "sha256": "ed9f048ee6810921bed1e677e2577bde3944c0b60cc0c47bc5adf60e866ec412"
+      "file": "V070__user_last_login.sql",
+      "checksum": 135363118,
+      "sha256": "2c6e7d0cf3eaceb337e0aff9746f3b091cab1593f78a6f8cede32f41359a9f1e"
     }
   }
 }

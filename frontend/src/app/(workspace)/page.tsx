@@ -7,10 +7,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowRight, CheckCircle2, Clock3, FolderOpen, Inbox, RotateCcw } from "lucide-react";
 import { useAuth } from "@/components/AuthProvider";
 import { AppShell, Panel, StatCard, StatusBadge } from "@/components/AppShell";
-import { getApprovalSummary, getReportSummary, listMyApprovalSubmissionsPage, listPendingApprovals } from "@/lib/api";
+import { getApprovalSummary, getReportSummary, listPendingApprovals } from "@/lib/api";
 import { localCalendarDayKey, readHomeProjectMetrics } from "@/lib/homeMetrics";
 import { useI18n } from "@/lib/i18nClient";
 import { projectColorClass } from "@/lib/projectColor";
+import { readOpenReturnedSubmissions } from "@/lib/returnedSubmissions";
+import { ApprovalDueBadge } from "@/components/ApprovalDueBadge";
 
 function shortId(value: string) {
   return value.slice(0, 8);
@@ -27,7 +29,7 @@ export default function HomePage() {
   const canReadReports = can("Menu", "Reports", "view");
   const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
   const readApprovals = useCallback(() => listPendingApprovals(apiFetch), [apiFetch]);
-  const readReturned = useCallback((signal: AbortSignal) => listMyApprovalSubmissionsPage(apiFetch, null, { result: "rejected" }, signal), [apiFetch]);
+  const readReturned = useCallback((signal: AbortSignal) => readOpenReturnedSubmissions(apiFetch, returnedLimit, signal), [apiFetch]);
   const readReport = useCallback(() => getReportSummary(apiFetch, { topic: "system_overview" }), [apiFetch]);
   const summaryRead = useReadResource(readSummary, operationGuards, authReady);
   const approvalsRead = useReadResource(readApprovals, operationGuards, authReady);
@@ -35,7 +37,7 @@ export default function HomePage() {
   const reportRead = useReadResource(readReport, operationGuards, authReady && canReadReports);
   const approvalSummary = summaryRead.data;
   const approvals = approvalsRead.data ?? [];
-  const returned = (returnedRead.data?.items ?? []).slice(0, returnedLimit);
+  const returned = returnedRead.data ?? [];
   const reportSummary = reportRead.data;
   const approvalMetricState = summaryRead.status;
   const [calendarDay, setCalendarDay] = useState(() => localCalendarDayKey(new Date()));
@@ -154,6 +156,7 @@ export default function HomePage() {
                     <strong>{approval.document_title?.trim() || `${t("approvalDocument")} ${shortId(approval.document_id)}`}</strong>
                     <small>{approval.project_name?.trim() || `${t("approvalProjectLabel")} ${shortId(approval.project_id)}`} · {approval.version_label?.trim() || `${t("approvalVersion")} ${shortId(approval.document_version_id)}`} · {new Date(approval.submitted_at).toLocaleString(numberLocale)}</small>
                   </span>
+                  <ApprovalDueBadge dueAt={approval.due_at} />
                   <StatusBadge status={approval.status} />
                 </Link>
               </li>

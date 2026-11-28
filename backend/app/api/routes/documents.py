@@ -24,7 +24,7 @@ from app.domain.document_names import ensure_title_available, validate_title
 from app.domain.tag_store import get_or_create_project_tag
 
 from app.domain.project_access import get_scoped_project as _get_scoped_project, project_capabilities
-from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload, ReviewRoutePerson, ReviewRouteResponse
+from app.api.schemas import ApprovalChatEvidence, ApprovalChunkEvidence, ApprovalRequestResponse, ChunkEditPayload, DocumentReferenceSourceSummary, DocumentReextractPayload, DocumentReextractResponse, DocumentServiceSourceSummary, DocumentSummary, DocumentSummaryPage, DocumentDuplicateCheckPayload, DocumentDuplicateCheckResponse, DocumentDuplicateMatch, DocumentUpdateResponse, DocumentUploadResponse, DocumentUploadResult, DocumentVersionSummary, KnowledgeAutoTagPayload, KnowledgeDetailResponse, KnowledgeTagCreatePayload, DocumentRenamePayload, ExtractionStationState, LifecycleImpactResponse, LifecycleUpdatePayload, ManualChunkCreatePayload, OriginalFileViewerMetadata, PipelineRunDetail, PipelineStepSummary, PipelineSummary, ProcessingDebugChunk, ProcessingDebugNode, ProcessingDebugResponse, RetryPipelineStepPayload, StartExtractionPayload, StartExtractionResponse, StationConfirmPayload, SubmissionEvidenceResponse, SubmitReviewPayload, ReviewRoutePerson, ReviewRouteResponse
 from app.core.cursor import decode_cursor, encode_cursor
 from app.core.errors import AppError
 from app.domain.queued_extraction import cancel_queued_extractions, hidden_cancelled_run
@@ -400,6 +400,23 @@ def _prefetch_document_list(session: Session, project_id: UUID, document_ids: li
     from app.domain.chunk_references import superseded_by_map
     return _DocumentListPrefetch(versions=versions, connections=connections, references=references,
                                  superseded=superseded_by_map(session, document_ids))
+
+
+@router.post("/duplicate-check", response_model=DocumentDuplicateCheckResponse)
+def check_duplicate_documents(project_id: UUID, payload: DocumentDuplicateCheckPayload, context: IdentityContext = Depends(get_identity_context),
+                              session: Session = Depends(get_db)) -> DocumentDuplicateCheckResponse:
+    """CHG-497 DUP497-001: same-content versions in this project, for the people who may upload here (D497-05)."""
+    project = _authorize_upload(session, project_id, context)
+    rows = session.execute(
+        select(DocumentVersion.content_sha256, Document.id, Document.title, DocumentVersion.id, DocumentVersion.version_label)
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .where(Document.project_id == project.id, Document.is_deleted.is_(False), DocumentVersion.content_sha256.in_(set(payload.sha256)))
+        .order_by(DocumentVersion.content_sha256, DocumentVersion.created_at.desc(), DocumentVersion.id.desc())
+    ).all()
+    newest: dict[str, DocumentDuplicateMatch] = {}
+    for digest, document_id, title, version_id, label in rows:
+        newest.setdefault(digest, DocumentDuplicateMatch(sha256=digest, document_id=document_id, title=title, version_id=version_id, version_label=label))
+    return DocumentDuplicateCheckResponse(matches=[newest[digest] for digest in dict.fromkeys(payload.sha256) if digest in newest])
 
 
 @router.post("/upload", response_model=DocumentUploadResponse, status_code=200)

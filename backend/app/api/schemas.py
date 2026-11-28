@@ -37,6 +37,8 @@ class UserSummary(ORMModel):
     roles: list[UserRoleSummary] = Field(default_factory=list)
     system_notes: str | None = None
     last_synced_at: datetime | None
+    # CHG-497 LOGIN497-002: only in System Management reads; the project-member picker leaves it out.
+    last_login_at: datetime | None = None
 
 
 class UserStatusUpdate(BaseModel):
@@ -422,6 +424,30 @@ class DocumentUploadResult(BaseModel):
     error_code: str | None = None
     message: str | None = None
     error_details: dict[str, Any] | None = None
+
+
+class DocumentDuplicateCheckPayload(BaseModel):
+    """CHG-497 DUP497-001: content hashes the browser computed for the files it is about to upload."""
+    sha256: list[str] = Field(min_length=1, max_length=50)
+
+    @field_validator("sha256")
+    @classmethod
+    def _hex_digests(cls, values: list[str]) -> list[str]:
+        if any(len(value) != 64 or any(ch not in "0123456789abcdef" for ch in value) for value in values):
+            raise ValueError("sha256 values must be 64 lowercase hexadecimal characters")
+        return values
+
+
+class DocumentDuplicateMatch(BaseModel):
+    sha256: str
+    document_id: UUID
+    title: str
+    version_id: UUID
+    version_label: str | None
+
+
+class DocumentDuplicateCheckResponse(BaseModel):
+    matches: list[DocumentDuplicateMatch]
 
 
 class DocumentUploadResponse(BaseModel):
@@ -942,6 +968,8 @@ class ApprovalTaskResponse(ORMModel):
     status: str
     lock_version: int
     submitted_at: datetime
+    # CHG-497 DUE497-001: pending list only; submitted_at + PENDING_OVERDUE_HOURS.
+    due_at: datetime | None = None
     completed_at: datetime | None
     created_at: datetime
 
