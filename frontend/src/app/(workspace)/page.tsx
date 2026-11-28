@@ -11,6 +11,7 @@ import { getApprovalSummary, getReportSummary, listMyApprovalSubmissionsPage, li
 import { localCalendarDayKey, readHomeProjectMetrics } from "@/lib/homeMetrics";
 import { useI18n } from "@/lib/i18nClient";
 import { projectColorClass } from "@/lib/projectColor";
+import { openReturnedSubmissions } from "@/lib/returnedSubmissions";
 
 function shortId(value: string) {
   return value.slice(0, 8);
@@ -27,7 +28,7 @@ export default function HomePage() {
   const canReadReports = can("Menu", "Reports", "view");
   const readSummary = useCallback(() => getApprovalSummary(apiFetch), [apiFetch]);
   const readApprovals = useCallback(() => listPendingApprovals(apiFetch), [apiFetch]);
-  const readReturned = useCallback((signal: AbortSignal) => listMyApprovalSubmissionsPage(apiFetch, null, { result: "rejected" }, signal), [apiFetch]);
+  const readReturned = useCallback((signal: AbortSignal) => listMyApprovalSubmissionsPage(apiFetch, null, {}, signal), [apiFetch]);
   const readReport = useCallback(() => getReportSummary(apiFetch, { topic: "system_overview" }), [apiFetch]);
   const summaryRead = useReadResource(readSummary, operationGuards, authReady);
   const approvalsRead = useReadResource(readApprovals, operationGuards, authReady);
@@ -35,7 +36,7 @@ export default function HomePage() {
   const reportRead = useReadResource(readReport, operationGuards, authReady && canReadReports);
   const approvalSummary = summaryRead.data;
   const approvals = approvalsRead.data ?? [];
-  const returned = (returnedRead.data?.items ?? []).slice(0, returnedLimit);
+  const returned = useMemo(() => openReturnedSubmissions(returnedRead.data?.items ?? [], returnedLimit), [returnedRead.data]);
   const reportSummary = reportRead.data;
   const approvalMetricState = summaryRead.status;
   const [calendarDay, setCalendarDay] = useState(() => localCalendarDayKey(new Date()));

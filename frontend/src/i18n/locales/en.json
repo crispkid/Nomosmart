@@ -2077,7 +2077,7 @@
   "skipToMainContent": "Skip to main content",
   "referenceVersionSelectLabel": "Update version for {title}",
   "referenceVersionCurrentSnapshot": "Current snapshot: {version}.",
-  "referenceVersionNoAccess": "Source document access is unavailable. Contact the project administrator.",
+  "referenceVersionNoAccess": "Source document access is unavailable. Contact the project owner.",
   "referenceVersionUpdating": "The reference version is being updated. You can choose again when it finishes.",
   "projectsCreateSelectModels": "Select available chat, embedding and PDF recognition models.",
   "homeTrackingDetails": "Tracking details",
