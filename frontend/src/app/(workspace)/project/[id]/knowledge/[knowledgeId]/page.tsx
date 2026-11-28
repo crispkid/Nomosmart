@@ -8,10 +8,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import dynamic from "next/dynamic";
 import { useParams, useSearchParams } from "next/navigation";
-import { AlertTriangle, ArrowLeft, ArrowRight, CheckCircle2, Code2, Edit3, FileText, Loader2, Network, Pencil, Tags, Trash2 } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, Code2, Edit3, FileText, History, Loader2, Lock, MessageSquareText, Network, Pencil, Tags, Trash2 } from "lucide-react";
 import { DocumentRenameDialog } from "@/components/DocumentRenameDialog";
 import { fileExtension } from "@/lib/documentNames";
-import { AppShell, Panel, StatusBadge, statusLabel } from "@/components/AppShell";
+import { AppShell, Panel, StatusToneBadge } from "@/components/AppShell";
+import { useProjectName } from "@/lib/useProjectName";
 import { CanonicalMarkdownSource } from "@/components/CanonicalMarkdownSource";
 import { useAuth } from "@/components/AuthProvider";
 import { ContinuousDocumentViewer } from "@/components/ContinuousDocumentViewer";
@@ -33,13 +34,13 @@ import { retryContent, type ContentUpdateResult } from "@/lib/documentContentApi
 
 const DocumentContentEditorModal = dynamic(() => import("@/components/DocumentContentEditorModal").then(module => module.DocumentContentEditorModal), { ssr: false });
 
-import { type Translate, type KnowledgeChunk, type DocumentView, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate } from "@/components/knowledgeDetail/knowledgeDetailModel";
+import { type Translate, type KnowledgeChunk, type DocumentView, visibleTagDetails, liveChunk, isPipelineActive, shouldPollKnowledgeCompletionGate, chunkCharacterCount } from "@/components/knowledgeDetail/knowledgeDetailModel";
 import { createKnowledgeTagActions, useKnowledgeTagState } from "@/components/knowledgeDetail/useKnowledgeTagSection";
 import { useManualChunkSection } from "@/components/knowledgeDetail/useManualChunkSection";
 import { ChunkListPager, useChunkPage } from "@/components/knowledgeDetail/ChunkListPager";
 import { ChunkDeleteDialog, DocumentGraphDialog } from "@/components/knowledgeDetail/KnowledgeDetailDialogs";
 import { ChunkPreview, TagResultStrip, KnowledgeDetailCompletionGate, TagEditor } from "@/components/knowledgeDetail/KnowledgeDetailParts";
-import { ChunkReferencePanel, ContentChecklist, OverlapBanner, StationActions, StationReopenDialog, StationRevisionBanner, StationStepper, activeStation, locateText, stationName, usesStations, type StationNumber } from "@/components/knowledgeDetail/ExtractionStations";
+import { ChunkReferencePanel, ContentChecklist, OverlapBanner, StationActions, StationReopenDialog, StationRevisionButton, StationRevisionNote, StationStepper, activeStation, locateText, usesStations, type StationNumber } from "@/components/knowledgeDetail/ExtractionStations";
 
 export default function KnowledgePage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
@@ -85,6 +86,9 @@ export default function KnowledgePage() {
   const [onlyOverlap, setOnlyOverlap] = useState(false);
   const [onlyUnresolved, setOnlyUnresolved] = useState(false);
   const [chunkMenu, setChunkMenu] = useState<{ left: number; top: number } | null>(null);
+  // CHG-495 M16: wide screens keep the two panels side by side; at 768px and below one tab shows at a time.
+  const [mobilePane, setMobilePane] = useState<"source" | "chunks">("source");
+  const projectName = useProjectName(apiFetch, params.id, canObserve);
   const tagState = useKnowledgeTagState();
   const { documentTagDraft, setDocumentTagDraft, chunkTagDrafts, setChunkTagDrafts, tagBusyKey, tagError } = tagState;
   const [deleteTarget, setDeleteTarget] = useState<KnowledgeChunk | null>(null);
@@ -422,8 +426,8 @@ export default function KnowledgePage() {
                       >#{chunk.index}</button>
                       <small className="chunk-inline-meta">
                         <span>{chunk.sourceLabel}</span>
-                        <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })}</span>
-                        <span>{format("knowledgeDetailConfidence", { value: Math.round(chunk.confidence * 100) })}</span>
+                        <span>{format("knowledgeDetailTokenCount", { count: formatCount(chunk.tokens, locale) })} · {format("knowledgeDetailCharacterCount", { count: formatCount(chunkCharacterCount(chunk.content), locale) })}</span>
+                        <span className={chunk.confidence < 0.8 ? "chunk-confidence low" : "chunk-confidence"}>{format("knowledgeDetailConfidence", { value: Math.round(chunk.confidence * 100) })}</span>
                       </small>
                     </span>
                     {mode === "select" ? null : <span className="chunk-card-actions">
@@ -536,35 +540,49 @@ export default function KnowledgePage() {
     return chunkListPanel("full", t("knowledgeDetailChunkResults"));
   }
 
-  if (!canObserve || deniedReadRoute === routeKey || loadedRoute !== routeKey) return <AppShell title={t("knowledgeDetailTitle")}>
-    <div className="review-banner" role="status">{loadError ? <AlertTriangle size={20} /> : <Loader2 className="spin" size={20} />}
+  // CHG-495 M15/M17 (S11): breadcrumb projects > project > document; the document name is the heading; next-step
+  // links and the start-revision button sit in the header actions.
+  const projectHref = `/project/${params.id}/import`;
+  const documentTitle = liveDetail && !loadError && !loading ? liveDetail.document.title : t("knowledgeDetailTitle");
+  const breadcrumb = [{ label: t("dashboard"), href: "/projects" }, { label: projectName ?? t("breadcrumbProjectFallback"), href: projectHref }, { label: documentTitle }];
+  if (!canObserve || deniedReadRoute === routeKey || loadedRoute !== routeKey) return <AppShell breadcrumb={breadcrumb} title={t("knowledgeDetailTitle")}>
+    <div className={loadError ? "review-banner warning" : "review-banner"} role="status">{loadError ? <AlertTriangle size={20} /> : <Loader2 className="spin" size={20} />}
       <span>{t(loadError ? "apiGenericError" : "loadingData")}</span>
     </div>
   </AppShell>;
 
-  return (
-    <AppShell title={t("knowledgeDetailTitle")} browserTitle={resourcePageTitle(t("knowledgeDetailTitle"), !loadError && !loading ? liveDetail?.document.title : null, !loadError && !loading ? liveDetail?.version.version_label : null)}>
-      <div className="project-context">
-        <Link className="text-link" href={`/project/${params.id}/import`}><ArrowLeft size={16} /> {t("knowledgeDetailBackToDocuments")}</Link>
-        {liveDetail ? <span className="document-title-edit"><strong>{liveDetail.document.title}</strong>{liveDetail.document.capabilities?.can_manage_lifecycle && liveDetail.document.source_type !== "project_reference" ? <button aria-label={format("documentRenameButtonLabel", { title: liveDetail.document.title })} className="icon-button" onClick={() => setRenameOpen(true)} title={t("documentRenameTitle")} type="button"><Pencil size={14} /></button> : null}</span> : null}
-        <span>{t("knowledgeDetailDocumentVersion")} {liveDetail?.version.version_label ?? "-"}</span>
-        <span>{liveDetail?.pipeline?.status ? statusLabel(liveDetail.pipeline.status, t) : t("knowledgeDetailNoPipeline")}</span>
-        <StatusBadge status={liveDetail?.version.status ?? "loading"} />
-        <div className="project-context-actions">
-          {(liveDetail?.chat_access ? liveDetail.chat_access.query_enabled : liveDetail && !knowledgeGateBlocked && liveDetail.next_stage_allowed) ? <Link className="text-link next-stage-link" href={liveDetail?.chat_access?.mode === "published"
-            ? `/project/${params.id}/import?chat_version_id=${encodeURIComponent(liveDetail.chat_access.document_version_id)}` : `/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
-            {t(liveDetail?.chat_access?.mode === "published" ? "knowledgePublishedChat" : "chatTest")} <ArrowRight size={16} />
-          </Link> : liveDetail?.chat_access?.mode === "history_only" ? <Link className="text-link" href={`/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
-            {t("knowledgeChatHistoryOnly")}
-          </Link> : liveDetail && !knowledgeGateBlocked ? <span className="next-stage-disabled" title={t(nextStageBlockedKey)}><AlertTriangle size={16} /> {t("chatTest")}</span> : null}
-        </div>
-      </div>
+  const revisionRequired = Boolean(stationMode && liveDetail?.content_edit_reason === "content_edit_station_revision_required" && liveDetail.document.capabilities?.can_edit_chunks);
+  const createRevision = () => { if (liveDetail) void runStationAction(() => createStationRevision(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, liveDetail.version.lock_version)); };
+  const headerActions = <div className="project-context-actions document-header-actions">
+    {(liveDetail?.chat_access ? liveDetail.chat_access.query_enabled : liveDetail && !knowledgeGateBlocked && liveDetail.next_stage_allowed) ? <Link className="action-button secondary next-stage-link" href={liveDetail?.chat_access?.mode === "published"
+      ? `/project/${params.id}/import?chat_version_id=${encodeURIComponent(liveDetail.chat_access.document_version_id)}` : `/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
+      <MessageSquareText size={16} /> {t(liveDetail?.chat_access?.mode === "published" ? "knowledgePublishedChat" : "chatTest")} <ArrowRight size={16} />
+    </Link> : liveDetail?.chat_access?.mode === "history_only" ? <Link className="action-button secondary" href={`/project/${params.id}/knowledge/${params.knowledgeId}/chat-test`}>
+      <History size={16} /> {t("knowledgeChatHistoryOnly")}
+    </Link> : liveDetail && !knowledgeGateBlocked ? <span className="next-stage-disabled" title={t(nextStageBlockedKey)}><Lock size={15} /> {t("chatTest")}</span> : null}
+    {revisionRequired ? <StationRevisionButton busy={stationBusy} onCreate={createRevision} t={t} /> : null}
+  </div>;
+  const leftPaneLabel = stationMode && viewStation === 3 ? t("knowledgeDetailChunkResults") : t("contentEditDocumentPanelTitle");
+  const rightPaneLabel = stationMode && viewStation === 1 ? t("stationChecklistTitle") : stationMode && viewStation === 3 ? t("stationName3") : t("knowledgeDetailChunkResults");
 
-      {liveDetail?.document.superseded_by?.length ? <FeedbackMessage tone="warning">{format("documentSupersededBy", { titles: liveDetail.document.superseded_by.map(item => `〈${item.title}〉`).join("、") })}</FeedbackMessage> : null}
+  return (
+    <AppShell title={documentTitle} breadcrumb={breadcrumb} browserTitle={resourcePageTitle(t("knowledgeDetailTitle"), !loadError && !loading ? liveDetail?.document.title : null, !loadError && !loading ? liveDetail?.version.version_label : null)}
+      titleTrailing={liveDetail?.document.capabilities?.can_manage_lifecycle && liveDetail.document.source_type !== "project_reference" ? <button aria-label={format("documentRenameButtonLabel", { title: liveDetail.document.title })} className="ws-icon-button document-rename-button" onClick={() => setRenameOpen(true)} title={t("documentRenameTitle")} type="button"><Pencil size={15} /></button> : null}
+      subtitle={<span className="document-header-meta">
+        <span className="document-version-label">{t("knowledgeDetailDocumentVersion")} {liveDetail?.version.version_label ?? "-"}</span>
+        {liveDetail?.pipeline?.status ? <StatusToneBadge status={liveDetail.pipeline.status} /> : <span>{t("knowledgeDetailNoPipeline")}</span>}
+        <StatusToneBadge status={liveDetail?.version.status ?? "loading"} />
+      </span>}
+      actions={headerActions}>
+      {liveDetail?.document.superseded_by?.length ? <div className="document-header-notice tone-amber" role="status">
+        <AlertTriangle aria-hidden="true" size={16} />
+        <span>{format("documentSupersededBy", { titles: liveDetail.document.superseded_by.map(item => `〈${item.title}〉`).join("、") })}</span>
+        <Link className="text-link" href={`/project/${params.id}/knowledge/${liveDetail.document.superseded_by[0].document_id}`}>{t("documentSupersededOpen")} <ArrowRight size={15} /></Link>
+      </div> : null}
       {stationMode && liveDetail ? <div className="station-header">
         <StationStepper detail={liveDetail} onView={(station) => { setPickedStation(station); setStationError(null); if (station < 3 && documentView === "tags") setDocumentView("original"); }} t={t} viewStation={viewStation} />
-        {liveDetail.content_edit_reason === "content_edit_station_revision_required" && liveDetail.document.capabilities?.can_edit_chunks
-          ? <StationRevisionBanner busy={stationBusy} error={stationError} onCreate={() => void runStationAction(() => createStationRevision(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, liveDetail.version.lock_version))} t={t} />
+        {revisionRequired
+          ? <StationRevisionNote error={stationError} t={t} />
           : <StationActions busy={stationBusy} canEdit={Boolean(liveDetail.document.capabilities?.can_edit_chunks)} detail={liveDetail} error={stationError} format={format}
               onConfirm={(station) => void runStationAction(() => confirmStation(apiFetch, params.id, liveDetail.document.id, liveDetail.version.id, station, liveDetail.version.lock_version))}
               onReopen={(station) => { setStationError(null); setReopenTarget(station); }} t={t} viewStation={viewStation} />}
@@ -575,7 +593,11 @@ export default function KnowledgePage() {
         <KnowledgeDetailCompletionGate contentFeedback={contentFeedback} detail={liveDetail} format={format} onRetry={handleRetryStep} onEdit={() => setContentEditor({ versionId: liveDetail!.version.id })} projectId={params.id} retryError={retryError} retryingStep={retryingStep} reviewLocked={mutationLocked} t={t} />
       ) : (
         <>
-      <div className="content-grid split extraction-workspace">
+      <div aria-label={t("knowledgeDetailMobilePanes")} className="ws-tabs extraction-pane-tabs" role="tablist">
+        <button aria-selected={mobilePane === "source"} className="ws-tab" onClick={() => setMobilePane("source")} role="tab" type="button">{leftPaneLabel}</button>
+        <button aria-selected={mobilePane === "chunks"} className="ws-tab" onClick={() => setMobilePane("chunks")} role="tab" type="button">{rightPaneLabel}</button>
+      </div>
+      <div className={`content-grid split extraction-workspace mobile-pane-${mobilePane}`}>
         {stationMode && viewStation === 3 ? chunkListPanel("select", t("knowledgeDetailChunkResults")) : <Panel
           title={t("contentEditDocumentPanelTitle")}
           action={
@@ -676,7 +698,7 @@ export default function KnowledgePage() {
 
       {readinessPending ? <KnowledgeReadinessNotice stopped={readinessStopped || deniedReadRoute === routeKey}
         busy={manualReadBusy} canRetry={canObserve && deniedReadRoute !== routeKey} onRetry={() => void recheckReadinessOnce()} /> :
-      <div className={liveDetail?.next_stage_allowed ? "review-banner" : "review-banner warning"}>
+      <div className={liveDetail?.next_stage_allowed ? "review-banner knowledge-ready-bar" : "review-banner warning knowledge-ready-bar"}>
         {liveDetail?.next_stage_allowed ? <CheckCircle2 size={20} /> : <AlertTriangle size={20} />}
         <span>{liveDetail?.chat_access?.mode === "published" ? t("knowledgePublishedChat") : liveDetail?.next_stage_allowed ? t("knowledgeDetailReviewReady") : t(nextStageBlockedKey)}</span>
       </div>}

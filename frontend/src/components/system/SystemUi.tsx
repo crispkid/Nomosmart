@@ -33,6 +33,28 @@ export function operationStatusLabel(status: string, t: (key: TranslationKey) =>
   return status;
 }
 
+// CHG-495 M27: infrastructure services show a friendly name; the raw component name stays as small text.
+const serviceNameKeys: Record<string, TranslationKey> = {
+  postgresql: "systemServicePostgresql", redis: "systemServiceRedis", celery_broker: "systemServiceCeleryBroker",
+  celery_result_backend: "systemServiceCeleryResultBackend", s3: "systemServiceS3", opensearch: "systemServiceOpensearch",
+  neo4j: "systemServiceNeo4j", authentication: "systemServiceAuthentication", celery_worker: "systemServiceCeleryWorker",
+  file_processing_policy: "systemServiceFileProcessingPolicy", "worker.celery": "systemServiceWorker",
+  "queue.outbox": "systemServiceQueue", "retrieval.index": "systemServiceRetrieval"
+};
+
+/** Friendly name of a service, or null when the component is not a known service. */
+export function serviceFriendlyName(name: string, t: (key: TranslationKey) => string): string | null {
+  const key = serviceNameKeys[name];
+  return key ? t(key) : null;
+}
+
+/** Friendly name with the raw component name underneath (M27). */
+export function ServiceName({ name }: { name: string }) {
+  const { t } = useI18n();
+  const friendly = serviceFriendlyName(name, t);
+  return friendly ? <span className="system-service-name"><strong>{friendly}</strong><small>{name}</small></span> : <span className="system-service-name"><strong>{name}</strong></span>;
+}
+
 export function metricPairs(metrics: OperationComponentStatus["metrics"]) {
   return Object.entries(metrics).filter(([, value]) => value !== null && value !== undefined).slice(0, 4);
 }

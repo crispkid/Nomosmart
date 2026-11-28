@@ -1,13 +1,13 @@
 "use client";
 
-import { DropdownSelect } from "@/components/DropdownSelect";
-
 import { BrowserTitle } from "@/lib/browserTitle";
 
+import { BrandMark } from "./BrandMark";
 import { FeedbackMessage } from "./FeedbackMessage";
+import { LanguageToggle } from "./LanguageToggle";
 import { useState } from "react";
-import { Languages, LogOut, RefreshCw, ShieldX } from "lucide-react";
-import { supportedLocales, useI18n } from "@/lib/i18nClient";
+import { LogOut, RefreshCw, ShieldX } from "lucide-react";
+import { useI18n } from "@/lib/i18nClient";
 
 type ApplicationAccessDeniedProps = {
   userDisplayName: string;
@@ -17,6 +17,7 @@ type ApplicationAccessDeniedProps = {
   onLogout: () => Promise<void>;
 };
 
+/** K003 (CHG-495 S01): full-page card without the workspace navigation. */
 export function ApplicationAccessDenied({
   userDisplayName,
   rechecking,
@@ -24,7 +25,7 @@ export function ApplicationAccessDenied({
   onRecheck,
   onLogout,
 }: ApplicationAccessDeniedProps) {
-  const { locale, setLocale, t } = useI18n();
+  const { t } = useI18n();
   const [loggingOut, setLoggingOut] = useState(false);
 
   async function handleLogout() {
@@ -34,30 +35,14 @@ export function ApplicationAccessDenied({
   }
 
   return (
-    <main className="application-access-denied-page"><BrowserTitle label={t("applicationAccessDeniedTitle")} />
-      <header className="application-access-denied-toolbar">
-        <div className="brand">
-          <span className="brand-mark">N</span>
-          <span><strong>NomoSmart</strong><small>{t("brandEnterpriseKnowledgeOps")}</small></span>
-        </div>
-        <label className="application-access-language">
-          <Languages aria-hidden="true" size={17} />
-          <span className="sr-only">{t("languageSwitcher")}</span>
-          <DropdownSelect
-            aria-label={t("languageSwitcher")}
-            onChange={(event) => setLocale(event.target.value === "en" ? "en" : "zh")}
-            value={locale}
-          >
-            {supportedLocales.map((item) => <option key={item.code} value={item.code}>{item.label}</option>)}
-          </DropdownSelect>
-        </label>
-      </header>
+    <main className="application-access-denied-page state-page"><BrowserTitle label={t("applicationAccessDeniedTitle")} />
+      <header className="state-page-brand"><BrandMark size={24} /><span>NomoSmart</span></header>
 
-      <section aria-labelledby="application-access-denied-title" className="application-access-denied-card">
-        <span className="application-access-denied-icon"><ShieldX aria-hidden="true" size={30} /></span>
-        <p className="eyebrow">{t("applicationAccessDeniedEyebrow")}</p>
+      <section aria-labelledby="application-access-denied-title" className="application-access-denied-card state-card">
+        <span className="state-card-icon tone-neutral"><ShieldX aria-hidden="true" size={24} /></span>
+        <p className="state-card-eyebrow">{t("applicationAccessDeniedEyebrow")}</p>
         <h1 id="application-access-denied-title">{t("applicationAccessDeniedTitle")}</h1>
-        <p className="application-access-denied-description">{t("applicationAccessDeniedDescription")}</p>
+        <p className="state-card-description">{t("applicationAccessDeniedDescription")}</p>
 
         <div className="application-access-account">
           <span>{t("applicationAccessDeniedAccount")}</span>
@@ -72,13 +57,15 @@ export function ApplicationAccessDenied({
           </FeedbackMessage>
         ) : null}
 
-        <div className="application-access-actions">
+        <LanguageToggle />
+
+        <div className="state-card-actions">
           <button className="action-button" disabled={rechecking || loggingOut} onClick={() => { void onRecheck(); }} type="button">
-            <RefreshCw aria-hidden="true" className={rechecking ? "spin" : undefined} size={17} />
+            <RefreshCw aria-hidden="true" className={rechecking ? "spin" : undefined} size={16} />
             {rechecking ? t("applicationAccessDeniedRechecking") : t("applicationAccessDeniedRecheck")}
           </button>
           <button className="action-button secondary" disabled={rechecking || loggingOut} onClick={() => { void handleLogout(); }} type="button">
-            <LogOut aria-hidden="true" size={17} />
+            <LogOut aria-hidden="true" size={16} />
             {loggingOut ? t("loggingOut") : t("logout")}
           </button>
         </div>

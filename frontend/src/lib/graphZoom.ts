@@ -13,3 +13,13 @@ export function stepGraphZoom(value: number, direction: -1 | 1) {
 export function graphVisualScale(zoom: number) {
   return 1 + (boundedGraphZoom(zoom) - 1) * 0.175;
 }
+
+/**
+ * LF495-01: scale that fits the whole graph scene inside the canvas (never enlarges). The scene keeps
+ * a small margin so outer nodes are not flush with the canvas edge.
+ */
+export function graphSceneFitScale(canvasWidth: number, canvasHeight: number, sceneWidth: number, sceneHeight: number, margin = 24): number {
+  if (canvasWidth <= 0 || canvasHeight <= 0) return 1;
+  const fit = Math.min(1, (canvasWidth - margin) / sceneWidth, (canvasHeight - margin) / sceneHeight);
+  return Math.round(Math.max(0.3, fit) * 1000) / 1000;
+}

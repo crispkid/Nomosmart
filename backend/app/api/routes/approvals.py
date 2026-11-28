@@ -24,6 +24,7 @@ from app.api.schemas import (
     ApprovalTaskDetail,
     ApprovalTaskResponse,
     ApprovalTaskPage,
+    ApprovalVersionChanges,
     ApprovalFilterOption,
     ApprovalFilterOptionPage,
     DocumentSummary,
@@ -36,6 +37,7 @@ from app.api.schemas import (
 from app.domain.chat_citations import compact_citation_view, hydrate_citation_groups
 from app.domain.approval_access import allowed_decisions, approval_request_read_predicate, owner_fallback_reject, require_approval_read, unavailable_reviewer_ids
 from app.domain.document_layout import project_document_layout as _document_layout
+from app.domain import approval_insights as _insights
 from app.core.errors import AppError
 from app.core.cursor import cursor_filter_hash, decode_cursor, encode_cursor
 from app.db.models import ActiveVersionManifest, ApprovalEvidenceManifest, ApprovalRequest, ApprovalTask, ChatRecord, Chunk, Document, DocumentVersion, IdempotencyKey, Project, ProjectOwner, ReviewRecord, User
@@ -157,11 +159,17 @@ def approval_summary(context: IdentityContext = Depends(get_identity_context), s
     pending = _pending_query(session, context)
     pending_rows = list(session.scalars(pending))
     my_submissions = session.scalar(select(func.count()).select_from(ApprovalRequest).join(Project, Project.id == ApprovalRequest.project_id).where(Project.status == "active", ApprovalRequest.submitter_id == context.user_id, ApprovalRequest.status.in_(("pending_manager_review", "pending_owner_review", "approved")))) or 0
+    completed, average_wait = _insights.my_recent_decisions(session, context.user_id)
     return ApprovalSummary(
         pending_total=len(pending_rows),
         pending_manager_review=sum(1 for task in pending_rows if task.review_stage == "manager_review"),
         pending_owner_review=sum(1 for task in pending_rows if task.review_stage == "owner_review"),
         my_submissions=my_submissions,
+        # CHG-495 UIRD-API-001/003
+        pending_overdue=_insights.overdue_count(pending_rows),
+        pending_overdue_hours=_insights.PENDING_OVERDUE_HOURS,
+        completed_last_7_days=completed,
+        average_wait_seconds=average_wait,
     )
 
 
@@ -461,6 +469,13 @@ def get_approval_request(approval_request_id: UUID, context: IdentityContext = D
     require_approval_read(session, request.id, context)
     _require_active_project(session, request.project_id)
     return _approval_request_response(session, request)
+
+
+@router.get("/approvals/{approval_task_id}/changes", response_model=ApprovalVersionChanges)
+def get_approval_version_changes(approval_task_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ApprovalVersionChanges:
+    """CHG-495 UIRD-API-004: the submitted version against the document's previous published version (same access as the detail)."""
+    task = _scoped_task(session, approval_task_id, context)
+    return ApprovalVersionChanges(**_insights.version_changes(session, task))
 
 
 @router.get("/approvals/{approval_task_id}", response_model=ApprovalTaskDetail)

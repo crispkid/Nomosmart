@@ -7,7 +7,7 @@ import { FeedbackMessage } from "@/components/FeedbackMessage";
 import { Modal } from "@/components/Modal";
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useUploadWaitState } from "@/lib/useUploadWaitState";
-import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronRight, FileText, LoaderCircle, RotateCcw, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
+import { AlertTriangle, ArrowRight, CheckCircle2, ChevronDown, ChevronRight, FileText, LoaderCircle, RotateCcw, Route, ShieldCheck, Trash2, UploadCloud, X } from "lucide-react";
 import type { AIModelResponse } from "@/lib/api";
 import { ocrRetryBlocked, ocrRetryBlockReasonKey, ocrFailureTone } from "@/lib/ocrPresentation";
 import { formatCount } from "@/lib/numberFormat";
@@ -280,10 +280,23 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
   const nativePending = livePipelineSteps.some(step => step.ocr?.input_mode === "native_pdf" && step.status !== "completed");
   const uploadDisplayProgress = nativePending ? null : confirmedPipelinePercent(liveProgressDocument?.pipeline);
   const completedStepCount = uploadProgressSteps.filter((step) => step.status === "completed").length;
+  // CHG-495 C4: the import reads choose files → processing → confirm. The steps follow the existing flow (choose files,
+  // the OCR model and single/batch behaviour, then the upload result); no new processing options are offered.
+  const importStep = results || submitting || retryingPipeline || outcomeUnknown ? 3 : files.length ? 2 : 1;
+  const importSteps: TranslationKey[] = ["uploadStepChooseFiles", "uploadStepProcessing", "uploadStepConfirm"];
 
   return <Modal onEscape={() => requestClose()} onBackdropMouseDown={() => requestClose()} aria-busy={submitting || retryingPipeline} aria-labelledby="upload-files-title" className={`modal-panel source-modal optimized-source-modal${modalLocked ? " source-modal-locked" : ""}`}>
       <header className="source-modal-header"><div><p className="eyebrow">{t("uploadModalEyebrow")}</p><h2 id="upload-files-title">{t("uploadModalTitle")}</h2><small>{t("uploadModalHelp")}</small></div><button aria-label={t("uploadModalClose")} className="icon-button" disabled={modalLocked && !canLeaveWaiting} onClick={requestClose} type="button"><X size={18} /></button></header>
       <div className="source-modal-body">
+        <ol aria-label={t("uploadStepsLabel")} className="ws-stepper upload-stepper">
+          {importSteps.map((key, index) => {
+            const step = index + 1;
+            const done = step < importStep || (step === 3 && Boolean(results));
+            return <li aria-current={step === importStep && !done ? "step" : undefined} className={done ? "is-done" : step === importStep ? "is-current" : undefined} key={key}>
+              <span className="ws-stepper-marker" aria-hidden="true">{done ? <CheckCircle2 size={16} /> : step}</span><span>{t(key)}</span>
+            </li>;
+          })}
+        </ol>
         <div className="upload-rule-chips" aria-label={t("uploadRules")}><span><FileText size={14} /> {t("uploadSupportedFormats")}</span><span><ShieldCheck size={14} /> {format("uploadMaxSizeDynamic", { size: formatCount(maxUploadMb, locale) })}</span></div>
         {files.some((file) => documentExtension(file.name).toLowerCase() === "pdf") ? <section className="upload-ocr-panel">
           <label><span>{t("uploadOcrModel")}</span><DropdownSelect disabled={modalLocked || nativeOcrModels.length === 0} onChange={(event) => setOcrModelId(event.target.value || null)} value={resolvedOcrModelId ?? ""}><option value="">{nativeOcrModels.length ? t("uploadUseDefaultOcr") : t("uploadNoOcrModel")}</option>{nativeOcrModels.map((model) => <option key={model.id} value={model.id}>{model.name}{model.is_default ? t("uploadDefaultSuffix") : ""}</option>)}</DropdownSelect></label>
@@ -294,6 +307,7 @@ export function UploadFilesModal({ canSubmit = true, onObservationEnd, initialFi
           <input accept=".pdf,.txt,.md,.markdown" disabled={modalLocked} multiple onChange={(event) => selectFiles(Array.from(event.target.files ?? []))} type="file" />
         </label>
         <div className={`upload-behavior-callout ${files.length > 1 ? "batch" : "single"}`}><span>{files.length > 1 ? <FileText size={18} /> : <ArrowRight size={18} />}</span><div><strong>{files.length > 1 ? t("uploadBatchTitle") : t("uploadSingleTitle")}</strong><small>{files.length > 1 ? t("uploadBatchHelp") : t("uploadSingleHelp")}</small></div></div>
+        {files.length ? <p className="upload-route-note"><Route aria-hidden="true" size={16} /><span><strong>{t("uploadRouteTitle")}</strong>{t("uploadRouteHelp")}</span></p> : null}
         {files.length ? <section className="upload-files-section"><div className="upload-files-heading"><div><strong>{results ? t("uploadResults") : t("uploadSelectedFiles")}</strong><small>{format("uploadValidationSummary", { files: files.length, valid: validCount })}</small></div>{!results ? <button aria-label={format("uploadClearAllLabel", { count: files.length })} className="clear-all-files-button" disabled={modalLocked} onClick={() => selectFiles([])} type="button"><Trash2 size={16} /> {t("uploadClearAll")}</button> : null}</div><div className="upload-selection-list optimized-upload-list">{(results ?? validation).map((item, index) => { const file = files[index]; const extension = documentExtension(file.name).toUpperCase(); return <div className={item.ok ? "valid" : "invalid"} key={`${item.name}-${index}`}><span className="file-type-badge">{extension}</span><span className="upload-file-identity"><strong title={item.name}>{item.name}</strong><small>{formatFileSize(file.size)} · {localizeUploadReason(item.reason, t, format, maxUploadMb)}</small></span><span className="upload-file-status">{item.ok ? <><CheckCircle2 size={16} /> {results ? t("uploadAdded") : t("uploadReady")}</> : <><AlertTriangle size={16} /> {t("uploadFailed")}</>}</span></div>; })}</div></section> : null}
         {results ? <div aria-live="polite" className="upload-result-summary optimized-result-summary">{results.some((item) => !item.ok) ? <AlertTriangle size={20} /> : <CheckCircle2 size={20} />}<div><strong>{t("uploadResultTitle")}</strong><span>{format("uploadResultCounts", { success: results.filter((item) => item.ok).length, failed: results.filter((item) => !item.ok).length })}</span><small>{t("uploadResultHelp")}</small></div></div> : null}
         {submitError ? <div className="upload-result-summary upload-error-summary" role="alert"><AlertTriangle size={20} /><div><strong>{t("uploadIncomplete")}</strong><small>{localize(submitError)}</small></div></div> : null}

@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy import delete, func, or_, select
 from sqlalchemy.orm import Session
 
-from app.api.schemas import ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberCandidate, ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectRetrievalSettingsResponse, ProjectRetrievalSettingsUpdate, ProjectUpdate
+from app.api.schemas import ProjectStatusCounts, ProjectArchiveImpactResponse, ProjectArchiveRequest, ProjectCreate, ProjectMemberCandidate, ProjectMemberCandidatePage, ProjectMemberResponse, ProjectMemberUpdate, ProjectResponse, ProjectRetrievalSettingsResponse, ProjectRetrievalSettingsUpdate, ProjectUpdate
 from app.domain.retrieval_tuning import system_rerank_available
 from app.core.errors import AppError
 from app.db.models import Document, DocumentVersion, Project, ProjectArchiveRun, ProjectMember, ProjectOwner, User
@@ -20,6 +20,7 @@ from app.domain.project_members import lock_project_for_member_mutation as _lock
 from app.security.permissions import MENU_KNOWLEDGE_PROJECTS, PROJECT_ARCHIVE, PROJECT_MODULE, PermissionAction, has_permission, require_menu_permission
 from app.security.project_roles import canonical_project_role, project_roles
 from app.domain.project_access import archive_authority, project_model_state_expressions
+from app.domain import project_overview as _overview
 from app.services.audit import add_audit
 
 
@@ -87,6 +88,7 @@ def list_projects(
     model_state: Literal["complete", "incomplete"] | None = Query(default=None),
     pdf_model_state: Literal["configured", "not_configured", "invalid"] | None = Query(default=None),
     sort: Literal["updated_desc", "updated_asc", "name_asc", "name_desc"] = Query(default="updated_desc"),
+    derived_status: list[Literal["processing", "published", "draft", "deactivated"]] | None = Query(default=None),
     offset: int = Query(default=0, ge=0),
     limit: int = Query(default=50, ge=1, le=200),
     context: IdentityContext = Depends(get_identity_context),
@@ -106,6 +108,7 @@ def list_projects(
             or_(
                 Project.name.ilike(pattern, escape="\\"),
                 func.coalesce(Project.description, "").ilike(pattern, escape="\\"),
+                _overview.owner_name_matches(pattern),  # CHG-495 UIRD-API-002 (M11): owner names too
             )
         )
     if role:
@@ -137,6 +140,9 @@ def list_projects(
 
     if pdf_model_state is not None:
         conditions.append(pdf_state == pdf_model_state)
+    derived_status_column = _overview.derived_status_expression()
+    if isinstance(derived_status, list) and derived_status:  # direct (non-HTTP) callers leave the Query default
+        conditions.append(derived_status_column.in_(set(derived_status)))
 
     total = session.scalar(select(func.count()).select_from(Project).where(*conditions)) or 0
     response.headers["X-Total-Count"] = str(total)
@@ -211,6 +217,9 @@ def list_projects(
             owner_exists.label("is_owner"),
             model_complete.label("basic_models_ready"),
             pdf_state.label("pdf_model_state"),
+            _overview.published_document_count_expression().label("published_document_count"),
+            _overview.chunk_count_expression().label("chunk_count"),
+            derived_status_column.label("derived_status"),
         )
         .where(*conditions)
         .order_by(*order_by)
@@ -218,8 +227,13 @@ def list_projects(
         .limit(limit)
     ).all()
     projects: list[Project] = []
+    owners = _overview.project_owners(session, [row.Project.id for row in rows])
     for row in rows:
         project = row.Project
+        project.owners = owners[project.id]
+        project.published_document_count = int(row.published_document_count or 0)
+        project.chunk_count = int(row.chunk_count or 0)
+        project.derived_status = row.derived_status
         project.document_count = int(row.document_count or 0)
         project.published_version_count = int(row.published_version_count or 0)
         project.last_activity_at = row.last_activity_at
@@ -237,6 +251,13 @@ def list_projects(
             )
         )
     return projects
+
+
+@router.get("/status-counts", response_model=ProjectStatusCounts)
+def project_status_counts(context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> ProjectStatusCounts:
+    """CHG-495 UIRD-API-002: the visible projects per derived status and their published documents."""
+    require_menu_permission(list(context.grants), MENU_KNOWLEDGE_PROJECTS, PermissionAction.VIEW)
+    return ProjectStatusCounts(**_overview.status_counts(session, context.visible_project_ids))
 
 
 @router.post("", response_model=ProjectResponse, status_code=201)
@@ -289,6 +310,8 @@ def create_project(
 @router.get("/{project_id}", response_model=ProjectResponse)
 def get_project(project_id: UUID, context: IdentityContext = Depends(get_identity_context), session: Session = Depends(get_db)) -> Project:
     project = _get_scoped_project(session, project_id, context)
+    for key, value in _overview.project_overview(session, project.id).items():  # CHG-495 UIRD-API-002
+        setattr(project, key, value)
     return _project_response_projection(session, project, user_id=context.user_id, visible_project_ids=set(context.visible_project_ids), grants=context.grants)
 
 

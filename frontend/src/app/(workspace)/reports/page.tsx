@@ -5,10 +5,13 @@ import { DataTable } from "@/components/DataTable";
 
 import { FeedbackMessage, FeedbackSeverityBadge } from "@/components/FeedbackMessage";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, BarChart3, CalendarDays, Download, FileText, Gauge, GitBranch, LoaderCircle, LockKeyhole, Search, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronDown, Download, LoaderCircle, Search } from "lucide-react";
 import { AppShell, ForbiddenState, Panel } from "@/components/AppShell";
 import { useAuth } from "@/components/AuthProvider";
-import { downloadReportCsv, getReportFilterOptions, getReportSummary, type ReportFilterOptionsResponse, type ReportSummaryResponse } from "@/lib/api";
+import { downloadReportCsv, getReportApprovalStats, getReportFilterOptions, getReportSummary, type ReportApprovalStatsResponse, type ReportFilterOptionsResponse, type ReportSummaryResponse } from "@/lib/api";
+import { formatCount } from "@/lib/numberFormat";
+import { formatWaitDuration } from "@/lib/durationFormat";
+import { formatShortDate } from "@/lib/dateFormat";
 import { Pagination } from "@/components/Pagination";
 import { useReadResource } from "@/lib/useReadResource";
 import { useI18n, type TranslationKey } from "@/lib/i18nClient";
@@ -32,15 +35,18 @@ type ReportFilters = {
 
 const REPORT_PAGE_SIZE = 20;
 
-const reportTabs: Array<{ id: ReportTab; label: TranslationKey; icon: typeof Gauge }> = [
-  { id: "overview", label: "reportTabOverview", icon: Gauge },
-  { id: "projects", label: "reportTabProjects", icon: BarChart3 },
-  { id: "references", label: "reportTabReferences", icon: GitBranch },
-  { id: "documents", label: "reportTabDocuments", icon: FileText },
-  { id: "quality", label: "reportTabQuality", icon: Sparkles },
-  { id: "models", label: "reportTabModels", icon: ShieldCheck },
-  { id: "alerts", label: "reportTabAlerts", icon: AlertTriangle }
+// CHG-495 M25: the 7 topic tabs and their own CSV exports stay; only the overview tab gets the new design.
+const reportTabs: Array<{ id: ReportTab; label: TranslationKey }> = [
+  { id: "overview", label: "reportTabOverview" },
+  { id: "projects", label: "reportTabProjects" },
+  { id: "references", label: "reportTabReferences" },
+  { id: "documents", label: "reportTabDocuments" },
+  { id: "quality", label: "reportTabQuality" },
+  { id: "models", label: "reportTabModels" },
+  { id: "alerts", label: "reportTabAlerts" }
 ];
+/** CHG-495 M24 (compromise): quick ranges ending today, beside the kept custom from/to dates. */
+const periodPresets = [7, 30, 90] as const;
 
 const tabTopics: Record<ReportTab, ReportTopic[]> = {
   overview: ["system_overview"],
@@ -53,8 +59,9 @@ const tabTopics: Record<ReportTab, ReportTopic[]> = {
 };
 
 export default function ReportsPage() {
-  const { format, localize, t } = useI18n();
+  const { format, locale, localize, t } = useI18n();
   const { apiFetch, authReady, can, operationGuards } = useAuth();
+  const dateFromRef = useRef<HTMLInputElement>(null);
   const canViewReports = can("Menu", "Reports", "view");
   const initialFilters = useMemo(() => defaultFilters(), []);
   const [activeTab, setActiveTab] = useState<ReportTab>("overview");
@@ -244,29 +251,39 @@ export default function ReportsPage() {
     onExport: () => { void downloadTopic(topic); }
   });
 
+  const activePreset = periodPresets.find((days) => sameFilters({ ...draftFilters, ...presetRange(days) }, draftFilters)) ?? null;
+  const appliedProjectLabel = reportProjectLabel(appliedFilters.project, appliedOptions?.identity === operationGuards && appliedOptions.options.selected_scope === appliedFilters.scope ? appliedOptions.options : null, t);
+
   return (
-    <AppShell title={t("reports")}>
-      <section className="fixture-banner report-fixture-banner"><LockKeyhole size={17} /><div><strong>{hasReportData ? t("reportLiveData") : t("reportLiveLoading")}</strong><span>{hasReportData ? t("reportLiveDataHelp") : t("reportLiveLoadingHelp")}</span></div></section>
+    <AppShell title={t("reports")} subtitle={<>{formatShortDate(appliedFilters.dateFrom, locale)} – {formatShortDate(appliedFilters.dateTo, locale)}</>}>
+      <p className="report-fixture-banner" role="status"><strong>{hasReportData ? t("reportLiveData") : t("reportLiveLoading")}</strong><span>{hasReportData ? t("reportLiveDataHelp") : t("reportLiveLoadingHelp")}</span></p>
       {error ? <FeedbackMessage title={t("reportLoadFailed")}>{localize(error)}</FeedbackMessage> : null}
 
-      <section className="report-filter-bar" aria-label={t("reportFilterLabel")}>
-        <label><CalendarDays size={16} /><span>{t("reportDateFrom")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateFrom: event.target.value }))} type="date" value={draftFilters.dateFrom} /></label>
-        <label><CalendarDays size={16} /><span>{t("reportDateTo")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateTo: event.target.value }))} type="date" value={draftFilters.dateTo} /></label>
-        <label><span>{t("reportScope")}</span><DropdownSelect onChange={(event) => { changeScope(event.target.value); }} value={draftFilters.scope}>{(filterOptions?.scopes ?? [{ value: draftFilters.scope, project_count: 0 }]).map((option) => <option key={option.value} value={option.value}>{scopeLabel(option.value, t)} ({option.project_count})</option>)}</DropdownSelect></label>
-        <label><span>{t("reportProject")}</span><DropdownSelect onChange={(event) => setDraftFilters((current) => ({ ...current, project: event.target.value }))} value={draftFilters.project}><option value="all">{t("reportAllAuthorizedProjects")}</option>{(filterOptions?.projects ?? []).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</DropdownSelect></label>
-        <button className="action-button report-query-button" disabled={queryLoading} onClick={() => { void applyQuery(); }} type="button"><Search size={16} />{queryLoading ? t("reportQueryLoading") : t("reportQuery")}</button>
+      <section className="report-filter-card" aria-label={t("reportFilterLabel")}>
+        <div className="report-filter-bar">
+          <div className="report-period">
+            <span id="report-period-label">{t("reportPeriod")}</span>
+            <div aria-labelledby="report-period-label" className="ws-segmented report-period-presets" role="group">
+              {periodPresets.map((days) => <button aria-pressed={activePreset === days} key={days} onClick={() => setDraftFilters((current) => ({ ...current, ...presetRange(days) }))} type="button">{format("reportPeriodDays", { days })}</button>)}
+              <button aria-pressed={activePreset === null} onClick={() => dateFromRef.current?.focus()} type="button">{t("reportPeriodCustom")}</button>
+            </div>
+          </div>
+          <label><span>{t("reportDateFrom")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateFrom: event.target.value }))} ref={dateFromRef} type="date" value={draftFilters.dateFrom} /></label>
+          <label><span>{t("reportDateTo")}</span><input onChange={(event) => setDraftFilters((current) => ({ ...current, dateTo: event.target.value }))} type="date" value={draftFilters.dateTo} /></label>
+          <label><span>{t("reportScope")}</span><DropdownSelect onChange={(event) => { changeScope(event.target.value); }} value={draftFilters.scope}>{(filterOptions?.scopes ?? [{ value: draftFilters.scope, project_count: 0 }]).map((option) => <option key={option.value} value={option.value}>{scopeLabel(option.value, t)} ({option.project_count})</option>)}</DropdownSelect></label>
+          <label><span>{t("reportProject")}</span><DropdownSelect onChange={(event) => setDraftFilters((current) => ({ ...current, project: event.target.value }))} value={draftFilters.project}><option value="all">{t("reportAllAuthorizedProjects")}</option>{(filterOptions?.projects ?? []).map((option) => <option key={option.id} value={option.id}>{option.name}</option>)}</DropdownSelect></label>
+          <button className="action-button report-query-button" disabled={queryLoading} onClick={() => { void applyQuery(); }} type="button"><Search size={16} />{queryLoading ? t("reportQueryLoading") : t("reportQuery")}</button>
+        </div>
+        <div className={`report-query-state${filtersDirty ? " dirty" : ""}`} aria-live="polite">
+          <span>{filtersDirty ? t("reportFiltersPending") : t("reportFiltersApplied")}</span>
+          <small>{t("reportAppliedRange")}：{appliedFilters.dateFrom} – {appliedFilters.dateTo}</small>
+          <small className="report-applied-chip">{scopeLabel(appliedFilters.scope, t)}</small>
+          <small className="report-applied-chip">{appliedProjectLabel}</small>
+        </div>
       </section>
 
-      <div className={`report-query-state${filtersDirty ? " dirty" : ""}`} aria-live="polite">
-        <span>{filtersDirty ? t("reportFiltersPending") : t("reportFiltersApplied")}</span>
-        <small>{t("reportAppliedRange")}：{appliedFilters.dateFrom} – {appliedFilters.dateTo}</small>
-      </div>
-
-      <nav className="report-topic-tabs" aria-label={t("reportTopicTabs") }>
-        {reportTabs.map((tab) => {
-          const Icon = tab.icon;
-          return <button className={activeTab === tab.id ? "active" : ""} key={tab.id} onClick={() => { void changeTab(tab.id); }} type="button"><Icon size={16} />{t(tab.label)}</button>;
-        })}
+      <nav className="ws-tabs report-topic-tabs" aria-label={t("reportTopicTabs") }>
+        {reportTabs.map((tab) => <button aria-current={activeTab === tab.id ? "true" : undefined} className="ws-tab" key={tab.id} onClick={() => { void changeTab(tab.id); }} type="button">{t(tab.label)}</button>)}
       </nav>
 
       {queryLoading ? <div className="report-query-loading" role="status"><LoaderCircle className="spin" size={22} /><div><strong>{t("reportQueryLoading")}</strong><span>{t("reportQueryLoadingHelp")}</span></div></div> : null}
@@ -274,7 +291,7 @@ export default function ReportsPage() {
       {activeTab === "models" ? <ModelFilterBar filters={draftFilters} loading={queryLoading} onChange={setDraftFilters} onQuery={applyQuery} /> : null}
 
       <section className="report-results" aria-busy={queryLoading}>
-        {activeTab === "overview" ? <OverviewPanel scope={appliedFilters.scope} project={appliedFilters.project} options={appliedOptions?.identity === operationGuards && appliedOptions.options.selected_scope === appliedFilters.scope ? appliedOptions.options : null} table={tableProps("system_overview")} /> : null}
+        {activeTab === "overview" ? <OverviewPanel filters={appliedFilters} projectLabel={appliedProjectLabel} table={tableProps("system_overview")} /> : null}
         {activeTab === "projects" ? <ProjectRankingPanel ranking={tableProps("project_ranking")} owner={tableProps("owner_project_summary")} /> : null}
         {activeTab === "references" ? <ReferencePanel projects={tableProps("project_reference_ranking")} documents={tableProps("document_reference_ranking")} /> : null}
         {activeTab === "documents" ? <DocumentPanel table={tableProps("document_pipeline_metrics")} /> : null}
@@ -295,9 +312,97 @@ type TableState = {
   onExport: () => void;
 };
 
-function OverviewPanel({ table, scope, project, options }: { table: TableState; scope: string; project: string; options: ReportFilterOptionsResponse | null }) {
+/** CHG-495 (A1Reports, overview only): period KPIs, weekly approvals and the operations table; the role scope card stays (K215). */
+function OverviewPanel({ table, filters, projectLabel }: { table: TableState; filters: ReportFilters; projectLabel: string }) {
   const { t } = useI18n();
-  return <div className="content-grid two"><ReportPanel title={t("reportOperationsTrend")} badge={`${scopeLabel(scope, t)} · ${reportProjectLabel(project, table.error ? null : options, t)}`} table={table} columns={[["metric_key", t("reportColMetric")], ["metric_value", t("reportColValue")], ["date_from", t("reportColDateFrom")], ["date_to", t("reportColDateTo")]]} /><Panel title={t("reportVisibleScope")}><div className="report-scope-list"><article><strong>{t("reportRoleSystemAdmin")}</strong><span>{t("reportRoleSystemAdminHelp")}</span></article><article><strong>{t("reportRoleProjectOwner")}</strong><span>{t("reportRoleProjectOwnerHelp")}</span></article><article><strong>{t("reportRoleEditorViewer")}</strong><span>{t("reportRoleEditorViewerHelp")}</span></article><article><strong>{t("reportRoleReviewer")}</strong><span>{t("reportRoleReviewerHelp")}</span></article></div></Panel></div>;
+  const { apiFetch, authReady, operationGuards } = useAuth();
+  const readStats = useCallback((signal: AbortSignal) => getReportApprovalStats(apiFetch, { dateFrom: filters.dateFrom, dateTo: filters.dateTo, scope: filters.scope, projectId: isUuid(filters.project) ? filters.project : null }, signal), [apiFetch, filters.dateFrom, filters.dateTo, filters.project, filters.scope]);
+  const stats = useReadResource<ReportApprovalStatsResponse>(readStats, operationGuards, authReady);
+  return <div className="report-overview">
+    <ReportKpiStrip loading={table.loading} metrics={table.error ? undefined : table.response?.metrics} stats={stats.status === "ready" ? stats.data ?? undefined : undefined} statsFailed={stats.status === "error"} />
+    <div className="report-overview-grid">
+      <div className="report-overview-main">
+        <ApprovalWeeklyChart failed={stats.status === "error"} loading={stats.status === "loading"} stats={stats.data ?? undefined} />
+        <ReportPanel title={t("reportOperationsTrend")} badge={`${scopeLabel(filters.scope, t)} · ${projectLabel}`} table={table} columns={[["metric_key", t("reportColMetric")], ["metric_value", t("reportColValue")], ["date_from", t("reportColDateFrom")], ["date_to", t("reportColDateTo")]]} />
+      </div>
+      <details className="report-scope-card" open>
+        <summary><span>{t("reportVisibleScope")}</span><ChevronDown aria-hidden="true" size={16} /></summary>
+        <div className="report-scope-list"><article><strong>{t("reportRoleSystemAdmin")}</strong><span>{t("reportRoleSystemAdminHelp")}</span></article><article><strong>{t("reportRoleProjectOwner")}</strong><span>{t("reportRoleProjectOwnerHelp")}</span></article><article><strong>{t("reportRoleEditorViewer")}</strong><span>{t("reportRoleEditorViewerHelp")}</span></article><article><strong>{t("reportRoleReviewer")}</strong><span>{t("reportRoleReviewerHelp")}</span></article></div>
+      </details>
+    </div>
+  </div>;
+}
+
+type MetricCards = ReportSummaryResponse["metrics"];
+
+function metricValue(metrics: MetricCards | undefined, key: string) {
+  const card = metrics?.find((item) => item.key === key);
+  return card ? card.value : null;
+}
+
+/** Four period figures from the overview response (D495-11) and the approval statistics (D495-12). */
+function ReportKpiStrip({ loading, metrics, stats, statsFailed }: { loading: boolean; metrics: MetricCards | undefined; stats: ReportApprovalStatsResponse | undefined; statsFailed: boolean }) {
+  const { format, locale, t } = useI18n();
+  const pending = loading && !metrics ? "…" : "—";
+  const newDocuments = metricValue(metrics, "new_document_count");
+  const previousDocuments = metricValue(metrics, "new_document_previous_count");
+  const chats = metricValue(metrics, "recent_chat_count");
+  const citedRate = metricValue(metrics, "recent_cited_chat_rate");
+  let documentTrend = "";
+  if (newDocuments !== null && previousDocuments !== null) {
+    if (previousDocuments === 0) documentTrend = format("reportKpiPreviousCount", { count: formatCount(previousDocuments, locale) });
+    else if (newDocuments === previousDocuments) documentTrend = t("reportKpiSameAsPrevious");
+    else {
+      const percent = Math.round(Math.abs(newDocuments - previousDocuments) / previousDocuments * 100);
+      documentTrend = format(newDocuments > previousDocuments ? "reportKpiMoreThanPrevious" : "reportKpiFewerThanPrevious", { percent });
+    }
+  }
+  const cells: Array<{ label: string; value: string; helper: string; tone?: "up" | "down" }> = [
+    { label: t("reportKpiNewDocuments"), value: newDocuments === null ? pending : formatCount(newDocuments, locale), helper: documentTrend, tone: newDocuments !== null && previousDocuments !== null && previousDocuments > 0 && newDocuments !== previousDocuments ? newDocuments > previousDocuments ? "up" : "down" : undefined },
+    { label: t("reportKpiApprovalsCompleted"), value: stats ? formatCount(stats.completed_count, locale) : statsFailed ? "—" : "…", helper: stats ? stats.average_wait_seconds === null ? t("reportKpiNoCompletedApprovals") : format("reportKpiAverageWait", { duration: formatWaitDuration(stats.average_wait_seconds, format) }) : statsFailed ? t("reportApprovalStatsFailed") : "" },
+    { label: t("reportKpiChats"), value: chats === null ? pending : formatCount(chats, locale), helper: t("reportKpiInPeriod") },
+    { label: t("reportKpiCitedRate"), value: citedRate === null ? (chats === 0 ? "—" : pending) : `${Math.round(citedRate * 100)}%`, helper: citedRate === null && chats === 0 ? t("reportKpiNoChats") : t("reportKpiCitedRateHelper") }
+  ];
+  return <section aria-label={t("reportKpiLabel")} className="report-kpi-strip">
+    {cells.map((cell) => <div className="report-kpi" key={cell.label}><span>{cell.label}</span><strong>{cell.value}</strong>{cell.helper ? <small className={cell.tone ? `is-${cell.tone}` : undefined}>{cell.helper}</small> : null}</div>)}
+  </section>;
+}
+
+/** Weekly approved and returned decisions as a stacked bar chart in theme colours; the table below the chart gives the same figures to screen readers. */
+function ApprovalWeeklyChart({ stats, loading, failed }: { stats: ReportApprovalStatsResponse | undefined; loading: boolean; failed: boolean }) {
+  const { format, locale, t } = useI18n();
+  const weeks = stats?.weekly ?? [];
+  const max = Math.max(1, ...weeks.map((week) => week.approved + week.rejected));
+  const returnRate = stats && stats.completed_count ? Math.round(stats.rejected_count / stats.completed_count * 1000) / 10 : null;
+  const chartLabel = format("reportApprovalChartAria", { weeks: weeks.length, approved: stats?.approved_count ?? 0, returned: stats?.rejected_count ?? 0 });
+  return <section aria-labelledby="report-approval-chart-title" className="report-chart-card">
+    <header>
+      <div>
+        <h2 id="report-approval-chart-title">{t("reportApprovalChartTitle")}</h2>
+        <p>{returnRate === null ? t("reportApprovalChartSubtitle") : format("reportApprovalChartReturnRate", { rate: returnRate })}</p>
+      </div>
+      <div aria-hidden="true" className="report-chart-legend"><span><i className="is-approved" />{t("reportApprovalApproved")}</span><span><i className="is-returned" />{t("reportApprovalReturned")}</span></div>
+    </header>
+    {failed ? <FeedbackMessage tone="error">{t("reportApprovalStatsFailed")}</FeedbackMessage>
+      : loading && !stats ? <div className="report-table-loading" role="status"><LoaderCircle className="spin" size={20} /><span>{t("reportTableLoading")}</span></div>
+      : !weeks.length || !stats?.completed_count ? <ReportEmptyState />
+      : <>
+        <div aria-label={chartLabel} className="report-bar-chart" role="img">
+          {weeks.map((week) => <div className="report-bar-column" key={week.week_start} title={format("reportApprovalWeekTooltip", { week: formatShortDate(week.week_start, locale), approved: week.approved, returned: week.rejected })}>
+            <div className="report-bar-stack">
+              <span className="report-bar is-returned" style={{ height: `${week.rejected / max * 100}%` }} />
+              <span className="report-bar is-approved" style={{ height: `${week.approved / max * 100}%` }} />
+            </div>
+            <small>{formatShortDate(week.week_start, locale)}</small>
+          </div>)}
+        </div>
+        <table className="sr-only">
+          <caption>{t("reportApprovalChartTitle")}</caption>
+          <thead><tr><th scope="col">{t("reportApprovalWeek")}</th><th scope="col">{t("reportApprovalApproved")}</th><th scope="col">{t("reportApprovalReturned")}</th></tr></thead>
+          <tbody>{weeks.map((week) => <tr key={week.week_start}><th scope="row">{formatShortDate(week.week_start, locale)}</th><td>{week.approved}</td><td>{week.rejected}</td></tr>)}</tbody>
+        </table>
+      </>}
+  </section>;
 }
 
 function ProjectRankingPanel({ ranking, owner }: { ranking: TableState; owner: TableState }) {
@@ -353,7 +458,7 @@ function ModelFilterBar({ filters, loading, onChange, onQuery }: { filters: Repo
   const update = (key: keyof ReportFilters, value: string) => onChange({ ...filters, [key]: value });
   return (
     <section className="report-filter-bar report-model-filter-bar" aria-label={t("reportModelFilterLabel")}>
-      <label><span>{t("reportModelType")}</span><DropdownSelect onChange={(event) => update("modelType", event.target.value)} value={filters.modelType}><option value="">{t("reportFilterAll")}</option><option value="Chat">{t("labelChat")}</option><option>Embedding</option><option value="OCR">{t("labelPdfRecognition")}</option><option>Judge</option></DropdownSelect></label>
+      <label><span>{t("reportModelType")}</span><DropdownSelect onChange={(event) => update("modelType", event.target.value)} value={filters.modelType}><option value="">{t("reportFilterAll")}</option><option value="Chat">{t("labelChat")}</option><option value="Embedding">{t("reportModelTypeEmbedding")}</option><option value="OCR">{t("labelPdfRecognition")}</option><option value="Judge">{t("reportModelTypeJudge")}</option></DropdownSelect></label>
       <label><span>{t("reportUsagePurpose")}</span><DropdownSelect onChange={(event) => update("usagePurpose", event.target.value)} value={filters.usagePurpose}><option value="">{t("reportFilterAll")}</option>{reportUsagePurposes.map((value) => <option key={value} value={value}>{reportDisplayValue("usage_purpose", value, t)?.label}</option>)}</DropdownSelect></label>
       <label><span>{t("reportSourceChannel")}</span><DropdownSelect onChange={(event) => update("sourceChannel", event.target.value)} value={filters.sourceChannel}><option value="">{t("reportFilterAll")}</option>{reportSourceChannels.map((value) => <option key={value} value={value}>{reportDisplayValue("source_channel", value, t)?.label}</option>)}</DropdownSelect></label>
       <label><span>{t("reportUsageStatus")}</span><DropdownSelect onChange={(event) => update("usageStatus", event.target.value)} value={filters.usageStatus}><option value="">{t("reportFilterAll")}</option><option value="success">{t("reportUsageSuccess")}</option><option value="failed">{t("reportUsageFailed")}</option><option value="partial">{t("reportUsagePartial")}</option><option value="cancelled">{t("reportUsageCancelled")}</option></DropdownSelect></label>
@@ -379,16 +484,21 @@ function reportIdentityClass(key: string) {
   return undefined;
 }
 
-function defaultFilters(): ReportFilters {
+/** The last `days` days ending today (local dates, as the date inputs use). */
+function presetRange(days: number) {
   const end = new Date();
   const start = new Date(end);
-  start.setDate(start.getDate() - 29);
+  start.setDate(start.getDate() - (days - 1));
   const format = (date: Date) => [
     date.getFullYear(),
     String(date.getMonth() + 1).padStart(2, "0"),
     String(date.getDate()).padStart(2, "0")
   ].join("-");
-  return { dateFrom: format(start), dateTo: format(end), scope: "owner_projects", project: "all", modelType: "", usagePurpose: "", sourceChannel: "", usageStatus: "" };
+  return { dateFrom: format(start), dateTo: format(end) };
+}
+
+function defaultFilters(): ReportFilters {
+  return { ...presetRange(30), scope: "owner_projects", project: "all", modelType: "", usagePurpose: "", sourceChannel: "", usageStatus: "" };
 }
 
 function sameFilters(left: ReportFilters, right: ReportFilters) {

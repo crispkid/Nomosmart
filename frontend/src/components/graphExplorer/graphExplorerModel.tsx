@@ -4,11 +4,11 @@
 import { graphVisualScale, MIN_GRAPH_ZOOM, MAX_GRAPH_ZOOM } from "@/lib/graphZoom";
 import { useMemo } from "react";
 import { GRAPH_HEIGHT, GRAPH_WIDTH, graphNodeDimensions } from "@/lib/graphLayoutProtocol";
-import { BarChart3, FileText, FolderKanban, ImageIcon, Network, Scissors, Table2, Tag } from "lucide-react";
+import { BarChart3, FileText, FolderKanban, ImageIcon, Layers, Table2, Tag, TextQuote } from "lucide-react";
 import { type TranslationKey } from "@/lib/i18nClient";
 
-type GraphExplorerNodeKind = "project" | "document" | "chunk" | "tag" | "group";
-type GraphExplorerContentType = "text" | "image" | "table" | "chart";
+export type GraphExplorerNodeKind = "project" | "document" | "chunk" | "tag" | "group";
+export type GraphExplorerContentType = "text" | "image" | "table" | "chart";
 type GraphExplorerSemanticLayer = 1 | 2 | 3 | 4;
 
 type GraphExplorerMeta = {
@@ -165,11 +165,68 @@ export function GraphNodeIcon({ contentType, kind }: { contentType?: GraphExplor
   if (kind === "project") return <FolderKanban size={18} />;
   if (kind === "document") return <FileText size={18} />;
   if (kind === "tag") return <Tag size={16} />;
-  if (kind === "group") return <Network size={16} />;
+  if (kind === "group") return <Layers size={16} />;
   if (contentType === "image") return <ImageIcon size={16} />;
   if (contentType === "table") return <Table2 size={16} />;
   if (contentType === "chart") return <BarChart3 size={16} />;
-  return <Scissors size={16} />;
+  // CHG-495 DESIGN.md §8: text chunks use TextQuote; images, tables and charts keep their own icon.
+  return <TextQuote size={16} />;
+}
+
+export type GraphRelation = GraphExplorerEdge["relation"];
+
+/** CHG-495 M23: labels of the relation filter (the edge label itself can be a source name such as "Upload"). */
+export const relationFilterLabelKeys: Record<GraphRelation, TranslationKey> = {
+  contains: "graphLegendContains",
+  references: "graphRelationReferences",
+  semantic: "graphRelationSemantic",
+  source: "graphRelationSourceFilter",
+  supersedes: "graphRelationSupersedes",
+  tagged_as: "graphRelationTaggedAs"
+};
+
+export const graphNodeKinds: GraphExplorerNodeKind[] = ["project", "document", "chunk", "tag", "group"];
+export const graphContentTypes: GraphExplorerContentType[] = ["text", "image", "table", "chart"];
+export const graphRelations: GraphRelation[] = ["source", "contains", "tagged_as", "references", "supersedes", "semantic"];
+/** Backend node types (`node_type_counts`) for each explorer node kind. */
+export const graphKindTotalsKey: Partial<Record<GraphExplorerNodeKind, string>> = { project: "Project", document: "Document", chunk: "Chunk", tag: "Tag" };
+
+/** CHG-495 M23: hidden node kinds, chunk content types and relations, plus the neighbourhood depth around the selected node. */
+export type GraphFilters = {
+  depth: "all" | 1 | 2;
+  hiddenContentTypes: GraphExplorerContentType[];
+  hiddenKinds: GraphExplorerNodeKind[];
+  hiddenRelations: GraphRelation[];
+};
+
+export const defaultGraphFilters: GraphFilters = { depth: "all", hiddenContentTypes: [], hiddenKinds: [], hiddenRelations: [] };
+
+export function graphFiltersActive(filters: GraphFilters) {
+  return filters.depth !== "all" || filters.hiddenContentTypes.length > 0 || filters.hiddenKinds.length > 0 || filters.hiddenRelations.length > 0;
+}
+
+/**
+ * Filters only what is drawn; the layout keeps every node so positions and the layout cache do not change.
+ * A depth limit applies while a node is selected: nodes further than `depth` hops (over shown edges) are hidden.
+ */
+export function applyGraphFilters<TNode extends GraphExplorerNode>(nodes: TNode[], edges: GraphExplorerEdge[], filters: GraphFilters, selectedNodeId: string | null) {
+  const kept = nodes.filter((node) => !filters.hiddenKinds.includes(node.kind)
+    && !(node.kind === "chunk" && filters.hiddenContentTypes.includes(node.contentType ?? "text")));
+  const keptIds = new Set(kept.map((node) => node.id));
+  const keptEdges = edges.filter((edge) => !filters.hiddenRelations.includes(edge.relation) && keptIds.has(edge.source) && keptIds.has(edge.target));
+  if (filters.depth === "all" || !selectedNodeId || !keptIds.has(selectedNodeId)) return { edges: keptEdges, nodes: kept };
+  const reached = new Set([selectedNodeId]);
+  let frontier = [selectedNodeId];
+  for (let level = 0; level < filters.depth && frontier.length; level += 1) {
+    const next: string[] = [];
+    for (const edge of keptEdges) {
+      for (const [from, to] of [[edge.source, edge.target], [edge.target, edge.source]]) {
+        if (frontier.includes(from) && !reached.has(to)) { reached.add(to); next.push(to); }
+      }
+    }
+    frontier = next;
+  }
+  return { edges: keptEdges.filter((edge) => reached.has(edge.source) && reached.has(edge.target)), nodes: kept.filter((node) => reached.has(node.id)) };
 }
 
 export function useRelationMap<TNode extends GraphExplorerNode>(nodes: TNode[], edges: GraphExplorerEdge[], selected: { id: string; type: "edge" | "node" } | null) {

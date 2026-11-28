@@ -1,7 +1,7 @@
 "use client";
 
 import type { RefObject } from "react";
-import { Activity, Bot, ChevronRight, ClipboardCheck, FolderCog, KeyRound, Layers3, MessagesSquare, Search, ShieldCheck, SlidersHorizontal, UsersRound, X, type LucideIcon } from "lucide-react";
+import { Activity, Bot, ClipboardCheck, FolderCog, KeyRound, Layers3, MessagesSquare, Search, ShieldCheck, SlidersHorizontal, UsersRound, X, type LucideIcon } from "lucide-react";
 import type { TranslationKey } from "@/lib/i18nClient";
 import { settingsSections, type SettingsPosition } from "@/lib/systemRouteState";
 
@@ -59,7 +59,7 @@ export function SettingsNavigation({ activeSection, leaveOpen, narrow, navOpen, 
       <label className="settings-search"><Search size={16} /><input type="search" value={settingsSearch} aria-label={t("settingsSearch")} placeholder={t("settingsSearch")} onChange={event => setSettingsSearch(event.target.value)} /></label>
       <nav aria-label={t("settingsCategories")}>{settingsSections.map(section => {
         const Icon = sectionIcons[section.id];
-        return <button type="button" key={section.id} aria-current={activeSection === section.id ? "page" : undefined} onClick={() => navigateSettings({ section: section.id, panel: section.panels[0] })}><Icon size={18} /><span>{t(section.labelKey)}</span><ChevronRight size={15} /></button>;
+        return <button type="button" key={section.id} aria-current={activeSection === section.id ? "page" : undefined} onClick={() => navigateSettings({ section: section.id, panel: section.panels[0] })}><Icon aria-hidden="true" size={16} /><span>{t(section.labelKey)}</span></button>;
       })}</nav>
       {settingsSearch.trim() ? <div className="settings-search-results" aria-live="polite">{settingsSections.flatMap(section => section.panels.map(panel => ({ section, panel, label: t(settingsPanelLabels[panel]) }))).filter(item => searchText(item.section, item.panel).includes(settingsSearch.trim().toLocaleLowerCase())).map(item => <button type="button" key={item.panel} onClick={() => { navigateSettings({ section: item.section.id, panel: item.panel }); }}><span>{t(item.section.labelKey)}</span><strong>{item.label}</strong></button>)}{!settingsSections.some(section => section.panels.some(panel => searchText(section, panel).includes(settingsSearch.trim().toLocaleLowerCase()))) ? <p>{t("settingsSearchEmpty")}</p> : null}</div> : null}
     </aside>

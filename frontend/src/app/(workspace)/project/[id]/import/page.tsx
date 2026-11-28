@@ -10,8 +10,8 @@ import { ocrFailureKey, ocrRetryBlocked } from "@/lib/ocrPresentation";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ArrowLeft, Clock3, FilePlus2, MessageSquareText, Network, ShieldCheck } from "lucide-react";
-import { AppShell, PageGrid, Panel, StatCard } from "@/components/AppShell";
+import { AlertTriangle, Clock3, FilePlus2, Info, MessageSquareText, Search, Upload } from "lucide-react";
+import { AppShell, ForbiddenState, StatCard } from "@/components/AppShell";
 import { DataServiceModal, UploadFilesModal, type CreatedKnowledgeDocument, type DataServicePayload } from "@/components/KnowledgeSourceModals";
 import { formatCount } from "@/lib/numberFormat";
 import { usePipelineElapsedClock } from "@/lib/usePipelineElapsedClock";
@@ -34,11 +34,22 @@ import { DocumentPipelineCard } from "@/components/projectImport/DocumentPipelin
 import { createDataSourceSyncActions, useDataSourceSyncState } from "@/components/projectImport/useDataSourceSyncSection";
 import { createReferenceSourceActions, createReferenceSourceView, useReferenceSourceState } from "@/components/projectImport/useReferenceSourceSection";
 import { KnowledgeSourceDropZone } from "@/components/projectImport/KnowledgeSourceDropZone";
-import { ProjectFeatureDialog } from "@/components/projectImport/ProjectFeatureDialog";
+import { ProjectChatTab, ProjectGraphTab } from "@/components/projectImport/ProjectFeatureTabs";
+import { ProjectSettingsPanel } from "@/components/projectImport/ProjectSettingsPanel";
+import { projectColorClass } from "@/lib/projectColor";
 import { ProjectRerankSwitch } from "@/components/projectImport/ProjectRerankSwitch";
 import { createStatusChangeActions, createStatusChangeView, useStatusChangeState } from "@/components/projectImport/useStatusChangeSection";
 import { createProjectVersionActions, createProjectVersionView, useProjectVersionState } from "@/components/projectImport/useProjectVersionSection";
 import { createProjectPermissionActions, createProjectPermissionView, useProjectPermissionState } from "@/components/projectImport/useProjectPermissionSection";
+
+// CHG-495 M13: the project page tabs. The documents tab keeps the plain page URL; the others add `?tab=`, so every
+// tab can be shared and browser back/forward moves between them. `?chat_version_id` still opens the chat test.
+const projectTabs = ["documents", "graph", "chat", "members", "settings"] as const;
+type ProjectTab = typeof projectTabs[number];
+const projectTabLabels: Record<ProjectTab, TranslationKey> = { documents: "projectTabDocuments", graph: "knowledgeGraph", chat: "projectTabChat", members: "projectTabMembers", settings: "projectTabSettings" };
+function isProjectTab(value: string | null): value is ProjectTab {
+  return projectTabs.includes(value as ProjectTab);
+}
 
 export default function ImportPage() {
   const params = useParams<{ id: string }>();
@@ -82,12 +93,10 @@ function ProjectImportPage() {
   const [ocrModels, setOcrModels] = useState<AIModelResponse[]>([]);
   const [documentQuery, setDocumentQuery] = useState("");
   const [sortBy, setSortBy] = useState("updatedAt");
-  const [activeModal, setActiveModal] = useState<"graph" | "chat" | null>(null);
-  const [fixedChatVersion, setFixedChatVersion] = useState<string | undefined>(requestedChatVersion);
-  useEffect(() => {
-    setFixedChatVersion(requestedChatVersion);
-    if (requestedChatVersion !== undefined) setActiveModal("chat");
-  }, [requestedChatVersion, params.id]);
+  const requestedTab = searchParams.get("tab");
+  const activeTab: ProjectTab = requestedChatVersion !== undefined ? "chat" : isProjectTab(requestedTab) ? requestedTab : "documents";
+  const fixedChatVersion = requestedChatVersion;
+  const tabHref = (tab: ProjectTab) => tab === "documents" ? `/project/${params.id}/import` : `/project/${params.id}/import?tab=${tab}`;
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [uploadNotice, setUploadNotice] = useState<TranslationKey | null>(null);
   const [initialUploadFiles, setInitialUploadFiles] = useState<File[]>([]);
@@ -173,10 +182,17 @@ function ProjectImportPage() {
   });
   const canManageProjectPermissions = projectReady && (project?.is_owner ?? false);
   const projectPermissionState = useProjectPermissionState({ apiFetch, canManageProjectPermissions, params, t });
-  const { permissionModalOpen, setProjectMembers } = projectPermissionState;
+  const { setPermissionPanelOpen, setProjectMembers, projectMembers } = projectPermissionState;
   useLayoutEffect(() => { setProjectMembersRef.current = setProjectMembers; }, [setProjectMembers]);
   const projectPermissionActions = createProjectPermissionActions(projectPermissionState, { apiFetch, canManageProjectPermissions, currentUser, params, project, setProject, setProjectAccess });
-  const { openPermissionModal } = projectPermissionActions;
+  const openPermissionPanelRef = useRef(projectPermissionActions.openPermissionPanel);
+  useLayoutEffect(() => { openPermissionPanelRef.current = projectPermissionActions.openPermissionPanel; });
+  // The members tab loads members when it opens (as the dialog did) and stops candidate search when it closes.
+  const membersTabOpen = activeTab === "members" && canManageProjectPermissions;
+  useEffect(() => {
+    if (membersTabOpen) openPermissionPanelRef.current();
+    else setPermissionPanelOpen(false);
+  }, [membersTabOpen, setPermissionPanelOpen]);
 
   useEffect(() => {
     if (projectAccess === "loading" || (projectAccess === "granted" && project?.capabilities.can_upload)) return;
@@ -461,31 +477,49 @@ function ProjectImportPage() {
   const { renderReferenceModal } = createReferenceSourceView(referenceSourceState, referenceSourceActions);
   const { renderStatusChangeModal } = createStatusChangeView(statusChangeState, statusChangeActions, { localize, t });
   const { renderProjectVersionModals } = createProjectVersionView(projectVersionState, projectVersionActions, { canEditLifecycle, format, locale, localize, syncRunLoading, refreshDataSourceSyncRuns, syncNow, t });
-  const { renderProjectPermissionModal } = createProjectPermissionView(projectPermissionState, projectPermissionActions, { canManageProjectPermissions, currentUser, format, locale, project, t });
+  const { renderProjectPermissionPanel } = createProjectPermissionView(projectPermissionState, projectPermissionActions, { canManageProjectPermissions, currentUser, format, locale, project, t });
+  const projectTitle = project?.name ?? t("projectImportFallbackProjectTitle");
+  const visibleTabs = projectTabs.filter((tab) => tab !== "members" || canManageProjectPermissions);
+  const loadingCount = documentLoadState === "loading" ? "…" : null;
+  const ownerNames = projectReady ? (project?.owners ?? []).map((owner) => owner.display_name).filter(Boolean) : [];
+  const headerSummary = projectReady && project ? [
+    ownerNames.length ? format("projectDetailOwners", { names: ownerNames.join("、") }) : null,
+    format("projectDetailDocuments", { count: formatCount(project.document_count, locale) }),
+    format("projectDetailChunks", { count: formatCount(project.chunk_count ?? 0, locale) }),
+  ].filter(Boolean).join(" · ") : undefined;
   return (
-    <AppShell title={project?.name ?? t("projectImportFallbackProjectTitle")} browserTitle={resourcePageTitle(t("workspaceImportTitle"), projectReady && titleRead?.fetch === apiFetch && titleRead.route === params.id ? project?.name : null)}>
+    <AppShell
+      title={projectTitle}
+      browserTitle={resourcePageTitle(t("workspaceImportTitle"), projectReady && titleRead?.fetch === apiFetch && titleRead.route === params.id ? project?.name : null)}
+      breadcrumb={[{ label: t("dashboard"), href: "/projects" }, { label: projectTitle }]}
+      titleAdornment={projectReady ? <span aria-hidden="true" className={`project-color-dot ${projectColorClass(params.id)}`} /> : undefined}
+      subtitle={headerSummary}
+      actions={<div className="project-context-actions">
+        {projectReady ? <ProjectRerankSwitch apiFetch={apiFetch} projectId={params.id} t={t} /> : null}
+        {canUpload ? <button className="action-button secondary project-import-trigger" onClick={() => openUploadModal()} type="button"><Upload size={16} /> {t("projectImportDocuments")}</button> : null}
+        <Link className="action-button" href={tabHref("chat")} scroll={false}><MessageSquareText size={16} /> {t("projectStartChat")}</Link>
+      </div>}
+    >
       <div className="project-import-page">
-      <div className="project-context">
-        <Link className="text-link" href="/projects"><ArrowLeft size={16} /> {t("projectImportBackToProjects")}</Link>
-        <div className="project-context-actions">
-          <button className="action-button secondary" onClick={() => setActiveModal("graph")} type="button"><Network size={16} /> {t("knowledgeGraph")}</button>
-          <button className="action-button secondary" onClick={() => { setFixedChatVersion(undefined); setActiveModal("chat"); }} type="button"><MessageSquareText size={16} /> {t("chatTest")}</button>
-          {canManageProjectPermissions ? <button className="action-button secondary" onClick={openPermissionModal} type="button"><ShieldCheck size={16} /> {t("projectImportPermissionManagement")}</button> : null}
-          {projectReady ? <ProjectRerankSwitch apiFetch={apiFetch} projectId={params.id} t={t} /> : null}
-        </div>
+      <nav aria-label={t("projectTabsLabel")} className="ws-tabs project-tabs">
+        {visibleTabs.map((tab) => <Link aria-current={activeTab === tab ? "page" : undefined} className="ws-tab" href={tabHref(tab)} key={tab} scroll={false}>
+          {t(projectTabLabels[tab])}
+          {tab === "documents" && documentLoadState === "ready" ? <span className="ws-tab-count">{formatCount(allDocuments.length, locale)}</span> : null}
+          {tab === "members" && projectMembers.length ? <span className="ws-tab-count">{formatCount(projectMembers.length, locale)}</span> : null}
+        </Link>)}
+      </nav>
+
+      {uploadNotice ? <p className="project-upload-notice" role="status"><Info aria-hidden="true" size={16} />{t(uploadNotice)}</p> : null}
+
+      {activeTab === "documents" ? <>
+      <div className="project-kpis">
+        <StatCard label={t("totalDocuments")} value={loadingCount ?? formatCount(allDocuments.length, locale)} helper={format("projectImportTotalDocumentsHelp", { active: formatCount(allDocuments.filter((item) => item.documentStatus === "active").length, locale), inactive: formatCount(allDocuments.filter((item) => item.documentStatus === "inactive").length, locale) })} />
+        <StatCard label={t("projectImportPipelineRunning")} value={loadingCount ?? formatCount(allDocuments.filter((item) => getSourceState(item) === "pipeline" && pipelineIsExecuting(item.pipeline.status)).length, locale)} helper={t("projectImportPipelineRunningHelp")} tone="sage" />
+        <StatCard label={t("projectImportFailedItems")} value={loadingCount ?? formatCount(allDocuments.filter((item) => item.pipeline.status === "failed" || getSourceState(item) === "sync_failed").length, locale)} helper={t("projectImportFailedItemsHelp")} tone="coral" />
+        <StatCard label={t("projectImportReadyForExtraction")} value={loadingCount ?? formatCount(allDocuments.filter((item) => getSourceState(item) === "ready_for_extraction").length, locale)} helper={t("projectImportReadyForExtractionHelp")} tone="gold" />
       </div>
 
-      {uploadNotice ? <p className="field-note" role="status">{t(uploadNotice)}</p> : null}
-
-      <PageGrid>
-        <StatCard label={t("totalDocuments")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.length, locale)} helper={format("projectImportTotalDocumentsHelp", { active: formatCount(allDocuments.filter((item) => item.documentStatus === "active").length, locale), inactive: formatCount(allDocuments.filter((item) => item.documentStatus === "inactive").length, locale) })} />
-        <StatCard label={t("projectImportPipelineRunning")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => getSourceState(item) === "pipeline" && pipelineIsExecuting(item.pipeline.status)).length, locale)} helper={t("projectImportPipelineRunningHelp")} tone="sage" />
-        <StatCard label={t("projectImportFailedItems")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => item.pipeline.status === "failed" || getSourceState(item) === "sync_failed").length, locale)} helper={t("projectImportFailedItemsHelp")} tone="gold" />
-        <StatCard label={t("projectImportReadyForExtraction")} value={documentLoadState === "loading" ? "…" : formatCount(allDocuments.filter((item) => getSourceState(item) === "ready_for_extraction").length, locale)} helper={t("projectImportReadyForExtractionHelp")} />
-      </PageGrid>
-
-      {canUpload ? <div className="content-grid">
-        <KnowledgeSourceDropZone
+      {canUpload ? <KnowledgeSourceDropZone
           active={projectDropActive}
           dragDepthRef={projectDragDepth}
           onActiveChange={setProjectDropActive}
@@ -493,24 +527,26 @@ function ProjectImportPage() {
           onOpenReference={() => { void loadReferenceSources(); }}
           onOpenUpload={openUploadModal}
           t={t}
-        />
-      </div> : null}
+        /> : null}
 
-      <Panel
-        title={t("projectImportDocumentList")}
-        action={
+      <section aria-labelledby="project-document-list-title" className="project-document-section">
+        <div className="project-document-header">
+          <h2 id="project-document-list-title">{t("projectImportDocumentList")}{documentLoadState === "ready" ? <span>{format("projectDocumentCount", { count: formatCount(allDocuments.length, locale) })}</span> : null}</h2>
           <div className="document-toolbar">
             <label className="document-search">
-              <span>{t("projectImportSearchLabel")}</span>
+              <span className="sr-only">{t("projectImportSearchLabel")}</span>
+              <Search aria-hidden="true" size={16} />
               <input
+                aria-label={t("projectImportSearchLabel")}
                 onChange={(event) => setDocumentQuery(event.target.value)}
                 placeholder={t("projectImportSearchPlaceholder")}
+                type="search"
                 value={documentQuery}
               />
             </label>
             <label className="document-sort">
-              <span>{t("sort")}</span>
-              <DropdownSelect onChange={(event) => setSortBy(event.target.value)} value={sortBy}>
+              <span className="sr-only">{t("sort")}</span>
+              <DropdownSelect aria-label={t("sort")} onChange={(event) => setSortBy(event.target.value)} value={sortBy}>
                 <option value="updatedAt">{t("projectImportSortUpdatedAt")}</option>
                 <option value="status">{t("status")}</option>
                 <option value="progress">{t("projectImportSortProgress")}</option>
@@ -518,11 +554,10 @@ function ProjectImportPage() {
               </DropdownSelect>
             </label>
           </div>
-        }
-      >
+        </div>
         {documentLoadState === "loading" ? <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("projectImportLoadingDocuments")}</p></div> : null}
         {documentLoadState === "error" ? <div className="empty-state compact" role="alert"><AlertTriangle size={24} /><p>{localize(documentLoadError)}</p></div> : null}
-        {documentLoadState === "ready" && visibleDocuments.length === 0 ? <div className="empty-state compact"><FilePlus2 size={24} /><p>{t("projectImportNoFormalDocuments")}</p></div> : null}
+        {documentLoadState === "ready" && allDocuments.length === 0 ? <div className="empty-state compact"><FilePlus2 size={24} /><p>{t("projectImportNoFormalDocuments")}</p></div> : null}
         <div className="document-pipeline-list">
           {visibleDocuments.map((document) => (
             <DocumentPipelineCard
@@ -554,19 +589,25 @@ function ProjectImportPage() {
             />
           ))}
         </div>
-        {visibleDocuments.length === 0 ? (
+        {documentLoadState === "ready" && allDocuments.length > 0 && visibleDocuments.length === 0 ? (
           <div className="empty-state">{t("projectImportNoMatchingDocuments")}</div>
         ) : null}
-      </Panel>
+      </section>
+      </> : null}
 
+      {activeTab === "graph" ? <ProjectGraphTab t={t} /> : null}
+      {activeTab === "chat" ? <ProjectChatTab fixedChatVersion={fixedChatVersion} projectId={params.id} t={t} /> : null}
+      {activeTab === "members" ? (canManageProjectPermissions ? renderProjectPermissionPanel()
+        : projectAccess === "loading" ? <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("loadingData")}</p></div>
+        : <ForbiddenState description={t("projectImportPermissionOwnerOnly")} />) : null}
+      {activeTab === "settings" ? (projectReady && project ? <ProjectSettingsPanel apiFetch={apiFetch} format={format} key={project.id} locale={locale} onSaved={setProject} project={project} t={t} />
+        : <div className="empty-state compact" role="status"><Clock3 size={24} /><p>{t("loadingData")}</p></div>) : null}
       </div>
-      {activeModal ? <ProjectFeatureDialog activeModal={activeModal} fixedChatVersion={fixedChatVersion} onClose={() => setActiveModal(null)} projectId={params.id} t={t} /> : null}
+
 
       {uploadModalOpen ? <UploadFilesModal canSubmit={canUpload} onObservationEnd={releaseModalObservation} initialFiles={initialUploadFiles} maxUploadBytes={maxUploadSizeMb * 1024 * 1024} ocrModels={ocrModels} onClose={closeUploadModal} onCreate={addUploadedDocuments} onRetryPipeline={retryUploadModalPipeline} onUploadFiles={uploadLiveDocuments} /> : null}
       {canUpload && dataServiceModalOpen ? <DataServiceModal key={`${params.id}:${currentUser?.user_id}:${JSON.stringify(currentUser?.permissions ?? [])}`} onLoadConnectionOptions={loadLiveDataSourceOptions} onClose={() => setDataServiceModalOpen(false)} onCreate={addDataServiceDocument} onCreateDataSource={createLiveDataSource} onTestConnection={testLiveDataSource} /> : null}
       {renderReferenceModal()}
-
-      {permissionModalOpen && canManageProjectPermissions ? renderProjectPermissionModal() : null}
 
       {renderProjectVersionModals()}
 

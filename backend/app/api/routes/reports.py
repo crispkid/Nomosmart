@@ -8,7 +8,7 @@ import io
 import math
 from dataclasses import dataclass
 from collections.abc import Callable
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from time import monotonic
 from uuid import UUID, uuid4
@@ -19,6 +19,7 @@ from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.api.schemas import (
+    ReportApprovalStatsResponse,
     ReportFilterOptionsResponse,
     ReportMetricCard,
     ReportProjectOption,
@@ -28,9 +29,10 @@ from app.api.schemas import (
 )
 from app.core.errors import AppError
 from app.core.config import get_settings
-from app.db.models import AIModel, AIModelUsageEvent, ApprovalRequest, ChatRecord, Document, DocumentReference, DocumentReferenceEvent, DocumentVersion, Notification, PipelineRun, PipelineRunStep, Project, ValidationRun, ValidationRunItem
+from app.db.models import AIModel, AIModelUsageEvent, ApprovalRequest, ChatRecord, Document, DocumentVersionStation, DocumentReference, DocumentReferenceEvent, DocumentVersion, Notification, PipelineRun, PipelineRunStep, Project, ValidationRun, ValidationRunItem
 from app.db.session import get_db
 from app.domain.report_policy import ReportScopePolicy
+from app.domain import approval_insights as _insights
 from app.security.context import IdentityContext, get_identity_context
 from app.services.audit import add_audit
 
@@ -324,6 +326,27 @@ def get_report_summary(
     )
 
 
+@router.get("/approval-stats", response_model=ReportApprovalStatsResponse)
+def get_report_approval_stats(
+    date_from: datetime | None = None,
+    date_to: datetime | None = None,
+    project_id: UUID | None = None,
+    scope: str | None = Query(default=None, max_length=32),
+    context: IdentityContext = Depends(get_identity_context),
+    session: Session = Depends(get_db),
+) -> ReportApprovalStatsResponse:
+    """CHG-495 UIRD-API-003: decisions completed in the report scope; default window is the last 8 weeks."""
+    policy = ReportScopePolicy(session, context)
+    decision = policy.decide(scope=scope, project_id=project_id)
+    _validate_date_range(date_from, date_to)
+    # A date without an offset (as /reports/summary accepts) is read as UTC, so week buckets stay comparable.
+    date_from, date_to = (value.replace(tzinfo=UTC) if value is not None and value.tzinfo is None else value for value in (date_from, date_to))
+    window_to = date_to or datetime.now(UTC)
+    window_from = date_from or (window_to - APPROVAL_STATS_DEFAULT_WINDOW)
+    stats = _insights.decision_stats(session, decision.project_ids, window_from, window_to)
+    return ReportApprovalStatsResponse(scope=decision.scope, project_id=project_id, date_from=window_from, date_to=window_to, **stats)
+
+
 @router.get("/export.csv", response_model=None)
 def export_report_csv(
     request: Request,
@@ -530,16 +553,140 @@ def _scope_project_count(session: Session, project_ids: set[UUID] | None) -> int
 
 
 def _summary_metrics(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> list[ReportMetricCard]:
+    original_from, original_to = date_from, date_to
     chat_count = _count_chats(session, project_ids, date_from, date_to)
     validation_count = _count_validation_runs(session, project_ids, date_from, date_to)
     citation_count = _count_citations(session, project_ids, date_from, date_to)
     avg_latency = _avg_chat_latency(session, project_ids, date_from, date_to)
-    return [
+    cards = [
         ReportMetricCard(key="chat_count", label="Chat Queries", value=chat_count),
         ReportMetricCard(key="validation_run_count", label="Validation Runs", value=validation_count),
         ReportMetricCard(key="citation_count", label="Citations", value=citation_count),
         ReportMetricCard(key="avg_latency_ms", label="Average Latency", value=round(avg_latency or 0, 2), unit="ms"),
+        ReportMetricCard(key="pipeline_running_count", label="Processing", value=_count_processing_versions(session, project_ids)),
     ]
+    # FIX493-001: import success rate of finished extraction runs; without finished runs there is no rate (UI shows "—").
+    if date_from is None and date_to is None:
+        date_from = datetime.now(UTC) - HOME_SUCCESS_RATE_WINDOW
+    completed, failed = _count_finished_imports(session, project_ids, date_from, date_to)
+    if completed + failed:
+        cards.append(ReportMetricCard(key="success_rate", label="Success Rate", value=_rate(completed, completed + failed)))
+    cards.extend(_redesign_cards(session, project_ids, original_from, original_to))
+    return cards
+
+
+APPROVAL_STATS_DEFAULT_WINDOW = timedelta(weeks=8)
+
+
+def _recent_window(date_from: datetime | None, date_to: datetime | None) -> tuple[datetime, datetime]:
+    """CHG-495 D495-11: the report date range, or the last 7 days when it is open-ended."""
+    window_to = date_to or datetime.now(UTC)
+    return date_from or (window_to - HOME_SUCCESS_RATE_WINDOW), window_to
+
+
+def _redesign_cards(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> list[ReportMetricCard]:
+    """CHG-495 UIRD-API-001/003/006: home and report cards added for the redesign (additive keys)."""
+    window_from, window_to = _recent_window(date_from, date_to)
+    previous_from = window_from - (window_to - window_from)
+    cards = [
+        ReportMetricCard(key="published_document_count", label="Published Documents", value=_count_published_documents(session, project_ids)),
+        ReportMetricCard(key="published_document_new_count", label="Newly Published Documents",
+                         value=_count_first_published(session, project_ids, window_from, window_to)),
+        ReportMetricCard(key="new_document_count", label="New Documents", value=_count_new_documents(session, project_ids, window_from, window_to)),
+        ReportMetricCard(key="new_document_previous_count", label="New Documents (Previous Period)",
+                         value=_count_new_documents(session, project_ids, previous_from, window_from, include_end=False)),
+    ]
+    chats, cited = _recent_chats(session, project_ids, window_from, window_to)
+    cards.append(ReportMetricCard(key="recent_chat_count", label="Chat Queries (Period)", value=chats))
+    if chats:
+        cards.append(ReportMetricCard(key="recent_cited_chat_rate", label="Cited Answer Rate (Period)", value=_rate(cited, chats)))
+    for station, count in _station_document_counts(session, project_ids).items():
+        cards.append(ReportMetricCard(key=f"station_{station}_document_count", label=f"Station {station} Documents", value=count))
+    return cards
+
+
+def _live_document_filters(query, project_ids: set[UUID] | None):
+    query = query.where(Document.is_deleted.is_(False))
+    if project_ids is not None:
+        query = query.where(Document.project_id.in_(project_ids))
+    return query
+
+
+def _count_published_documents(session: Session, project_ids: set[UUID] | None) -> int:
+    query = _live_document_filters(select(func.count(Document.id)).where(Document.status == "active"), project_ids)
+    return int(session.scalar(query) or 0)
+
+
+def _count_first_published(session: Session, project_ids: set[UUID] | None, date_from: datetime, date_to: datetime) -> int:
+    """Published documents whose first publication falls in the window (republishing does not count again)."""
+    first = (
+        select(DocumentVersion.document_id, func.min(DocumentVersion.published_at).label("first_published_at"))
+        .where(DocumentVersion.published_at.is_not(None))
+        .group_by(DocumentVersion.document_id)
+        .subquery()
+    )
+    query = _live_document_filters(
+        select(func.count(Document.id)).join(first, first.c.document_id == Document.id).where(
+            Document.status == "active", first.c.first_published_at >= date_from, first.c.first_published_at <= date_to),
+        project_ids)
+    return int(session.scalar(query) or 0)
+
+
+def _count_new_documents(session: Session, project_ids: set[UUID] | None, date_from: datetime, date_to: datetime, *, include_end: bool = True) -> int:
+    end = Document.created_at <= date_to if include_end else Document.created_at < date_to
+    query = _live_document_filters(select(func.count(Document.id)).where(Document.created_at >= date_from, end), project_ids)
+    return int(session.scalar(query) or 0)
+
+
+def _recent_chats(session: Session, project_ids: set[UUID] | None, date_from: datetime, date_to: datetime) -> tuple[int, int]:
+    query = _chat_filters(
+        select(func.count(), func.count().filter(func.jsonb_array_length(ChatRecord.reference_docs) > 0)), project_ids, date_from, date_to)
+    total, cited = session.execute(query).one()
+    return int(total or 0), int(cited or 0)
+
+
+def _station_document_counts(session: Session, project_ids: set[UUID] | None) -> dict[int, int]:
+    """Versions waiting at each extraction station: stations 1-3 by their lowest ready station, 4 when ready to submit."""
+    current = (
+        select(DocumentVersionStation.document_version_id, func.min(DocumentVersionStation.station).label("station"))
+        .join(DocumentVersion, DocumentVersion.id == DocumentVersionStation.document_version_id)
+        .join(Document, Document.id == DocumentVersion.document_id)
+        .where(DocumentVersionStation.status == "ready", DocumentVersion.status == "awaiting_confirmation", Document.is_deleted.is_(False))
+    )
+    if project_ids is not None:
+        current = current.where(DocumentVersion.project_id.in_(project_ids))
+    current = current.group_by(DocumentVersionStation.document_version_id).subquery()
+    counts = {station: 0 for station in (1, 2, 3, 4)}
+    for station, count in session.execute(select(current.c.station, func.count()).group_by(current.c.station)):
+        if station in counts:
+            counts[station] = int(count)
+    ready = select(func.count(DocumentVersion.id)).join(Document, Document.id == DocumentVersion.document_id).where(
+        DocumentVersion.status == "submission_ready", Document.is_deleted.is_(False))
+    if project_ids is not None:
+        ready = ready.where(DocumentVersion.project_id.in_(project_ids))
+    counts[4] += int(session.scalar(ready) or 0)
+    return counts
+
+
+HOME_SUCCESS_RATE_WINDOW = timedelta(days=7)
+ACTIVE_PIPELINE_STATUSES = ("queued", "running", "waiting_action")
+
+
+def _count_processing_versions(session: Session, project_ids: set[UUID] | None) -> int:
+    """FIX493-001: document versions with an unfinished pipeline run (current state, not date-filtered)."""
+    query = select(func.count(func.distinct(PipelineRun.document_version_id))).where(
+        PipelineRun.status.in_(ACTIVE_PIPELINE_STATUSES), PipelineRun.document_version_id.is_not(None)
+    )
+    return int(session.scalar(_project_date_filters(query, PipelineRun, PipelineRun.created_at, project_ids, None, None)) or 0)
+
+
+def _count_finished_imports(session: Session, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None) -> tuple[int, int]:
+    query = select(
+        func.count().filter(PipelineRun.status == "completed"),
+        func.count().filter(PipelineRun.status == "failed"),
+    ).where(PipelineRun.run_type == "document_extraction")
+    completed, failed = session.execute(_project_date_filters(query, PipelineRun, PipelineRun.created_at, project_ids, date_from, date_to)).one()
+    return int(completed or 0), int(failed or 0)
 
 
 def _topic_rows(session: Session, topic: str, project_ids: set[UUID] | None, date_from: datetime | None, date_to: datetime | None, limit: int) -> list[dict]:

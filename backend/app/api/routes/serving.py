@@ -76,9 +76,13 @@ def get_project_graph(project_id: UUID, node_limit: int = Query(default=120, ge=
     project = _get_scoped_project(session, project_id, context)
     active_ids = _active_version_ids(session, project.id)
     if not active_ids:
-        return ProjectGraphResponse(project_id=project.id, nodes=[], edges=[], node_limit=node_limit)
+        return ProjectGraphResponse(project_id=project.id, nodes=[], edges=[], node_limit=node_limit,
+                                    total_node_count=0, total_edge_count=0)
 
     graph = _project_graph_without_chunk_content(session, project, active_ids, node_limit)
+    graph.updated_at = session.scalar(  # CHG-495 UIRD-API-005: the last completed graph synchronization
+        select(func.max(GraphSyncJob.completed_at)).where(GraphSyncJob.project_id == project.id,
+            GraphSyncJob.document_version_id.in_(active_ids), GraphSyncJob.status == "completed"))
     return _hydrate_graph_chunk_content(session, graph, project.id, active_ids)
 
 
@@ -2098,5 +2102,11 @@ def _read_neo4j_project_graph(project: Project, active_version_ids: set[UUID], n
     priority = {"Project": 0, "Document": 1, "DocumentVersion": 2, "Chunk": 3, "Tag": 4}
     ordered = sorted(nodes.values(), key=lambda n: (priority[n.type], n.metadata.get("chunk_index", 0), n.id))
     visible = {n.id: n for n in ordered[:node_limit]}
+    type_counts: dict[str, int] = {}
+    for node in nodes.values():
+        type_counts[node.type] = type_counts.get(node.type, 0) + 1
+    # CHG-495 UIRD-API-005: totals of the whole graph before node_limit applies.
     return ProjectGraphResponse(project_id=project.id, nodes=list(visible.values()),
-        edges=_filter_graph_edges(list(edges.values()), visible), truncated=len(nodes) > node_limit, node_limit=node_limit)
+        edges=_filter_graph_edges(list(edges.values()), visible), truncated=len(nodes) > node_limit, node_limit=node_limit,
+        total_node_count=len(nodes), total_edge_count=len(_filter_graph_edges(list(edges.values()), nodes)),
+        node_type_counts=type_counts)

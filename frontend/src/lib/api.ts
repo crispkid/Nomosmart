@@ -13,7 +13,7 @@ export type {
   ProjectResponse, ProjectCapabilities, ProjectListOptions, ProjectListPage, ProjectArchiveImpactResponse,
   IntegrationClientResponse, IntegrationClientCreateResponse, IntegrationClientPage, IntegrationClientPayload,
   ProjectCreatePayload, ProjectMemberResponse, ProjectMemberCandidate, ProjectMemberCandidatePage,
-  ProjectMemberUpdatePayload
+  ProjectMemberUpdatePayload, ProjectDerivedStatus, ProjectOwnerSummary, ProjectStatusCounts, ProjectUpdatePayload
 } from "./apiClient/projectTypes";
 export type {
   PipelineExecution, PipelineSummary, ChunkingIssue, PipelineStepSummary, PipelineRunDetail,
@@ -24,7 +24,7 @@ export type {
   ApprovalTaskResponse, ApprovalRequestResponse, ApprovalPendingPublishResponse, ApprovalChunkEvidence, KnowledgeTagResponse, ApprovalTaskDetail, KnowledgeDetailResponse, ExtractionStationState, StationReuseSummary, ChunkReferenceItem, ChunkReferenceSummary, ChunkReferenceListResponse,
   SubmissionEvidenceResponse, DocumentLayoutPage,
   OriginalFileViewerMetadata,
-  ApprovalSummary, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
+  ApprovalSummary, ApprovalVersionChanges, PublishResult, SwitchActiveVersionPayload, LifecycleImpactResponse, ReferenceSourceVersionResponse, ReferenceSourceDocumentResponse,
   ReferenceSourceProjectResponse, DocumentReferenceImportResponse
 } from "./apiClient/reviewTypes";
 export type {
@@ -37,7 +37,7 @@ export type {
 } from "./apiClient/servingTypes";
 export {
   restoreSessionDraft, discardSessionDraft, listProjectsPage, getProject, getProjectRetrievalSettings, updateProjectRetrievalSettings,
-  createProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
+  createProject, getProjectStatusCounts, updateProject, getProjectArchiveImpact, archiveProject, retryProjectArchiveCleanup,
   listIntegrationClientsPage, getIntegrationClient, getDataSourceConnectionOptions, createIntegrationClient,
   updateIntegrationClient, replaceIntegrationClientProjectScopes, rotateIntegrationClientKey,
   activateIntegrationClient, deactivateIntegrationClient, revokeIntegrationClient, listProjectMembers,
@@ -50,14 +50,14 @@ export {
 } from "./apiClient/projectRequests";
 export {
   listApprovalFilterOptions, listPendingApprovalsPage, listApprovalHistoryPage, listRejectedApprovalsPage,
-  listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask,
+  listMyApprovalSubmissionsPage, listPendingApprovals, listPendingPublishApprovalsPage, getApprovalTask, getApprovalVersionChanges,
   approveApprovalTask, rejectApprovalTask, publishDocumentVersion, switchActiveDocumentVersion,
   getDocumentLifecycleImpact, updateDocumentLifecycle, renameDocument, listProjectReferenceSources,
   importProjectDocumentReferences, updateDocumentReferenceVersion, getProjectGraph, getProjectGraphNeighbors,
   getDocumentVersionGraph, getProjectServingStatus, queryProjectChat, listProjectChatConversationPage,
   getProjectChatConversation, downloadProjectChatConversationCsv, deleteProjectChatConversation,
   updateProjectChatFeedback, createProjectChatValidationRun, getProjectChatValidationRun,
-  retryFailedProjectChatValidationItems, getReportFilterOptions, getReportSummary, downloadReportCsv,
+  retryFailedProjectChatValidationItems, getReportFilterOptions, getReportSummary, getReportApprovalStats, downloadReportCsv,
   listNotificationPage, getNotificationUnreadCount, markNotificationRead, markAllNotificationsRead,
   resolveNotification
 } from "./apiClient/reviewRequests";
@@ -66,7 +66,7 @@ export {
   updateChunkReference, deleteChunkReference
 } from "./apiClient/stationRequests";
 export type {
-  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters
+  CursorPage, ApprovalPendingPublishPage, ApprovalTab, ApprovalListFilters, ReportApprovalStatsResponse
 } from "./apiClient/reviewRequests";
 export {
   listUsersPage, listRolesPage, getUser, getRole, updateUser, updateUserStatus, listRoles, createRole,

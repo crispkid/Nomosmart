@@ -1,7 +1,8 @@
 "use client";
 
 import { type FormEvent, useMemo, useState } from "react";
-import { Bot, CheckCircle2, Wrench, X } from "lucide-react";
+import { Check, PencilLine, X } from "lucide-react";
+import { BrandMark } from "@/components/BrandMark";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { ChatTurnContextNote } from "@/components/ChatTurnContextNote";
 import { ChatWaitingIndicator } from "@/components/ChatWaitingIndicator";
@@ -35,7 +36,7 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
 
   return (
     <article aria-busy={entry.loading || undefined} className="chat-message assistant-message">
-      <div className="message-avatar"><Bot size={18} /></div>
+      <div className="message-avatar"><BrandMark size={18} /></div>
       <div className="assistant-message-body">
         <small>{t("brandNomoSmartLiveBackend")} {entry.answeredAt ? `· ${formatDateTime(entry.answeredAt, locale)}` : ""}</small>
         {entry.loading ? (entry.answer ? <p className="chat-streaming-answer">{entry.answer}</p> : <ChatWaitingIndicator label={t("documentChatQueryingStaging")} />) : entry.error ? <FeedbackField>{localize(entry.error)}</FeedbackField> : (
@@ -50,10 +51,11 @@ export function AssistantMessage({ entry, canEvaluate, evaluation, extractionHre
           />
         )}
         {!entry.loading && !entry.error ? <ChatTurnContextNote context={entry.context} /> : null}
-        <div className="answer-judgment" aria-label={t("documentChatAnswerJudgmentAria")}>
-          <button className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId || !canEvaluate} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><CheckCircle2 size={16} /> {t("answerCorrect")}</button>
-          <button className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId || !canEvaluate} onClick={openRevisionModal} type="button"><Wrench size={16} /> {t("answerNeedsRevision")}</button>
-          {evaluation ? <span>{evaluation.judgment === "correct" ? t("documentChatRecordedCorrect") : format("documentChatRecordedSuggestion", { suggestion: evaluation.suggestion })}</span> : null}
+        <div className="answer-judgment" aria-label={t("documentChatAnswerJudgmentAria")} role="group">
+          <small className="answer-judgment-label" aria-hidden="true">{t("documentChatEvaluateLabel")}</small>
+          <button aria-pressed={evaluation?.judgment === "correct"} className={evaluation?.judgment === "correct" ? "selected correct" : ""} disabled={!entry.recordId || !canEvaluate} onClick={() => { void onEvaluate(entry, "correct"); }} type="button"><Check size={15} /> {t("answerCorrect")}</button>
+          <button aria-pressed={evaluation?.judgment === "needs_revision"} className={evaluation?.judgment === "needs_revision" ? "selected needs-revision" : ""} disabled={!entry.recordId || !canEvaluate} onClick={openRevisionModal} type="button"><PencilLine size={15} /> {t("answerNeedsRevision")}</button>
+          {evaluation ? <span className="answer-judgment-result">{evaluation.judgment === "correct" ? t("documentChatRecordedCorrect") : format("documentChatRecordedSuggestion", { suggestion: evaluation.suggestion })}</span> : null}
         </div>
       </div>
 

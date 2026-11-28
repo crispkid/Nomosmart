@@ -350,6 +350,27 @@ export type ApprovalSummary = {
   pending_manager_review: number;
   pending_owner_review: number;
   my_submissions: number;
+  // CHG-495 UIRD-API-001/003 (additive; absent from older backends).
+  pending_overdue?: number;
+  pending_overdue_hours?: number;
+  completed_last_7_days?: number;
+  average_wait_seconds?: number | null;
+};
+
+/** CHG-495 UIRD-API-004 (M22): the submitted version against the document's previous published version. */
+export type ApprovalVersionChanges = {
+  approval_task_id: string;
+  document_version_id: string;
+  first_submission: boolean;
+  previous_version_id?: string | null;
+  previous_version_label: string | null;
+  text_status: "available" | "unavailable" | "unchanged";
+  lines_added: number;
+  lines_removed: number;
+  text_changes: Array<{ op: "added" | "removed"; text: string }>;
+  text_changes_truncated: boolean;
+  tags: { added: string[]; removed: string[] };
+  references: { added: string[]; removed: string[] };
 };
 
 export type PublishResult = {

@@ -8,8 +8,9 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Modal } from "@/components/Modal";
-import { ArrowLeft, BarChart3, Check, CheckCircle2, ChevronDown, CircleUserRound, Clock3, Download, FileText, Image as ImageIcon, MessageSquareText, Network, Send, ShieldCheck, Table2, Tags, UsersRound } from "lucide-react";
-import { AppShell, StatusBadge } from "@/components/AppShell";
+import { BarChart3, Check, CheckCircle2, ChevronDown, CircleUserRound, Clock3, Download, FileText, Image as ImageIcon, MessageSquareText, Network, Send, ShieldCheck, Table2, Tags, UsersRound } from "lucide-react";
+import { AppShell, StatusToneBadge, ToneBadge } from "@/components/AppShell";
+import { useProjectName } from "@/lib/useProjectName";
 import { useAuth } from "@/components/AuthProvider";
 import { ChatResponseEvidence } from "@/components/ChatResponseEvidence";
 import { getDocumentVersionSubmissionEvidence, getKnowledgeDetail, submitDocumentVersionReview, type ApprovalRequestResponse, type KnowledgeDetailResponse, type ProjectChatCitation, type ProjectChatRecordResponse, type SubmissionEvidenceResponse } from "@/lib/api";
@@ -44,6 +45,7 @@ export default function SubmitReviewPage() {
   const params = useParams<{ id: string; knowledgeId: string }>();
   const router = useRouter();
   const { apiFetch, authReady } = useAuth();
+  const projectName = useProjectName(apiFetch, params.id, authReady);
   const { locale, format, localize } = useI18n();
   const t = useMemo<Translate>(() => (key) => translate(key, locale), [locale]);
   // OPT424-035: the submission evidence is one read resource bound to the route and session fetch.
@@ -189,36 +191,37 @@ export default function SubmitReviewPage() {
   const localizedBlockReasons = evidence?.block_reasons.map((reason) => operationalCodeMessage(reason, t, format, "submitReviewWaitingVersion")) ?? [];
 
   return (
-    <AppShell title={t("submitForReview")} browserTitle={resourcePageTitle(t("submitForReview"), authReady && !loadError && evidence !== null ? detail?.document.title : null, authReady && !loadError && evidence !== null ? detail?.version.version_label : null)}>
-      <div className="project-context submission-page-context">
-        <Link className="text-link" href={chatTestHref}><ArrowLeft size={16} /> {t("backToChatTest")}</Link>
-        <StatusBadge status={detail?.version.status ?? "processing"} />
-        <span>{detail?.pipeline?.status === "submission_ready" ? t("submitReviewStagingReady") : t("submitReviewLiveBackendSummary")}</span>
-      </div>
-
-      <section className="submission-shell" aria-labelledby="submission-summary-title">
-        <header className="submission-heading">
-          <div><p className="eyebrow">{t("submitReviewEyebrow")}</p><h2 id="submission-summary-title">{t("submissionSummary")}</h2><p>{t("submitReviewSummaryHelp")}</p></div>
-            <div className="submission-readiness"><CheckCircle2 size={18} /><span><strong>{evidence?.next_stage_allowed ? t("submitReviewReady") : t("notificationLoading")}</strong><small>{localizedBlockReasons.length ? localizedBlockReasons.join(", ") : versionId ? t("submitReviewVersionIdReady") : t("submitReviewWaitingVersion")}</small></span></div>
-        </header>
+    <AppShell title={t("submitForReview")}
+      breadcrumb={[{ label: t("dashboard"), href: "/projects" }, { label: projectName ?? t("breadcrumbProjectFallback"), href: `/project/${params.id}/import` }, { label: detail?.document.title ?? t("knowledgeDetailTitle"), href: `/project/${params.id}/knowledge/${params.knowledgeId}` }, { label: t("chatTest"), href: chatTestHref }, { label: t("submitForReview") }]}
+      subtitle={t("submitReviewSummaryHelp")}
+      browserTitle={resourcePageTitle(t("submitForReview"), authReady && !loadError && evidence !== null ? detail?.document.title : null, authReady && !loadError && evidence !== null ? detail?.version.version_label : null)}>
+      <div className="submission-page">
+        <div className={`submission-readiness${evidence?.next_stage_allowed ? " ready" : ""}`} role="status">
+          {evidence?.next_stage_allowed ? <CheckCircle2 size={18} /> : <Clock3 size={18} />}
+          <span><strong>{evidence?.next_stage_allowed ? t("submitReviewReady") : t("notificationLoading")}</strong><small>{localizedBlockReasons.length ? localizedBlockReasons.join(", ") : versionId ? t("submitReviewVersionIdReady") : t("submitReviewWaitingVersion")}</small></span>
+        </div>
         {loadError ? <FeedbackMessage tone="error">{localize(loadError)}</FeedbackMessage> : null}
 
+        <div className="submission-layout">
+      <section className="submission-shell" aria-labelledby="submission-summary-title">
+        <h2 className="sr-only" id="submission-summary-title">{t("submissionSummary")}</h2>
         <div className="submission-summary-grid">
           <section className="submission-section submission-document-section">
             <div className="submission-section-title"><FileText size={18} /><h3>{t("documentSummary")}</h3></div>
-            <div className="submission-document-identity"><span className="submission-file-icon"><FileText size={24} /></span><div><strong>{detail?.document.title ?? t("notificationLoading")}</strong><small>{detail?.document.source_type ?? ""}</small></div><StatusBadge status={detail?.document.status ?? "processing"} /></div>
+            <div className="submission-document-identity"><span className="submission-file-icon"><FileText size={20} /></span><div><strong>{detail?.document.title ?? t("notificationLoading")}</strong><small>{detail?.document.source_type ?? ""}</small></div><StatusToneBadge status={detail?.document.status ?? "processing"} /></div>
             <dl className="submission-detail-list">
               <div><dt>{t("projectImportCurrentVersion")}</dt><dd><strong>{detail?.version.version_label ?? "-"}</strong> · {detail?.version.status ?? "-"}</dd></div>
-              <div><dt>{t("submitReviewDocumentCode")}</dt><dd>{detail?.document.document_code ?? "-"}</dd></div>
+              <div><dt>{t("submitReviewDocumentCode")}</dt><dd className="submission-mono">{detail?.document.document_code ?? "-"}</dd></div>
               <div><dt>{t("projectImportSortUpdatedAt")}</dt><dd>{formatDateTime(detail?.document.updated_at, locale)}</dd></div>
               <div><dt>{t("labelStagingIndex")}</dt><dd className="submission-positive"><CheckCircle2 size={14} /> {detail?.pipeline?.status ?? t("pipelineNotStarted")}</dd></div>
             </dl>
+            <small className="submission-section-note">{detail?.pipeline?.status === "submission_ready" ? t("submitReviewStagingReady") : t("submitReviewLiveBackendSummary")}</small>
           </section>
 
           <section className="submission-section submission-extraction-section">
             <div className="submission-section-title"><Tags size={18} /><h3>{t("extractionSummary")}</h3></div>
-            <div className="submission-extraction-total"><strong>{detail?.chunks.length ?? 0}</strong><span>{t("submitReviewTotalChunks")}<small><CheckCircle2 size={13} /> {t("labelLiveChunks")}</small></span></div>
             <div className="submission-metrics">
+              <span className="submission-metric-total"><MessageSquareText size={16} /><strong>{detail?.chunks.length ?? 0}</strong><small>{t("submitReviewTotalChunks")} · {t("labelLiveChunks")}</small></span>
               <span><FileText size={16} /><strong>{chunkCounts.text}</strong><small>{t("submitReviewText")}</small></span>
               <span><ImageIcon size={16} /><strong>{chunkCounts.image}</strong><small>{t("submitReviewImage")}</small></span>
               <span><Table2 size={16} /><strong>{chunkCounts.table}</strong><small>{t("submitReviewTable")}</small></span>
@@ -229,19 +232,19 @@ export default function SubmitReviewPage() {
           </section>
 
           <section className="submission-section submission-graph-section">
-            <div className="submission-section-heading"><div className="submission-section-title"><Network size={18} /><h3>{t("graphSummary")}</h3></div><span className="submission-ready-label"><CheckCircle2 size={14} /> {t("labelLiveEvidence")}</span></div>
-            <div className="graph-summary-row">
-              <span><FileText size={17} /><small>{t("labelDocument")}</small><strong>1</strong><em>{t("submitReviewDocumentNode")}</em></span>
-              <span><MessageSquareText size={17} /><small>{t("labelChunk")}</small><strong>{evidence?.graph.chunk_count ?? 0}</strong><em>{t("submitReviewChunkNode")}</em></span>
-              <span><Tags size={17} /><small>{t("graphExplorerNodeCount")}</small><strong>{evidence?.graph.node_count ?? "—"}</strong></span>
-              <span><Network size={17} /><small>{t("graphExplorerEdgeCount")}</small><strong>{evidence?.graph.edge_count ?? "—"}</strong></span>
+            <div className="submission-section-heading"><div className="submission-section-title"><Network size={18} /><h3>{t("graphSummary")}</h3></div><ToneBadge tone="accent">{t("labelLiveEvidence")}</ToneBadge></div>
+            <div className="submission-metrics graph-summary-row">
+              <span><FileText size={16} /><small>{t("labelDocument")}</small><strong>1</strong><em>{t("submitReviewDocumentNode")}</em></span>
+              <span><MessageSquareText size={16} /><small>{t("labelChunk")}</small><strong>{evidence?.graph.chunk_count ?? 0}</strong><em>{t("submitReviewChunkNode")}</em></span>
+              <span><Tags size={16} /><small>{t("graphExplorerNodeCount")}</small><strong>{evidence?.graph.node_count ?? "—"}</strong></span>
+              <span><Network size={16} /><small>{t("graphExplorerEdgeCount")}</small><strong>{evidence?.graph.edge_count ?? "—"}</strong></span>
             </div>
             <div className="submission-graph-detail"><p><CheckCircle2 size={16} /><span><strong>{t("submitReviewSourceTraceability")}</strong><small>{t("submitReviewSourceTraceabilityHelp")}</small></span></p></div>
           </section>
 
           <section className="submission-section submission-chat-section">
             <div className="submission-section-heading">
-              <div className="submission-section-title"><MessageSquareText size={18} /><h3>{t("chatTestSummary")}</h3><span className="submission-count-badge">{format("submitReviewConversationGroups", { count: conversations.length })}</span></div>
+              <div className="submission-section-title"><MessageSquareText size={18} /><h3>{t("chatTestSummary")}</h3><ToneBadge tone="neutral" className="submission-count-badge">{format("submitReviewConversationGroups", { count: conversations.length })}</ToneBadge></div>
               <button className="action-button secondary" disabled={!chatRecords.length} onClick={downloadSubmissionChatRecords} type="button"><Download size={16} /> {t("downloadConversation")}</button>
             </div>
             {!conversations.length ? <div className="chat-empty-state"><MessageSquareText size={22} /><span>{t("submitReviewNoChatEvidence")}</span></div> : null}
@@ -263,12 +266,13 @@ export default function SubmitReviewPage() {
             </div>
           </section>
         </div>
+      </section>
 
-        <section className="submission-workflow">
-          <div className="submission-section-title"><ShieldCheck size={18} /><h3>{t("approvalFlow")}</h3></div>
-          <ol>{approvalSteps.map((step, index) => { const Icon = step.icon; return <li className={`workflow-step ${step.state}`} key={step.label}><span className="workflow-step-icon">{step.state === "current" ? <Check size={17} /> : <Icon size={17} />}</span><div><small>{step.label}</small><strong>{step.person}</strong><span>{step.detail}</span></div>{index < approvalSteps.length - 1 ? <i aria-hidden="true" /> : null}</li>; })}</ol>
-        </section>
-
+        <aside className="submission-sidebar">
+        <section className="submission-workflow" aria-labelledby="submission-workflow-title">
+          <div className="submission-section-title"><ShieldCheck size={18} /><h3 id="submission-workflow-title">{t("approvalFlow")}</h3></div>
+          <ol>{approvalSteps.map((step) => { const Icon = step.icon; return <li className={`workflow-step ${step.state}${step.state === "next" && routeUnavailable ? " blocked" : ""}`} key={step.label}><span className="workflow-step-icon">{step.state === "current" ? <Check size={15} /> : <Icon size={15} />}</span><div><small>{step.label}</small><strong>{step.person}</strong><span>{step.detail}</span></div></li>; })}</ol>
+          <p className="submission-route-note">{t("submitReviewRouteReadOnly")}</p>
         <footer className="submission-actions">
           <p><ShieldCheck size={17} /><span>{t("submitReviewLockHelp")}</span></p>
           {!evidence?.can_submit_review ? <FeedbackField>{t("submitReviewPermissionDenied")}</FeedbackField> : null}
@@ -277,7 +281,10 @@ export default function SubmitReviewPage() {
           {submitError ? <FeedbackField>{localize(submitError)}</FeedbackField> : null}
           <button className="action-button" disabled={submitting || !detail || !canSubmitReview} onClick={() => { void submitReview(); }} type="button"><Send size={17} /> {submitting ? t("submitReviewSubmitting") : t("submitReview")}</button>
         </footer>
-      </section>
+        </section>
+        </aside>
+        </div>
+      </div>
 
       {submissionResult ? (
         <Modal onEscape={() => router.push("/approve")} aria-labelledby="submission-success-title" className="modal-panel submission-success-modal">

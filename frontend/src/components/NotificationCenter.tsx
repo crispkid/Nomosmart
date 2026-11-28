@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Bell, CheckCheck, ExternalLink, Loader2, X } from "lucide-react";
+import { Bell, BellOff, CheckCheck, ExternalLink, Loader2, X } from "lucide-react";
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { tabIndexForKey } from "@/lib/workspaceNavigation";
 import { useAuth } from "./AuthProvider";
@@ -113,11 +113,16 @@ function ScopedNotificationCenter() {
   }
 
   return <div className="notification-menu user-menu" ref={panel}>
-    <button ref={trigger} className="icon-button notification-trigger" type="button" aria-label={t("notificationCenter")} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(!open); if (!open) void load("pending", false, true); }}>
+    <button ref={trigger} className="ws-icon-button notification-trigger" type="button" aria-label={t("notificationCenter")} aria-expanded={open} aria-controls={panelId} onClick={() => { setOpen(!open); if (!open) void load("pending", false, true); }}>
       <Bell size={20} />{count !== null && count > 0 ? <span className="notification-badge">{count > 99 ? "99+" : count}</span> : null}
     </button>
     {open ? <section id={panelId} className="feedback-notification-panel" aria-label={t("notificationCenter")}>
-      <header><div><strong>{t("notificationCenter")}</strong><small>{count === null ? t("notificationCountUnknown") : count === 0 ? t("notificationAllRead") : format("notificationUnreadCount", { count: count.toLocaleString(locale) })}</small></div><button type="button" className="icon-button" aria-label={t("close")} onClick={() => { setOpen(false); trigger.current?.focus(); }}><X size={18} /></button></header>
+      <header><div><strong>{t("notificationCenter")}</strong><small>{count === null ? t("notificationCountUnknown") : count === 0 ? t("notificationAllRead") : format("notificationUnreadCount", { count: count.toLocaleString(locale) })}</small></div>
+        <div className="feedback-notification-header-actions">
+          {tab !== "recent" ? <button className="feedback-notification-readall" disabled={busy || loading || count === null || count === 0} onClick={() => void command(null)} type="button"><CheckCheck size={16} aria-hidden="true" />{t("notificationMarkAllRead")}</button> : null}
+          <button type="button" className="ws-icon-button feedback-notification-close" aria-label={t("close")} onClick={() => { setOpen(false); trigger.current?.focus(); }}><X size={18} /></button>
+        </div>
+      </header>
       <div className="feedback-notification-tabs" role="tablist" aria-label={t("notificationCenter")}>
         {(["pending", "all", "recent"] as const).map((value, index, tabs) => <button key={value} id={`${panelId}-tab-${value}`} role="tab" aria-selected={value === tab} aria-controls={`${panelId}-items`} type="button" disabled={busy} tabIndex={value === tab ? 0 : -1} ref={node => { tabRefs.current[index] = node; }} onKeyDown={event => {
           const next = tabIndexForKey(event.key, index, tabs.length);
@@ -126,22 +131,21 @@ function ScopedNotificationCenter() {
         }} onClick={() => chooseTab(value)}>{t(value === "pending" ? "notificationPending" : value === "all" ? "notificationAll" : "notificationRecent")}</button>)}
       </div>
       {error ? <FeedbackMessage actions={<button type="button" className="text-link" disabled={busy || loading || tab === "recent"} onClick={() => { if (tab !== "recent") void load(tab); }}>{t("retry")}</button>}>{operationalErrorMessage(error, t, format)}</FeedbackMessage> : null}
-      {tab !== "recent" ? <button className="feedback-notification-readall" disabled={busy || loading || count === null || count === 0} onClick={() => void command(null)} type="button"><CheckCheck size={15} />{t("notificationMarkAllRead")}</button> : null}
       <div id={`${panelId}-items`} role="tabpanel" tabIndex={0} aria-labelledby={`${panelId}-tab-${tab}`} className="feedback-notification-list" aria-busy={loading}>
         {loading ? <p className="notification-state" role="status"><Loader2 size={16} className="spin" />{t("notificationLoading")}</p> : null}
         {tab === "recent" ? recent.map(item => <article className="feedback-notification-row" key={JSON.stringify([item.scope, item.id])}><FeedbackMessage announce={false} tone={item.tone} title={format(item.title, item.params ?? {})}>{item.reason ? format(item.reason, item.params ?? {}) : null}</FeedbackMessage><time>{new Date(item.createdAt).toLocaleString(locale)}</time></article>) : items.map(item => {
           const keys = copies[item.notification_type], tone = item.severity === "critical" || item.severity === "error" ? "error" : item.severity === "warning" ? "warning" : "info", Icon = feedbackIcons[tone];
           const version = typeof item.action_payload.document_version_id === "string" && /^[0-9a-f-]{36}$/i.test(item.action_payload.document_version_id) ? item.action_payload.document_version_id.slice(0, 8) : "—";
           return <article data-notification-id={item.id} className={`feedback-notification-row feedback-${tone}${item.is_read ? "" : " unread"}`} key={item.id}>
-            <Icon size={19} aria-hidden="true" /><div className="feedback-notification-copy"><strong>{item.severity === "critical" ? `${t("feedbackCritical")} · ` : ""}{keys ? t(keys[0]) : t("notificationGenericTitle")}</strong><p>{keys ? format(keys[1], { version }) : t("notificationGenericMessage")}</p>
+            <span className="feedback-notification-icon" aria-hidden="true"><Icon size={16} /></span><div className="feedback-notification-copy"><strong>{item.severity === "critical" ? `${t("feedbackCritical")} · ` : ""}{keys ? t(keys[0]) : t("notificationGenericTitle")}</strong><p>{keys ? format(keys[1], { version }) : t("notificationGenericMessage")}</p>
               <div className="feedback-notification-meta"><time dateTime={item.created_at}>{new Date(item.created_at).toLocaleString(locale)}</time><span>{t(item.is_read ? "notificationRead" : "notificationUnreadState")}</span><span>{t(item.resolved_at ? "notificationResolved" : "notificationPending")}</span></div>
               <div className="feedback-notification-actions"><Link href={destination(item)} onClick={() => setOpen(false)}><ExternalLink size={14} />{t("notificationOpen")}</Link>{!item.is_read ? <button disabled={busy} type="button" onClick={() => void command(item)}>{t("notificationMarkRead")}</button> : null}{!item.resolved_at && item.can_resolve_manual === true ? <button disabled={busy} type="button" onClick={() => void command(item, true)}>{t("notificationResolve")}</button> : null}</div>
               {!item.resolved_at && item.can_resolve_manual !== true ? <small>{t("notificationBusinessActionRequired")}</small> : null}
             </div>
           </article>;
         })}
-        {!loading && !error && (tab === "recent" ? recent.length === 0 : items.length === 0) ? <p className="notification-state">{t("notificationEmpty")}</p> : null}
-        {tab !== "recent" && cursor ? <button disabled={loading || busy} className="action-button secondary" type="button" onClick={() => void load(tab, true)}>{t("notificationLoadMore")}</button> : null}
+        {!loading && !error && (tab === "recent" ? recent.length === 0 : items.length === 0) ? <p className="notification-state notification-empty"><span aria-hidden="true"><BellOff size={20} /></span>{t("notificationEmpty")}</p> : null}
+        {tab !== "recent" && cursor ? <button disabled={loading || busy} className="action-button secondary feedback-notification-more" type="button" onClick={() => void load(tab, true)}>{t("notificationLoadMore")}</button> : null}
       </div>
     </section> : null}
   </div>;

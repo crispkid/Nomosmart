@@ -2,19 +2,35 @@
 
 import Link from "next/link";
 import { createPortal } from "react-dom";
-import { useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent, type RefObject } from "react";
-import { ChevronDown, Menu, MoreHorizontal, X, type LucideIcon } from "lucide-react";
+import { useEffect, useId, useLayoutEffect, type ReactNode, type RefObject } from "react";
+import { MoreHorizontal, X, type LucideIcon } from "lucide-react";
 import { useI18n } from "@/lib/i18nClient";
 import { useModalFocus } from "./useModalFocus";
+import { splitMobileNav } from "@/lib/workspaceNavigation";
 
-type NavigationItem = { href: string; label: string; icon: LucideIcon };
-type NavigationProps = {
-  items: NavigationItem[];
-  activeArea: string | null;
-  shellRef: RefObject<HTMLDivElement | null>;
-};
+export type NavigationItem = { href: string; label: string; shortLabel?: string; icon: LucideIcon; badge?: number | null; badgeLabel?: string };
 
-function MobileNavigation({ items, activeArea, shellRef, onClose, id }: NavigationProps & { onClose: () => void; id: string }) {
+
+function CountBadge({ value, label }: { value?: number | null; label?: string }) {
+  if (!value) return null;
+  return <span className="ws-nav-badge" aria-label={label}>{value > 99 ? "99+" : value}</span>;
+}
+
+/** CHG-495 UIRD-002 (M01, M04): desktop sidebar links; items arrive already filtered by menu permission. */
+export function SidebarNavigation({ items, activeArea }: { items: NavigationItem[]; activeArea: string | null }) {
+  const { t } = useI18n();
+  return <nav className="ws-sidebar-nav" aria-label={t("primaryNavigation")}>
+    {items.map(item => {
+      const Icon = item.icon;
+      const active = activeArea === item.href;
+      return <Link href={item.href} key={item.href} className={`ws-nav-link${active ? " active" : ""}`} aria-current={active ? "page" : undefined}>
+        <Icon aria-hidden size={16} /><span>{item.label}</span><CountBadge value={item.badge} label={item.badgeLabel} />
+      </Link>;
+    })}
+  </nav>;
+}
+
+function MoreSheet({ items, activeArea, shellRef, onClose, id, children }: { items: NavigationItem[]; activeArea: string | null; shellRef: RefObject<HTMLDivElement | null>; onClose: () => void; id: string; children: ReactNode }) {
   const { t } = useI18n();
   const dialogRef = useModalFocus(true, onClose);
 
@@ -30,114 +46,52 @@ function MobileNavigation({ items, activeArea, shellRef, onClose, id }: Navigati
     };
   }, [shellRef]);
 
-  return <div className="workspace-mobile-overlay" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <section className="workspace-mobile-drawer" id={id} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}>
-      <header className="workspace-mobile-heading">
-        <h2 id={`${id}-title`}>{t("headerNavigation")}</h2>
-        <button className="workspace-menu-close" type="button" aria-label={t("headerCloseNavigation")} onClick={onClose}><X aria-hidden size={20} /></button>
+  return <div className="ws-sheet-overlay" onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <section className="ws-sheet" id={id} ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby={`${id}-title`} tabIndex={-1}>
+      <header className="ws-sheet-heading">
+        <h2 id={`${id}-title`}>{t("headerMore")}</h2>
+        <button className="ws-icon-button" type="button" aria-label={t("headerCloseNavigation")} onClick={onClose}><X aria-hidden size={20} /></button>
       </header>
-      <nav className="workspace-mobile-links" aria-label={t("primaryNavigation")}>
+      {items.length ? <nav className="ws-sheet-links" aria-label={t("headerNavigation")}>
         {items.map(item => {
           const Icon = item.icon;
           return <Link href={item.href} key={item.href} aria-current={activeArea === item.href ? "page" : undefined} onClick={onClose}>
             <Icon aria-hidden size={20} /><span>{item.label}</span>
           </Link>;
         })}
-      </nav>
+      </nav> : null}
+      <div className="ws-sheet-account">{children}</div>
     </section>
   </div>;
 }
 
-export default function WorkspaceNavigation({ items, activeArea, shellRef }: NavigationProps) {
+/**
+ * CHG-495 UIRD-002 (M02): mobile bottom tab bar with Home, Projects, Review and More. "More" holds
+ * the remaining permitted areas and the account controls (language, theme, sign out).
+ */
+export function MobileTabBar({ items, activeArea, shellRef, account, open, onOpenChange }: { items: NavigationItem[]; activeArea: string | null; shellRef: RefObject<HTMLDivElement | null>; account: ReactNode; open: boolean; onOpenChange: (open: boolean) => void }) {
   const { t } = useI18n();
   const id = useId();
-  const [moreOpen, setMoreOpen] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const moreRef = useRef<HTMLDivElement>(null);
-  const moreTrigger = useRef<HTMLButtonElement>(null);
-  const optionRefs = useRef<Array<HTMLAnchorElement | null>>([]);
-  const initialFocus = useRef(0);
-  const primary = items.filter(item => item.href === "/projects" || item.href === "/approve");
-  const secondary = items.filter(item => item.href !== "/" && item.href !== "/projects" && item.href !== "/approve");
-  const moreActive = secondary.some(item => item.href === activeArea);
+  const { tabs, more } = splitMobileNav(items);
+  const moreActive = more.some(item => item.href === activeArea);
 
-  useEffect(() => {
-    const boundary = window.matchMedia("(max-width: 768px)");
-    const closeOnResize = () => { setMoreOpen(false); setMobileOpen(false); };
-    boundary.addEventListener("change", closeOnResize);
-    return () => boundary.removeEventListener("change", closeOnResize);
-  }, []);
-
-  useEffect(() => {
-    if (!moreOpen) return;
-    optionRefs.current[initialFocus.current]?.focus();
-    const outside = (event: PointerEvent) => { if (!moreRef.current?.contains(event.target as Node)) setMoreOpen(false); };
-    document.addEventListener("pointerdown", outside);
-    return () => document.removeEventListener("pointerdown", outside);
-  }, [moreOpen]);
-
-  function openMoreAt(index: number) {
-    initialFocus.current = index;
-    if (moreOpen) optionRefs.current[index]?.focus();
-    else setMoreOpen(true);
-  }
-
-  function closeMoreAndFocus() {
-    setMoreOpen(false);
-    moreTrigger.current?.focus();
-  }
-
-  function onMenuKey(event: KeyboardEvent<HTMLDivElement>) {
-    if (event.key === "Escape" || event.key === "Tab" && event.shiftKey) {
-      event.preventDefault();
-      event.stopPropagation();
-      closeMoreAndFocus();
-      return;
-    }
-    const current = optionRefs.current.findIndex(link => link === document.activeElement);
-    const count = secondary.length;
-    const next = event.key === "Home" ? 0 : event.key === "End" ? count - 1
-      : event.key === "ArrowDown" ? (current + 1) % count
-        : event.key === "ArrowUp" ? (current + count - 1) % count : null;
-    if (next !== null) {
-      event.preventDefault();
-      optionRefs.current[next]?.focus();
-    } else if (event.key === " " && current >= 0) {
-      event.preventDefault();
-      optionRefs.current[current]?.click();
-    }
-  }
+  useEffect(() => () => onOpenChange(false), [onOpenChange]);
 
   return <>
-    <button className="workspace-mobile-trigger" type="button" aria-label={t("headerOpenNavigation")} aria-haspopup="dialog" aria-expanded={mobileOpen} aria-controls={`${id}-mobile`} onClick={() => setMobileOpen(true)}>
-      <Menu aria-hidden size={21} />
-    </button>
-    <nav className="nav-list workspace-nav" aria-label={t("primaryNavigation")}>
-      {primary.map(item => {
+    <nav className="ws-tabbar" aria-label={t("primaryNavigation")}>
+      {tabs.map(item => {
         const Icon = item.icon;
-        return <Link href={item.href} key={item.href} className={`nav-item${activeArea === item.href ? " active" : ""}`} aria-current={activeArea === item.href ? "page" : undefined}>
-          <Icon className="workspace-nav-icon" aria-hidden size={18} /><span>{item.label}</span>
+        const active = activeArea === item.href;
+        return <Link href={item.href} key={item.href} className={active ? "active" : undefined} aria-current={active ? "page" : undefined}>
+          <span className="ws-tab-icon"><Icon aria-hidden size={20} /><CountBadge value={item.badge} label={item.badgeLabel} /></span><span>{item.shortLabel ?? item.label}</span>
         </Link>;
       })}
-      {secondary.length ? <div className="workspace-more" ref={moreRef} onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setMoreOpen(false); }}>
-        <button className={`nav-item workspace-more-trigger${moreActive ? " active" : ""}`} type="button" id={`${id}-trigger`} ref={moreTrigger} aria-haspopup="menu" aria-expanded={moreOpen} aria-controls={`${id}-options`} onClick={() => moreOpen ? setMoreOpen(false) : openMoreAt(Math.max(0, secondary.findIndex(item => item.href === activeArea)))} onKeyDown={event => {
-          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
-            event.preventDefault();
-            openMoreAt(event.key === "ArrowDown" ? 0 : secondary.length - 1);
-          }
-        }}>
-          <MoreHorizontal className="workspace-nav-icon" aria-hidden size={18} /><span>{t("headerMore")}</span><ChevronDown className="workspace-more-chevron" aria-hidden size={14} />
-        </button>
-        {moreOpen ? <div className="workspace-more-panel" id={`${id}-options`} role="menu" aria-labelledby={`${id}-trigger`} onKeyDown={onMenuKey}>
-          {secondary.map((item, index) => {
-            const Icon = item.icon;
-            return <Link href={item.href} key={item.href} ref={node => { optionRefs.current[index] = node; }} role="menuitem" tabIndex={-1} aria-current={activeArea === item.href ? "page" : undefined} onClick={() => setMoreOpen(false)}>
-              <Icon aria-hidden size={18} /><span>{item.label}</span>
-            </Link>;
-          })}
-        </div> : null}
-      </div> : null}
+      <button type="button" className={moreActive ? "active" : undefined} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-more`} onClick={() => onOpenChange(true)}>
+        <span className="ws-tab-icon"><MoreHorizontal aria-hidden size={20} /></span><span>{t("headerMore")}</span>
+      </button>
     </nav>
-    {mobileOpen ? createPortal(<MobileNavigation items={items} activeArea={activeArea} shellRef={shellRef} onClose={() => setMobileOpen(false)} id={`${id}-mobile`} />, document.body) : null}
+    {open ? createPortal(<MoreSheet items={more} activeArea={activeArea} shellRef={shellRef} onClose={() => onOpenChange(false)} id={`${id}-more`}>{account}</MoreSheet>, document.body) : null}
   </>;
 }
+
+export default SidebarNavigation;

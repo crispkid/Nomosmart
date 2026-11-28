@@ -25,6 +25,8 @@ export type CurrentUser = {
   given_name: string | null;
   family_name: string | null;
   display_name: string | null;
+  /** CHG-495 UIRD-API-007: the directory department, shown under the name in the account menu. */
+  department?: string | null;
   groups: string[];
   permissions: PermissionGrant[];
   visible_project_ids: string[];
