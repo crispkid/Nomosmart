@@ -3,8 +3,8 @@
   "policy_id": "nomosmart-risk-quality-v1",
   "scope": "local-risk-reviewed-release",
   "authority": {
-    "change_id": "CHG-488",
-    "approval_sha256": "6d82b944214f729dd9d98330c274856a3f507c647d30256e2a9dd251c13a35f6"
+    "change_id": "CHG-498",
+    "approval_sha256": "e5ad23a037c3e0b3b9c1b58fd2387f794698cfbf7471569040f7b9280987071a"
   },
   "coverage": {
     "measurement_required": true,
@@ -273,7 +273,7 @@
       "id": "retrieval_tuning",
       "group": "retrieval",
       "requirement": "TOPKP486-001..005; RERANK486-001..005; RTRACE486-001; PSET486-001..007",
-      "behavior": "重排關閉時檢索不變；系統＋專案開關打開後重排生效並記錄追蹤與各階段時間；API 的 K／P 生效、超出範圍 422；專案開關只有 Owner 可切換（他人 403）、系統關閉時 409；後台專案設定管理有權限者可批次變更、無權限 403、不能移除最後一位 Owner；系統開關關閉時所有專案一起關閉",
+      "behavior": "重排關閉時檢索不變；系統＋專案開關打開後重排生效並記錄追蹤與各階段時間；API 的 K／P 生效、超出範圍 400（invalid_top_k／invalid_top_p）；專案開關只有 Owner 可切換（他人 403）、系統關閉時 409；後台專案設定管理有權限者可批次變更、無權限 403、不能移除最後一位 Owner；系統開關關閉時所有專案一起關閉",
       "mandatory": true,
       "verification_level": "live"
     },

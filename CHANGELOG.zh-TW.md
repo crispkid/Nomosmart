@@ -11,14 +11,42 @@
 
 ## [未發佈]
 
+## [0.5.0]
+
+資料庫移轉目標：**070**。發佈日期請見 GitHub Release。
+
+### 新增
+
+- 全新介面：淺色與深色主題、側邊欄與手機版分頁導覽、內建字型與新標誌。首頁顯示指標
+  與待處理清單；專案可依狀態篩選；簽核工作台有分頁、寬螢幕預覽，並可與上一個已發佈
+  版本比對；報表有快速日期範圍、總覽與簽核統計；知識圖譜顯示總數與節點類型篩選。
+- 簽核到期日：待簽核項目在送出後 48 小時到期。簽核工作台與首頁標示「已逾期」、
+  「今天到期」或到期日，工作台可改為最早到期先列。
+- 系統管理的使用者清單顯示最後登入時間（只有系統管理看得到）。
+- 報表顯示外部 API 回答的使用者回饋正面比例（每筆回答取最新一次回饋，依報表期間）。
+- 上傳前相同內容預檢：專案內已有相同內容的檔案預設略過，也可以選擇仍要上傳。
+- API（只新增）：`GET /api/v1/approvals/pending` 的 `due_at` 與 `sort=due`；系統管理
+  使用者清單與使用者詳情的 `last_login_at`；
+  `POST /api/v1/projects/{id}/documents/duplicate-check`；
+  `GET /api/v1/reports/approval-stats`；`GET /api/v1/approvals/{id}/changes`；
+  `GET /api/v1/projects/status-counts`；報表摘要新卡片、專案負責人與統計數、圖譜總數，
+  以及 `/api/v1/auth/me` 的 `department`。細節請見各端點的 API 說明。
+
 ### 變更
 
+- 介面用語依統一的文案指南：「簽核」、「專案負責人」、「系統管理員」。
+- 首頁的退回件，在文件重新送出後就不再列入待處理。
+- 簽核詳情不再顯示固定的「送審原因」；產品沒有這個欄位。
 - README 不再隨每次發佈修改。版本紀錄移到這份文件，升級步驟移到
   [UPGRADING.zh-TW.md](UPGRADING.zh-TW.md)，資安回報方式移到 [SECURITY.md](SECURITY.md)。
 
 ### 修正
 
 - 對話測試的對話紀錄時間改為依介面語系顯示，不再跟隨瀏覽器語系。
+- 已取消的批次驗證項目在對話測試顯示「已取消」，不再顯示錯誤或「排隊中」。
+- OIDC 候選設定完成外部登入驗證後，系統設定會顯示「套用已驗證設定」按鈕。
+- 在一個分頁登出時，同一工作階段的其他分頁顯示「已登出」，不再顯示「工作階段已過期」。
+- 簽核統計接受沒有時區的日期（視為 UTC）。
 
 ## [0.4.2] - 2026-11-26
 
@@ -346,7 +374,8 @@
 - 以 Docker Compose 或 Kubernetes 安裝，可使用內建或既有的外部服務。
 - 全新資料庫使用 B051 基線；既有資料庫保留 V001–V051 歷史。
 
-[未發佈]: https://github.com/crispkid/Nomosmart/compare/v0.4.2...HEAD
+[未發佈]: https://github.com/crispkid/Nomosmart/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/crispkid/Nomosmart/releases/tag/v0.5.0
 [0.4.2]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.2
 [0.4.1]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.1
 [0.4.0]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0

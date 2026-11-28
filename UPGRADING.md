@@ -45,6 +45,7 @@ a newer format. Recover with retained snapshots and compatible versions.
 
 | Version | Migration target | Checksum (Flyway) | New migrations |
 | --- | --- | --- | --- |
+| 0.5.0 | 070 | `135363118` | V070 |
 | 0.4.2 | 069 | `-1562058873` | V069 |
 | 0.4.1 | 068 | `-1307752697` | V068 |
 | 0.4.0 | 067 | `1913543487` | V064–V067 |
@@ -59,6 +60,17 @@ A dash means the version's migration contract lists separate checksums for the b
 and the migration path; use the contract shipped in that version's package.
 
 ## Version notes
+
+### Upgrading to 0.5.0 (from 0.4.2)
+
+- V070 only adds `users.last_login_at` (nullable) and fills it from the audit log with
+  each user's latest successful sign-in. No tables are added; users who never signed in
+  stay empty.
+- The interface is redesigned. Screens, names and navigation changed, so update user
+  guides, screenshots and any browser automation that relies on page structure. The API
+  only adds fields and endpoints; existing integrations keep working.
+- Pending approvals are due 48 hours after submission, the same threshold as the existing
+  "over 48 hours" warning; no setting is added.
 
 ### Upgrading to 0.4.2 (from 0.4.1)
 
