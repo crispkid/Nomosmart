@@ -12,8 +12,40 @@ image digests, acceptance results and known limitations.
 
 ## [Unreleased]
 
+## [0.5.0]
+
+Database migration target: **070**. The release date is on the GitHub Release.
+
+### Added
+
+- A redesigned interface: light and dark themes, a sidebar with mobile tab navigation,
+  bundled fonts and a new logo. Home shows KPIs and a pending list; projects can be
+  filtered by status; the approval workbench has tabs, a wide-screen preview and a
+  comparison with the previously published version; reports have quick date ranges, an
+  overview and approval statistics; the graph shows totals and node-type filters.
+- Approval due dates: a pending approval is due 48 hours after it was submitted. The
+  approval workbench and home mark items as overdue, due today or due on a date, and the
+  workbench can list the earliest due first.
+- Last sign-in time in the System Management user list (System Management only).
+- Reports show the positive share of end-user feedback on Public API answers (the latest
+  feedback per answer, within the report period).
+- Same-content check before upload: files whose content already exists in the project are
+  skipped by default, with an option to upload them anyway.
+- API (additions only): `due_at` and `sort=due` on `GET /api/v1/approvals/pending`;
+  `last_login_at` on the System Management user list and user detail;
+  `POST /api/v1/projects/{id}/documents/duplicate-check`;
+  `GET /api/v1/reports/approval-stats`; `GET /api/v1/approvals/{id}/changes`;
+  `GET /api/v1/projects/status-counts`; new report summary cards, project owners and
+  counts, graph totals and `department` on `/api/v1/auth/me`. Details are in each
+  endpoint's API documentation.
+
 ### Changed
 
+- Interface wording follows one copy guide: 簽核 for approvals, 專案負責人 for Project Owner,
+  系統管理員 for the system administrator role.
+- Home lists a returned submission only until the document is submitted again.
+- The approval detail no longer shows a fixed "submission reason"; the product has no
+  such field.
 - The README no longer changes with each release. Version history moved to this file,
   upgrade steps to [UPGRADING.md](UPGRADING.md), and security reporting to
   [SECURITY.md](SECURITY.md).
@@ -22,6 +54,13 @@ image digests, acceptance results and known limitations.
 
 - Times in the chat test conversation history follow the interface language instead of the
   browser language.
+- Cancelled batch-validation items show "Cancelled" in the chat test instead of an error
+  or "Queued".
+- After verifying an OIDC candidate with an external sign-in, System settings shows the
+  button to apply the verified settings.
+- Signing out in one tab shows "Signed out" in the other tabs of the same session instead
+  of "Session expired".
+- Approval statistics accept dates without a time zone offset (read as UTC).
 
 ## [0.4.2] - 2026-11-26
 
@@ -417,7 +456,8 @@ Database migration target: **051**. First release.
   services.
 - A B051 baseline for new databases; existing databases keep the V001–V051 history.
 
-[Unreleased]: https://github.com/crispkid/Nomosmart/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/crispkid/Nomosmart/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/crispkid/Nomosmart/releases/tag/v0.5.0
 [0.4.2]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.2
 [0.4.1]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.1
 [0.4.0]: https://github.com/crispkid/Nomosmart/releases/tag/v0.4.0
